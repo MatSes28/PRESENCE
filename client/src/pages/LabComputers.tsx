@@ -1,0 +1,504 @@
+import { useState, useEffect } from "react";
+
+interface Computer {
+  id: number;
+  classroomId: number;
+  name: string;
+  ipAddress?: string;
+  macAddress?: string;
+  status: "available" | "in_use" | "maintenance";
+  currentUser?: string;
+  lastUsed?: string;
+}
+
+interface ComputerAssignment {
+  id: number;
+  computerId: number;
+  studentId: number;
+  studentName: string;
+  assignedAt: string;
+  releasedAt?: string;
+}
+
+export const LabComputers = () => {
+  const [computers, setComputers] = useState<Computer[]>([]);
+  const [assignments, setAssignments] = useState<ComputerAssignment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedComputer, setSelectedComputer] = useState<Computer | null>(
+    null
+  );
+
+  useEffect(() => {
+    fetchComputers();
+    fetchAssignments();
+  }, []);
+
+  const fetchComputers = async () => {
+    // Mock data for demonstration
+    const mockComputers: Computer[] = [
+      {
+        id: 1,
+        classroomId: 101,
+        name: "PC-101-01",
+        ipAddress: "192.168.1.101",
+        status: "available",
+      },
+      {
+        id: 2,
+        classroomId: 101,
+        name: "PC-101-02",
+        ipAddress: "192.168.1.102",
+        status: "in_use",
+        currentUser: "John Doe",
+      },
+      {
+        id: 3,
+        classroomId: 101,
+        name: "PC-101-03",
+        ipAddress: "192.168.1.103",
+        status: "maintenance",
+      },
+      {
+        id: 4,
+        classroomId: 102,
+        name: "PC-102-01",
+        ipAddress: "192.168.1.201",
+        status: "available",
+      },
+      {
+        id: 5,
+        classroomId: 102,
+        name: "PC-102-02",
+        ipAddress: "192.168.1.202",
+        status: "in_use",
+        currentUser: "Jane Smith",
+      },
+    ];
+    setComputers(mockComputers);
+  };
+
+  const fetchAssignments = async () => {
+    // Mock data for demonstration
+    const mockAssignments: ComputerAssignment[] = [
+      {
+        id: 1,
+        computerId: 2,
+        studentId: 1001,
+        studentName: "John Doe",
+        assignedAt: new Date().toISOString(),
+      },
+      {
+        id: 2,
+        computerId: 5,
+        studentId: 1002,
+        studentName: "Jane Smith",
+        assignedAt: new Date(Date.now() - 3600000).toISOString(),
+      },
+    ];
+    setAssignments(mockAssignments);
+    setLoading(false);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "available":
+        return "bg-green-100 text-green-800";
+      case "in_use":
+        return "bg-blue-100 text-blue-800";
+      case "maintenance":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "available":
+        return "🟢";
+      case "in_use":
+        return "🔵";
+      case "maintenance":
+        return "🟡";
+      default:
+        return "⚫";
+    }
+  };
+
+  const getComputersByClassroom = (classroomId: number) => {
+    return computers.filter((comp) => comp.classroomId === classroomId);
+  };
+
+  const getAssignmentForComputer = (computerId: number) => {
+    return assignments.find(
+      (assignment) =>
+        assignment.computerId === computerId && !assignment.releasedAt
+    );
+  };
+
+  const releaseComputer = async (computerId: number) => {
+    // Mock implementation
+    setComputers((prev) =>
+      prev.map((comp) =>
+        comp.id === computerId
+          ? { ...comp, status: "available", currentUser: undefined }
+          : comp
+      )
+    );
+    setAssignments((prev) =>
+      prev.map((assignment) =>
+        assignment.computerId === computerId
+          ? { ...assignment, releasedAt: new Date().toISOString() }
+          : assignment
+      )
+    );
+  };
+
+  const setMaintenance = async (computerId: number, maintenance: boolean) => {
+    setComputers((prev) =>
+      prev.map((comp) =>
+        comp.id === computerId
+          ? { ...comp, status: maintenance ? "maintenance" : "available" }
+          : comp
+      )
+    );
+  };
+
+  const classrooms = [...new Set(computers.map((comp) => comp.classroomId))];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-medium text-gray-900">
+            Lab Computer Management
+          </h3>
+          <p className="text-sm text-gray-500">
+            Monitor and manage computer lab resources
+          </p>
+        </div>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => fetchComputers()}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <div className="text-2xl mr-3">💻</div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">
+                Total Computers
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {computers.length}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <div className="text-2xl mr-3">🟢</div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Available</p>
+              <p className="text-2xl font-bold text-green-600">
+                {computers.filter((c) => c.status === "available").length}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <div className="text-2xl mr-3">🔵</div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">In Use</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {computers.filter((c) => c.status === "in_use").length}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center">
+            <div className="text-2xl mr-3">🟡</div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Maintenance</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {computers.filter((c) => c.status === "maintenance").length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Classroom Sections */}
+      {classrooms.map((classroomId) => {
+        const classroomComputers = getComputersByClassroom(classroomId);
+        return (
+          <div key={classroomId} className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h4 className="text-lg font-medium text-gray-900">
+                Room {classroomId}
+              </h4>
+              <p className="text-sm text-gray-500">
+                {classroomComputers.length} computers •
+                {
+                  classroomComputers.filter((c) => c.status === "available")
+                    .length
+                }{" "}
+                available •
+                {classroomComputers.filter((c) => c.status === "in_use").length}{" "}
+                in use
+              </p>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {classroomComputers.map((computer) => {
+                  const assignment = getAssignmentForComputer(computer.id);
+                  return (
+                    <div
+                      key={computer.id}
+                      className="border border-gray-200 rounded-lg p-4"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-lg">
+                            {getStatusIcon(computer.status)}
+                          </span>
+                          <span className="font-medium text-gray-900">
+                            {computer.name}
+                          </span>
+                        </div>
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                            computer.status
+                          )}`}
+                        >
+                          {computer.status.replace("_", " ")}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-sm text-gray-600">
+                        <div>IP: {computer.ipAddress}</div>
+                        {computer.macAddress && (
+                          <div>MAC: {computer.macAddress}</div>
+                        )}
+                        {assignment && (
+                          <div className="text-blue-600">
+                            User: {assignment.studentName}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex space-x-2 mt-4">
+                        {computer.status === "in_use" && (
+                          <button
+                            onClick={() => releaseComputer(computer.id)}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-xs font-medium"
+                          >
+                            Release
+                          </button>
+                        )}
+                        {computer.status !== "maintenance" && (
+                          <button
+                            onClick={() => setMaintenance(computer.id, true)}
+                            className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-xs font-medium"
+                          >
+                            Maintenance
+                          </button>
+                        )}
+                        {computer.status === "maintenance" && (
+                          <button
+                            onClick={() => setMaintenance(computer.id, false)}
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-xs font-medium"
+                          >
+                            Activate
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setSelectedComputer(computer)}
+                          className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-xs font-medium"
+                        >
+                          Details
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Active Assignments */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h4 className="text-lg font-medium text-gray-900">
+            Active Assignments
+          </h4>
+          <p className="text-sm text-gray-500">Current computer usage</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Computer
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Student
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Assigned At
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Duration
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {assignments
+                .filter((a) => !a.releasedAt)
+                .map((assignment) => {
+                  const computer = computers.find(
+                    (c) => c.id === assignment.computerId
+                  );
+                  const duration = Math.floor(
+                    (Date.now() - new Date(assignment.assignedAt).getTime()) /
+                      60000
+                  ); // minutes
+
+                  return (
+                    <tr key={assignment.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {computer?.name} (Room {computer?.classroomId})
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {assignment.studentName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(assignment.assignedAt).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {duration} minutes
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => releaseComputer(assignment.computerId)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Release
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+        {assignments.filter((a) => !a.releasedAt).length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-500">No active computer assignments</p>
+          </div>
+        )}
+      </div>
+
+      {/* Computer Details Modal */}
+      {selectedComputer && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Computer Details: {selectedComputer.name}
+                </h3>
+                <button
+                  onClick={() => setSelectedComputer(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Status
+                    </label>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                        selectedComputer.status
+                      )}`}
+                    >
+                      {selectedComputer.status}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Room
+                    </label>
+                    <span className="text-sm text-gray-900">
+                      {selectedComputer.classroomId}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Network Info
+                  </label>
+                  <div className="bg-gray-50 p-3 rounded text-sm">
+                    <div>IP: {selectedComputer.ipAddress}</div>
+                    {selectedComputer.macAddress && (
+                      <div>MAC: {selectedComputer.macAddress}</div>
+                    )}
+                  </div>
+                </div>
+
+                {selectedComputer.currentUser && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Current User
+                    </label>
+                    <div className="bg-blue-50 p-3 rounded text-sm text-blue-800">
+                      {selectedComputer.currentUser}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setSelectedComputer(null)}
+                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

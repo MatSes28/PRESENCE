@@ -2,10 +2,86 @@ import { useAuth } from "../hooks/useAuth";
 import { useState, useEffect } from "react";
 import { getWebSocketClient } from "../lib/websocket";
 
+type MenuSection = {
+  title: string;
+  items: MenuItem[];
+};
+
+type MenuItem = {
+  name: string;
+  icon: string;
+  description?: string;
+  active?: boolean;
+};
+
+const menuSections: MenuSection[] = [
+  {
+    title: "Advanced Attendance Management",
+    items: [
+      {
+        name: "Dashboard",
+        icon: "📊",
+        description: "Overview & Analytics",
+        active: true,
+      },
+      {
+        name: "Live Attendance",
+        icon: "⚡",
+        description: "Real-time tracking",
+      },
+    ],
+  },
+  {
+    title: "Academic Management",
+    items: [
+      { name: "Schedule", icon: "📅", description: "Class timetables" },
+      { name: "Students", icon: "👥", description: "Student management" },
+      {
+        name: "Class Roster",
+        icon: "📝",
+        description: "View enrolled students",
+      },
+      { name: "Lab Computers", icon: "💻", description: "Computer allocation" },
+    ],
+  },
+  {
+    title: "System Monitoring",
+    items: [
+      { name: "Monitor", icon: "👁️", description: "System oversight" },
+      { name: "IoT Devices", icon: "📡", description: "ESP32 hardware" },
+      { name: "System Health", icon: "❤️", description: "Performance monitor" },
+      { name: "System Testing", icon: "🧪", description: "Test & simulate" },
+    ],
+  },
+  {
+    title: "Reports & Analytics",
+    items: [{ name: "Reports", icon: "📈", description: "Data insights" }],
+  },
+  {
+    title: "Administration",
+    items: [
+      {
+        name: "User Management",
+        icon: "👤",
+        description: "Faculty & admin accounts",
+      },
+      { name: "Compliance", icon: "🔒", description: "ISO 27001/27701" },
+    ],
+  },
+  {
+    title: "Support",
+    items: [
+      { name: "Help Center", icon: "❓", description: "Guides & FAQs" },
+      { name: "Settings", icon: "⚙️", description: "System configuration" },
+    ],
+  },
+];
+
 export const Dashboard = () => {
   const { user, logout } = useAuth();
   const [realTimeData, setRealTimeData] = useState<any[]>([]);
   const [deviceStatus, setDeviceStatus] = useState<any[]>([]);
+  const [activeSection, setActiveSection] = useState("Dashboard");
 
   useEffect(() => {
     const wsClient = getWebSocketClient(user?.id);
@@ -38,33 +114,10 @@ export const Dashboard = () => {
     };
   }, [user?.id]);
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                CLIRDEC:PRESENCE
-              </h1>
-              <p className="text-sm text-gray-600">
-                Welcome back, {user?.name}
-              </p>
-            </div>
-            <button
-              onClick={logout}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+  const renderContent = () => {
+    switch (activeSection) {
+      case "Dashboard":
+        return (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Real-time Activity */}
             <div className="bg-white overflow-hidden shadow rounded-lg">
@@ -93,7 +146,7 @@ export const Dashboard = () => {
                     {realTimeData.length === 0 ? (
                       <p className="text-gray-500">No recent activity</p>
                     ) : (
-                      realTimeData.map((data, index) => (
+                      realTimeData.map((data: any, index: number) => (
                         <div
                           key={index}
                           className="bg-white p-2 rounded border"
@@ -133,7 +186,7 @@ export const Dashboard = () => {
                       </dt>
                       <dd className="text-lg font-medium text-gray-900">
                         {
-                          deviceStatus.filter((d) => d.status === "online")
+                          deviceStatus.filter((d: any) => d.status === "online")
                             .length
                         }{" "}
                         Online
@@ -145,7 +198,7 @@ export const Dashboard = () => {
               <div className="bg-gray-50 px-5 py-3">
                 <div className="text-sm">
                   <div className="space-y-2">
-                    {deviceStatus.map((device, index) => (
+                    {deviceStatus.map((device: any, index: number) => (
                       <div
                         key={index}
                         className="flex justify-between items-center"
@@ -189,25 +242,139 @@ export const Dashboard = () => {
                 </div>
               </div>
               <div className="bg-gray-50 px-5 py-3">
-                <div className="space-y-2">
-                  <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
-                    📚 Manage Students
-                  </button>
-                  <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
-                    📊 View Reports
-                  </button>
-                  <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
-                    🏫 Manage Classrooms
-                  </button>
-                  <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
-                    📅 View Schedule
-                  </button>
+                <div className="text-sm">
+                  <div className="space-y-2">
+                    <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
+                      📚 Manage Students
+                    </button>
+                    <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
+                      📊 View Reports
+                    </button>
+                    <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
+                      🏫 Manage Classrooms
+                    </button>
+                    <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
+                      📅 View Schedule
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+        );
+      default:
+        return (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <div className="text-6xl mb-4">🚧</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {activeSection} - Coming Soon
+            </h3>
+            <p className="text-gray-600">
+              This feature is currently under development. Check back soon!
+            </p>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <div className="w-80 bg-white shadow-lg">
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div>
+              <h1 className="text-xl font-bold text-teal-600">
+                CLIRDEC:PRESENCE
+              </h1>
+              <p className="text-sm text-gray-600">Welcome, {user?.name}</p>
+            </div>
+          </div>
+
+          {/* Navigation Menu */}
+          <nav className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-6">
+              {menuSections.map((section, sectionIndex) => (
+                <div key={sectionIndex}>
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    {section.title}
+                  </h3>
+                  <div className="space-y-1">
+                    {section.items.map((item, itemIndex) => (
+                      <button
+                        key={itemIndex}
+                        onClick={() => setActiveSection(item.name)}
+                        className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                          activeSection === item.name
+                            ? "bg-teal-50 text-teal-700 border-r-2 border-teal-500"
+                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                        }`}
+                      >
+                        <span className="mr-3 text-lg">{item.icon}</span>
+                        <div className="flex-1 text-left">
+                          <div className="font-medium">{item.name}</div>
+                          {item.description && (
+                            <div className="text-xs text-gray-500">
+                              {item.description}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </nav>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-gray-200">
+            <button
+              onClick={logout}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors"
+            >
+              <span className="mr-3">🚪</span>
+              Logout
+            </button>
+          </div>
         </div>
-      </main>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Top Bar */}
+        <header className="bg-white shadow-sm border-b border-gray-200">
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {activeSection}
+                </h2>
+                <p className="text-sm text-gray-600">
+                  {menuSections
+                    .flatMap((s) => s.items)
+                    .find((item) => item.name === activeSection)?.description ||
+                    "System Overview"}
+                </p>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.name}
+                  </p>
+                  <p className="text-xs text-gray-500 capitalize">
+                    {user?.role}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto p-6">{renderContent()}</main>
+      </div>
     </div>
   );
 };

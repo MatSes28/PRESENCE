@@ -25,6 +25,10 @@ interface AuthContextType {
   error: string | null;
 }
 
+interface LoginResponse {
+  user: User;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
@@ -51,10 +55,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const checkAuthStatus = async () => {
     try {
       const response = await api.getCurrentUser();
-      if (response.success && response.user) {
-        setUser(response.user);
+      if (response.success && response.data) {
+        setUser(response.data as User);
         // Connect to WebSocket with user ID
-        await connectWebSocket(response.user.id);
+        await connectWebSocket((response.data as User).id);
       }
     } catch (err) {
       // User not authenticated, that's okay
@@ -70,10 +74,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       const response = await api.login(email, password);
 
-      if (response.success && response.user) {
-        setUser(response.user);
+      if (response.success && response.data) {
+        setUser(response.data as User);
         // Connect to WebSocket with user ID
-        await connectWebSocket(response.user.id);
+        await connectWebSocket((response.data as User).id);
         return true;
       } else {
         setError(response.message || "Login failed");
