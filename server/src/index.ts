@@ -83,10 +83,19 @@ setupWebSocket(wss);
 
 const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌐 WebSocket server ready`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
+
+  // Test database connection on startup
+  try {
+    await db.execute(sql`SELECT 1`);
+    console.log(`✅ Database connected successfully`);
+  } catch (error) {
+    console.error(`❌ Database connection failed:`, error);
+    process.exit(1);
+  }
 });
 
 // Graceful shutdown
