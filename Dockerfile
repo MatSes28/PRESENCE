@@ -6,17 +6,14 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-COPY client/package*.json ./client/
 COPY server/package*.json ./server/
 
-# Install dependencies for all workspaces
+# Install dependencies for server only
 RUN npm install
 
-# Copy source code
-COPY . .
-
-# Build client
-RUN npm run build --workspace=client
+# Copy server source code
+COPY server/ ./server/
+COPY shared/ ./shared/
 
 # Build server
 RUN npm run build --workspace=server
