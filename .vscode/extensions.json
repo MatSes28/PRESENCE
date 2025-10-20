@@ -1,0 +1,18 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
+    "ms-vscode.vscode-typescript-next",
+    "christian-kohler.path-intellisense",
+    "ms-vscode.vscode-json",
+    "usernamehw.errorlens",
+    "ms-vscode-remote.remote-containers",
+    "ms-vscode.vscode-docker",
+    "ms-vscode-remote.remote-ssh",
+    "ms-vscode.vscode-git-graph",
+    "gruntfuggly.todo-tree",
+    "ms-vscode.vscode-sqlite"
+  ],
+  "unwantedRecommendations": ["ms-vscode.vscode-typescript", "hookyqr.beautify"]
+}
