@@ -1,0 +1,288 @@
+import { Router } from "express";
+import { iotDeviceManager } from "../services/iotDeviceManager.js";
+import { sendToDevice } from "../services/websocket.js";
+
+const router = Router();
+
+// Middleware to check authentication
+const requireAuth = (req: any, res: any, next: any) => {
+  if (!req.session?.userId) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+  next();
+};
+
+// Get all IoT devices
+router.get("/devices", requireAuth, async (req, res) => {
+  try {
+    const devices = await iotDeviceManager.getAllDevices();
+
+    res.json({
+      success: true,
+      devices,
+    });
+  } catch (error) {
+    console.error("Get IoT devices error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Get device by ID
+router.get("/devices/:deviceId", requireAuth, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+
+    const device = await iotDeviceManager.getDeviceStatus(deviceId);
+
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: "Device not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      device,
+    });
+  } catch (error) {
+    console.error("Get IoT device error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Register new device
+router.post("/devices", requireAuth, async (req, res) => {
+  try {
+    const { deviceId, classroomId, deviceType, config } = req.body;
+
+    if (!deviceId || !classroomId || !deviceType) {
+      return res.status(400).json({
+        success: false,
+        message: "Device ID, Classroom ID, and Device Type are required",
+      });
+    }
+
+    const device = await iotDeviceManager.registerDevice({
+      deviceId,
+      classroomId: parseInt(classroomId),
+      deviceType,
+      config,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Device registered successfully",
+      device,
+    });
+  } catch (error) {
+    console.error("Register IoT device error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Update device configuration
+router.put("/devices/:deviceId/config", requireAuth, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { config } = req.body;
+
+    const success = await iotDeviceManager.configureDevice(deviceId, config);
+
+    if (!success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to update device configuration",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Device configuration updated successfully",
+    });
+  } catch (error) {
+    console.error("Update device config error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Send command to device
+router.post("/devices/:deviceId/command", requireAuth, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { command, params } = req.body;
+
+    if (!command) {
+      return res.status(400).json({
+        success: false,
+        message: "Command is required",
+      });
+    }
+
+    const success = await iotDeviceManager.sendCommandToDevice(
+      deviceId,
+      command,
+      params
+    );
+
+    if (!success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send command to device",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Command sent successfully",
+    });
+  } catch (error) {
+    console.error("Send device command error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Restart device
+router.post("/devices/:deviceId/restart", requireAuth, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+
+    const success = await iotDeviceManager.restartDevice(deviceId);
+
+    if (!success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to restart device",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Device restart command sent successfully",
+    });
+  } catch (error) {
+    console.error("Restart device error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Update device firmware
+router.post("/devices/:deviceId/firmware", requireAuth, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { firmwareUrl } = req.body;
+
+    if (!firmwareUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "Firmware URL is required",
+      });
+    }
+
+    const success = await iotDeviceManager.updateDeviceFirmware(
+      deviceId,
+      firmwareUrl
+    );
+
+    if (!success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to initiate firmware update",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Firmware update initiated successfully",
+    });
+  } catch (error) {
+    console.error("Update device firmware error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Get devices by classroom
+router.get(
+  "/classrooms/:classroomId/devices",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const classroomId = parseInt(req.params.classroomId);
+
+      const devices = await iotDeviceManager.getDevicesByClassroom(classroomId);
+
+      res.json({
+        success: true,
+        devices,
+      });
+    } catch (error) {
+      console.error("Get devices by classroom error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+);
+
+// Get device statistics
+router.get("/stats", requireAuth, async (req, res) => {
+  try {
+    const stats = await iotDeviceManager.getDeviceStats();
+
+    res.json({
+      success: true,
+      stats,
+    });
+  } catch (error) {
+    console.error("Get IoT stats error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Get connected devices (real-time status)
+router.get("/connected", requireAuth, async (req, res) => {
+  try {
+    const connectedDevices = await iotDeviceManager.getOnlineDevices();
+
+    res.json({
+      success: true,
+      connectedDevices,
+    });
+  } catch (error) {
+    console.error("Get connected devices error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+export default router;
