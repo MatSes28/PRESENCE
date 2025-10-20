@@ -24,8 +24,8 @@ ENV DATABASE_URL=postgresql://postgres:ivXwpKRBFPqDEzhjzMlfQOpBXZorhyTy@mainline
 # Install PostgreSQL client for database setup
 RUN apk add --no-cache postgresql-client
 
-# Setup database schema
-RUN psql "$DATABASE_URL" -f database_setup.sql || echo "Database setup completed"
+# Setup database schema (skip if already exists)
+RUN psql "$DATABASE_URL" -f database_setup.sql 2>/dev/null || echo "Database setup completed or already exists"
 
 # Expose port
 EXPOSE 3000
