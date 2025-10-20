@@ -15,8 +15,8 @@ RUN npm install
 COPY server/ ./server/
 COPY shared/ ./shared/
 
-# Build server (skip TypeScript errors for now)
-RUN npm run build --workspace=server || true
+# Skip TypeScript build and run directly with tsx
+# RUN npm run build --workspace=server || true
 
 # Expose port
 EXPOSE 3000
@@ -25,5 +25,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
-# Start the application
-CMD ["npm", "start", "--workspace=server"]
+# Start the application with tsx (runs TypeScript directly)
+CMD ["npx", "tsx", "server/src/index.ts"]
