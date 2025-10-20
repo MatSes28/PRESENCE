@@ -93,7 +93,7 @@ clirdec-presence/
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/yourusername/clirdec-presence.git
+   git clone https://github.com/yourusername/presence.git
    cd clirdec-presence
    ```
 
