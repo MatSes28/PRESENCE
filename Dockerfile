@@ -27,11 +27,10 @@ RUN apk add --no-cache postgresql-client
 # Setup database schema (skip if already exists)
 RUN psql "$DATABASE_URL" -f database_setup.sql 2>/dev/null || echo "Database setup completed or already exists"
 
-# Create a simple startup script
-RUN echo '#!/bin/sh' > /app/start.sh && \
-    echo 'echo "Starting CLIRDEC:PRESENCE server..."' >> /app/start.sh && \
-    echo 'npx tsx server/src/index.ts' >> /app/start.sh && \
-    chmod +x /app/start.sh
+# Create a simple Node.js startup script
+RUN echo 'console.log("Starting CLIRDEC:PRESENCE server...");' > /app/start.js && \
+    echo 'require("tsx").register();' >> /app/start.js && \
+    echo 'require("./server/src/index.ts");' >> /app/start.js
 
 # Expose port
 EXPOSE 3000
@@ -41,4 +40,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
 # Start the application
-CMD ["/app/start.sh"]
+CMD ["node", "/app/start.js"]
