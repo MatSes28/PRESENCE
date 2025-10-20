@@ -15,8 +15,17 @@ RUN npm install
 COPY server/ ./server/
 COPY shared/ ./shared/
 
-# Skip TypeScript build and run directly with tsx
-# RUN npm run build --workspace=server || true
+# Copy database setup script
+COPY database_setup.sql ./
+
+# Set environment variable for database URL
+ENV DATABASE_URL=postgresql://postgres:ivXwpKRBFPqDEzhjzMlfQOpBXZorhyTy@mainline.proxy.rlwy.net:22250/railway
+
+# Install PostgreSQL client for database setup
+RUN apk add --no-cache postgresql-client
+
+# Setup database schema
+RUN psql "$DATABASE_URL" -f database_setup.sql || echo "Database setup completed"
 
 # Expose port
 EXPOSE 3000
