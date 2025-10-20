@@ -1,5 +1,5 @@
-# Use Node.js 18 Alpine as base image
-FROM node:18-alpine
+# Use Node.js 18 Alpine as base image (using Google mirror to avoid Docker Hub issues)
+FROM mirror.gcr.io/library/node:18-alpine
 
 # Set working directory
 WORKDIR /app
