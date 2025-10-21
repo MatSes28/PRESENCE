@@ -1,4 +1,32 @@
+import { useState } from "react";
+import { api } from "../lib/api";
+
 export const ForgotPassword = () => {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await api.forgotPassword(email);
+      if (response.success) {
+        setMessage("Password reset instructions have been sent to your email.");
+      } else {
+        setError(response.message || "Failed to send reset instructions.");
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* Left Panel - Same as Login */}
@@ -48,7 +76,7 @@ export const ForgotPassword = () => {
             </p>
           </div>
 
-          <form className="mt-8 space-y-6">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
             <div>
               <label
                 htmlFor="email"
@@ -62,17 +90,32 @@ export const ForgotPassword = () => {
                 type="email"
                 autoComplete="email"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
                 placeholder="Enter your email"
               />
             </div>
 
+            {error && (
+              <div className="bg-red-900/50 border border-red-500 rounded-lg p-3">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
+
+            {message && (
+              <div className="bg-green-900/50 border border-green-500 rounded-lg p-3">
+                <p className="text-green-400 text-sm">{message}</p>
+              </div>
+            )}
+
             <div>
               <button
                 type="submit"
+                disabled={loading}
                 className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
               >
-                Send Reset Instructions
+                {loading ? "Sending..." : "Send Reset Instructions"}
               </button>
             </div>
 

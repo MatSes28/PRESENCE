@@ -1,9 +1,14 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { api } from "../lib/api";
 
 export const Settings = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
   const [profileData, setProfileData] = useState({
     name: user?.name || "",
     email: user?.email || "",
@@ -21,32 +26,75 @@ export const Settings = () => {
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Profile update logic would go here
-    console.log("Updating profile:", profileData);
-    alert("Profile updated successfully!");
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await api.updateProfile(profileData);
+      if (response.success) {
+        setMessage("Profile updated successfully!");
+      } else {
+        setError(response.message || "Failed to update profile");
+      }
+    } catch (err) {
+      setError("An error occurred while updating profile");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setMessage("");
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("New passwords don't match!");
+      setError("New passwords don't match!");
       return;
     }
-    // Password change logic would go here
-    console.log("Changing password");
-    alert("Password changed successfully!");
-    setPasswordData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
+
+    setLoading(true);
+    try {
+      const response = await api.changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      if (response.success) {
+        setMessage("Password changed successfully!");
+        setPasswordData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+      } else {
+        setError(response.message || "Failed to change password");
+      }
+    } catch (err) {
+      setError("An error occurred while changing password");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSystemSettingsUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    // System settings update logic would go here
-    console.log("Updating system settings:", systemSettings);
-    alert("Settings updated successfully!");
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await api.updateUserSettings(systemSettings);
+      if (response.success) {
+        setMessage("Settings updated successfully!");
+      } else {
+        setError(response.message || "Failed to update settings");
+      }
+    } catch (err) {
+      setError("An error occurred while updating settings");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const tabs = [
@@ -124,12 +172,25 @@ export const Settings = () => {
                     />
                   </div>
                 </div>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded p-3">
+                    <p className="text-red-600 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {message && (
+                  <div className="bg-green-50 border border-green-200 rounded p-3">
+                    <p className="text-green-600 text-sm">{message}</p>
+                  </div>
+                )}
+
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                    disabled={loading}
+                    className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
                   >
-                    Update Profile
+                    {loading ? "Updating..." : "Update Profile"}
                   </button>
                 </div>
               </form>
@@ -194,12 +255,25 @@ export const Settings = () => {
                     />
                   </div>
                 </div>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded p-3">
+                    <p className="text-red-600 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {message && (
+                  <div className="bg-green-50 border border-green-200 rounded p-3">
+                    <p className="text-green-600 text-sm">{message}</p>
+                  </div>
+                )}
+
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                    disabled={loading}
+                    className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
                   >
-                    Change Password
+                    {loading ? "Changing..." : "Change Password"}
                   </button>
                 </div>
               </form>
@@ -254,12 +328,25 @@ export const Settings = () => {
                     </select>
                   </div>
                 </div>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded p-3">
+                    <p className="text-red-600 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {message && (
+                  <div className="bg-green-50 border border-green-200 rounded p-3">
+                    <p className="text-green-600 text-sm">{message}</p>
+                  </div>
+                )}
+
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                    disabled={loading}
+                    className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
                   >
-                    Save Settings
+                    {loading ? "Saving..." : "Save Settings"}
                   </button>
                 </div>
               </form>
@@ -296,12 +383,25 @@ export const Settings = () => {
                     />
                   </div>
                 </div>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded p-3">
+                    <p className="text-red-600 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {message && (
+                  <div className="bg-green-50 border border-green-200 rounded p-3">
+                    <p className="text-green-600 text-sm">{message}</p>
+                  </div>
+                )}
+
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                    disabled={loading}
+                    className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
                   >
-                    Save Preferences
+                    {loading ? "Saving..." : "Save Preferences"}
                   </button>
                 </div>
               </form>

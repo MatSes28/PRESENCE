@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { api } from "../lib/api";
 
 interface User {
   id: number;
@@ -16,6 +17,9 @@ export const FacultyManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [formData, setFormData] = useState({
     email: "",
     name: "",
@@ -46,29 +50,11 @@ export const FacultyManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      // This would need a backend endpoint for getting all users
-      // For now, showing mock data
-      const mockUsers: User[] = [
-        {
-          id: 1,
-          email: "admin@clsu.edu.ph",
-          name: "System Administrator",
-          role: "admin",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: 2,
-          email: "faculty@clsu.edu.ph",
-          name: "Dr. Maria Santos",
-          role: "faculty",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
-      setUsers(mockUsers);
+      const response = await api.getUsers();
+      setUsers((response.data as User[]) || []);
     } catch (error) {
       console.error("Failed to fetch users:", error);
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -76,29 +62,51 @@ export const FacultyManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormLoading(true);
+    setError("");
+    setMessage("");
+
     try {
       if (editingUser) {
-        // Update user logic would go here
-        console.log("Updating user:", editingUser.id, formData);
+        const response = await api.updateUser(editingUser.id, {
+          email: formData.email,
+          name: formData.name,
+          role: formData.role,
+        });
+        if (response.success) {
+          setMessage("User updated successfully!");
+        } else {
+          setError(response.message || "Failed to update user");
+        }
       } else {
-        // Create user logic would go here
-        console.log("Creating user:", formData);
+        const response = await api.createUser(formData);
+        if (response.success) {
+          setMessage("User created successfully!");
+        } else {
+          setError(response.message || "Failed to create user");
+        }
       }
       fetchUsers();
       resetForm();
     } catch (error) {
-      console.error("Failed to save user:", error);
+      setError("An error occurred while saving user");
+    } finally {
+      setFormLoading(false);
     }
   };
 
   const handleDelete = async (id: number) => {
     if (confirm("Are you sure you want to delete this user?")) {
       try {
-        // Delete user logic would go here
-        console.log("Deleting user:", id);
-        fetchUsers();
+        const response = await api.deleteUser(id);
+        if (response.success) {
+          setMessage("User deleted successfully!");
+          fetchUsers();
+        } else {
+          setError(response.message || "Failed to delete user");
+        }
       } catch (error) {
-        console.error("Failed to delete user:", error);
+        setError("An error occurred while deleting user");
       }
     }
   };
@@ -160,6 +168,18 @@ export const FacultyManagement = () => {
             {editingUser ? "Edit User" : "Add New User"}
           </h4>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded p-3">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
+
+            {message && (
+              <div className="bg-green-50 border border-green-200 rounded p-3">
+                <p className="text-green-600 text-sm">{message}</p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -237,9 +257,12 @@ export const FacultyManagement = () => {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-md"
+                disabled={formLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 rounded-md"
               >
-                {editingUser ? "Update" : "Add"} User
+                {formLoading
+                  ? "Saving..."
+                  : (editingUser ? "Update" : "Add") + " User"}
               </button>
             </div>
           </form>

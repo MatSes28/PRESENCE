@@ -63,6 +63,144 @@ class ApiClient {
     return this.request("/auth/me");
   }
 
+  async forgotPassword(email: string) {
+    return this.request("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    return this.request("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, newPassword }),
+    });
+  }
+
+  async updateProfile(profileData: { name: string; email: string }) {
+    return this.request("/auth/profile", {
+      method: "PUT",
+      body: JSON.stringify(profileData),
+    });
+  }
+
+  async changePassword(passwordData: {
+    currentPassword: string;
+    newPassword: string;
+  }) {
+    return this.request("/auth/change-password", {
+      method: "PUT",
+      body: JSON.stringify(passwordData),
+    });
+  }
+
+  async updateUserSettings(settings: {
+    emailNotifications: boolean;
+    darkMode: boolean;
+    language: string;
+  }) {
+    return this.request("/auth/settings", {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    });
+  }
+
+  // Users endpoints (admin only)
+  async getUsers() {
+    return this.request("/users");
+  }
+
+  async createUser(userData: {
+    email: string;
+    name: string;
+    role: string;
+    password: string;
+  }) {
+    return this.request("/users", {
+      method: "POST",
+      body: JSON.stringify(userData),
+    });
+  }
+
+  async updateUser(
+    id: number,
+    userData: Partial<{ email: string; name: string; role: string }>
+  ) {
+    return this.request(`/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(userData),
+    });
+  }
+
+  async deleteUser(id: number) {
+    return this.request(`/users/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Computers endpoints
+  async getComputers() {
+    return this.request("/computers");
+  }
+
+  async getComputer(id: number) {
+    return this.request(`/computers/${id}`);
+  }
+
+  async createComputer(computer: {
+    classroomId: number;
+    name: string;
+    ipAddress?: string;
+    macAddress?: string;
+  }) {
+    return this.request("/computers", {
+      method: "POST",
+      body: JSON.stringify(computer),
+    });
+  }
+
+  async updateComputer(
+    id: number,
+    computer: Partial<{
+      name: string;
+      ipAddress: string;
+      macAddress: string;
+      status: string;
+    }>
+  ) {
+    return this.request(`/computers/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(computer),
+    });
+  }
+
+  async deleteComputer(id: number) {
+    return this.request(`/computers/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getComputerAssignments() {
+    return this.request("/computers/assignments");
+  }
+
+  async assignComputer(assignment: {
+    computerId: number;
+    studentId: number;
+    classSessionId: number;
+  }) {
+    return this.request("/computers/assign", {
+      method: "POST",
+      body: JSON.stringify(assignment),
+    });
+  }
+
+  async releaseComputer(assignmentId: number) {
+    return this.request(`/computers/release/${assignmentId}`, {
+      method: "POST",
+    });
+  }
+
   // Students endpoints
   async getStudents() {
     return this.request("/students");

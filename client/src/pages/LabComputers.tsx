@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { api } from "../lib/api";
 
 interface Computer {
   id: number;
@@ -27,6 +28,8 @@ export const LabComputers = () => {
   const [selectedComputer, setSelectedComputer] = useState<Computer | null>(
     null
   );
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     fetchComputers();
@@ -34,69 +37,25 @@ export const LabComputers = () => {
   }, []);
 
   const fetchComputers = async () => {
-    // Mock data for demonstration
-    const mockComputers: Computer[] = [
-      {
-        id: 1,
-        classroomId: 101,
-        name: "PC-101-01",
-        ipAddress: "192.168.1.101",
-        status: "available",
-      },
-      {
-        id: 2,
-        classroomId: 101,
-        name: "PC-101-02",
-        ipAddress: "192.168.1.102",
-        status: "in_use",
-        currentUser: "John Doe",
-      },
-      {
-        id: 3,
-        classroomId: 101,
-        name: "PC-101-03",
-        ipAddress: "192.168.1.103",
-        status: "maintenance",
-      },
-      {
-        id: 4,
-        classroomId: 102,
-        name: "PC-102-01",
-        ipAddress: "192.168.1.201",
-        status: "available",
-      },
-      {
-        id: 5,
-        classroomId: 102,
-        name: "PC-102-02",
-        ipAddress: "192.168.1.202",
-        status: "in_use",
-        currentUser: "Jane Smith",
-      },
-    ];
-    setComputers(mockComputers);
+    try {
+      const response = await api.getComputers();
+      setComputers((response.data as Computer[]) || []);
+    } catch (error) {
+      console.error("Failed to fetch computers:", error);
+      setComputers([]);
+    }
   };
 
   const fetchAssignments = async () => {
-    // Mock data for demonstration
-    const mockAssignments: ComputerAssignment[] = [
-      {
-        id: 1,
-        computerId: 2,
-        studentId: 1001,
-        studentName: "John Doe",
-        assignedAt: new Date().toISOString(),
-      },
-      {
-        id: 2,
-        computerId: 5,
-        studentId: 1002,
-        studentName: "Jane Smith",
-        assignedAt: new Date(Date.now() - 3600000).toISOString(),
-      },
-    ];
-    setAssignments(mockAssignments);
-    setLoading(false);
+    try {
+      const response = await api.getComputerAssignments();
+      setAssignments((response.data as ComputerAssignment[]) || []);
+    } catch (error) {
+      console.error("Failed to fetch assignments:", error);
+      setAssignments([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -137,31 +96,43 @@ export const LabComputers = () => {
   };
 
   const releaseComputer = async (computerId: number) => {
-    // Mock implementation
-    setComputers((prev) =>
-      prev.map((comp) =>
-        comp.id === computerId
-          ? { ...comp, status: "available", currentUser: undefined }
-          : comp
-      )
-    );
-    setAssignments((prev) =>
-      prev.map((assignment) =>
-        assignment.computerId === computerId
-          ? { ...assignment, releasedAt: new Date().toISOString() }
-          : assignment
-      )
-    );
+    try {
+      const assignment = assignments.find(
+        (a) => a.computerId === computerId && !a.releasedAt
+      );
+      if (assignment) {
+        const response = await api.releaseComputer(assignment.id);
+        if (response.success) {
+          setMessage("Computer released successfully!");
+          fetchComputers();
+          fetchAssignments();
+        } else {
+          setError(response.message || "Failed to release computer");
+        }
+      }
+    } catch (error) {
+      setError("An error occurred while releasing computer");
+    }
   };
 
   const setMaintenance = async (computerId: number, maintenance: boolean) => {
-    setComputers((prev) =>
-      prev.map((comp) =>
-        comp.id === computerId
-          ? { ...comp, status: maintenance ? "maintenance" : "available" }
-          : comp
-      )
-    );
+    try {
+      const response = await api.updateComputer(computerId, {
+        status: maintenance ? "maintenance" : "available",
+      });
+      if (response.success) {
+        setMessage(
+          `Computer ${
+            maintenance ? "set to maintenance" : "activated"
+          } successfully!`
+        );
+        fetchComputers();
+      } else {
+        setError(response.message || "Failed to update computer status");
+      }
+    } catch (error) {
+      setError("An error occurred while updating computer status");
+    }
   };
 
   const classrooms = [...new Set(computers.map((comp) => comp.classroomId))];
@@ -188,13 +159,28 @@ export const LabComputers = () => {
         </div>
         <div className="flex space-x-2">
           <button
-            onClick={() => fetchComputers()}
+            onClick={() => {
+              fetchComputers();
+              fetchAssignments();
+            }}
             className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
           >
             Refresh
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded p-3">
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
+
+      {message && (
+        <div className="bg-green-50 border border-green-200 rounded p-3">
+          <p className="text-green-600 text-sm">{message}</p>
+        </div>
+      )}
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
