@@ -61,4 +61,4 @@ RUN npm run build
 WORKDIR /app
 
 # Start the application
-CMD ["node", "server/dist/index.js"]
+CMD ["node", "server/dist/src/index.js"]
