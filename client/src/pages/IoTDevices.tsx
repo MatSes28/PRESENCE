@@ -26,9 +26,10 @@ export const IoTDevices = () => {
   const fetchDevices = async () => {
     try {
       const response = await api.getIoTDevices();
-      setDevices(response.data || []);
+      setDevices((response.data as IoTDevice[]) || []);
     } catch (error) {
       console.error("Failed to fetch devices:", error);
+      setDevices([]);
     } finally {
       setLoading(false);
     }

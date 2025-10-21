@@ -27,8 +27,8 @@ export const Reports = () => {
       const response = await api.generateReport(reportParams);
 
       // Handle file download
-      if (response.data && response.data.downloadUrl) {
-        window.open(response.data.downloadUrl, "_blank");
+      if (response.data && (response.data as any).downloadUrl) {
+        window.open((response.data as any).downloadUrl, "_blank");
       } else {
         alert("Report generated successfully!");
       }

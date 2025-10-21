@@ -19,4 +19,11 @@ export default defineConfig({
       },
     },
   },
+  define: {
+    // Ensure proper environment variable handling
+    "import.meta.env": {
+      DEV: process.env.NODE_ENV === "development",
+      PROD: process.env.NODE_ENV === "production",
+    },
+  },
 });

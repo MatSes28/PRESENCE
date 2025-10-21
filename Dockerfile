@@ -47,5 +47,13 @@ RUN cp -r dist/* ../server/public/
 # Go back to root directory
 WORKDIR /app
 
-# Start the application directly with tsx
-CMD ["npx", "tsx", "server/src/index.ts"]
+# Build the server
+WORKDIR /app/server
+RUN npm install
+RUN npm run build
+
+# Go back to root directory
+WORKDIR /app
+
+# Start the application
+CMD ["node", "server/dist/index.js"]

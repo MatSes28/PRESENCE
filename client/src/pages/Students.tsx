@@ -31,7 +31,7 @@ export const Students = () => {
   const fetchStudents = async () => {
     try {
       const response = await api.getStudents();
-      setStudents(response.data || []);
+      setStudents((response.data as Student[]) || []);
     } catch (error) {
       console.error("Failed to fetch students:", error);
     } finally {

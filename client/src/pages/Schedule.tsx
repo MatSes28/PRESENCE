@@ -17,14 +17,6 @@ interface Schedule {
   createdAt: string;
 }
 
-interface ClassSession {
-  id: number;
-  scheduleId: number;
-  date: string;
-  status: string;
-  attendanceCount?: number;
-}
-
 const DAYS_OF_WEEK = [
   "Sunday",
   "Monday",
@@ -37,12 +29,8 @@ const DAYS_OF_WEEK = [
 
 export const Schedule = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [sessions, setSessions] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
   const [formData, setFormData] = useState({
     subjectId: "",
     classroomId: "",
@@ -62,7 +50,7 @@ export const Schedule = () => {
   const fetchSchedules = async () => {
     try {
       const response = await api.getSchedules();
-      setSchedules(response.data || []);
+      setSchedules((response.data as Schedule[]) || []);
     } catch (error) {
       console.error("Failed to fetch schedules:", error);
     }
@@ -72,7 +60,7 @@ export const Schedule = () => {
     try {
       // This would need a backend endpoint for sessions
       // For now, we'll show a placeholder
-      setSessions([]);
+      // setSessions([]);
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
     } finally {
