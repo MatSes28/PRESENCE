@@ -20,7 +20,7 @@ COPY shared/ ./shared/
 WORKDIR /app/server
 RUN npm install
 
-# Copy client source code first
+# Copy client source code
 COPY client/ ./client/
 
 # Copy shared source files to server (no build needed for TypeScript types)
