@@ -34,21 +34,24 @@ router.get("/student/:studentId", async (req, res) => {
     const { studentId } = req.params;
     const { startDate, endDate } = req.query;
 
-    let query = db
-      .select()
-      .from(attendanceRecords)
-      .where(eq(attendanceRecords.studentId, parseInt(studentId)));
-
+    let records;
     if (startDate && endDate) {
-      query = query.where(
-        and(
-          gte(attendanceRecords.createdAt, new Date(startDate as string)),
-          lte(attendanceRecords.createdAt, new Date(endDate as string))
-        )
-      );
+      records = await db
+        .select()
+        .from(attendanceRecords)
+        .where(
+          and(
+            eq(attendanceRecords.studentId, parseInt(studentId)),
+            gte(attendanceRecords.createdAt, new Date(startDate as string)),
+            lte(attendanceRecords.createdAt, new Date(endDate as string))
+          )
+        );
+    } else {
+      records = await db
+        .select()
+        .from(attendanceRecords)
+        .where(eq(attendanceRecords.studentId, parseInt(studentId)));
     }
-
-    const records = await query;
     res.json(records);
   } catch (error) {
     console.error("Error fetching student report:", error);
@@ -62,21 +65,24 @@ router.get("/classroom/:classroomId", async (req, res) => {
     const { classroomId } = req.params;
     const { startDate, endDate } = req.query;
 
-    let query = db
-      .select()
-      .from(classSessions)
-      .where(eq(classSessions.scheduleId, parseInt(classroomId)));
-
+    let sessions;
     if (startDate && endDate) {
-      query = query.where(
-        and(
-          gte(classSessions.date, new Date(startDate as string)),
-          lte(classSessions.date, new Date(endDate as string))
-        )
-      );
+      sessions = await db
+        .select()
+        .from(classSessions)
+        .where(
+          and(
+            eq(classSessions.scheduleId, parseInt(classroomId)),
+            gte(classSessions.date, new Date(startDate as string)),
+            lte(classSessions.date, new Date(endDate as string))
+          )
+        );
+    } else {
+      sessions = await db
+        .select()
+        .from(classSessions)
+        .where(eq(classSessions.scheduleId, parseInt(classroomId)));
     }
-
-    const sessions = await query;
     res.json(sessions);
   } catch (error) {
     console.error("Error fetching classroom report:", error);
