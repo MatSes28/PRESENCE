@@ -35,5 +35,12 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
+# Build the client
+RUN npm run build --workspace=client
+
+# Copy built client to server public directory
+RUN mkdir -p server/public
+RUN cp -r client/dist/* server/public/
+
 # Start the application directly with tsx
 CMD ["npx", "tsx", "server/src/index.ts"]

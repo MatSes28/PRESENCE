@@ -5,6 +5,7 @@ import session from "express-session";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import rateLimit from "express-rate-limit";
+import path from "path";
 
 import { db } from "./storage.js";
 import routes from "./routes.js";
@@ -54,21 +55,15 @@ app.use(
   })
 );
 
+// Serve static files from client build
+app.use(express.static(path.join(process.cwd(), "server/public")));
+
 // Routes
 app.use("/api", routes);
 
-// Root endpoint
-app.get("/", (req, res) => {
-  res.json({
-    message: "CLIRDEC Presence API",
-    version: "1.0.0",
-    status: "running",
-    endpoints: {
-      health: "/health",
-      api: "/api",
-      docs: "/api/docs", // Add if you implement API docs
-    },
-  });
+// Catch all handler: send back React's index.html file for client-side routing
+app.get("*", (req, res) => {
+  res.sendFile(path.join(process.cwd(), "server/public/index.html"));
 });
 
 // Health check endpoint
