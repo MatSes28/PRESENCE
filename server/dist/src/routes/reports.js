@@ -23,14 +23,19 @@ router.get("/student/:studentId", async (req, res) => {
     try {
         const { studentId } = req.params;
         const { startDate, endDate } = req.query;
-        let query = storage_js_1.db
-            .select()
-            .from(schema_js_1.attendanceRecords)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, parseInt(studentId)));
+        let records;
         if (startDate && endDate) {
-            query = query.where((0, drizzle_orm_1.and)((0, drizzle_orm_1.gte)(schema_js_1.attendanceRecords.createdAt, new Date(startDate)), (0, drizzle_orm_1.lte)(schema_js_1.attendanceRecords.createdAt, new Date(endDate))));
+            records = await storage_js_1.db
+                .select()
+                .from(schema_js_1.attendanceRecords)
+                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, parseInt(studentId)), (0, drizzle_orm_1.gte)(schema_js_1.attendanceRecords.createdAt, new Date(startDate)), (0, drizzle_orm_1.lte)(schema_js_1.attendanceRecords.createdAt, new Date(endDate))));
         }
-        const records = await query;
+        else {
+            records = await storage_js_1.db
+                .select()
+                .from(schema_js_1.attendanceRecords)
+                .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, parseInt(studentId)));
+        }
         res.json(records);
     }
     catch (error) {
@@ -42,14 +47,19 @@ router.get("/classroom/:classroomId", async (req, res) => {
     try {
         const { classroomId } = req.params;
         const { startDate, endDate } = req.query;
-        let query = storage_js_1.db
-            .select()
-            .from(schema_js_1.classSessions)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.classSessions.scheduleId, parseInt(classroomId)));
+        let sessions;
         if (startDate && endDate) {
-            query = query.where((0, drizzle_orm_1.and)((0, drizzle_orm_1.gte)(schema_js_1.classSessions.date, new Date(startDate)), (0, drizzle_orm_1.lte)(schema_js_1.classSessions.date, new Date(endDate))));
+            sessions = await storage_js_1.db
+                .select()
+                .from(schema_js_1.classSessions)
+                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.classSessions.scheduleId, parseInt(classroomId)), (0, drizzle_orm_1.gte)(schema_js_1.classSessions.date, new Date(startDate)), (0, drizzle_orm_1.lte)(schema_js_1.classSessions.date, new Date(endDate))));
         }
-        const sessions = await query;
+        else {
+            sessions = await storage_js_1.db
+                .select()
+                .from(schema_js_1.classSessions)
+                .where((0, drizzle_orm_1.eq)(schema_js_1.classSessions.scheduleId, parseInt(classroomId)));
+        }
         res.json(sessions);
     }
     catch (error) {
@@ -58,4 +68,3 @@ router.get("/classroom/:classroomId", async (req, res) => {
     }
 });
 exports.default = router;
-//# sourceMappingURL=reports.js.map

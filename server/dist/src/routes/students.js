@@ -276,4 +276,3 @@ router.post("/:id/assign-rfid", requireAuth, async (req, res) => {
     }
 });
 exports.default = router;
-//# sourceMappingURL=students.js.map

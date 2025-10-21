@@ -257,4 +257,3 @@ router.post("/:id/validate", requireAuth, async (req, res) => {
     }
 });
 exports.default = router;
-//# sourceMappingURL=attendance.js.map

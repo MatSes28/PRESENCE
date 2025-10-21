@@ -173,4 +173,3 @@ exports.iotDevicesRelations = (0, drizzle_orm_1.relations)(exports.iotDevices, (
         references: [exports.classrooms.id],
     }),
 }));
-//# sourceMappingURL=schema.js.map

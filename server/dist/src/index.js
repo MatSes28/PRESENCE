@@ -94,4 +94,3 @@ process.on("SIGINT", () => {
         console.log("Process terminated");
     });
 });
-//# sourceMappingURL=index.js.map

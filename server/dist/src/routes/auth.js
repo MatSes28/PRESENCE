@@ -220,4 +220,3 @@ router.post("/change-password", async (req, res) => {
     }
 });
 exports.default = router;
-//# sourceMappingURL=auth.js.map

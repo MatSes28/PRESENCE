@@ -16,14 +16,14 @@ class AttendanceMonitor {
                 .limit(1);
             if (!student.length) {
                 console.log(`Unknown RFID UID: ${scan.rfidUid}`);
-                return { success: false, message: 'Unknown RFID card' };
+                return { success: false, message: "Unknown RFID card" };
             }
             const studentData = student[0];
             const now = new Date();
             const currentSession = await this.findActiveClassSession(now);
             if (!currentSession) {
                 console.log(`No active class session for student ${studentData.id}`);
-                return { success: false, message: 'No active class session' };
+                return { success: false, message: "No active class session" };
             }
             const existingRecord = await storage_js_1.db
                 .select()
@@ -31,25 +31,25 @@ class AttendanceMonitor {
                 .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, studentData.id), (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, currentSession.id)))
                 .limit(1);
             if (existingRecord.length) {
-                await this.updateAttendanceRecord(existingRecord[0], 'rfid', now);
+                await this.updateAttendanceRecord(existingRecord[0], "rfid", now);
             }
             else {
                 await this.createAttendanceRecord({
                     studentId: studentData.id,
                     classSessionId: currentSession.id,
                     rfidDetected: true,
-                    sensorDetected: false
+                    sensorDetected: false,
                 });
             }
             return {
                 success: true,
                 student: studentData,
-                session: currentSession
+                session: currentSession,
             };
         }
         catch (error) {
-            console.error('Error processing RFID scan:', error);
-            return { success: false, message: 'Internal error' };
+            console.error("Error processing RFID scan:", error);
+            return { success: false, message: "Internal error" };
         }
     }
     async processSensorTrigger(trigger) {
@@ -57,14 +57,17 @@ class AttendanceMonitor {
             const now = new Date();
             const currentSession = await this.findActiveClassSession(now);
             if (!currentSession) {
-                console.log('No active class session for sensor trigger');
-                return { success: false, message: 'No active class session' };
+                console.log("No active class session for sensor trigger");
+                return { success: false, message: "No active class session" };
             }
             const recentScans = await this.findRecentRFIDScans(trigger.deviceId, now);
             if (recentScans.length === 0) {
-                console.log('Sensor trigger without recent RFID scan - potential ghost attendance');
+                console.log("Sensor trigger without recent RFID scan - potential ghost attendance");
                 await this.createDiscrepancyRecord(trigger, currentSession.id);
-                return { success: false, message: 'Sensor trigger without RFID validation' };
+                return {
+                    success: false,
+                    message: "Sensor trigger without RFID validation",
+                };
             }
             const recentScan = recentScans[0];
             const student = await storage_js_1.db
@@ -73,7 +76,7 @@ class AttendanceMonitor {
                 .where((0, drizzle_orm_1.eq)(schema_js_1.students.rfidUid, recentScan.rfidUid))
                 .limit(1);
             if (!student.length) {
-                return { success: false, message: 'Student not found' };
+                return { success: false, message: "Student not found" };
             }
             const existingRecord = await storage_js_1.db
                 .select()
@@ -81,7 +84,7 @@ class AttendanceMonitor {
                 .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, student[0].id), (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, currentSession.id)))
                 .limit(1);
             if (existingRecord.length) {
-                await this.updateAttendanceRecord(existingRecord[0], 'sensor', now, trigger.sensorType);
+                await this.updateAttendanceRecord(existingRecord[0], "sensor", now, trigger.sensorType);
             }
             else {
                 await this.createAttendanceRecord({
@@ -89,19 +92,19 @@ class AttendanceMonitor {
                     classSessionId: currentSession.id,
                     rfidDetected: false,
                     sensorDetected: true,
-                    [trigger.sensorType === 'entry' ? 'entryTime' : 'exitTime']: now
+                    [trigger.sensorType === "entry" ? "entryTime" : "exitTime"]: now,
                 });
             }
             return {
                 success: true,
                 student: student[0],
                 session: currentSession,
-                triggerType: trigger.sensorType
+                triggerType: trigger.sensorType,
             };
         }
         catch (error) {
-            console.error('Error processing sensor trigger:', error);
-            return { success: false, message: 'Internal error' };
+            console.error("Error processing sensor trigger:", error);
+            return { success: false, message: "Internal error" };
         }
     }
     async findActiveClassSession(currentTime) {
@@ -118,9 +121,15 @@ class AttendanceMonitor {
         const [newRecord] = await storage_js_1.db
             .insert(schema_js_1.attendanceRecords)
             .values({
-            ...record,
-            isValid: record.rfidDetected && record.sensorDetected,
-            discrepancyFlag: !(record.rfidDetected && record.sensorDetected)
+            studentId: record.studentId,
+            classSessionId: record.classSessionId,
+            entryTime: record.entryTime || null,
+            exitTime: record.exitTime || null,
+            rfidDetected: record.rfidDetected || false,
+            sensorDetected: record.sensorDetected || false,
+            isValid: (record.rfidDetected && record.sensorDetected) || false,
+            discrepancyFlag: !(record.rfidDetected && record.sensorDetected) || false,
+            notes: record.notes || null,
         })
             .returning();
         console.log(`Created attendance record: ${newRecord.id}`);
@@ -128,20 +137,21 @@ class AttendanceMonitor {
     }
     async updateAttendanceRecord(existingRecord, detectionType, timestamp, sensorType) {
         const updateData = {};
-        if (detectionType === 'rfid') {
+        if (detectionType === "rfid") {
             updateData.rfidDetected = true;
         }
-        else if (detectionType === 'sensor') {
+        else if (detectionType === "sensor") {
             updateData.sensorDetected = true;
-            if (sensorType === 'entry') {
+            if (sensorType === "entry") {
                 updateData.entryTime = timestamp;
             }
-            else if (sensorType === 'exit') {
+            else if (sensorType === "exit") {
                 updateData.exitTime = timestamp;
             }
         }
-        updateData.isValid = (existingRecord.rfidDetected || updateData.rfidDetected) &&
-            (existingRecord.sensorDetected || updateData.sensorDetected);
+        updateData.isValid =
+            (existingRecord.rfidDetected || updateData.rfidDetected) &&
+                (existingRecord.sensorDetected || updateData.sensorDetected);
         updateData.discrepancyFlag = !updateData.isValid;
         await storage_js_1.db
             .update(schema_js_1.attendanceRecords)
@@ -157,7 +167,7 @@ class AttendanceMonitor {
             rfidDetected: false,
             isValid: false,
             discrepancyFlag: true,
-            notes: `Sensor trigger without RFID validation: ${trigger.sensorType} sensor, distance: ${trigger.distance}cm`
+            notes: `Sensor trigger without RFID validation: ${trigger.sensorType} sensor, distance: ${trigger.distance}cm`,
         });
         console.log(`Created discrepancy record for sensor trigger`);
     }
@@ -167,7 +177,7 @@ class AttendanceMonitor {
             .set({
             isValid: true,
             discrepancyFlag: false,
-            notes: 'Manually validated'
+            notes: "Manually validated",
         })
             .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.id, recordId));
     }
@@ -178,13 +188,14 @@ class AttendanceMonitor {
             .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, sessionId));
         const stats = {
             totalRecords: records.length,
-            validRecords: records.filter(r => r.isValid).length,
-            discrepancies: records.filter(r => r.discrepancyFlag).length,
-            rfidOnly: records.filter(r => r.rfidDetected && !r.sensorDetected).length,
-            sensorOnly: records.filter(r => r.sensorDetected && !r.rfidDetected).length
+            validRecords: records.filter((r) => r.isValid).length,
+            discrepancies: records.filter((r) => r.discrepancyFlag).length,
+            rfidOnly: records.filter((r) => r.rfidDetected && !r.sensorDetected)
+                .length,
+            sensorOnly: records.filter((r) => r.sensorDetected && !r.rfidDetected)
+                .length,
         };
         return stats;
     }
 }
 exports.attendanceMonitor = new AttendanceMonitor();
-//# sourceMappingURL=attendanceMonitor.js.map

@@ -46,4 +46,3 @@ if (!connectionString) {
 }
 const client = (0, postgres_1.default)(connectionString, { prepare: false });
 exports.db = (0, postgres_js_1.drizzle)(client, { schema });
-//# sourceMappingURL=storage.js.map

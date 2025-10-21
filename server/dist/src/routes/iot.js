@@ -237,4 +237,3 @@ router.get("/connected", requireAuth, async (req, res) => {
     }
 });
 exports.default = router;
-//# sourceMappingURL=iot.js.map

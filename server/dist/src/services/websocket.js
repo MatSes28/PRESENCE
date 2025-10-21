@@ -174,4 +174,3 @@ function getConnectedDevices() {
 function getConnectedWebClients() {
     return Array.from(clients.keys());
 }
-//# sourceMappingURL=websocket.js.map

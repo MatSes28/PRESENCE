@@ -16,6 +16,11 @@ RUN npm install
 COPY server/ ./server/
 COPY shared/ ./shared/
 
+# Install server dependencies
+WORKDIR /app/server
+RUN npm install
+WORKDIR /app
+
 # Copy client source code
 COPY client/ ./client/
 

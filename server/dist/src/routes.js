@@ -20,4 +20,3 @@ router.use('/schedules', schedules_js_1.default);
 router.use('/reports', reports_js_1.default);
 router.use('/iot', iot_js_1.default);
 exports.default = router;
-//# sourceMappingURL=routes.js.map
