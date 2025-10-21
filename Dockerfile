@@ -38,7 +38,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Build the client
 WORKDIR /app/client
 RUN npm install
-RUN npm run build
+RUN npx tsc && npx vite build
 
 # Copy built client to server public directory
 RUN mkdir -p ../server/public
