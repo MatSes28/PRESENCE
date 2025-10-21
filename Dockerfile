@@ -16,6 +16,9 @@ RUN npm install
 COPY server/ ./server/
 COPY shared/ ./shared/
 
+# Copy client source code
+COPY client/ ./client/
+
 # Copy database setup script
 COPY database_setup.sql ./
 
