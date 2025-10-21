@@ -36,22 +36,12 @@ const menuSections: MenuSection[] = [
     items: [
       { name: "Schedule", icon: "📅", description: "Class timetables" },
       { name: "Students", icon: "👥", description: "Student management" },
-      {
-        name: "Class Roster",
-        icon: "📝",
-        description: "View enrolled students",
-      },
       { name: "Lab Computers", icon: "💻", description: "Computer allocation" },
     ],
   },
   {
     title: "System Monitoring",
-    items: [
-      { name: "Monitor", icon: "👁️", description: "System oversight" },
-      { name: "IoT Devices", icon: "📡", description: "ESP32 hardware" },
-      { name: "System Health", icon: "❤️", description: "Performance monitor" },
-      { name: "System Testing", icon: "🧪", description: "Test & simulate" },
-    ],
+    items: [{ name: "IoT Devices", icon: "📡", description: "ESP32 hardware" }],
   },
   {
     title: "Reports & Analytics",
@@ -61,17 +51,15 @@ const menuSections: MenuSection[] = [
     title: "Administration",
     items: [
       {
-        name: "User Management",
+        name: "Faculty Management",
         icon: "👤",
         description: "Faculty & admin accounts",
       },
-      { name: "Compliance", icon: "🔒", description: "ISO 27001/27701" },
     ],
   },
   {
-    title: "Support",
+    title: "Account",
     items: [
-      { name: "Help Center", icon: "❓", description: "Guides & FAQs" },
       { name: "Settings", icon: "⚙️", description: "System configuration" },
     ],
   },
@@ -244,17 +232,29 @@ export const Dashboard = () => {
               <div className="bg-gray-50 px-5 py-3">
                 <div className="text-sm">
                   <div className="space-y-2">
-                    <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
+                    <button
+                      onClick={() => (window.location.href = "/students")}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                    >
                       📚 Manage Students
                     </button>
-                    <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
+                    <button
+                      onClick={() => (window.location.href = "/reports")}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                    >
                       📊 View Reports
                     </button>
-                    <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
-                      🏫 Manage Classrooms
-                    </button>
-                    <button className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
+                    <button
+                      onClick={() => (window.location.href = "/schedule")}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                    >
                       📅 View Schedule
+                    </button>
+                    <button
+                      onClick={() => (window.location.href = "/devices")}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                    >
+                      📡 IoT Devices
                     </button>
                   </div>
                 </div>
@@ -304,7 +304,22 @@ export const Dashboard = () => {
                     {section.items.map((item, itemIndex) => (
                       <button
                         key={itemIndex}
-                        onClick={() => setActiveSection(item.name)}
+                        onClick={() => {
+                          // Handle navigation for actual pages
+                          if (item.name === "Students") {
+                            window.location.href = "/students";
+                          } else if (item.name === "Reports") {
+                            window.location.href = "/reports";
+                          } else if (item.name === "IoT Devices") {
+                            window.location.href = "/devices";
+                          } else if (item.name === "Faculty Management") {
+                            window.location.href = "/faculty";
+                          } else if (item.name === "Settings") {
+                            window.location.href = "/settings";
+                          } else {
+                            setActiveSection(item.name);
+                          }
+                        }}
                         className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                           activeSection === item.name
                             ? "bg-teal-50 text-teal-700 border-r-2 border-teal-500"
