@@ -5,7 +5,9 @@ import { Dashboard } from "./pages/Dashboard";
 import { Students } from "./pages/Students";
 import { Reports } from "./pages/Reports";
 import { IoTDevices } from "./pages/IoTDevices";
+import { LabComputers } from "./pages/LabComputers";
 import { LiveAttendance } from "./pages/LiveAttendance";
+import { Schedule } from "./pages/Schedule";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { FacultyManagement } from "./pages/FacultyManagement";
 import { Settings } from "./pages/Settings";
@@ -38,7 +40,9 @@ function AppContent() {
       <Route path="/students" component={Students} />
       <Route path="/reports" component={Reports} />
       <Route path="/devices" component={IoTDevices} />
+      <Route path="/lab-computers" component={LabComputers} />
       <Route path="/attendance" component={LiveAttendance} />
+      <Route path="/schedule" component={Schedule} />
       <Route path="/faculty" component={FacultyManagement} />
       <Route path="/settings" component={Settings} />
     </Router>

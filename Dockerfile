@@ -24,7 +24,8 @@ RUN npm install
 COPY client/ ./client/
 
 # Copy shared source files to server (no build needed for TypeScript types)
-RUN mkdir -p server/shared && cp -r ../shared/* server/shared/
+WORKDIR /app
+RUN mkdir -p server/shared && cp -r shared/* server/shared/
 WORKDIR /app/server
 
 # Copy database setup script
