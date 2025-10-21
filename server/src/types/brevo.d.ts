@@ -7,8 +7,22 @@ declare module "brevo" {
     textContent?: string;
   }
 
+  export class SendSmtpEmail {
+    subject?: string;
+    htmlContent?: string;
+    sender?: { name?: string; email: string };
+    to?: Array<{ email: string; name?: string }>;
+    textContent?: string;
+  }
+
   export class TransactionalEmailsApi {
-    sendTransacEmail(sendSmtpEmail: SendSmtpEmail): Promise<any>;
+    setApiKey(apiKeyIdentifier: number, apiKey: string): void;
+    static readonly ApiKeys: {
+      readonly apiKey: 1;
+    };
+    sendTransacEmail(
+      sendSmtpEmail: SendSmtpEmail
+    ): Promise<{ response: { statusCode: number } }>;
   }
 
   export class ApiClient {
