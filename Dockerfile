@@ -21,6 +21,7 @@ WORKDIR /app/server
 RUN npm install
 
 # Copy client source code
+COPY client/package*.json ./client/
 COPY client/ ./client/
 
 # Copy shared source files to server (no build needed for TypeScript types)
