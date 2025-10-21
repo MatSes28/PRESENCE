@@ -20,12 +20,8 @@ COPY shared/ ./shared/
 WORKDIR /app/server
 RUN npm install
 
-# Build shared schemas first
-WORKDIR /app/shared
-RUN npm run build
-
-# Copy built shared schemas to server
-RUN cp -r dist/* ../server/shared/
+# Copy shared source files to server (no build needed for TypeScript types)
+RUN cp -r shared/* server/shared/
 WORKDIR /app/server
 
 # Copy client source code
