@@ -57,6 +57,20 @@ app.use(
 // Routes
 app.use("/api", routes);
 
+// Root endpoint
+app.get("/", (req, res) => {
+  res.json({
+    message: "CLIRDEC Presence API",
+    version: "1.0.0",
+    status: "running",
+    endpoints: {
+      health: "/health",
+      api: "/api",
+      docs: "/api/docs", // Add if you implement API docs
+    },
+  });
+});
+
 // Health check endpoint
 app.get("/health", async (req, res) => {
   try {
