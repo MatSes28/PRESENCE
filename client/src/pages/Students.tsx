@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
+import { useNotifications } from "../components/NotificationSystem";
+import { LoadingButton } from "../components/LoadingSpinner";
+import {
+  useFormValidation,
+  commonValidationRules,
+} from "../hooks/useFormValidation";
 
 interface Student {
   id: number;
@@ -12,10 +18,22 @@ interface Student {
 }
 
 export const Students = () => {
+  const { addNotification } = useNotifications();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
+
+  // Form validation hooks
+  const studentValidation = useFormValidation({
+    studentId: commonValidationRules.studentId,
+    name: commonValidationRules.name,
+    email: { ...commonValidationRules.email, required: false },
+    parentEmail: { ...commonValidationRules.email, required: false },
+  });
+
   const [formData, setFormData] = useState({
     studentId: "",
     name: "",
@@ -31,9 +49,25 @@ export const Students = () => {
   const fetchStudents = async () => {
     try {
       const response = await api.getStudents();
-      setStudents((response.data as Student[]) || []);
+      if (response.success) {
+        setStudents((response.data as Student[]) || []);
+      } else {
+        addNotification({
+          type: "error",
+          title: "Failed to Load Students",
+          message: response.message || "Unable to fetch student data",
+        });
+        setStudents([]);
+      }
     } catch (error) {
       console.error("Failed to fetch students:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to connect to the server. Please check your connection.",
+      });
+      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -41,27 +75,91 @@ export const Students = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!studentValidation.validateForm(formData)) {
+      addNotification({
+        type: "error",
+        title: "Validation Error",
+        message: "Please fix the errors in the form",
+      });
+      return;
+    }
+
+    setSubmitting(true);
     try {
+      let response;
       if (editingStudent) {
-        await api.updateStudent(editingStudent.id, formData);
+        response = await api.updateStudent(editingStudent.id, formData);
       } else {
-        await api.createStudent(formData);
+        response = await api.createStudent(formData);
       }
-      fetchStudents();
-      resetForm();
+
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: editingStudent ? "Student Updated" : "Student Added",
+          message: `Student ${
+            editingStudent ? "updated" : "added"
+          } successfully!`,
+        });
+        fetchStudents();
+        resetForm();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Save Failed",
+          message: response.message || "Failed to save student",
+        });
+      }
     } catch (error) {
       console.error("Failed to save student:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to save student. Please check your connection and try again.",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this student?")) {
-      try {
-        await api.deleteStudent(id);
+    if (
+      !confirm(
+        "Are you sure you want to delete this student? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    setDeleting(id);
+    try {
+      const response = await api.deleteStudent(id);
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Student Deleted",
+          message: "Student has been successfully removed from the system.",
+        });
         fetchStudents();
-      } catch (error) {
-        console.error("Failed to delete student:", error);
+      } else {
+        addNotification({
+          type: "error",
+          title: "Delete Failed",
+          message: response.message || "Failed to delete student",
+        });
       }
+    } catch (error) {
+      console.error("Failed to delete student:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to delete student. Please check your connection and try again.",
+      });
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -75,6 +173,7 @@ export const Students = () => {
     });
     setEditingStudent(null);
     setShowAddForm(false);
+    studentValidation.clearErrors();
   };
 
   const startEdit = (student: Student) => {
@@ -87,6 +186,7 @@ export const Students = () => {
     });
     setEditingStudent(student);
     setShowAddForm(true);
+    studentValidation.clearErrors();
   };
 
   if (loading) {
@@ -131,14 +231,27 @@ export const Students = () => {
                 </label>
                 <input
                   type="text"
-                  required
                   value={formData.studentId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, studentId: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, studentId: e.target.value });
+                    studentValidation.validateSingleField(
+                      "studentId",
+                      e.target.value
+                    );
+                    studentValidation.setFieldTouched("studentId");
+                  }}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                    studentValidation.getFieldError("studentId")
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
                   placeholder="e.g., 2021001"
                 />
+                {studentValidation.getFieldError("studentId") && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {studentValidation.getFieldError("studentId")}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -146,14 +259,27 @@ export const Students = () => {
                 </label>
                 <input
                   type="text"
-                  required
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, name: e.target.value });
+                    studentValidation.validateSingleField(
+                      "name",
+                      e.target.value
+                    );
+                    studentValidation.setFieldTouched("name");
+                  }}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                    studentValidation.getFieldError("name")
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
                   placeholder="Enter full name"
                 />
+                {studentValidation.getFieldError("name") && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {studentValidation.getFieldError("name")}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -162,12 +288,26 @@ export const Students = () => {
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, email: e.target.value });
+                    studentValidation.validateSingleField(
+                      "email",
+                      e.target.value
+                    );
+                    studentValidation.setFieldTouched("email");
+                  }}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                    studentValidation.getFieldError("email")
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
                   placeholder="student@email.com"
                 />
+                {studentValidation.getFieldError("email") && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {studentValidation.getFieldError("email")}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -190,28 +330,45 @@ export const Students = () => {
                 <input
                   type="email"
                   value={formData.parentEmail}
-                  onChange={(e) =>
-                    setFormData({ ...formData, parentEmail: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, parentEmail: e.target.value });
+                    studentValidation.validateSingleField(
+                      "parentEmail",
+                      e.target.value
+                    );
+                    studentValidation.setFieldTouched("parentEmail");
+                  }}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                    studentValidation.getFieldError("parentEmail")
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
                   placeholder="parent@email.com"
                 />
+                {studentValidation.getFieldError("parentEmail") && (
+                  <p className="text-red-600 text-sm mt-1">
+                    {studentValidation.getFieldError("parentEmail")}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex justify-end space-x-3">
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                disabled={submitting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md"
               >
                 Cancel
               </button>
-              <button
+              <LoadingButton
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-md"
+                loading={submitting}
+                loadingText={editingStudent ? "Updating..." : "Adding..."}
+                className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
               >
                 {editingStudent ? "Update" : "Add"} Student
-              </button>
+              </LoadingButton>
             </div>
           </form>
         </div>
@@ -277,9 +434,10 @@ export const Students = () => {
                     </button>
                     <button
                       onClick={() => handleDelete(student.id)}
-                      className="text-red-600 hover:text-red-900"
+                      disabled={deleting === student.id}
+                      className="text-red-600 hover:text-red-900 disabled:text-red-400 disabled:cursor-not-allowed"
                     >
-                      Delete
+                      {deleting === student.id ? "Deleting..." : "Delete"}
                     </button>
                   </td>
                 </tr>

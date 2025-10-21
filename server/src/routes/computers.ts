@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { db } from "../storage.js";
-import { computers, computerAssignments } from "../schema.js";
+import { computers, computerAssignments, students } from "../schema.js";
 
 const router = Router();
 
@@ -124,10 +124,22 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// GET /api/computers/assignments - Get all computer assignments
+// GET /api/computers/assignments - Get all computer assignments with student names
 router.get("/assignments", async (req, res) => {
   try {
-    const assignments = await db.select().from(computerAssignments);
+    const assignments = await db
+      .select({
+        id: computerAssignments.id,
+        computerId: computerAssignments.computerId,
+        studentId: computerAssignments.studentId,
+        studentName: students.name,
+        classSessionId: computerAssignments.classSessionId,
+        assignedAt: computerAssignments.assignedAt,
+        releasedAt: computerAssignments.releasedAt,
+      })
+      .from(computerAssignments)
+      .leftJoin(students, eq(computerAssignments.studentId, students.id));
+
     res.json({ success: true, data: assignments });
   } catch (error) {
     console.error("Error fetching assignments:", error);

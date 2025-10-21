@@ -1,13 +1,29 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { useNotifications } from "../components/NotificationSystem";
+import { LoadingButton } from "../components/LoadingSpinner";
+import {
+  useFormValidation,
+  commonValidationRules,
+} from "../hooks/useFormValidation";
 import { api } from "../lib/api";
 
 export const Settings = () => {
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
   const [activeTab, setActiveTab] = useState("profile");
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+
+  // Form validation hooks
+  const profileValidation = useFormValidation({
+    name: commonValidationRules.name,
+    email: commonValidationRules.email,
+  });
+
+  const passwordValidation = useFormValidation({
+    currentPassword: { required: true },
+    newPassword: commonValidationRules.password,
+    confirmPassword: commonValidationRules.confirmPassword("newPassword"),
+  });
 
   const [profileData, setProfileData] = useState({
     name: user?.name || "",
@@ -26,74 +42,112 @@ export const Settings = () => {
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-    setMessage("");
+
+    if (!profileValidation.validateForm(profileData)) {
+      addNotification({
+        type: "error",
+        title: "Validation Error",
+        message: "Please fix the errors in the form",
+      });
+      return;
+    }
 
     try {
       const response = await api.updateProfile(profileData);
       if (response.success) {
-        setMessage("Profile updated successfully!");
+        addNotification({
+          type: "success",
+          title: "Profile Updated",
+          message: "Your profile has been updated successfully!",
+        });
       } else {
-        setError(response.message || "Failed to update profile");
+        addNotification({
+          type: "error",
+          title: "Update Failed",
+          message: response.message || "Failed to update profile",
+        });
       }
-    } catch (err) {
-      setError("An error occurred while updating profile");
-    } finally {
-      setLoading(false);
+    } catch (err: any) {
+      addNotification({
+        type: "error",
+        title: "Error",
+        message:
+          err.data?.message || "An error occurred while updating profile",
+      });
     }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setMessage("");
 
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setError("New passwords don't match!");
+    if (!passwordValidation.validateForm(passwordData)) {
+      addNotification({
+        type: "error",
+        title: "Validation Error",
+        message: "Please fix the errors in the form",
+      });
       return;
     }
 
-    setLoading(true);
     try {
       const response = await api.changePassword({
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
       if (response.success) {
-        setMessage("Password changed successfully!");
+        addNotification({
+          type: "success",
+          title: "Password Changed",
+          message: "Your password has been changed successfully!",
+        });
         setPasswordData({
           currentPassword: "",
           newPassword: "",
           confirmPassword: "",
         });
+        passwordValidation.clearErrors();
       } else {
-        setError(response.message || "Failed to change password");
+        addNotification({
+          type: "error",
+          title: "Password Change Failed",
+          message: response.message || "Failed to change password",
+        });
       }
-    } catch (err) {
-      setError("An error occurred while changing password");
-    } finally {
-      setLoading(false);
+    } catch (err: any) {
+      addNotification({
+        type: "error",
+        title: "Error",
+        message:
+          err.data?.message || "An error occurred while changing password",
+      });
     }
   };
 
   const handleSystemSettingsUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-    setMessage("");
 
     try {
       const response = await api.updateUserSettings(systemSettings);
       if (response.success) {
-        setMessage("Settings updated successfully!");
+        addNotification({
+          type: "success",
+          title: "Settings Updated",
+          message: "Your settings have been updated successfully!",
+        });
       } else {
-        setError(response.message || "Failed to update settings");
+        addNotification({
+          type: "error",
+          title: "Update Failed",
+          message: response.message || "Failed to update settings",
+        });
       }
-    } catch (err) {
-      setError("An error occurred while updating settings");
-    } finally {
-      setLoading(false);
+    } catch (err: any) {
+      addNotification({
+        type: "error",
+        title: "Error",
+        message:
+          err.data?.message || "An error occurred while updating settings",
+      });
     }
   };
 
@@ -149,11 +203,28 @@ export const Settings = () => {
                     <input
                       type="text"
                       value={profileData.name}
-                      onChange={(e) =>
-                        setProfileData({ ...profileData, name: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      onChange={(e) => {
+                        setProfileData({
+                          ...profileData,
+                          name: e.target.value,
+                        });
+                        profileValidation.validateSingleField(
+                          "name",
+                          e.target.value
+                        );
+                        profileValidation.setFieldTouched("name");
+                      }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                        profileValidation.getFieldError("name")
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      }`}
                     />
+                    {profileValidation.getFieldError("name") && (
+                      <p className="text-red-600 text-sm mt-1">
+                        {profileValidation.getFieldError("name")}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -162,36 +233,39 @@ export const Settings = () => {
                     <input
                       type="email"
                       value={profileData.email}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setProfileData({
                           ...profileData,
                           email: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        });
+                        profileValidation.validateSingleField(
+                          "email",
+                          e.target.value
+                        );
+                        profileValidation.setFieldTouched("email");
+                      }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                        profileValidation.getFieldError("email")
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      }`}
                     />
+                    {profileValidation.getFieldError("email") && (
+                      <p className="text-red-600 text-sm mt-1">
+                        {profileValidation.getFieldError("email")}
+                      </p>
+                    )}
                   </div>
                 </div>
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded p-3">
-                    <p className="text-red-600 text-sm">{error}</p>
-                  </div>
-                )}
-
-                {message && (
-                  <div className="bg-green-50 border border-green-200 rounded p-3">
-                    <p className="text-green-600 text-sm">{message}</p>
-                  </div>
-                )}
 
                 <div className="flex justify-end">
-                  <button
+                  <LoadingButton
                     type="submit"
-                    disabled={loading}
+                    loading={false}
                     className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
                   >
-                    {loading ? "Updating..." : "Update Profile"}
-                  </button>
+                    Update Profile
+                  </LoadingButton>
                 </div>
               </form>
             </div>
@@ -209,15 +283,29 @@ export const Settings = () => {
                   <input
                     type="password"
                     value={passwordData.currentPassword}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setPasswordData({
                         ...passwordData,
                         currentPassword: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      });
+                      passwordValidation.validateSingleField(
+                        "currentPassword",
+                        e.target.value
+                      );
+                      passwordValidation.setFieldTouched("currentPassword");
+                    }}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                      passwordValidation.getFieldError("currentPassword")
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    }`}
                     required
                   />
+                  {passwordValidation.getFieldError("currentPassword") && (
+                    <p className="text-red-600 text-sm mt-1">
+                      {passwordValidation.getFieldError("currentPassword")}
+                    </p>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -227,15 +315,29 @@ export const Settings = () => {
                     <input
                       type="password"
                       value={passwordData.newPassword}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setPasswordData({
                           ...passwordData,
                           newPassword: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        });
+                        passwordValidation.validateSingleField(
+                          "newPassword",
+                          e.target.value
+                        );
+                        passwordValidation.setFieldTouched("newPassword");
+                      }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                        passwordValidation.getFieldError("newPassword")
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      }`}
                       required
                     />
+                    {passwordValidation.getFieldError("newPassword") && (
+                      <p className="text-red-600 text-sm mt-1">
+                        {passwordValidation.getFieldError("newPassword")}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -244,37 +346,40 @@ export const Settings = () => {
                     <input
                       type="password"
                       value={passwordData.confirmPassword}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setPasswordData({
                           ...passwordData,
                           confirmPassword: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        });
+                        passwordValidation.validateSingleField(
+                          "confirmPassword",
+                          e.target.value
+                        );
+                        passwordValidation.setFieldTouched("confirmPassword");
+                      }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                        passwordValidation.getFieldError("confirmPassword")
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      }`}
                       required
                     />
+                    {passwordValidation.getFieldError("confirmPassword") && (
+                      <p className="text-red-600 text-sm mt-1">
+                        {passwordValidation.getFieldError("confirmPassword")}
+                      </p>
+                    )}
                   </div>
                 </div>
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded p-3">
-                    <p className="text-red-600 text-sm">{error}</p>
-                  </div>
-                )}
-
-                {message && (
-                  <div className="bg-green-50 border border-green-200 rounded p-3">
-                    <p className="text-green-600 text-sm">{message}</p>
-                  </div>
-                )}
 
                 <div className="flex justify-end">
-                  <button
+                  <LoadingButton
                     type="submit"
-                    disabled={loading}
+                    loading={false}
                     className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
                   >
-                    {loading ? "Changing..." : "Change Password"}
-                  </button>
+                    Change Password
+                  </LoadingButton>
                 </div>
               </form>
             </div>
@@ -328,26 +433,15 @@ export const Settings = () => {
                     </select>
                   </div>
                 </div>
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded p-3">
-                    <p className="text-red-600 text-sm">{error}</p>
-                  </div>
-                )}
-
-                {message && (
-                  <div className="bg-green-50 border border-green-200 rounded p-3">
-                    <p className="text-green-600 text-sm">{message}</p>
-                  </div>
-                )}
 
                 <div className="flex justify-end">
-                  <button
+                  <LoadingButton
                     type="submit"
-                    disabled={loading}
+                    loading={false}
                     className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
                   >
-                    {loading ? "Saving..." : "Save Settings"}
-                  </button>
+                    Save Settings
+                  </LoadingButton>
                 </div>
               </form>
             </div>
@@ -383,26 +477,15 @@ export const Settings = () => {
                     />
                   </div>
                 </div>
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded p-3">
-                    <p className="text-red-600 text-sm">{error}</p>
-                  </div>
-                )}
-
-                {message && (
-                  <div className="bg-green-50 border border-green-200 rounded p-3">
-                    <p className="text-green-600 text-sm">{message}</p>
-                  </div>
-                )}
 
                 <div className="flex justify-end">
-                  <button
+                  <LoadingButton
                     type="submit"
-                    disabled={loading}
+                    loading={false}
                     className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
                   >
-                    {loading ? "Saving..." : "Save Preferences"}
-                  </button>
+                    Save Preferences
+                  </LoadingButton>
                 </div>
               </form>
             </div>

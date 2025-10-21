@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../lib/api";
+import { useNotifications } from "../components/NotificationSystem";
 
 interface ReportParams {
   type: "attendance" | "students" | "classroom";
@@ -11,6 +12,7 @@ interface ReportParams {
 }
 
 export const Reports = () => {
+  const { addNotification } = useNotifications();
   const [generating, setGenerating] = useState(false);
   const [reportParams, setReportParams] = useState<ReportParams>({
     type: "attendance",
@@ -26,15 +28,37 @@ export const Reports = () => {
     try {
       const response = await api.generateReport(reportParams);
 
-      // Handle file download
-      if (response.data && (response.data as any).downloadUrl) {
-        window.open((response.data as any).downloadUrl, "_blank");
+      if (response.success) {
+        // Handle file download
+        if (response.data && (response.data as any).downloadUrl) {
+          window.open((response.data as any).downloadUrl, "_blank");
+          addNotification({
+            type: "success",
+            title: "Report Generated",
+            message: "Your report has been generated and is downloading.",
+          });
+        } else {
+          addNotification({
+            type: "success",
+            title: "Report Generated",
+            message: "Report generated successfully!",
+          });
+        }
       } else {
-        alert("Report generated successfully!");
+        addNotification({
+          type: "error",
+          title: "Report Generation Failed",
+          message: response.message || "Failed to generate report",
+        });
       }
     } catch (error) {
       console.error("Failed to generate report:", error);
-      alert("Failed to generate report. Please try again.");
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to generate report. Please check your connection and try again.",
+      });
     } finally {
       setGenerating(false);
     }

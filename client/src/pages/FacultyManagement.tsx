@@ -27,6 +27,10 @@ export const FacultyManagement = () => {
     password: "",
   });
 
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
   // Check if current user is admin
   if (user?.role !== "admin") {
     return (
@@ -43,10 +47,6 @@ export const FacultyManagement = () => {
       </div>
     );
   }
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
   const fetchUsers = async () => {
     try {

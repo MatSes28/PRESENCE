@@ -1,5 +1,9 @@
 import { Router, Route } from "wouter";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
+import {
+  NotificationProvider,
+  NotificationContainer,
+} from "./components/NotificationSystem";
 import { LoginForm } from "./components/LoginForm";
 import { Dashboard } from "./pages/Dashboard";
 import { Students } from "./pages/Students";
@@ -51,9 +55,12 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <NotificationProvider>
+      <AuthProvider>
+        <AppContent />
+        <NotificationContainer />
+      </AuthProvider>
+    </NotificationProvider>
   );
 }
 

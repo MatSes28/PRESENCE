@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
+import { useNotifications } from "../components/NotificationSystem";
 
 interface Computer {
   id: number;
@@ -22,14 +23,14 @@ interface ComputerAssignment {
 }
 
 export const LabComputers = () => {
+  const { addNotification } = useNotifications();
   const [computers, setComputers] = useState<Computer[]>([]);
   const [assignments, setAssignments] = useState<ComputerAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedComputer, setSelectedComputer] = useState<Computer | null>(
     null
   );
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  const [processing, setProcessing] = useState<string | null>(null);
 
   useEffect(() => {
     fetchComputers();
@@ -39,9 +40,24 @@ export const LabComputers = () => {
   const fetchComputers = async () => {
     try {
       const response = await api.getComputers();
-      setComputers((response.data as Computer[]) || []);
+      if (response.success) {
+        setComputers((response.data as Computer[]) || []);
+      } else {
+        addNotification({
+          type: "error",
+          title: "Failed to Load Computers",
+          message: response.message || "Unable to fetch computer data",
+        });
+        setComputers([]);
+      }
     } catch (error) {
       console.error("Failed to fetch computers:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to connect to the server. Please check your connection.",
+      });
       setComputers([]);
     }
   };
@@ -49,9 +65,24 @@ export const LabComputers = () => {
   const fetchAssignments = async () => {
     try {
       const response = await api.getComputerAssignments();
-      setAssignments((response.data as ComputerAssignment[]) || []);
+      if (response.success) {
+        setAssignments((response.data as ComputerAssignment[]) || []);
+      } else {
+        addNotification({
+          type: "error",
+          title: "Failed to Load Assignments",
+          message: response.message || "Unable to fetch assignment data",
+        });
+        setAssignments([]);
+      }
     } catch (error) {
       console.error("Failed to fetch assignments:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to connect to the server. Please check your connection.",
+      });
       setAssignments([]);
     } finally {
       setLoading(false);
@@ -96,6 +127,7 @@ export const LabComputers = () => {
   };
 
   const releaseComputer = async (computerId: number) => {
+    setProcessing(`release-${computerId}`);
     try {
       const assignment = assignments.find(
         (a) => a.computerId === computerId && !a.releasedAt
@@ -103,35 +135,67 @@ export const LabComputers = () => {
       if (assignment) {
         const response = await api.releaseComputer(assignment.id);
         if (response.success) {
-          setMessage("Computer released successfully!");
+          addNotification({
+            type: "success",
+            title: "Computer Released",
+            message:
+              "Computer has been successfully released from the current user.",
+          });
           fetchComputers();
           fetchAssignments();
         } else {
-          setError(response.message || "Failed to release computer");
+          addNotification({
+            type: "error",
+            title: "Release Failed",
+            message: response.message || "Failed to release computer",
+          });
         }
       }
     } catch (error) {
-      setError("An error occurred while releasing computer");
+      console.error("Failed to release computer:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to release computer. Please check your connection and try again.",
+      });
+    } finally {
+      setProcessing(null);
     }
   };
 
   const setMaintenance = async (computerId: number, maintenance: boolean) => {
+    setProcessing(`maintenance-${computerId}`);
     try {
       const response = await api.updateComputer(computerId, {
         status: maintenance ? "maintenance" : "available",
       });
       if (response.success) {
-        setMessage(
-          `Computer ${
+        addNotification({
+          type: "success",
+          title: "Status Updated",
+          message: `Computer ${
             maintenance ? "set to maintenance" : "activated"
-          } successfully!`
-        );
+          } successfully!`,
+        });
         fetchComputers();
       } else {
-        setError(response.message || "Failed to update computer status");
+        addNotification({
+          type: "error",
+          title: "Update Failed",
+          message: response.message || "Failed to update computer status",
+        });
       }
     } catch (error) {
-      setError("An error occurred while updating computer status");
+      console.error("Failed to update computer status:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to update computer status. Please check your connection and try again.",
+      });
+    } finally {
+      setProcessing(null);
     }
   };
 
@@ -169,18 +233,6 @@ export const LabComputers = () => {
           </button>
         </div>
       </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded p-3">
-          <p className="text-red-600 text-sm">{error}</p>
-        </div>
-      )}
-
-      {message && (
-        <div className="bg-green-50 border border-green-200 rounded p-3">
-          <p className="text-green-600 text-sm">{message}</p>
-        </div>
-      )}
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -295,25 +347,38 @@ export const LabComputers = () => {
                         {computer.status === "in_use" && (
                           <button
                             onClick={() => releaseComputer(computer.id)}
-                            className="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-xs font-medium"
+                            disabled={processing === `release-${computer.id}`}
+                            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
                           >
-                            Release
+                            {processing === `release-${computer.id}`
+                              ? "Releasing..."
+                              : "Release"}
                           </button>
                         )}
                         {computer.status !== "maintenance" && (
                           <button
                             onClick={() => setMaintenance(computer.id, true)}
-                            className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-xs font-medium"
+                            disabled={
+                              processing === `maintenance-${computer.id}`
+                            }
+                            className="flex-1 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-400 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
                           >
-                            Maintenance
+                            {processing === `maintenance-${computer.id}`
+                              ? "Setting..."
+                              : "Maintenance"}
                           </button>
                         )}
                         {computer.status === "maintenance" && (
                           <button
                             onClick={() => setMaintenance(computer.id, false)}
-                            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-xs font-medium"
+                            disabled={
+                              processing === `maintenance-${computer.id}`
+                            }
+                            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
                           >
-                            Activate
+                            {processing === `maintenance-${computer.id}`
+                              ? "Activating..."
+                              : "Activate"}
                           </button>
                         )}
                         <button
@@ -390,9 +455,14 @@ export const LabComputers = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           onClick={() => releaseComputer(assignment.computerId)}
-                          className="text-red-600 hover:text-red-900"
+                          disabled={
+                            processing === `release-${assignment.computerId}`
+                          }
+                          className="text-red-600 hover:text-red-900 disabled:text-red-400 disabled:cursor-not-allowed"
                         >
-                          Release
+                          {processing === `release-${assignment.computerId}`
+                            ? "Releasing..."
+                            : "Release"}
                         </button>
                       </td>
                     </tr>

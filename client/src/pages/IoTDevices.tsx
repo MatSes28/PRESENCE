@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
+import { useNotifications } from "../components/NotificationSystem";
 
 interface IoTDevice {
   id: number;
@@ -14,10 +15,12 @@ interface IoTDevice {
 }
 
 export const IoTDevices = () => {
+  const { addNotification } = useNotifications();
   const [devices, setDevices] = useState<IoTDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDevice, setSelectedDevice] = useState<IoTDevice | null>(null);
   const [commandResult, setCommandResult] = useState<string>("");
+  const [commandLoading, setCommandLoading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDevices();
@@ -26,9 +29,24 @@ export const IoTDevices = () => {
   const fetchDevices = async () => {
     try {
       const response = await api.getIoTDevices();
-      setDevices((response.data as IoTDevice[]) || []);
+      if (response.success) {
+        setDevices((response.data as IoTDevice[]) || []);
+      } else {
+        addNotification({
+          type: "error",
+          title: "Failed to Load Devices",
+          message: response.message || "Unable to fetch IoT device data",
+        });
+        setDevices([]);
+      }
     } catch (error) {
       console.error("Failed to fetch devices:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to connect to the server. Please check your connection.",
+      });
       setDevices([]);
     } finally {
       setLoading(false);
@@ -40,15 +58,32 @@ export const IoTDevices = () => {
     command: string,
     params?: any
   ) => {
+    setCommandLoading(deviceId);
     try {
-      setCommandResult(`Sending ${command} command...`);
       const response = await api.sendDeviceCommand(deviceId, command, params);
-      setCommandResult(
-        `Command sent successfully: ${response.message || "OK"}`
-      );
-      fetchDevices(); // Refresh device list
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Command Sent",
+          message: `${command} command executed successfully on device ${deviceId}`,
+        });
+        fetchDevices(); // Refresh device list
+      } else {
+        addNotification({
+          type: "error",
+          title: "Command Failed",
+          message: response.message || `Failed to execute ${command} command`,
+        });
+      }
     } catch (error) {
-      setCommandResult(`Command failed: ${error}`);
+      console.error("Failed to send command:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message: `Failed to send ${command} command. Please check your connection.`,
+      });
+    } finally {
+      setCommandLoading(null);
     }
   };
 
@@ -220,16 +255,22 @@ export const IoTDevices = () => {
                 <button
                   onClick={() => sendCommand(device.deviceId, "ping")}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium"
-                  disabled={device.status !== "online"}
+                  disabled={
+                    device.status !== "online" ||
+                    commandLoading === device.deviceId
+                  }
                 >
-                  Ping
+                  {commandLoading === device.deviceId ? "..." : "Ping"}
                 </button>
                 <button
                   onClick={() => sendCommand(device.deviceId, "restart")}
                   className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-sm font-medium"
-                  disabled={device.status !== "online"}
+                  disabled={
+                    device.status !== "online" ||
+                    commandLoading === device.deviceId
+                  }
                 >
-                  Restart
+                  {commandLoading === device.deviceId ? "..." : "Restart"}
                 </button>
                 <button
                   onClick={() => setSelectedDevice(device)}
@@ -309,18 +350,28 @@ export const IoTDevices = () => {
                       })
                     }
                     className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium"
-                    disabled={selectedDevice.status !== "online"}
+                    disabled={
+                      selectedDevice.status !== "online" ||
+                      commandLoading === selectedDevice.deviceId
+                    }
                   >
-                    Update Config
+                    {commandLoading === selectedDevice.deviceId
+                      ? "Updating..."
+                      : "Update Config"}
                   </button>
                   <button
                     onClick={() =>
                       sendCommand(selectedDevice.deviceId, "status")
                     }
                     className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm font-medium"
-                    disabled={selectedDevice.status !== "online"}
+                    disabled={
+                      selectedDevice.status !== "online" ||
+                      commandLoading === selectedDevice.deviceId
+                    }
                   >
-                    Get Status
+                    {commandLoading === selectedDevice.deviceId
+                      ? "Getting..."
+                      : "Get Status"}
                   </button>
                 </div>
               </div>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
+import { useNotifications } from "../components/NotificationSystem";
+import { LoadingButton } from "../components/LoadingSpinner";
 
 interface Schedule {
   id: number;
@@ -28,9 +30,11 @@ const DAYS_OF_WEEK = [
 ];
 
 export const Schedule = () => {
+  const { addNotification } = useNotifications();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     subjectId: "",
     classroomId: "",
@@ -50,9 +54,25 @@ export const Schedule = () => {
   const fetchSchedules = async () => {
     try {
       const response = await api.getSchedules();
-      setSchedules((response.data as Schedule[]) || []);
+      if (response.success) {
+        setSchedules((response.data as Schedule[]) || []);
+      } else {
+        addNotification({
+          type: "error",
+          title: "Failed to Load Schedules",
+          message: response.message || "Unable to fetch schedule data",
+        });
+        setSchedules([]);
+      }
     } catch (error) {
       console.error("Failed to fetch schedules:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to connect to the server. Please check your connection.",
+      });
+      setSchedules([]);
     }
   };
 
@@ -70,8 +90,20 @@ export const Schedule = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Basic validation
+    if (!formData.subjectId || !formData.classroomId || !formData.facultyId) {
+      addNotification({
+        type: "error",
+        title: "Validation Error",
+        message: "Please fill in all required fields",
+      });
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      await api.createSchedule({
+      const response = await api.createSchedule({
         subjectId: parseInt(formData.subjectId),
         classroomId: parseInt(formData.classroomId),
         facultyId: parseInt(formData.facultyId),
@@ -81,10 +113,32 @@ export const Schedule = () => {
         semester: formData.semester,
         academicYear: formData.academicYear,
       });
-      fetchSchedules();
-      resetForm();
+
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Schedule Added",
+          message: "Schedule has been successfully created!",
+        });
+        fetchSchedules();
+        resetForm();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Save Failed",
+          message: response.message || "Failed to create schedule",
+        });
+      }
     } catch (error) {
       console.error("Failed to create schedule:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to save schedule. Please check your connection and try again.",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -275,16 +329,19 @@ export const Schedule = () => {
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                disabled={submitting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md"
               >
                 Cancel
               </button>
-              <button
+              <LoadingButton
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-md"
+                loading={submitting}
+                loadingText="Adding..."
+                className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
               >
                 Add Schedule
-              </button>
+              </LoadingButton>
             </div>
           </form>
         </div>
