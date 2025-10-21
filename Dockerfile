@@ -21,7 +21,6 @@ WORKDIR /app/server
 RUN npm install
 
 # Copy client source code
-COPY client/package*.json ./client/
 COPY client/ ./client/
 
 # Copy shared source files to server (no build needed for TypeScript types)
@@ -48,7 +47,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Build the client
 WORKDIR /app/client
 RUN npm install
-RUN ls -la index.html && npx vite build
+RUN ls -la && npx vite build
 
 # Copy built client to server public directory
 RUN mkdir -p ../server/public
