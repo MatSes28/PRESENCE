@@ -36,11 +36,16 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
 # Build the client
-RUN npm run build --workspace=client
+WORKDIR /app/client
+RUN npm install
+RUN npm run build
 
 # Copy built client to server public directory
-RUN mkdir -p server/public
-RUN cp -r client/dist/* server/public/
+RUN mkdir -p ../server/public
+RUN cp -r dist/* ../server/public/
+
+# Go back to root directory
+WORKDIR /app
 
 # Start the application directly with tsx
 CMD ["npx", "tsx", "server/src/index.ts"]
