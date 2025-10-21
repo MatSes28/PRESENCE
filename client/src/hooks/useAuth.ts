@@ -110,6 +110,5 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     loading,
     error,
   };
-
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
