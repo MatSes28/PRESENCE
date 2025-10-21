@@ -1,0 +1,201 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.attendanceMonitor = void 0;
+const storage_js_1 = require("../storage.js");
+const schema_js_1 = require("../schema.js");
+const drizzle_orm_1 = require("drizzle-orm");
+class AttendanceMonitor {
+    activeSessions = new Map();
+    validationWindow = 7000;
+    async processRFIDScan(scan) {
+        try {
+            const student = await storage_js_1.db
+                .select()
+                .from(schema_js_1.students)
+                .where((0, drizzle_orm_1.eq)(schema_js_1.students.rfidUid, scan.rfidUid))
+                .limit(1);
+            if (!student.length) {
+                console.log(`Unknown RFID UID: ${scan.rfidUid}`);
+                return { success: false, message: "Unknown RFID card" };
+            }
+            const studentData = student[0];
+            const now = new Date();
+            const currentSession = await this.findActiveClassSession(now);
+            if (!currentSession) {
+                console.log(`No active class session for student ${studentData.id}`);
+                return { success: false, message: "No active class session" };
+            }
+            const existingRecord = await storage_js_1.db
+                .select()
+                .from(schema_js_1.attendanceRecords)
+                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, studentData.id), (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, currentSession.id)))
+                .limit(1);
+            if (existingRecord.length) {
+                await this.updateAttendanceRecord(existingRecord[0], "rfid", now);
+            }
+            else {
+                await this.createAttendanceRecord({
+                    studentId: studentData.id,
+                    classSessionId: currentSession.id,
+                    rfidDetected: true,
+                    sensorDetected: false,
+                });
+            }
+            return {
+                success: true,
+                student: studentData,
+                session: currentSession,
+            };
+        }
+        catch (error) {
+            console.error("Error processing RFID scan:", error);
+            return { success: false, message: "Internal error" };
+        }
+    }
+    async processSensorTrigger(trigger) {
+        try {
+            const now = new Date();
+            const currentSession = await this.findActiveClassSession(now);
+            if (!currentSession) {
+                console.log("No active class session for sensor trigger");
+                return { success: false, message: "No active class session" };
+            }
+            const recentScans = await this.findRecentRFIDScans(trigger.deviceId, now);
+            if (recentScans.length === 0) {
+                console.log("Sensor trigger without recent RFID scan - potential ghost attendance");
+                await this.createDiscrepancyRecord(trigger, currentSession.id);
+                return {
+                    success: false,
+                    message: "Sensor trigger without RFID validation",
+                };
+            }
+            const recentScan = recentScans[0];
+            const student = await storage_js_1.db
+                .select()
+                .from(schema_js_1.students)
+                .where((0, drizzle_orm_1.eq)(schema_js_1.students.rfidUid, recentScan.rfidUid))
+                .limit(1);
+            if (!student.length) {
+                return { success: false, message: "Student not found" };
+            }
+            const existingRecord = await storage_js_1.db
+                .select()
+                .from(schema_js_1.attendanceRecords)
+                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, student[0].id), (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, currentSession.id)))
+                .limit(1);
+            if (existingRecord.length) {
+                await this.updateAttendanceRecord(existingRecord[0], "sensor", now, trigger.sensorType);
+            }
+            else {
+                await this.createAttendanceRecord({
+                    studentId: student[0].id,
+                    classSessionId: currentSession.id,
+                    rfidDetected: false,
+                    sensorDetected: true,
+                    [trigger.sensorType === "entry" ? "entryTime" : "exitTime"]: now,
+                });
+            }
+            return {
+                success: true,
+                student: student[0],
+                session: currentSession,
+                triggerType: trigger.sensorType,
+            };
+        }
+        catch (error) {
+            console.error("Error processing sensor trigger:", error);
+            return { success: false, message: "Internal error" };
+        }
+    }
+    async findActiveClassSession(currentTime) {
+        const sessions = await storage_js_1.db
+            .select()
+            .from(schema_js_1.classSessions)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.gte)(schema_js_1.classSessions.date, new Date(currentTime.getTime() - 60 * 60 * 1000)), (0, drizzle_orm_1.lte)(schema_js_1.classSessions.date, new Date(currentTime.getTime() + 60 * 60 * 1000))));
+        return sessions[0] || null;
+    }
+    async findRecentRFIDScans(deviceId, currentTime) {
+        return [];
+    }
+    async createAttendanceRecord(record) {
+        const [newRecord] = await storage_js_1.db
+            .insert(schema_js_1.attendanceRecords)
+            .values({
+            studentId: record.studentId,
+            classSessionId: record.classSessionId,
+            entryTime: record.entryTime || null,
+            exitTime: record.exitTime || null,
+            rfidDetected: record.rfidDetected || false,
+            sensorDetected: record.sensorDetected || false,
+            isValid: (record.rfidDetected && record.sensorDetected) || false,
+            discrepancyFlag: !(record.rfidDetected && record.sensorDetected) || false,
+            notes: record.notes || null,
+        })
+            .returning();
+        console.log(`Created attendance record: ${newRecord.id}`);
+        return newRecord;
+    }
+    async updateAttendanceRecord(existingRecord, detectionType, timestamp, sensorType) {
+        const updateData = {};
+        if (detectionType === "rfid") {
+            updateData.rfidDetected = true;
+        }
+        else if (detectionType === "sensor") {
+            updateData.sensorDetected = true;
+            if (sensorType === "entry") {
+                updateData.entryTime = timestamp;
+            }
+            else if (sensorType === "exit") {
+                updateData.exitTime = timestamp;
+            }
+        }
+        updateData.isValid =
+            (existingRecord.rfidDetected || updateData.rfidDetected) &&
+                (existingRecord.sensorDetected || updateData.sensorDetected);
+        updateData.discrepancyFlag = !updateData.isValid;
+        await storage_js_1.db
+            .update(schema_js_1.attendanceRecords)
+            .set(updateData)
+            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.id, existingRecord.id));
+        console.log(`Updated attendance record: ${existingRecord.id}`);
+    }
+    async createDiscrepancyRecord(trigger, sessionId) {
+        await storage_js_1.db.insert(schema_js_1.attendanceRecords).values({
+            studentId: 0,
+            classSessionId: sessionId,
+            sensorDetected: true,
+            rfidDetected: false,
+            isValid: false,
+            discrepancyFlag: true,
+            notes: `Sensor trigger without RFID validation: ${trigger.sensorType} sensor, distance: ${trigger.distance}cm`,
+        });
+        console.log(`Created discrepancy record for sensor trigger`);
+    }
+    async validateAttendanceRecord(recordId) {
+        await storage_js_1.db
+            .update(schema_js_1.attendanceRecords)
+            .set({
+            isValid: true,
+            discrepancyFlag: false,
+            notes: "Manually validated",
+        })
+            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.id, recordId));
+    }
+    async getAttendanceStats(sessionId) {
+        const records = await storage_js_1.db
+            .select()
+            .from(schema_js_1.attendanceRecords)
+            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, sessionId));
+        const stats = {
+            totalRecords: records.length,
+            validRecords: records.filter((r) => r.isValid).length,
+            discrepancies: records.filter((r) => r.discrepancyFlag).length,
+            rfidOnly: records.filter((r) => r.rfidDetected && !r.sensorDetected)
+                .length,
+            sensorOnly: records.filter((r) => r.sensorDetected && !r.rfidDetected)
+                .length,
+        };
+        return stats;
+    }
+}
+exports.attendanceMonitor = new AttendanceMonitor();
