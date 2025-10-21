@@ -19,7 +19,14 @@ COPY shared/ ./shared/
 # Install server dependencies
 WORKDIR /app/server
 RUN npm install
-WORKDIR /app
+
+# Build shared schemas first
+WORKDIR /app/shared
+RUN npm run build
+
+# Copy built shared schemas to server
+RUN cp -r dist/* ../server/shared/
+WORKDIR /app/server
 
 # Copy client source code
 COPY client/ ./client/
