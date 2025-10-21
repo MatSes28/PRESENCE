@@ -22,14 +22,11 @@ COPY client/ ./client/
 # Copy database setup script
 COPY database_setup.sql ./
 
-# Set environment variable for database URL
-ENV DATABASE_URL=postgresql://postgres:ivXwpKRBFPqDEzhjzMlfQOpBXZorhyTy@mainline.proxy.rlwy.net:22250/railway
-
 # Install PostgreSQL client for database setup
 RUN apk add --no-cache postgresql-client
 
 # Setup database schema (skip if already exists)
-RUN psql "$DATABASE_URL" -f database_setup.sql 2>/dev/null || echo "Database setup completed or already exists"
+RUN psql "${DATABASE_URL}" -f database_setup.sql 2>/dev/null || echo "Database setup completed or already exists"
 
 # Expose port
 EXPOSE 3000
