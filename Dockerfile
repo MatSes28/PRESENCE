@@ -7,8 +7,9 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 COPY server/package*.json ./server/
+COPY shared/package*.json ./shared/
 
-# Install dependencies for server only
+# Install dependencies for all workspaces
 RUN npm install
 
 # Copy server source code
