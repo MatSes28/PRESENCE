@@ -29,6 +29,8 @@ router.post("/login", async (req, res) => {
       .where(eq(users.email, email))
       .limit(1);
 
+    console.log("User result:", userResult);
+
     if (userResult.length === 0) {
       return res.status(401).json({
         success: false,
