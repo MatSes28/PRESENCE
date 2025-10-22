@@ -48,7 +48,8 @@ export const Roster: React.FC = () => {
 
     setLoading(true);
     try {
-      const response = await api.get(`/enrollments/roster/${selectedSubject}`);
+      // Simplified: students belong to subjects directly, no separate enrollment tracking
+      const response = await api.get(`/subjects/${selectedSubject}/students`);
       setStudents(response.data);
     } catch (error) {
       console.error("Failed to load roster:", error);
@@ -58,7 +59,8 @@ export const Roster: React.FC = () => {
     }
   };
 
-  const canManageEnrollments = user?.role === "admin";
+  // Simplified: no complex enrollment management, just view rosters
+  const canManageEnrollments = false;
 
   return (
     <div className="space-y-6">

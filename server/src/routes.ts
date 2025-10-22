@@ -4,13 +4,12 @@ import studentRoutes from "./routes/students.js";
 import attendanceRoutes from "./routes/attendance.js";
 import classroomRoutes from "./routes/classrooms.js";
 import scheduleRoutes from "./routes/schedules.js";
+import classSessionRoutes from "./routes/classSessions.js";
 import reportRoutes from "./routes/reports.js";
-import iotRoutes from "./routes/iot.js";
 import userRoutes from "./routes/users.js";
 import computerRoutes from "./routes/computers.js";
-import enrollmentRoutes from "./routes/enrollments.js";
 import notificationRoutes from "./routes/notifications.js";
-import auditRoutes from "./routes/audit.js";
+// Removed audit routes - not in paper scope
 
 const router = Router();
 
@@ -20,12 +19,10 @@ router.use("/students", studentRoutes);
 router.use("/attendance", attendanceRoutes);
 router.use("/classrooms", classroomRoutes);
 router.use("/schedules", scheduleRoutes);
+router.use("/sessions", classSessionRoutes);
 router.use("/reports", reportRoutes);
-router.use("/iot", iotRoutes);
 router.use("/users", userRoutes);
 router.use("/computers", computerRoutes);
-router.use("/enrollments", enrollmentRoutes);
 router.use("/notifications", notificationRoutes);
-router.use("/audit", auditRoutes);
 
 export default router;

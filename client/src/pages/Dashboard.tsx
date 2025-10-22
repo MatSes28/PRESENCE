@@ -58,28 +58,8 @@ const menuSections: MenuSection[] = [
     ],
   },
   {
-    title: "IoT Devices",
-    items: [{ name: "IoT Devices", icon: "📡", description: "ESP32 hardware" }],
-  },
-  {
-    title: "System Health",
-    items: [
-      { name: "System Health", icon: "🩺", description: "Performance monitor" },
-    ],
-  },
-  {
-    title: "System Testing",
-    items: [
-      { name: "System Testing", icon: "🧪", description: "Test & simulate" },
-    ],
-  },
-  {
     title: "Reports",
     items: [{ name: "Reports", icon: "📈", description: "Data insights" }],
-  },
-  {
-    title: "Help Center",
-    items: [{ name: "Help Center", icon: "❓", description: "Guides & FAQs" }],
   },
   {
     title: "Settings",
@@ -273,12 +253,6 @@ export const Dashboard = () => {
                       className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-600 rounded"
                     >
                       📅 View Schedule
-                    </button>
-                    <button
-                      onClick={() => (window.location.href = "/devices")}
-                      className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-600 rounded"
-                    >
-                      📡 IoT Devices
                     </button>
                   </div>
                 </div>

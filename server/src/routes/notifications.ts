@@ -179,41 +179,62 @@ router.post("/", requireAdminOrFaculty, async (req, res) => {
       });
     }
 
-    // Send email
-    const emailSent = await emailService.sendAttendanceNotification(
-      recipientEmail,
-      student.name,
-      type,
-      message || `This is an attendance notification for ${student.name}.`,
-      new Date()
-    );
+    // Send email - only for absences, focused on parents
+    if (type === "absent") {
+      // Get subject name for the notification
+      const sessionData = await db
+        .select({
+          subjectName: subjects.name,
+        })
+        .from(classSessions)
+        .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+        .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
+        .where(eq(classSessions.id, classSessionId))
+        .limit(1);
 
-    if (!emailSent) {
-      return res.status(500).json({
+      const subjectName =
+        sessionData.length > 0 ? sessionData[0].subjectName : "Subject";
+
+      const emailSent = await emailService.sendAbsenceNotification(
+        recipientEmail,
+        student.name,
+        subjectName,
+        new Date()
+      );
+
+      if (!emailSent) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to send absence notification",
+        });
+      }
+
+      // Log the notification
+      const [notification] = await db
+        .insert(emailNotifications)
+        .values({
+          studentId,
+          classSessionId,
+          type,
+          sentAt: new Date(),
+          recipientEmail,
+          message: `Your child ${
+            student.name
+          } was marked absent from ${subjectName} on ${new Date().toLocaleDateString()}.`,
+        })
+        .returning();
+
+      res.status(201).json({
+        success: true,
+        message: "Absence notification sent successfully",
+        notification,
+      });
+    } else {
+      return res.status(400).json({
         success: false,
-        message: "Failed to send email notification",
+        message: "Only absence notifications are supported",
       });
     }
-
-    // Log the notification
-    const [notification] = await db
-      .insert(emailNotifications)
-      .values({
-        studentId,
-        classSessionId,
-        type,
-        sentAt: new Date(),
-        recipientEmail,
-        message:
-          message || `This is an attendance notification for ${student.name}.`,
-      })
-      .returning();
-
-    res.status(201).json({
-      success: true,
-      message: "Notification sent successfully",
-      notification,
-    });
   } catch (error) {
     console.error("Send notification error:", error);
     res.status(500).json({
@@ -281,34 +302,53 @@ router.post("/bulk", requireAdminOrFaculty, async (req, res) => {
           continue;
         }
 
-        // Send email
-        const emailSent = await emailService.sendAttendanceNotification(
-          recipientEmail,
-          student.name,
-          type,
-          message || `This is an attendance notification for ${student.name}.`,
-          new Date()
-        );
-
-        if (emailSent) {
-          // Log the notification
-          const [notification] = await db
-            .insert(emailNotifications)
-            .values({
-              studentId,
-              classSessionId,
-              type,
-              sentAt: new Date(),
-              recipientEmail,
-              message:
-                message ||
-                `This is an attendance notification for ${student.name}.`,
+        // Send email - only absences supported in bulk
+        if (type === "absent") {
+          // Get subject name for the notification
+          const sessionData = await db
+            .select({
+              subjectName: subjects.name,
             })
-            .returning();
+            .from(classSessions)
+            .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+            .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
+            .where(eq(classSessions.id, classSessionId))
+            .limit(1);
 
-          notifications.push(notification);
+          const subjectName =
+            sessionData.length > 0 ? sessionData[0].subjectName : "Subject";
+
+          const emailSent = await emailService.sendAbsenceNotification(
+            recipientEmail,
+            student.name,
+            subjectName,
+            new Date()
+          );
+
+          if (emailSent) {
+            // Log the notification
+            const [notification] = await db
+              .insert(emailNotifications)
+              .values({
+                studentId,
+                classSessionId,
+                type,
+                sentAt: new Date(),
+                recipientEmail,
+                message: `Your child ${
+                  student.name
+                } was marked absent from ${subjectName} on ${new Date().toLocaleDateString()}.`,
+              })
+              .returning();
+
+            notifications.push(notification);
+          } else {
+            errors.push(`Failed to send email to ${student.name}`);
+          }
         } else {
-          errors.push(`Failed to send email to ${student.name}`);
+          errors.push(
+            `Only absence notifications are supported for student ${student.name}`
+          );
         }
       } catch (error) {
         console.error(

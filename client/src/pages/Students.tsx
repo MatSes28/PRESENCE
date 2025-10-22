@@ -28,20 +28,20 @@ export const Students = () => {
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
 
-  // Form validation hooks
-  const studentValidation = useFormValidation({
-    studentId: commonValidationRules.studentId,
-    name: commonValidationRules.name,
-    email: { ...commonValidationRules.email, required: false },
-    parentEmail: { ...commonValidationRules.email, required: false },
-  });
-
   const [formData, setFormData] = useState({
     studentId: "",
     name: "",
     email: "",
     rfidUid: "",
     parentEmail: "",
+  });
+
+  // Form validation hooks - Make parent email mandatory
+  const studentValidation = useFormValidation({
+    studentId: commonValidationRules.studentId,
+    name: commonValidationRules.name,
+    email: { ...commonValidationRules.email, required: false },
+    parentEmail: commonValidationRules.email, // Now required
   });
 
   useEffect(() => {
@@ -214,12 +214,14 @@ export const Students = () => {
             Manage student records and RFID assignments
           </p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-        >
-          Add Student
-        </button>
+        {user?.role === "admin" && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+          >
+            Add Student
+          </button>
+        )}
       </div>
 
       {/* Add/Edit Form */}
@@ -330,7 +332,7 @@ export const Students = () => {
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Parent Email
+                  Parent Email *
                 </label>
                 <input
                   type="email"
@@ -431,19 +433,23 @@ export const Students = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button
-                      onClick={() => startEdit(student)}
-                      className="text-teal-600 hover:text-teal-900"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(student.id)}
-                      disabled={deleting === student.id}
-                      className="text-red-600 hover:text-red-900 disabled:text-red-400 disabled:cursor-not-allowed"
-                    >
-                      {deleting === student.id ? "Deleting..." : "Delete"}
-                    </button>
+                    {user?.role === "admin" && (
+                      <>
+                        <button
+                          onClick={() => startEdit(student)}
+                          className="text-teal-600 hover:text-teal-900"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(student.id)}
+                          disabled={deleting === student.id}
+                          className="text-red-600 hover:text-red-900 disabled:text-red-400 disabled:cursor-not-allowed"
+                        >
+                          {deleting === student.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}

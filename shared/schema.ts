@@ -27,7 +27,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Students table
+// Students table - Limited to BSIT students from DIT under College of Engineering
 export const students = pgTable("students", {
   id: serial("id").primaryKey(),
   studentId: varchar("student_id", { length: 50 }).notNull().unique(),
@@ -35,19 +35,26 @@ export const students = pgTable("students", {
   email: varchar("email", { length: 255 }),
   year: integer("year"),
   section: varchar("section", { length: 50 }),
+  program: varchar("program", { length: 100 }).default("BSIT").notNull(), // Always BSIT
+  department: varchar("department", { length: 100 }).default("DIT").notNull(), // Always DIT
+  college: varchar("college", { length: 100 })
+    .default("College of Engineering")
+    .notNull(), // Always College of Engineering
   rfidUid: varchar("rfid_uid", { length: 50 }).unique(),
-  parentEmail: varchar("parent_email", { length: 255 }),
+  parentEmail: varchar("parent_email", { length: 255 }).notNull(), // Made mandatory
   parentName: varchar("parent_name", { length: 255 }),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Classrooms table
+// Classrooms table - Limited to 4 CLIRDEC classrooms
 export const classrooms = pgTable("classrooms", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
-  location: varchar("location", { length: 255 }),
+  location: varchar("location", { length: 255 })
+    .default("CLIRDEC Building")
+    .notNull(), // Always CLIRDEC Building
   type: varchar("type", { length: 50 }).default("lecture").notNull(), // lecture, laboratory
   capacity: integer("capacity"),
   isActive: boolean("is_active").default(true).notNull(),
@@ -134,7 +141,7 @@ export const computers = pgTable("computers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Computer Assignments table
+// Computer Assignments table - Enhanced for usage monitoring
 export const computerAssignments = pgTable("computer_assignments", {
   id: serial("id").primaryKey(),
   computerId: integer("computer_id")
@@ -146,6 +153,10 @@ export const computerAssignments = pgTable("computer_assignments", {
   classSessionId: integer("class_session_id")
     .references(() => classSessions.id)
     .notNull(),
+  loginTime: timestamp("login_time"), // When student starts using computer
+  logoutTime: timestamp("logout_time"), // When student stops using computer
+  sessionDuration: integer("session_duration"), // Duration in minutes
+  status: varchar("status", { length: 20 }).default("assigned").notNull(), // assigned, active, completed
   assignedAt: timestamp("assigned_at").defaultNow().notNull(),
   releasedAt: timestamp("released_at"),
   isActive: boolean("is_active").default(true).notNull(),
@@ -198,20 +209,9 @@ export const emailNotifications = pgTable("email_notifications", {
   isActive: boolean("is_active").default(true).notNull(),
 });
 
-// Audit Logs table
-export const auditLogs = pgTable("audit_logs", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
-  action: varchar("action", { length: 255 }).notNull(),
-  details: jsonb("details"),
-  timestamp: timestamp("timestamp").defaultNow().notNull(),
-  isActive: boolean("is_active").default(true).notNull(),
-});
-
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   schedules: many(schedules),
-  auditLogs: many(auditLogs),
 }));
 
 export const studentsRelations = relations(students, ({ many }) => ({
@@ -333,13 +333,6 @@ export const emailNotificationsRelations = relations(
   })
 );
 
-export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
-  user: one(users, {
-    fields: [auditLogs.userId],
-    references: [users.id],
-  }),
-}));
-
 // Types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -376,21 +369,3 @@ export type NewEnrollment = typeof enrollments.$inferInsert;
 
 export type EmailNotification = typeof emailNotifications.$inferSelect;
 export type NewEmailNotification = typeof emailNotifications.$inferInsert;
-
-export type AuditLog = typeof auditLogs.$inferSelect;
-export type NewAuditLog = typeof auditLogs.$inferInsert;
-
-// Password Reset Tokens table
-export const passwordResetTokens = pgTable("password_reset_tokens", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id")
-    .references(() => users.id)
-    .notNull(),
-  token: varchar("token", { length: 255 }).notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
-  used: boolean("used").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
-export type NewPasswordResetToken = typeof passwordResetTokens.$inferInsert;

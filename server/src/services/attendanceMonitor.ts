@@ -1,5 +1,10 @@
 import { db } from "../storage.js";
-import { attendanceRecords, students, classSessions } from "../schema.js";
+import {
+  attendanceRecords,
+  students,
+  classSessions,
+  schedules,
+} from "../schema.js";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { sendToDevice } from "./websocket.js";
 
@@ -170,26 +175,46 @@ class AttendanceMonitor {
   }
 
   private async findActiveClassSession(currentTime: Date) {
-    // Find class sessions that are currently active
-    const sessions = await db
-      .select()
-      .from(classSessions)
+    // Find class sessions that are currently active based on schedule
+    const dayOfWeek = currentTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const currentTimeStr = currentTime.toTimeString().slice(0, 8); // HH:MM:SS format
+
+    // Find schedules for today that are currently active
+    const activeSchedules = await db
+      .select({
+        schedule: schedules,
+        session: classSessions,
+      })
+      .from(schedules)
+      .innerJoin(classSessions, eq(schedules.id, classSessions.scheduleId))
       .where(
         and(
+          eq(schedules.dayOfWeek, dayOfWeek),
+          eq(classSessions.status, "active"),
+          lte(schedules.startTime, currentTimeStr),
+          gte(schedules.endTime, currentTimeStr),
+          // Session date matches today
           gte(
             classSessions.date,
-            new Date(currentTime.getTime() - 60 * 60 * 1000)
-          ), // Within last hour
+            new Date(
+              currentTime.getFullYear(),
+              currentTime.getMonth(),
+              currentTime.getDate()
+            )
+          ),
           lte(
             classSessions.date,
-            new Date(currentTime.getTime() + 60 * 60 * 1000)
-          ) // Within next hour
+            new Date(
+              currentTime.getFullYear(),
+              currentTime.getMonth(),
+              currentTime.getDate() + 1
+            )
+          )
         )
       );
 
-    // For simplicity, return the first active session
-    // In a real implementation, you'd match by classroom/device
-    return sessions[0] || null;
+    // Return the first active session
+    return activeSchedules.length > 0 ? activeSchedules[0].session : null;
   }
 
   private async findRecentRFIDScans(deviceId: string, currentTime: Date) {

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { api } from "../lib/api";
 import { useNotifications } from "../components/NotificationSystem";
 import { LoadingButton } from "../components/LoadingSpinner";
+import { useAuth } from "../hooks/useAuth";
 
 interface Schedule {
   id: number;
@@ -31,6 +32,7 @@ const DAYS_OF_WEEK = [
 
 export const Schedule = () => {
   const { addNotification } = useNotifications();
+  const { user } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -188,12 +190,14 @@ export const Schedule = () => {
             Manage class timetables and sessions
           </p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-        >
-          Add Schedule
-        </button>
+        {user?.role === "admin" && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+          >
+            Add Schedule
+          </button>
+        )}
       </div>
 
       {/* Add Schedule Form */}

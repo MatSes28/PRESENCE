@@ -35,9 +35,11 @@ export const Settings = () => {
     confirmPassword: "",
   });
   const [systemSettings, setSystemSettings] = useState({
+    lateThreshold: 15, // Default: 15 minutes as per paper
+    absentThreshold: 60, // Default: 60% of class time as per paper
     emailNotifications: true,
-    darkMode: false,
-    language: "en",
+    semester: "1st Semester",
+    academicYear: new Date().getFullYear().toString(),
   });
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
@@ -127,18 +129,22 @@ export const Settings = () => {
     e.preventDefault();
 
     try {
-      const response = await api.updateUserSettings(systemSettings);
+      const response = await api.updateUserSettings({
+        emailNotifications: systemSettings.emailNotifications,
+        darkMode: false,
+        language: "en",
+      });
       if (response.success) {
         addNotification({
           type: "success",
-          title: "Settings Updated",
-          message: "Your settings have been updated successfully!",
+          title: "System Settings Updated",
+          message: "System settings have been updated successfully!",
         });
       } else {
         addNotification({
           type: "error",
           title: "Update Failed",
-          message: response.message || "Failed to update settings",
+          message: response.message || "Failed to update system settings",
         });
       }
     } catch (err: any) {
@@ -146,7 +152,8 @@ export const Settings = () => {
         type: "error",
         title: "Error",
         message:
-          err.data?.message || "An error occurred while updating settings",
+          err.data?.message ||
+          "An error occurred while updating system settings",
       });
     }
   };
@@ -155,7 +162,6 @@ export const Settings = () => {
     { id: "profile", label: "Profile", icon: "👤" },
     { id: "security", label: "Security", icon: "🔒" },
     { id: "system", label: "System", icon: "⚙️" },
-    { id: "notifications", label: "Notifications", icon: "🔔" },
   ];
 
   return (
@@ -164,7 +170,7 @@ export const Settings = () => {
       <div>
         <h3 className="text-lg font-medium text-gray-900">Settings</h3>
         <p className="text-sm text-gray-500">
-          Manage your account and system preferences
+          Manage your profile and security settings
         </p>
       </div>
 
@@ -386,105 +392,115 @@ export const Settings = () => {
           )}
 
           {/* System Settings */}
-          {activeTab === "system" && (
+          {activeTab === "system" && user?.role === "admin" && (
             <div>
-              <h4 className="text-lg font-medium mb-4">System Preferences</h4>
+              <h4 className="text-lg font-medium mb-4">System Settings</h4>
               <form onSubmit={handleSystemSettingsUpdate} className="space-y-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">
-                        Dark Mode
-                      </label>
-                      <p className="text-sm text-gray-500">
-                        Enable dark theme for the interface
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={systemSettings.darkMode}
-                      onChange={(e) =>
-                        setSystemSettings({
-                          ...systemSettings,
-                          darkMode: e.target.checked,
-                        })
-                      }
-                      className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
-                    />
-                  </div>
-
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Language
+                      Late Threshold (minutes)
                     </label>
-                    <select
-                      value={systemSettings.language}
+                    <input
+                      type="number"
+                      min="1"
+                      max="60"
+                      value={systemSettings.lateThreshold}
                       onChange={(e) =>
                         setSystemSettings({
                           ...systemSettings,
-                          language: e.target.value,
+                          lateThreshold: parseInt(e.target.value) || 15,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Default: 15 minutes (as per paper)
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Absent Threshold (%)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={systemSettings.absentThreshold}
+                      onChange={(e) =>
+                        setSystemSettings({
+                          ...systemSettings,
+                          absentThreshold: parseInt(e.target.value) || 60,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Default: 60% of class time (as per paper)
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Semester
+                    </label>
+                    <select
+                      value={systemSettings.semester}
+                      onChange={(e) =>
+                        setSystemSettings({
+                          ...systemSettings,
+                          semester: e.target.value,
                         })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                     >
-                      <option value="en">English</option>
-                      <option value="es">Español</option>
-                      <option value="fr">Français</option>
+                      <option value="1st Semester">1st Semester</option>
+                      <option value="2nd Semester">2nd Semester</option>
+                      <option value="Summer">Summer</option>
                     </select>
                   </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <LoadingButton
-                    type="submit"
-                    loading={false}
-                    className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
-                  >
-                    Save Settings
-                  </LoadingButton>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Notification Settings */}
-          {activeTab === "notifications" && (
-            <div>
-              <h4 className="text-lg font-medium mb-4">
-                Notification Preferences
-              </h4>
-              <form onSubmit={handleSystemSettingsUpdate} className="space-y-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">
-                        Email Notifications
-                      </label>
-                      <p className="text-sm text-gray-500">
-                        Receive email notifications for attendance events
-                      </p>
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Academic Year
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={systemSettings.emailNotifications}
+                      type="text"
+                      value={systemSettings.academicYear}
                       onChange={(e) =>
                         setSystemSettings({
                           ...systemSettings,
-                          emailNotifications: e.target.checked,
+                          academicYear: e.target.value,
                         })
                       }
-                      className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      placeholder="2024-2025"
                     />
                   </div>
                 </div>
 
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={systemSettings.emailNotifications}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        emailNotifications: e.target.checked,
+                      })
+                    }
+                    className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                  />
+                  <label className="ml-2 block text-sm text-gray-900">
+                    Enable email notifications for absences
+                  </label>
+                </div>
+
                 <div className="flex justify-end">
                   <LoadingButton
                     type="submit"
                     loading={false}
                     className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
                   >
-                    Save Preferences
+                    Save System Settings
                   </LoadingButton>
                 </div>
               </form>

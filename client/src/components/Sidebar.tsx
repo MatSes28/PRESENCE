@@ -41,25 +41,6 @@ const navigationItems: NavItem[] = [
     icon: "💻",
     roles: ["admin", "faculty"],
   },
-  { path: "/monitor", label: "Monitor", icon: "👁️", roles: ["admin"] },
-  {
-    path: "/iot",
-    label: "IoT Devices",
-    icon: "🔌",
-    roles: ["admin", "faculty"],
-  },
-  {
-    path: "/health",
-    label: "System Health",
-    icon: "❤️",
-    roles: ["admin", "faculty"],
-  },
-  {
-    path: "/testing",
-    label: "System Testing",
-    icon: "🧪",
-    roles: ["admin", "faculty"],
-  },
   {
     path: "/reports",
     label: "Reports",
@@ -67,13 +48,6 @@ const navigationItems: NavItem[] = [
     roles: ["admin", "faculty"],
   },
   { path: "/users", label: "User Management", icon: "👤", roles: ["admin"] },
-  { path: "/compliance", label: "Compliance", icon: "🔒", roles: ["admin"] },
-  {
-    path: "/help",
-    label: "Help Center",
-    icon: "❓",
-    roles: ["admin", "faculty"],
-  },
   {
     path: "/settings",
     label: "Settings",

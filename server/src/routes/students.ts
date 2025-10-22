@@ -116,7 +116,7 @@ router.get("/:id", requireAuth, async (req, res) => {
   }
 });
 
-// Create new student (admin only)
+// Create new student (admin only) - Restricted to BSIT students from DIT under College of Engineering
 router.post("/", requireAdmin, async (req, res) => {
   try {
     const {
@@ -130,10 +130,10 @@ router.post("/", requireAdmin, async (req, res) => {
       parentName,
     } = req.body;
 
-    if (!studentId || !name) {
+    if (!studentId || !name || !parentEmail) {
       return res.status(400).json({
         success: false,
-        message: "Student ID and name are required",
+        message: "Student ID, name, and parent email are required",
       });
     }
 

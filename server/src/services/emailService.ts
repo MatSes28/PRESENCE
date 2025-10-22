@@ -60,20 +60,13 @@ class EmailService {
     }
   }
 
-  async sendAttendanceNotification(
+  async sendAbsenceNotification(
     parentEmail: string,
     studentName: string,
-    status: "present" | "late" | "absent",
-    classInfo: string,
-    timestamp: Date
+    subjectName: string,
+    date: Date
   ): Promise<boolean> {
-    const subject = `Attendance Notification - ${studentName}`;
-
-    const statusColors = {
-      present: "#10B981",
-      late: "#F59E0B",
-      absent: "#EF4444",
-    };
+    const subject = `Student Absence Alert - ${studentName}`;
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -90,25 +83,15 @@ class EmailService {
             </div>
 
             <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-              <h2 style="color: #333; margin-top: 0;">Attendance Notification</h2>
+              <h2 style="color: #333; margin-top: 0;">Student Absence Alert</h2>
 
-              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0;"><strong>Student:</strong> ${studentName}</p>
-                <p style="margin: 10px 0 0 0;"><strong>Class:</strong> ${classInfo}</p>
-                <p style="margin: 10px 0 0 0;"><strong>Time:</strong> ${timestamp.toLocaleString()}</p>
-                <p style="margin: 10px 0 0 0;">
-                  <strong>Status:</strong>
-                  <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; color: white; background-color: ${
-                    statusColors[status]
-                  }; font-weight: bold;">
-                    ${status.toUpperCase()}
-                  </span>
-                </p>
+              <div style="background: #fee2e2; border: 1px solid #fecaca; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; color: #dc2626; font-weight: bold;">Your child ${studentName} was marked absent from ${subjectName} on ${date.toLocaleDateString()}.</p>
               </div>
 
               <p style="color: #666; font-size: 14px;">
                 This is an automated notification from the CLIRDEC:PRESENCE attendance monitoring system.
-                If you have any questions, please contact your faculty member.
+                If you have any questions, please contact your faculty member or the department.
               </p>
             </div>
 
@@ -122,17 +105,15 @@ class EmailService {
     `;
 
     const textContent = `
-      CLIRDEC:PRESENCE Attendance Notification
+      CLIRDEC:PRESENCE Student Absence Alert
 
-      Student: ${studentName}
-      Class: ${classInfo}
-      Time: ${timestamp.toLocaleString()}
-      Status: ${status.toUpperCase()}
+      Your child ${studentName} was marked absent from ${subjectName} on ${date.toLocaleDateString()}.
 
       This is an automated notification from the CLIRDEC:PRESENCE attendance monitoring system.
-      If you have any questions, please contact your faculty member.
+      If you have any questions, please contact your faculty member or the department.
 
       Central Luzon State University - Information Technology Department
+      CLIRDEC:PRESENCE - Proximity and RFID-Enabled Smart Entry for Classroom Engagement
     `;
 
     return this.sendEmail({

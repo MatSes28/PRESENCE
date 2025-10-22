@@ -34,15 +34,56 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Create new classroom
+// Create new classroom - Restricted to CLIRDEC Building only
 router.post("/", async (req, res) => {
   try {
-    const { name, location, capacity } = req.body;
+    const { name, type, capacity } = req.body;
+
+    // Validate classroom type (must be lecture or laboratory)
+    if (!["lecture", "laboratory"].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: "Classroom type must be 'lecture' or 'laboratory'",
+      });
+    }
+
+    // Check total classroom count (limit to 4)
+    const existingClassrooms = await db.select().from(classrooms);
+    if (existingClassrooms.length >= 4) {
+      return res.status(400).json({
+        success: false,
+        message: "Maximum of 4 classrooms allowed (2 lecture, 2 lab rooms)",
+      });
+    }
+
+    // Count lecture vs lab rooms
+    const lectureCount = existingClassrooms.filter(
+      (c) => c.type === "lecture"
+    ).length;
+    const labCount = existingClassrooms.filter(
+      (c) => c.type === "laboratory"
+    ).length;
+
+    if (type === "lecture" && lectureCount >= 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Maximum of 2 lecture rooms allowed",
+      });
+    }
+
+    if (type === "laboratory" && labCount >= 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Maximum of 2 laboratory rooms allowed",
+      });
+    }
+
     const newClassroom = await db
       .insert(classrooms)
       .values({
         name,
-        location,
+        location: "CLIRDEC Building", // Always CLIRDEC Building
+        type,
         capacity,
       })
       .returning();

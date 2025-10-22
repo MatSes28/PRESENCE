@@ -1,4 +1,4 @@
-import { Router, Route, useLocation } from "wouter";
+import { Router, Route } from "wouter";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import {
   NotificationProvider,
@@ -10,7 +10,6 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/Dashboard";
 import { Students } from "./pages/Students";
 import { Reports } from "./pages/Reports";
-import { IoTDevices } from "./pages/IoTDevices";
 import { LabComputers } from "./pages/LabComputers";
 import { LiveAttendance } from "./pages/LiveAttendance";
 import { Schedule } from "./pages/Schedule";
@@ -18,12 +17,7 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { FacultyManagement } from "./pages/FacultyManagement";
 import { Settings } from "./pages/Settings";
 import { Roster } from "./pages/Roster";
-import { Monitor } from "./pages/Monitor";
-import { SystemHealth } from "./pages/SystemHealth";
-import { SystemTesting } from "./pages/SystemTesting";
 import { UserManagement } from "./pages/UserManagement";
-import { Compliance } from "./pages/Compliance";
-import { HelpCenter } from "./pages/HelpCenter";
 import { ResetPassword } from "./pages/ResetPassword";
 
 function AppContent() {
@@ -70,14 +64,6 @@ function AppContent() {
           component={() => (
             <ProtectedRoute allowedRoles={["admin", "faculty"]}>
               <Reports />
-            </ProtectedRoute>
-          )}
-        />
-        <Route
-          path="/devices"
-          component={() => (
-            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-              <IoTDevices />
             </ProtectedRoute>
           )}
         />
@@ -130,58 +116,10 @@ function AppContent() {
           )}
         />
         <Route
-          path="/monitor"
-          component={() => (
-            <ProtectedRoute allowedRoles={["admin"]}>
-              <Monitor />
-            </ProtectedRoute>
-          )}
-        />
-        <Route
-          path="/iot"
-          component={() => (
-            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-              <IoTDevices />
-            </ProtectedRoute>
-          )}
-        />
-        <Route
-          path="/health"
-          component={() => (
-            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-              <SystemHealth />
-            </ProtectedRoute>
-          )}
-        />
-        <Route
-          path="/testing"
-          component={() => (
-            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-              <SystemTesting />
-            </ProtectedRoute>
-          )}
-        />
-        <Route
           path="/users"
           component={() => (
             <ProtectedRoute allowedRoles={["admin"]}>
               <UserManagement />
-            </ProtectedRoute>
-          )}
-        />
-        <Route
-          path="/compliance"
-          component={() => (
-            <ProtectedRoute allowedRoles={["admin"]}>
-              <Compliance />
-            </ProtectedRoute>
-          )}
-        />
-        <Route
-          path="/help"
-          component={() => (
-            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-              <HelpCenter />
             </ProtectedRoute>
           )}
         />

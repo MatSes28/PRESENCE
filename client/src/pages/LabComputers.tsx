@@ -20,6 +20,10 @@ interface ComputerAssignment {
   studentName: string;
   assignedAt: string;
   releasedAt?: string;
+  loginTime?: string;
+  logoutTime?: string;
+  sessionDuration?: number;
+  status: "assigned" | "active" | "completed";
 }
 
 export const LabComputers = () => {
@@ -92,9 +96,10 @@ export const LabComputers = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "available":
-        return "bg-green-100 text-green-800";
+        return "bg-gray-100 text-gray-800"; // Changed to gray for available
       case "in_use":
-        return "bg-blue-100 text-blue-800";
+      case "active":
+        return "bg-green-100 text-green-800"; // Changed to green for occupied
       case "maintenance":
         return "bg-yellow-100 text-yellow-800";
       default:
@@ -105,9 +110,10 @@ export const LabComputers = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "available":
-        return "🟢";
+        return "⚫"; // Gray circle for available
       case "in_use":
-        return "🔵";
+      case "active":
+        return "🟢"; // Green circle for occupied
       case "maintenance":
         return "🟡";
       default:
@@ -251,10 +257,10 @@ export const LabComputers = () => {
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <div className="flex items-center">
-            <div className="text-2xl mr-3">🟢</div>
+            <div className="text-2xl mr-3">⚫</div>
             <div>
               <p className="text-sm font-medium text-gray-500">Available</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-2xl font-bold text-gray-600">
                 {computers.filter((c) => c.status === "available").length}
               </p>
             </div>
@@ -262,10 +268,10 @@ export const LabComputers = () => {
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <div className="flex items-center">
-            <div className="text-2xl mr-3">🔵</div>
+            <div className="text-2xl mr-3">🟢</div>
             <div>
-              <p className="text-sm font-medium text-gray-500">In Use</p>
-              <p className="text-2xl font-bold text-blue-600">
+              <p className="text-sm font-medium text-gray-500">Occupied</p>
+              <p className="text-2xl font-bold text-green-600">
                 {computers.filter((c) => c.status === "in_use").length}
               </p>
             </div>
@@ -284,24 +290,30 @@ export const LabComputers = () => {
         </div>
       </div>
 
-      {/* Classroom Sections */}
+      {/* Laboratory Computer Usage Monitoring */}
       {classrooms.map((classroomId) => {
         const classroomComputers = getComputersByClassroom(classroomId);
+        // Only show laboratory classrooms (not lecture rooms)
+        const isLabRoom = classroomComputers.some(
+          (comp) => comp.classroomId > 100
+        ); // Assuming lab rooms have higher IDs
+        if (!isLabRoom) return null;
+
         return (
           <div key={classroomId} className="bg-white rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200">
               <h4 className="text-lg font-medium text-gray-900">
-                Room {classroomId}
+                Lab Room {classroomId}
               </h4>
               <p className="text-sm text-gray-500">
-                {classroomComputers.length} computers •
+                Real-time computer usage monitoring •
                 {
                   classroomComputers.filter((c) => c.status === "available")
                     .length
                 }{" "}
                 available •
                 {classroomComputers.filter((c) => c.status === "in_use").length}{" "}
-                in use
+                occupied
               </p>
             </div>
             <div className="p-6">
@@ -327,7 +339,9 @@ export const LabComputers = () => {
                             computer.status
                           )}`}
                         >
-                          {computer.status.replace("_", " ")}
+                          {computer.status === "in_use"
+                            ? "occupied"
+                            : computer.status.replace("_", " ")}
                         </span>
                       </div>
 
@@ -337,8 +351,28 @@ export const LabComputers = () => {
                           <div>MAC: {computer.macAddress}</div>
                         )}
                         {assignment && (
-                          <div className="text-blue-600">
-                            User: {assignment.studentName}
+                          <div className="space-y-1">
+                            <div className="text-green-600 font-medium">
+                              Currently using: {assignment.studentName}
+                            </div>
+                            {assignment.loginTime && (
+                              <div className="text-xs text-gray-500">
+                                Started at:{" "}
+                                {new Date(
+                                  assignment.loginTime
+                                ).toLocaleTimeString()}
+                              </div>
+                            )}
+                            {assignment.sessionDuration && (
+                              <div className="text-xs text-gray-500">
+                                Duration: {assignment.sessionDuration} min
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {!assignment && computer.status === "available" && (
+                          <div className="text-gray-500 italic">
+                            Available for use
                           </div>
                         )}
                       </div>
@@ -397,13 +431,15 @@ export const LabComputers = () => {
         );
       })}
 
-      {/* Active Assignments */}
+      {/* Real-Time Computer Usage Monitoring */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <h4 className="text-lg font-medium text-gray-900">
-            Active Assignments
+            Real-Time Computer Usage
           </h4>
-          <p className="text-sm text-gray-500">Current computer usage</p>
+          <p className="text-sm text-gray-500">
+            Live monitoring of laboratory computer sessions
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -450,7 +486,9 @@ export const LabComputers = () => {
                         {new Date(assignment.assignedAt).toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {duration} minutes
+                        {assignment.sessionDuration
+                          ? `${assignment.sessionDuration} min`
+                          : `${duration} min`}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
