@@ -8,7 +8,11 @@ export const LoginForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(email, password);
+    const success = await login(email, password);
+    if (success) {
+      // Force a page reload to ensure routing works properly
+      window.location.href = "/";
+    }
   };
 
   return (

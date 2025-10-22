@@ -1,4 +1,4 @@
-import { Router, Route } from "wouter";
+import { Router, Route, useLocation } from "wouter";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import {
   NotificationProvider,
@@ -19,6 +19,8 @@ import { Settings } from "./pages/Settings";
 function AppContent() {
   const { user, loading } = useAuth();
 
+  console.log("AppContent render - user:", user, "loading:", loading);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -28,6 +30,7 @@ function AppContent() {
   }
 
   if (!user) {
+    console.log("No user, showing login form");
     return (
       <Router>
         <Route path="/login" component={LoginForm} />
@@ -37,6 +40,7 @@ function AppContent() {
     );
   }
 
+  console.log("User authenticated, showing dashboard");
   return (
     <Router>
       <Route path="/" component={Dashboard} />

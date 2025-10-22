@@ -74,6 +74,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(response.data as User);
         // Connect to WebSocket with user ID
         await connectWebSocket((response.data as User).id);
+        console.log("Login successful, user set:", response.data);
         return true;
       } else {
         setError(response.message || "Login failed");
