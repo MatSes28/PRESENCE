@@ -57,7 +57,7 @@ router.post("/login", async (req, res) => {
     res.json({
       success: true,
       message: "Login successful",
-      user: userWithoutPassword,
+      data: userWithoutPassword,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -122,7 +122,7 @@ router.get("/me", async (req, res) => {
 
     res.json({
       success: true,
-      user: userWithoutPassword,
+      data: userWithoutPassword,
     });
   } catch (error) {
     console.error("Get current user error:", error);
