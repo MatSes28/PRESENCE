@@ -14,9 +14,9 @@ async function createAdmin() {
   try {
     console.log("🔄 Creating admin user...");
 
-    // Hash the password "admin@123"
+    // Hash the password "admin123"
     const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash("admin@123", saltRounds);
+    const hashedPassword = await bcrypt.hash("admin123", saltRounds);
 
     // Create admin user
     const newAdmin = await db
@@ -32,7 +32,7 @@ async function createAdmin() {
     if (newAdmin.length > 0) {
       console.log("✅ Admin user created successfully!");
       console.log("Email: admin@clsu.edu.ph");
-      console.log("Password: admin@123");
+      console.log("Password: admin123");
       console.log("Role: admin");
     } else {
       console.log("❌ Failed to create admin user");
