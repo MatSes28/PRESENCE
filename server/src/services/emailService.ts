@@ -18,8 +18,10 @@ class EmailService {
     this.apiInstance = new TransactionalEmailsApi();
     // Email service is optional - skip initialization if no API key
     if (process.env.BREVO_API_KEY) {
-      this.apiInstance.authentications["apiKey"].apiKey =
-        process.env.BREVO_API_KEY;
+      this.apiInstance.setApiKey(
+        TransactionalEmailsApiApiKeys.apiKey,
+        process.env.BREVO_API_KEY
+      );
     }
   }
 
