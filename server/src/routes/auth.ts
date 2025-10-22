@@ -56,10 +56,16 @@ router.post("/login", async (req, res) => {
     // Return user info (without password)
     const { password: _, ...userWithoutPassword } = user;
 
+    // Add name field for frontend compatibility
+    const userWithName = {
+      ...userWithoutPassword,
+      name: `${user.firstName} ${user.lastName}`,
+    };
+
     res.json({
       success: true,
       message: "Login successful",
-      data: userWithoutPassword,
+      data: userWithName,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -122,9 +128,15 @@ router.get("/me", async (req, res) => {
     const user = userResult[0];
     const { password: _, ...userWithoutPassword } = user;
 
+    // Add name field for frontend compatibility
+    const userWithName = {
+      ...userWithoutPassword,
+      name: `${user.firstName} ${user.lastName}`,
+    };
+
     res.json({
       success: true,
-      data: userWithoutPassword,
+      data: userWithName,
     });
   } catch (error) {
     console.error("Get current user error:", error);
