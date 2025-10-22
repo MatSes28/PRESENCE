@@ -11,19 +11,14 @@ export default defineConfig({
     },
   },
   server: {
+    host: "0.0.0.0",
+    port: 5000,
     proxy: {
       "/api": "http://localhost:3000",
       "/ws": {
         target: "ws://localhost:3000",
         ws: true,
       },
-    },
-  },
-  define: {
-    // Ensure proper environment variable handling
-    "import.meta.env": {
-      DEV: process.env.NODE_ENV === "development",
-      PROD: process.env.NODE_ENV === "production",
     },
   },
 });
