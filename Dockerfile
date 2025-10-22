@@ -26,7 +26,7 @@ RUN mkdir -p server/shared && cp -r shared/* server/shared/
 WORKDIR /app/server
 
 # Copy client source code
-COPY client/ ./server/client/
+COPY client/ ./client/
 
 # Copy database setup script
 COPY database_setup.sql ./
@@ -45,13 +45,13 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
 # Build the client
-WORKDIR /app/server/client
+WORKDIR /app/client
 RUN npm install
 RUN npx vite build
 
 # Copy built client to server public directory
-RUN mkdir -p ../public
-RUN cp -r dist/* ../public/
+RUN mkdir -p ../server/public
+RUN cp -r dist/* ../server/public/
 
 # Go back to root directory
 WORKDIR /app
