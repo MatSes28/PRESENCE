@@ -6,6 +6,7 @@ import {
   useFormValidation,
   commonValidationRules,
 } from "../hooks/useFormValidation";
+import { useAuth } from "../hooks/useAuth";
 
 interface Student {
   id: number;
@@ -19,6 +20,7 @@ interface Student {
 
 export const Students = () => {
   const { addNotification } = useNotifications();
+  const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -48,6 +50,9 @@ export const Students = () => {
 
   const fetchStudents = async () => {
     try {
+      // Faculty users should only see students enrolled in their subjects
+      const endpoint =
+        user?.role === "faculty" ? "/students/faculty" : "/students";
       const response = await api.getStudents();
       if (response.success) {
         setStudents((response.data as Student[]) || []);

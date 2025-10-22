@@ -1,136 +1,67 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
-import { useNotifications } from "../components/NotificationSystem";
 
 interface IoTDevice {
-  id: number;
-  deviceId: string;
-  classroomId: number;
-  classroomName?: string;
-  deviceType: string;
-  status: "online" | "offline" | "maintenance";
-  lastSeen: string;
-  config?: any;
-  createdAt: string;
+  id: string;
+  name: string;
+  ipAddress: string;
+  status: "online" | "offline";
+  lastHeartbeat: string;
+  config: {
+    classroom: string;
+    deviceType: string;
+  };
 }
 
-export const IoTDevices = () => {
-  const { addNotification } = useNotifications();
+export const IoTDevices: React.FC = () => {
+  const { user } = useAuth();
   const [devices, setDevices] = useState<IoTDevice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDevice, setSelectedDevice] = useState<IoTDevice | null>(null);
-  const [commandResult, setCommandResult] = useState<string>("");
-  const [commandLoading, setCommandLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchDevices();
+    loadDevices();
   }, []);
 
-  const fetchDevices = async () => {
+  const loadDevices = async () => {
     try {
-      const response = await api.getIoTDevices();
-      if (response.success) {
-        setDevices((response.data as IoTDevice[]) || []);
-      } else {
-        addNotification({
-          type: "error",
-          title: "Failed to Load Devices",
-          message: response.message || "Unable to fetch IoT device data",
-        });
-        setDevices([]);
-      }
+      const response = await api.get("/iot/devices");
+      setDevices(response.data);
     } catch (error) {
-      console.error("Failed to fetch devices:", error);
-      addNotification({
-        type: "error",
-        title: "Network Error",
-        message:
-          "Failed to connect to the server. Please check your connection.",
-      });
-      setDevices([]);
+      console.error("Failed to load IoT devices:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const sendCommand = async (
-    deviceId: string,
-    command: string,
-    params?: any
-  ) => {
-    setCommandLoading(deviceId);
+  const handleBroadcastMessage = async () => {
+    if (user?.role !== "admin") return;
+
     try {
-      const response = await api.sendDeviceCommand(deviceId, command, params);
-      if (response.success) {
-        addNotification({
-          type: "success",
-          title: "Command Sent",
-          message: `${command} command executed successfully on device ${deviceId}`,
-        });
-        fetchDevices(); // Refresh device list
-      } else {
-        addNotification({
-          type: "error",
-          title: "Command Failed",
-          message: response.message || `Failed to execute ${command} command`,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to send command:", error);
-      addNotification({
-        type: "error",
-        title: "Network Error",
-        message: `Failed to send ${command} command. Please check your connection.`,
+      await api.post("/iot/broadcast", {
+        message: "System maintenance scheduled",
+        type: "info",
       });
-    } finally {
-      setCommandLoading(null);
+      // Show success notification
+    } catch (error) {
+      console.error("Failed to broadcast message:", error);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "online":
-        return "bg-green-100 text-green-800";
-      case "offline":
-        return "bg-gray-100 text-gray-800";
-      case "maintenance":
-        return "bg-yellow-100 text-yellow-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+  const handleRequestDiagnostics = async (deviceId: string) => {
+    try {
+      await api.post(`/iot/devices/${deviceId}/diagnostics`);
+      // Show success notification
+    } catch (error) {
+      console.error("Failed to request diagnostics:", error);
     }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "online":
-        return "🟢";
-      case "offline":
-        return "⚫";
-      case "maintenance":
-        return "🟡";
-      default:
-        return "⚫";
-    }
-  };
-
-  const getTimeSinceLastSeen = (lastSeen: string) => {
-    const now = new Date();
-    const lastSeenDate = new Date(lastSeen);
-    const diffMs = now.getTime() - lastSeenDate.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d ago`;
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500"></div>
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Loading IoT devices...</p>
       </div>
     );
   }
@@ -139,244 +70,72 @@ export const IoTDevices = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-medium text-gray-900">
-            IoT Device Management
-          </h3>
-          <p className="text-sm text-gray-500">
-            Monitor and control ESP32 devices
-          </p>
-        </div>
-        <button
-          onClick={fetchDevices}
-          className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-        >
-          Refresh
-        </button>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="text-2xl mr-3">📡</div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total Devices</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {devices.length}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="text-2xl mr-3">🟢</div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Online</p>
-              <p className="text-2xl font-bold text-green-600">
-                {devices.filter((d) => d.status === "online").length}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="text-2xl mr-3">⚫</div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Offline</p>
-              <p className="text-2xl font-bold text-gray-600">
-                {devices.filter((d) => d.status === "offline").length}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="text-2xl mr-3">🟡</div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Maintenance</p>
-              <p className="text-2xl font-bold text-yellow-600">
-                {devices.filter((d) => d.status === "maintenance").length}
-              </p>
-            </div>
-          </div>
-        </div>
+        <h2 className="text-2xl font-bold text-gray-900">IoT Devices</h2>
+        {user?.role === "admin" && (
+          <button
+            onClick={handleBroadcastMessage}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          >
+            Broadcast Message
+          </button>
+        )}
       </div>
 
       {/* Devices Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {devices.map((device) => (
-          <div
-            key={device.id}
-            className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow"
-          >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="text-2xl">{getStatusIcon(device.status)}</div>
-                  <div>
-                    <h4 className="text-lg font-medium text-gray-900">
-                      {device.deviceId}
-                    </h4>
-                    <p className="text-sm text-gray-500">{device.deviceType}</p>
-                  </div>
-                </div>
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                    device.status
-                  )}`}
-                >
-                  {device.status}
-                </span>
-              </div>
+          <div key={device.id} className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {device.name}
+              </h3>
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  device.status === "online"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                }`}
+              >
+                {device.status}
+              </span>
+            </div>
 
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Classroom:</span>
-                  <span className="text-gray-900">
-                    Room {device.classroomId}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Last Seen:</span>
-                  <span className="text-gray-900">
-                    {getTimeSinceLastSeen(device.lastSeen)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Created:</span>
-                  <span className="text-gray-900">
-                    {new Date(device.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
+            <div className="space-y-2 text-sm text-gray-600">
+              <p>
+                <strong>IP Address:</strong> {device.ipAddress}
+              </p>
+              <p>
+                <strong>Classroom:</strong> {device.config.classroom}
+              </p>
+              <p>
+                <strong>Type:</strong> {device.config.deviceType}
+              </p>
+              <p>
+                <strong>Last Heartbeat:</strong>{" "}
+                {new Date(device.lastHeartbeat).toLocaleString()}
+              </p>
+            </div>
 
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => sendCommand(device.deviceId, "ping")}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium"
-                  disabled={
-                    device.status !== "online" ||
-                    commandLoading === device.deviceId
-                  }
-                >
-                  {commandLoading === device.deviceId ? "..." : "Ping"}
+            <div className="mt-4 flex space-x-2">
+              <button
+                onClick={() => handleRequestDiagnostics(device.id)}
+                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+              >
+                Diagnostics
+              </button>
+              {user?.role === "admin" && (
+                <button className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
+                  Configure
                 </button>
-                <button
-                  onClick={() => sendCommand(device.deviceId, "restart")}
-                  className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-sm font-medium"
-                  disabled={
-                    device.status !== "online" ||
-                    commandLoading === device.deviceId
-                  }
-                >
-                  {commandLoading === device.deviceId ? "..." : "Restart"}
-                </button>
-                <button
-                  onClick={() => setSelectedDevice(device)}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm font-medium"
-                >
-                  Config
-                </button>
-              </div>
+              )}
             </div>
           </div>
         ))}
       </div>
 
       {devices.length === 0 && (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">📡</div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            No IoT Devices Found
-          </h3>
-          <p className="text-gray-600">
-            ESP32 devices will appear here once they connect to the system.
-          </p>
-        </div>
-      )}
-
-      {/* Device Configuration Modal */}
-      {selectedDevice && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Device Configuration: {selectedDevice.deviceId}
-                </h3>
-                <button
-                  onClick={() => setSelectedDevice(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Device Status
-                  </label>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                      selectedDevice.status
-                    )}`}
-                  >
-                    {selectedDevice.status}
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Configuration
-                  </label>
-                  <pre className="bg-gray-100 p-3 rounded text-xs overflow-x-auto">
-                    {JSON.stringify(selectedDevice.config || {}, null, 2)}
-                  </pre>
-                </div>
-
-                {commandResult && (
-                  <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                    <p className="text-sm text-blue-800">{commandResult}</p>
-                  </div>
-                )}
-
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() =>
-                      sendCommand(selectedDevice.deviceId, "update_config", {
-                        test: true,
-                      })
-                    }
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium"
-                    disabled={
-                      selectedDevice.status !== "online" ||
-                      commandLoading === selectedDevice.deviceId
-                    }
-                  >
-                    {commandLoading === selectedDevice.deviceId
-                      ? "Updating..."
-                      : "Update Config"}
-                  </button>
-                  <button
-                    onClick={() =>
-                      sendCommand(selectedDevice.deviceId, "status")
-                    }
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm font-medium"
-                    disabled={
-                      selectedDevice.status !== "online" ||
-                      commandLoading === selectedDevice.deviceId
-                    }
-                  >
-                    {commandLoading === selectedDevice.deviceId
-                      ? "Getting..."
-                      : "Get Status"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="text-center py-12 text-gray-500">
+          No IoT devices found
         </div>
       )}
     </div>
