@@ -16,8 +16,13 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   password: text("password").notNull(),
-  name: varchar("name", { length: 255 }).notNull(),
+  firstName: varchar("first_name", { length: 255 }).notNull(),
+  lastName: varchar("last_name", { length: 255 }).notNull(),
   role: varchar("role", { length: 50 }).notNull().default("faculty"), // admin, faculty
+  facultyId: varchar("faculty_id", { length: 50 }),
+  department: varchar("department", { length: 255 }),
+  gender: varchar("gender", { length: 20 }),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -28,8 +33,12 @@ export const students = pgTable("students", {
   studentId: varchar("student_id", { length: 50 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }),
+  year: integer("year"),
+  section: varchar("section", { length: 50 }),
   rfidUid: varchar("rfid_uid", { length: 50 }).unique(),
   parentEmail: varchar("parent_email", { length: 255 }),
+  parentName: varchar("parent_name", { length: 255 }),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -39,7 +48,9 @@ export const classrooms = pgTable("classrooms", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   location: varchar("location", { length: 255 }),
+  type: varchar("type", { length: 50 }).default("lecture").notNull(), // lecture, laboratory
   capacity: integer("capacity"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -49,6 +60,7 @@ export const subjects = pgTable("subjects", {
   code: varchar("code", { length: 50 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -69,6 +81,7 @@ export const schedules = pgTable("schedules", {
   endTime: varchar("end_time", { length: 10 }).notNull(),
   semester: varchar("semester", { length: 50 }).notNull(),
   academicYear: varchar("academic_year", { length: 20 }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -80,6 +93,7 @@ export const classSessions = pgTable("class_sessions", {
     .notNull(),
   date: timestamp("date").notNull(),
   status: varchar("status", { length: 20 }).default("scheduled").notNull(), // scheduled, active, completed
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -94,11 +108,13 @@ export const attendanceRecords = pgTable("attendance_records", {
     .notNull(),
   entryTime: timestamp("entry_time"),
   exitTime: timestamp("exit_time"),
+  status: varchar("status", { length: 20 }), // present, late, absent
   rfidDetected: boolean("rfid_detected").default(false).notNull(),
   sensorDetected: boolean("sensor_detected").default(false).notNull(),
   isValid: boolean("is_valid").default(false).notNull(),
   discrepancyFlag: boolean("discrepancy_flag").default(false).notNull(),
   notes: text("notes"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -113,6 +129,7 @@ export const computers = pgTable("computers", {
   ipAddress: varchar("ip_address", { length: 45 }),
   macAddress: varchar("mac_address", { length: 17 }),
   status: varchar("status", { length: 20 }).default("available").notNull(), // available, in_use, maintenance
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -131,6 +148,7 @@ export const computerAssignments = pgTable("computer_assignments", {
     .notNull(),
   assignedAt: timestamp("assigned_at").defaultNow().notNull(),
   releasedAt: timestamp("released_at"),
+  isActive: boolean("is_active").default(true).notNull(),
 });
 
 // IoT Devices table
@@ -144,18 +162,63 @@ export const iotDevices = pgTable("iot_devices", {
   status: varchar("status", { length: 20 }).default("offline").notNull(), // online, offline, maintenance
   lastSeen: timestamp("last_seen"),
   config: jsonb("config"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Enrollments table
+export const enrollments = pgTable("enrollments", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id")
+    .references(() => students.id)
+    .notNull(),
+  subjectId: integer("subject_id")
+    .references(() => subjects.id)
+    .notNull(),
+  semester: varchar("semester", { length: 50 }).notNull(),
+  academicYear: varchar("academic_year", { length: 20 }).notNull(),
+  enrolledAt: timestamp("enrolled_at").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+// Email Notifications table
+export const emailNotifications = pgTable("email_notifications", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id")
+    .references(() => students.id)
+    .notNull(),
+  classSessionId: integer("class_session_id")
+    .references(() => classSessions.id)
+    .notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // absent, late
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
+  message: text("message"),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+// Audit Logs table
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  action: varchar("action", { length: 255 }).notNull(),
+  details: jsonb("details"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
 });
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   schedules: many(schedules),
+  auditLogs: many(auditLogs),
 }));
 
 export const studentsRelations = relations(students, ({ many }) => ({
   attendanceRecords: many(attendanceRecords),
   computerAssignments: many(computerAssignments),
+  enrollments: many(enrollments),
+  emailNotifications: many(emailNotifications),
 }));
 
 export const classroomsRelations = relations(classrooms, ({ many }) => ({
@@ -166,6 +229,7 @@ export const classroomsRelations = relations(classrooms, ({ many }) => ({
 
 export const subjectsRelations = relations(subjects, ({ many }) => ({
   schedules: many(schedules),
+  enrollments: many(enrollments),
 }));
 
 export const schedulesRelations = relations(schedules, ({ one, many }) => ({
@@ -193,6 +257,7 @@ export const classSessionsRelations = relations(
     }),
     attendanceRecords: many(attendanceRecords),
     computerAssignments: many(computerAssignments),
+    emailNotifications: many(emailNotifications),
   })
 );
 
@@ -243,6 +308,38 @@ export const iotDevicesRelations = relations(iotDevices, ({ one }) => ({
   }),
 }));
 
+export const enrollmentsRelations = relations(enrollments, ({ one }) => ({
+  student: one(students, {
+    fields: [enrollments.studentId],
+    references: [students.id],
+  }),
+  subject: one(subjects, {
+    fields: [enrollments.subjectId],
+    references: [subjects.id],
+  }),
+}));
+
+export const emailNotificationsRelations = relations(
+  emailNotifications,
+  ({ one }) => ({
+    student: one(students, {
+      fields: [emailNotifications.studentId],
+      references: [students.id],
+    }),
+    classSession: one(classSessions, {
+      fields: [emailNotifications.classSessionId],
+      references: [classSessions.id],
+    }),
+  })
+);
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
+  }),
+}));
+
 // Types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -273,6 +370,15 @@ export type NewComputerAssignment = typeof computerAssignments.$inferInsert;
 
 export type IotDevice = typeof iotDevices.$inferSelect;
 export type NewIotDevice = typeof iotDevices.$inferInsert;
+
+export type Enrollment = typeof enrollments.$inferSelect;
+export type NewEnrollment = typeof enrollments.$inferInsert;
+
+export type EmailNotification = typeof emailNotifications.$inferSelect;
+export type NewEmailNotification = typeof emailNotifications.$inferInsert;
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type NewAuditLog = typeof auditLogs.$inferInsert;
 
 // Password Reset Tokens table
 export const passwordResetTokens = pgTable("password_reset_tokens", {

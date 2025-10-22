@@ -1,13 +1,50 @@
 import { Router } from "express";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import { db } from "../storage.js";
-import { computers, computerAssignments, students } from "../schema.js";
+import {
+  computers,
+  computerAssignments,
+  students,
+  users,
+  schedules,
+} from "../schema.js";
+import {
+  requireAuth,
+  requireAdmin,
+  requireAdminOrFaculty,
+} from "../middleware/auth.js";
 
 const router = Router();
 
-// GET /api/computers - Get all computers
-router.get("/", async (req, res) => {
+// GET /api/computers - Get all computers (with role-based filtering)
+router.get("/", requireAuth, async (req, res) => {
   try {
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
+
+    if (userRole === "faculty") {
+      // Faculty can only see computers they created (based on schedules they teach)
+      const facultyComputers = await db
+        .select({ id: computers.id })
+        .from(computers)
+        .innerJoin(schedules, eq(computers.classroomId, schedules.classroomId))
+        .where(eq(schedules.facultyId, userId));
+
+      const computerIds = [...new Set(facultyComputers.map((c) => c.id))];
+
+      if (computerIds.length === 0) {
+        return res.json({ success: true, data: [] });
+      }
+
+      const allComputers = await db
+        .select()
+        .from(computers)
+        .where(inArray(computers.id, computerIds));
+
+      return res.json({ success: true, data: allComputers });
+    }
+
+    // Admin sees all computers
     const allComputers = await db.select().from(computers);
     res.json({ success: true, data: allComputers });
   } catch (error) {
@@ -43,8 +80,8 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST /api/computers - Create new computer
-router.post("/", async (req, res) => {
+// POST /api/computers - Create new computer (admin or faculty)
+router.post("/", requireAdminOrFaculty, async (req, res) => {
   try {
     const { classroomId, name, ipAddress, macAddress } = req.body;
 
@@ -75,11 +112,32 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT /api/computers/:id - Update computer
-router.put("/:id", async (req, res) => {
+// PUT /api/computers/:id - Update computer (admin or faculty)
+router.put("/:id", requireAdminOrFaculty, async (req, res) => {
   try {
     const computerId = parseInt(req.params.id);
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
     const { name, ipAddress, macAddress, status } = req.body;
+
+    // If faculty, check if they have access to this computer
+    if (userRole === "faculty") {
+      const computerCheck = await db
+        .select()
+        .from(computers)
+        .innerJoin(schedules, eq(computers.classroomId, schedules.classroomId))
+        .where(
+          and(eq(computers.id, computerId), eq(schedules.facultyId, userId))
+        )
+        .limit(1);
+
+      if (computerCheck.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied to this computer",
+        });
+      }
+    }
 
     const updatedComputer = await db
       .update(computers)
@@ -108,8 +166,8 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/computers/:id - Delete computer
-router.delete("/:id", async (req, res) => {
+// DELETE /api/computers/:id - Delete computer (admin only)
+router.delete("/:id", requireAdmin, async (req, res) => {
   try {
     const computerId = parseInt(req.params.id);
 
@@ -149,16 +207,37 @@ router.get("/assignments", async (req, res) => {
   }
 });
 
-// POST /api/computers/assign - Assign computer to student
-router.post("/assign", async (req, res) => {
+// POST /api/computers/assign - Assign computer to student (admin or faculty)
+router.post("/assign", requireAdminOrFaculty, async (req, res) => {
   try {
     const { computerId, studentId, classSessionId } = req.body;
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
 
     if (!computerId || !studentId) {
       return res.status(400).json({
         success: false,
         message: "Computer ID and Student ID are required",
       });
+    }
+
+    // If faculty, check if they have access to this computer
+    if (userRole === "faculty") {
+      const computerCheck = await db
+        .select()
+        .from(computers)
+        .innerJoin(schedules, eq(computers.classroomId, schedules.classroomId))
+        .where(
+          and(eq(computers.id, computerId), eq(schedules.facultyId, userId))
+        )
+        .limit(1);
+
+      if (computerCheck.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied to this computer",
+        });
+      }
     }
 
     // Update computer status to in_use
@@ -190,45 +269,73 @@ router.post("/assign", async (req, res) => {
   }
 });
 
-// POST /api/computers/release/:assignmentId - Release computer assignment
-router.post("/release/:assignmentId", async (req, res) => {
-  try {
-    const assignmentId = parseInt(req.params.assignmentId);
+// POST /api/computers/release/:assignmentId - Release computer assignment (admin or faculty)
+router.post(
+  "/release/:assignmentId",
+  requireAdminOrFaculty,
+  async (req, res) => {
+    try {
+      const assignmentId = parseInt(req.params.assignmentId);
+      const userRole = req.session?.userRole;
+      const userId = req.session?.userId;
 
-    // Get assignment to find computer
-    const assignment = await db
-      .select()
-      .from(computerAssignments)
-      .where(eq(computerAssignments.id, assignmentId))
-      .limit(1);
+      // Get assignment to find computer
+      const assignment = await db
+        .select()
+        .from(computerAssignments)
+        .where(eq(computerAssignments.id, assignmentId))
+        .limit(1);
 
-    if (assignment.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Assignment not found" });
+      if (assignment.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Assignment not found" });
+      }
+
+      const computerId = assignment[0].computerId;
+
+      // If faculty, check if they have access to this computer
+      if (userRole === "faculty") {
+        const computerCheck = await db
+          .select()
+          .from(computers)
+          .innerJoin(
+            schedules,
+            eq(computers.classroomId, schedules.classroomId)
+          )
+          .where(
+            and(eq(computers.id, computerId), eq(schedules.facultyId, userId))
+          )
+          .limit(1);
+
+        if (computerCheck.length === 0) {
+          return res.status(403).json({
+            success: false,
+            message: "Access denied to this computer",
+          });
+        }
+      }
+
+      // Update computer status to available
+      await db
+        .update(computers)
+        .set({ status: "available", updatedAt: new Date() })
+        .where(eq(computers.id, computerId));
+
+      // Update assignment with release time
+      await db
+        .update(computerAssignments)
+        .set({ releasedAt: new Date() })
+        .where(eq(computerAssignments.id, assignmentId));
+
+      res.json({ success: true, message: "Computer released successfully" });
+    } catch (error) {
+      console.error("Error releasing computer:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Failed to release computer" });
     }
-
-    const computerId = assignment[0].computerId;
-
-    // Update computer status to available
-    await db
-      .update(computers)
-      .set({ status: "available", updatedAt: new Date() })
-      .where(eq(computers.id, computerId));
-
-    // Update assignment with release time
-    await db
-      .update(computerAssignments)
-      .set({ releasedAt: new Date() })
-      .where(eq(computerAssignments.id, assignmentId));
-
-    res.json({ success: true, message: "Computer released successfully" });
-  } catch (error) {
-    console.error("Error releasing computer:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to release computer" });
   }
-});
+);
 
 export default router;

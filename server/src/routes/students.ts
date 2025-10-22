@@ -1,24 +1,75 @@
 import { Router } from "express";
 import { db } from "../storage.js";
-import { students, attendanceRecords, classSessions } from "../schema.js";
-import { eq, and, desc, sql } from "drizzle-orm";
+import {
+  students,
+  attendanceRecords,
+  classSessions,
+  enrollments,
+  subjects,
+  schedules,
+  users,
+} from "../schema.js";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import {
+  requireAuth,
+  requireAdmin,
+  requireAdminOrFaculty,
+} from "../middleware/auth.js";
 
 const router = Router();
 
-// Middleware to check authentication
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required",
-    });
-  }
-  next();
-};
-
-// Get all students
+// Get all students (with role-based filtering)
 router.get("/", requireAuth, async (req, res) => {
   try {
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
+
+    if (userRole === "faculty") {
+      // Faculty can only see students enrolled in their subjects
+      const facultySubjects = await db
+        .select({ id: subjects.id })
+        .from(subjects)
+        .innerJoin(schedules, eq(subjects.id, schedules.subjectId))
+        .where(eq(schedules.facultyId, userId));
+
+      const subjectIds = facultySubjects.map((s) => s.id);
+
+      if (subjectIds.length === 0) {
+        return res.json({
+          success: true,
+          students: [],
+        });
+      }
+
+      const enrolledStudentIds = await db
+        .select({ studentId: enrollments.studentId })
+        .from(enrollments)
+        .where(inArray(enrollments.subjectId, subjectIds));
+
+      const studentIds = [
+        ...new Set(enrolledStudentIds.map((e) => e.studentId)),
+      ];
+
+      if (studentIds.length === 0) {
+        return res.json({
+          success: true,
+          students: [],
+        });
+      }
+
+      const allStudents = await db
+        .select()
+        .from(students)
+        .where(inArray(students.id, studentIds))
+        .orderBy(students.name);
+
+      return res.json({
+        success: true,
+        students: allStudents,
+      });
+    }
+
+    // Admin sees all students
     const allStudents = await db.select().from(students).orderBy(students.name);
 
     res.json({
@@ -65,10 +116,19 @@ router.get("/:id", requireAuth, async (req, res) => {
   }
 });
 
-// Create new student
-router.post("/", requireAuth, async (req, res) => {
+// Create new student (admin only)
+router.post("/", requireAdmin, async (req, res) => {
   try {
-    const { studentId, name, email, rfidUid, parentEmail } = req.body;
+    const {
+      studentId,
+      name,
+      email,
+      year,
+      section,
+      rfidUid,
+      parentEmail,
+      parentName,
+    } = req.body;
 
     if (!studentId || !name) {
       return res.status(400).json({
@@ -113,8 +173,11 @@ router.post("/", requireAuth, async (req, res) => {
         studentId,
         name,
         email,
+        year,
+        section,
         rfidUid,
         parentEmail,
+        parentName,
       })
       .returning();
 
@@ -132,11 +195,12 @@ router.post("/", requireAuth, async (req, res) => {
   }
 });
 
-// Update student
-router.put("/:id", requireAuth, async (req, res) => {
+// Update student (admin only)
+router.put("/:id", requireAdmin, async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
-    const { name, email, rfidUid, parentEmail } = req.body;
+    const { name, email, year, section, rfidUid, parentEmail, parentName } =
+      req.body;
 
     // Check if RFID UID conflicts with other students
     if (rfidUid) {
@@ -164,8 +228,11 @@ router.put("/:id", requireAuth, async (req, res) => {
       .set({
         name,
         email,
+        year,
+        section,
         rfidUid,
         parentEmail,
+        parentName,
         updatedAt: new Date(),
       })
       .where(eq(students.id, studentId))
@@ -192,8 +259,8 @@ router.put("/:id", requireAuth, async (req, res) => {
   }
 });
 
-// Delete student
-router.delete("/:id", requireAuth, async (req, res) => {
+// Delete student (admin only)
+router.delete("/:id", requireAdmin, async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
 
@@ -269,8 +336,8 @@ router.get("/:id/attendance", requireAuth, async (req, res) => {
   }
 });
 
-// Assign RFID to student
-router.post("/:id/assign-rfid", requireAuth, async (req, res) => {
+// Assign RFID to student (admin only)
+router.post("/:id/assign-rfid", requireAdmin, async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
     const { rfidUid } = req.body;

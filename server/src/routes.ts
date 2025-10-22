@@ -8,6 +8,9 @@ import reportRoutes from "./routes/reports.js";
 import iotRoutes from "./routes/iot.js";
 import userRoutes from "./routes/users.js";
 import computerRoutes from "./routes/computers.js";
+import enrollmentRoutes from "./routes/enrollments.js";
+import notificationRoutes from "./routes/notifications.js";
+import auditRoutes from "./routes/audit.js";
 
 const router = Router();
 
@@ -21,5 +24,8 @@ router.use("/reports", reportRoutes);
 router.use("/iot", iotRoutes);
 router.use("/users", userRoutes);
 router.use("/computers", computerRoutes);
+router.use("/enrollments", enrollmentRoutes);
+router.use("/notifications", notificationRoutes);
+router.use("/audit", auditRoutes);
 
 export default router;

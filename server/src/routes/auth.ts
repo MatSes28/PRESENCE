@@ -144,12 +144,21 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    const { email, password, name, role = "faculty" } = req.body;
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      role = "faculty",
+      facultyId,
+      department,
+      gender,
+    } = req.body;
 
-    if (!email || !password || !name) {
+    if (!email || !password || !firstName || !lastName) {
       return res.status(400).json({
         success: false,
-        message: "Email, password, and name are required",
+        message: "Email, password, first name, and last name are required",
       });
     }
 
@@ -177,8 +186,12 @@ router.post("/register", async (req, res) => {
       .values({
         email,
         password: hashedPassword,
-        name,
+        firstName,
+        lastName,
         role,
+        facultyId,
+        department,
+        gender,
       })
       .returning();
 
@@ -208,12 +221,13 @@ router.put("/profile", async (req, res) => {
       });
     }
 
-    const { name, email } = req.body;
+    const { firstName, lastName, email, facultyId, department, gender } =
+      req.body;
 
-    if (!name || !email) {
+    if (!firstName || !lastName || !email) {
       return res.status(400).json({
         success: false,
-        message: "Name and email are required",
+        message: "First name, last name, and email are required",
       });
     }
 
@@ -234,7 +248,7 @@ router.put("/profile", async (req, res) => {
     // Update user profile
     await db
       .update(users)
-      .set({ name, email })
+      .set({ firstName, lastName, email, facultyId, department, gender })
       .where(eq(users.id, req.session.userId));
 
     res.json({
@@ -402,7 +416,7 @@ router.post("/forgot-password", async (req, res) => {
 
     const emailSent = await emailService.sendPasswordResetEmail(
       user.email,
-      user.name,
+      `${user.firstName} ${user.lastName}`,
       resetUrl
     );
 
