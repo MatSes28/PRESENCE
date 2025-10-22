@@ -51,22 +51,38 @@ router.post("/login", async (req, res) => {
     if (req.session) {
       req.session.userId = user.id;
       req.session.userRole = user.role;
+
+      // Save session before sending response
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Session save failed",
+          });
+        }
+
+        // Return user info (without password)
+        const { password: _, ...userWithoutPassword } = user;
+
+        // Add name field for frontend compatibility
+        const userWithName = {
+          ...userWithoutPassword,
+          name: `${user.firstName} ${user.lastName}`,
+        };
+
+        res.json({
+          success: true,
+          message: "Login successful",
+          data: userWithName,
+        });
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Session not available",
+      });
     }
-
-    // Return user info (without password)
-    const { password: _, ...userWithoutPassword } = user;
-
-    // Add name field for frontend compatibility
-    const userWithName = {
-      ...userWithoutPassword,
-      name: `${user.firstName} ${user.lastName}`,
-    };
-
-    res.json({
-      success: true,
-      message: "Login successful",
-      data: userWithName,
-    });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({

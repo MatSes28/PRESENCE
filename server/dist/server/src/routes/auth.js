@@ -40,13 +40,32 @@ router.post("/login", async (req, res) => {
         if (req.session) {
             req.session.userId = user.id;
             req.session.userRole = user.role;
+            req.session.save((err) => {
+                if (err) {
+                    console.error("Session save error:", err);
+                    return res.status(500).json({
+                        success: false,
+                        message: "Session save failed",
+                    });
+                }
+                const { password: _, ...userWithoutPassword } = user;
+                const userWithName = {
+                    ...userWithoutPassword,
+                    name: `${user.firstName} ${user.lastName}`,
+                };
+                res.json({
+                    success: true,
+                    message: "Login successful",
+                    data: userWithName,
+                });
+            });
         }
-        const { password: _, ...userWithoutPassword } = user;
-        res.json({
-            success: true,
-            message: "Login successful",
-            data: userWithoutPassword,
-        });
+        else {
+            res.status(500).json({
+                success: false,
+                message: "Session not available",
+            });
+        }
     }
     catch (error) {
         console.error("Login error:", error);
@@ -101,9 +120,13 @@ router.get("/me", async (req, res) => {
         }
         const user = userResult[0];
         const { password: _, ...userWithoutPassword } = user;
+        const userWithName = {
+            ...userWithoutPassword,
+            name: `${user.firstName} ${user.lastName}`,
+        };
         res.json({
             success: true,
-            data: userWithoutPassword,
+            data: userWithName,
         });
     }
     catch (error) {
