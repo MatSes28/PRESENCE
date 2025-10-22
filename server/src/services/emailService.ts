@@ -124,6 +124,81 @@ class EmailService {
     });
   }
 
+  async sendAttendanceNotification(
+    parentEmail: string,
+    studentName: string,
+    status: "present" | "late" | "absent",
+    classInfo: string,
+    timestamp: Date
+  ): Promise<boolean> {
+    const subject = `Student Attendance Alert - ${studentName}`;
+
+    const statusMessages = {
+      present: "Your child was marked present",
+      late: "Your child was marked late",
+      absent: "Your child was marked absent",
+    };
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${subject}</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; margin-bottom: 20px;">
+              <h1 style="color: white; margin: 0; text-align: center;">CLIRDEC:PRESENCE</h1>
+              <p style="color: white; margin: 10px 0 0 0; text-align: center; opacity: 0.9;">Attendance Monitoring System</p>
+            </div>
+
+            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+              <h2 style="color: #333; margin-top: 0;">Student Attendance Alert</h2>
+
+              <div style="background: #fee2e2; border: 1px solid #fecaca; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; color: #dc2626; font-weight: bold;">${
+                  statusMessages[status]
+                } for ${studentName} in ${classInfo} on ${timestamp.toLocaleDateString()}.</p>
+              </div>
+
+              <p style="color: #666; font-size: 14px;">
+                This is an automated notification from the CLIRDEC:PRESENCE attendance monitoring system.
+                If you have any questions, please contact your faculty member or the department.
+              </p>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+              <p>Central Luzon State University - Information Technology Department</p>
+              <p>CLIRDEC:PRESENCE - Proximity and RFID-Enabled Smart Entry for Classroom Engagement</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const textContent = `
+      CLIRDEC:PRESENCE Student Attendance Alert
+
+      ${
+        statusMessages[status]
+      } for ${studentName} in ${classInfo} on ${timestamp.toLocaleDateString()}.
+
+      This is an automated notification from the CLIRDEC:PRESENCE attendance monitoring system.
+      If you have any questions, please contact your faculty member or the department.
+
+      Central Luzon State University - Information Technology Department
+      CLIRDEC:PRESENCE - Proximity and RFID-Enabled Smart Entry for Classroom Engagement
+    `;
+
+    return this.sendEmail({
+      to: parentEmail,
+      subject,
+      htmlContent,
+      textContent,
+    });
+  }
+
   async sendBulkAttendanceNotifications(
     notifications: Array<{
       parentEmail: string;

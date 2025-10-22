@@ -108,11 +108,17 @@ class AttendanceMonitor {
         }
     }
     async findActiveClassSession(currentTime) {
-        const sessions = await storage_js_1.db
-            .select()
-            .from(schema_js_1.classSessions)
-            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.gte)(schema_js_1.classSessions.date, new Date(currentTime.getTime() - 60 * 60 * 1000)), (0, drizzle_orm_1.lte)(schema_js_1.classSessions.date, new Date(currentTime.getTime() + 60 * 60 * 1000))));
-        return sessions[0] || null;
+        const dayOfWeek = currentTime.getDay();
+        const currentTimeStr = currentTime.toTimeString().slice(0, 8);
+        const activeSchedules = await storage_js_1.db
+            .select({
+            schedule: schema_js_1.schedules,
+            session: schema_js_1.classSessions,
+        })
+            .from(schema_js_1.schedules)
+            .innerJoin(schema_js_1.classSessions, (0, drizzle_orm_1.eq)(schema_js_1.schedules.id, schema_js_1.classSessions.scheduleId))
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.schedules.dayOfWeek, dayOfWeek), (0, drizzle_orm_1.eq)(schema_js_1.classSessions.status, "active"), (0, drizzle_orm_1.lte)(schema_js_1.schedules.startTime, currentTimeStr), (0, drizzle_orm_1.gte)(schema_js_1.schedules.endTime, currentTimeStr), (0, drizzle_orm_1.gte)(schema_js_1.classSessions.date, new Date(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate())), (0, drizzle_orm_1.lte)(schema_js_1.classSessions.date, new Date(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate() + 1))));
+        return activeSchedules.length > 0 ? activeSchedules[0].session : null;
     }
     async findRecentRFIDScans(deviceId, currentTime) {
         return [];

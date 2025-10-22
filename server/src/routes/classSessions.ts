@@ -7,7 +7,7 @@ import {
   classrooms,
   users,
 } from "../schema.js";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -32,7 +32,7 @@ router.get("/", requireAuth, async (req, res) => {
           id: schedules.id,
           subject: subjects.name,
           classroom: classrooms.name,
-          faculty: users.name,
+          faculty: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
           dayOfWeek: schedules.dayOfWeek,
           startTime: schedules.startTime,
           endTime: schedules.endTime,
@@ -70,7 +70,7 @@ router.get("/:id", requireAuth, async (req, res) => {
           id: schedules.id,
           subject: subjects.name,
           classroom: classrooms.name,
-          faculty: users.firstName,
+          faculty: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
           dayOfWeek: schedules.dayOfWeek,
           startTime: schedules.startTime,
           endTime: schedules.endTime,

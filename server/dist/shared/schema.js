@@ -1,14 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.passwordResetTokens = exports.iotDevicesRelations = exports.computerAssignmentsRelations = exports.computersRelations = exports.attendanceRecordsRelations = exports.classSessionsRelations = exports.schedulesRelations = exports.subjectsRelations = exports.classroomsRelations = exports.studentsRelations = exports.usersRelations = exports.iotDevices = exports.computerAssignments = exports.computers = exports.attendanceRecords = exports.classSessions = exports.schedules = exports.subjects = exports.classrooms = exports.students = exports.users = void 0;
+exports.emailNotificationsRelations = exports.enrollmentsRelations = exports.iotDevicesRelations = exports.computerAssignmentsRelations = exports.computersRelations = exports.attendanceRecordsRelations = exports.classSessionsRelations = exports.schedulesRelations = exports.subjectsRelations = exports.classroomsRelations = exports.studentsRelations = exports.usersRelations = exports.emailNotifications = exports.enrollments = exports.iotDevices = exports.computerAssignments = exports.computers = exports.attendanceRecords = exports.classSessions = exports.schedules = exports.subjects = exports.classrooms = exports.students = exports.users = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 const drizzle_orm_1 = require("drizzle-orm");
 exports.users = (0, pg_core_1.pgTable)("users", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
     email: (0, pg_core_1.varchar)("email", { length: 255 }).notNull().unique(),
     password: (0, pg_core_1.text)("password").notNull(),
-    name: (0, pg_core_1.varchar)("name", { length: 255 }).notNull(),
+    firstName: (0, pg_core_1.varchar)("first_name", { length: 255 }).notNull(),
+    lastName: (0, pg_core_1.varchar)("last_name", { length: 255 }).notNull(),
     role: (0, pg_core_1.varchar)("role", { length: 50 }).notNull().default("faculty"),
+    facultyId: (0, pg_core_1.varchar)("faculty_id", { length: 50 }),
+    department: (0, pg_core_1.varchar)("department", { length: 255 }),
+    gender: (0, pg_core_1.varchar)("gender", { length: 20 }),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
 });
@@ -17,16 +22,29 @@ exports.students = (0, pg_core_1.pgTable)("students", {
     studentId: (0, pg_core_1.varchar)("student_id", { length: 50 }).notNull().unique(),
     name: (0, pg_core_1.varchar)("name", { length: 255 }).notNull(),
     email: (0, pg_core_1.varchar)("email", { length: 255 }),
+    year: (0, pg_core_1.integer)("year"),
+    section: (0, pg_core_1.varchar)("section", { length: 50 }),
+    program: (0, pg_core_1.varchar)("program", { length: 100 }).default("BSIT").notNull(),
+    department: (0, pg_core_1.varchar)("department", { length: 100 }).default("DIT").notNull(),
+    college: (0, pg_core_1.varchar)("college", { length: 100 })
+        .default("College of Engineering")
+        .notNull(),
     rfidUid: (0, pg_core_1.varchar)("rfid_uid", { length: 50 }).unique(),
-    parentEmail: (0, pg_core_1.varchar)("parent_email", { length: 255 }),
+    parentEmail: (0, pg_core_1.varchar)("parent_email", { length: 255 }).notNull(),
+    parentName: (0, pg_core_1.varchar)("parent_name", { length: 255 }),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
 });
 exports.classrooms = (0, pg_core_1.pgTable)("classrooms", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
     name: (0, pg_core_1.varchar)("name", { length: 255 }).notNull(),
-    location: (0, pg_core_1.varchar)("location", { length: 255 }),
+    location: (0, pg_core_1.varchar)("location", { length: 255 })
+        .default("CLIRDEC Building")
+        .notNull(),
+    type: (0, pg_core_1.varchar)("type", { length: 50 }).default("lecture").notNull(),
     capacity: (0, pg_core_1.integer)("capacity"),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
 });
 exports.subjects = (0, pg_core_1.pgTable)("subjects", {
@@ -34,6 +52,7 @@ exports.subjects = (0, pg_core_1.pgTable)("subjects", {
     code: (0, pg_core_1.varchar)("code", { length: 50 }).notNull().unique(),
     name: (0, pg_core_1.varchar)("name", { length: 255 }).notNull(),
     description: (0, pg_core_1.text)("description"),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
 });
 exports.schedules = (0, pg_core_1.pgTable)("schedules", {
@@ -52,6 +71,7 @@ exports.schedules = (0, pg_core_1.pgTable)("schedules", {
     endTime: (0, pg_core_1.varchar)("end_time", { length: 10 }).notNull(),
     semester: (0, pg_core_1.varchar)("semester", { length: 50 }).notNull(),
     academicYear: (0, pg_core_1.varchar)("academic_year", { length: 20 }).notNull(),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
 });
 exports.classSessions = (0, pg_core_1.pgTable)("class_sessions", {
@@ -61,6 +81,7 @@ exports.classSessions = (0, pg_core_1.pgTable)("class_sessions", {
         .notNull(),
     date: (0, pg_core_1.timestamp)("date").notNull(),
     status: (0, pg_core_1.varchar)("status", { length: 20 }).default("scheduled").notNull(),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
 });
 exports.attendanceRecords = (0, pg_core_1.pgTable)("attendance_records", {
@@ -73,11 +94,13 @@ exports.attendanceRecords = (0, pg_core_1.pgTable)("attendance_records", {
         .notNull(),
     entryTime: (0, pg_core_1.timestamp)("entry_time"),
     exitTime: (0, pg_core_1.timestamp)("exit_time"),
+    status: (0, pg_core_1.varchar)("status", { length: 20 }),
     rfidDetected: (0, pg_core_1.boolean)("rfid_detected").default(false).notNull(),
     sensorDetected: (0, pg_core_1.boolean)("sensor_detected").default(false).notNull(),
     isValid: (0, pg_core_1.boolean)("is_valid").default(false).notNull(),
     discrepancyFlag: (0, pg_core_1.boolean)("discrepancy_flag").default(false).notNull(),
     notes: (0, pg_core_1.text)("notes"),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
 });
@@ -90,6 +113,7 @@ exports.computers = (0, pg_core_1.pgTable)("computers", {
     ipAddress: (0, pg_core_1.varchar)("ip_address", { length: 45 }),
     macAddress: (0, pg_core_1.varchar)("mac_address", { length: 17 }),
     status: (0, pg_core_1.varchar)("status", { length: 20 }).default("available").notNull(),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
 });
@@ -104,8 +128,13 @@ exports.computerAssignments = (0, pg_core_1.pgTable)("computer_assignments", {
     classSessionId: (0, pg_core_1.integer)("class_session_id")
         .references(() => exports.classSessions.id)
         .notNull(),
+    loginTime: (0, pg_core_1.timestamp)("login_time"),
+    logoutTime: (0, pg_core_1.timestamp)("logout_time"),
+    sessionDuration: (0, pg_core_1.integer)("session_duration"),
+    status: (0, pg_core_1.varchar)("status", { length: 20 }).default("assigned").notNull(),
     assignedAt: (0, pg_core_1.timestamp)("assigned_at").defaultNow().notNull(),
     releasedAt: (0, pg_core_1.timestamp)("released_at"),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
 });
 exports.iotDevices = (0, pg_core_1.pgTable)("iot_devices", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
@@ -117,8 +146,36 @@ exports.iotDevices = (0, pg_core_1.pgTable)("iot_devices", {
     status: (0, pg_core_1.varchar)("status", { length: 20 }).default("offline").notNull(),
     lastSeen: (0, pg_core_1.timestamp)("last_seen"),
     config: (0, pg_core_1.jsonb)("config"),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
+});
+exports.enrollments = (0, pg_core_1.pgTable)("enrollments", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    studentId: (0, pg_core_1.integer)("student_id")
+        .references(() => exports.students.id)
+        .notNull(),
+    subjectId: (0, pg_core_1.integer)("subject_id")
+        .references(() => exports.subjects.id)
+        .notNull(),
+    semester: (0, pg_core_1.varchar)("semester", { length: 50 }).notNull(),
+    academicYear: (0, pg_core_1.varchar)("academic_year", { length: 20 }).notNull(),
+    enrolledAt: (0, pg_core_1.timestamp)("enrolled_at").defaultNow().notNull(),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
+});
+exports.emailNotifications = (0, pg_core_1.pgTable)("email_notifications", {
+    id: (0, pg_core_1.serial)("id").primaryKey(),
+    studentId: (0, pg_core_1.integer)("student_id")
+        .references(() => exports.students.id)
+        .notNull(),
+    classSessionId: (0, pg_core_1.integer)("class_session_id")
+        .references(() => exports.classSessions.id)
+        .notNull(),
+    type: (0, pg_core_1.varchar)("type", { length: 20 }).notNull(),
+    sentAt: (0, pg_core_1.timestamp)("sent_at").defaultNow().notNull(),
+    recipientEmail: (0, pg_core_1.varchar)("recipient_email", { length: 255 }).notNull(),
+    message: (0, pg_core_1.text)("message"),
+    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
 });
 exports.usersRelations = (0, drizzle_orm_1.relations)(exports.users, ({ many }) => ({
     schedules: many(exports.schedules),
@@ -126,6 +183,8 @@ exports.usersRelations = (0, drizzle_orm_1.relations)(exports.users, ({ many }) 
 exports.studentsRelations = (0, drizzle_orm_1.relations)(exports.students, ({ many }) => ({
     attendanceRecords: many(exports.attendanceRecords),
     computerAssignments: many(exports.computerAssignments),
+    enrollments: many(exports.enrollments),
+    emailNotifications: many(exports.emailNotifications),
 }));
 exports.classroomsRelations = (0, drizzle_orm_1.relations)(exports.classrooms, ({ many }) => ({
     schedules: many(exports.schedules),
@@ -134,6 +193,7 @@ exports.classroomsRelations = (0, drizzle_orm_1.relations)(exports.classrooms, (
 }));
 exports.subjectsRelations = (0, drizzle_orm_1.relations)(exports.subjects, ({ many }) => ({
     schedules: many(exports.schedules),
+    enrollments: many(exports.enrollments),
 }));
 exports.schedulesRelations = (0, drizzle_orm_1.relations)(exports.schedules, ({ one, many }) => ({
     subject: one(exports.subjects, {
@@ -157,6 +217,7 @@ exports.classSessionsRelations = (0, drizzle_orm_1.relations)(exports.classSessi
     }),
     attendanceRecords: many(exports.attendanceRecords),
     computerAssignments: many(exports.computerAssignments),
+    emailNotifications: many(exports.emailNotifications),
 }));
 exports.attendanceRecordsRelations = (0, drizzle_orm_1.relations)(exports.attendanceRecords, ({ one }) => ({
     student: one(exports.students, {
@@ -195,13 +256,23 @@ exports.iotDevicesRelations = (0, drizzle_orm_1.relations)(exports.iotDevices, (
         references: [exports.classrooms.id],
     }),
 }));
-exports.passwordResetTokens = (0, pg_core_1.pgTable)("password_reset_tokens", {
-    id: (0, pg_core_1.serial)("id").primaryKey(),
-    userId: (0, pg_core_1.integer)("user_id")
-        .references(() => exports.users.id)
-        .notNull(),
-    token: (0, pg_core_1.varchar)("token", { length: 255 }).notNull().unique(),
-    expiresAt: (0, pg_core_1.timestamp)("expires_at").notNull(),
-    used: (0, pg_core_1.boolean)("used").default(false).notNull(),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
-});
+exports.enrollmentsRelations = (0, drizzle_orm_1.relations)(exports.enrollments, ({ one }) => ({
+    student: one(exports.students, {
+        fields: [exports.enrollments.studentId],
+        references: [exports.students.id],
+    }),
+    subject: one(exports.subjects, {
+        fields: [exports.enrollments.subjectId],
+        references: [exports.subjects.id],
+    }),
+}));
+exports.emailNotificationsRelations = (0, drizzle_orm_1.relations)(exports.emailNotifications, ({ one }) => ({
+    student: one(exports.students, {
+        fields: [exports.emailNotifications.studentId],
+        references: [exports.students.id],
+    }),
+    classSession: one(exports.classSessions, {
+        fields: [exports.emailNotifications.classSessionId],
+        references: [exports.classSessions.id],
+    }),
+}));

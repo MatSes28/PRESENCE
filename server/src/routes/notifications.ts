@@ -20,7 +20,14 @@ router.get("/", requireAuth, async (req, res) => {
     const userRole = req.session?.userRole;
     const userId = req.session?.userId;
 
-    let query = db
+    let whereCondition = undefined;
+
+    if (userRole === "faculty") {
+      // Faculty can only see notifications for their subjects
+      whereCondition = eq(schedules.facultyId, userId);
+    }
+
+    const query = db
       .select({
         notification: emailNotifications,
         student: students,
@@ -37,12 +44,8 @@ router.get("/", requireAuth, async (req, res) => {
       )
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
-      .innerJoin(users, eq(schedules.facultyId, users.id));
-
-    if (userRole === "faculty") {
-      // Faculty can only see notifications for their subjects
-      query = query.where(eq(schedules.facultyId, userId));
-    }
+      .innerJoin(users, eq(schedules.facultyId, users.id))
+      .where(whereCondition);
 
     const notifications = await query.orderBy(desc(emailNotifications.sentAt));
 
