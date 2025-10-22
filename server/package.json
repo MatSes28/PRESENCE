@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "brevo": "^1.0.0",
+    "@getbrevo/brevo": "^1.0.1",
     "connect-pg-simple": "^9.0.0",
     "cors": "^2.8.5",
     "drizzle-orm": "^0.29.1",

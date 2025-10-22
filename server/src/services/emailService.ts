@@ -1,4 +1,4 @@
-import { TransactionalEmailsApi, SendSmtpEmail } from "brevo";
+import { TransactionalEmailsApi, SendSmtpEmail } from "@getbrevo/brevo";
 
 interface EmailOptions {
   to: string;
