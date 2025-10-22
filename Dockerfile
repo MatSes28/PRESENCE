@@ -45,13 +45,13 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
 # Build the client
-WORKDIR /app/client
+WORKDIR /app/server/client
 RUN npm install
 RUN npx vite build
 
 # Copy built client to server public directory
-RUN mkdir -p ../server/public
-RUN cp -r dist/* ../server/public/
+RUN mkdir -p ../public
+RUN cp -r dist/* ../public/
 
 # Go back to root directory
 WORKDIR /app
