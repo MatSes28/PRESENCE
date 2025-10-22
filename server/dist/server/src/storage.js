@@ -40,9 +40,10 @@ exports.db = void 0;
 const postgres_js_1 = require("drizzle-orm/postgres-js");
 const postgres_1 = __importDefault(require("postgres"));
 const schema = __importStar(require("./schema.js"));
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL ||
+    "postgresql://postgres:ivXwpKRBFPqDEzhjzMlfQOpBXZorhyTy@mainline.proxy.rlwy.net:22250/railway";
 if (!connectionString) {
-    throw new Error('DATABASE_URL environment variable is required');
+    throw new Error("DATABASE_URL environment variable is required");
 }
 const client = (0, postgres_1.default)(connectionString, { prepare: false });
 exports.db = (0, postgres_js_1.drizzle)(client, { schema });

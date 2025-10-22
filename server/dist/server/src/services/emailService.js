@@ -1,12 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.emailService = void 0;
-const brevo_1 = require("brevo");
+const brevo_1 = require("@getbrevo/brevo");
 class EmailService {
     apiInstance;
     constructor() {
         this.apiInstance = new brevo_1.TransactionalEmailsApi();
-        this.apiInstance.setApiKey(brevo_1.TransactionalEmailsApi.ApiKeys.apiKey, process.env.BREVO_API_KEY);
+        if (process.env.BREVO_API_KEY) {
+            this.apiInstance.setApiKey(brevo_1.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+        }
     }
     async sendEmail(options) {
         try {
@@ -14,8 +16,8 @@ class EmailService {
             sendSmtpEmail.subject = options.subject;
             sendSmtpEmail.htmlContent = options.htmlContent;
             sendSmtpEmail.sender = {
-                name: 'CLIRDEC:PRESENCE',
-                email: process.env.FROM_EMAIL || 'noreply@clirdec-presence.com'
+                name: "CLIRDEC:PRESENCE",
+                email: process.env.FROM_EMAIL || "noreply@clirdec-presence.com",
             };
             sendSmtpEmail.to = [{ email: options.to }];
             sendSmtpEmail.textContent = options.textContent;
@@ -24,16 +26,16 @@ class EmailService {
             return true;
         }
         catch (error) {
-            console.error('Failed to send email:', error);
+            console.error("Failed to send email:", error);
             return false;
         }
     }
     async sendAttendanceNotification(parentEmail, studentName, status, classInfo, timestamp) {
         const subject = `Attendance Notification - ${studentName}`;
         const statusColors = {
-            present: '#10B981',
-            late: '#F59E0B',
-            absent: '#EF4444'
+            present: "#10B981",
+            late: "#F59E0B",
+            absent: "#EF4444",
         };
         const htmlContent = `
       <!DOCTYPE html>
@@ -95,7 +97,7 @@ class EmailService {
             to: parentEmail,
             subject,
             htmlContent,
-            textContent
+            textContent,
         });
     }
     async sendBulkAttendanceNotifications(notifications) {
@@ -109,10 +111,88 @@ class EmailService {
             else {
                 failed++;
             }
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
         }
         console.log(`Bulk email results: ${success} sent, ${failed} failed`);
         return { success, failed };
+    }
+    async sendPasswordResetEmail(email, userName, resetUrl) {
+        const subject = "Password Reset Request - CLIRDEC:PRESENCE";
+        const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${subject}</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; margin-bottom: 20px;">
+              <h1 style="color: white; margin: 0; text-align: center;">CLIRDEC:PRESENCE</h1>
+              <p style="color: white; margin: 10px 0 0 0; text-align: center; opacity: 0.9;">Password Reset</p>
+            </div>
+
+            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+              <h2 style="color: #333; margin-top: 0;">Reset Your Password</h2>
+
+              <p>Hello ${userName},</p>
+
+              <p>You have requested to reset your password for your CLIRDEC:PRESENCE account. Click the button below to reset your password:</p>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${resetUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                  Reset Password
+                </a>
+              </div>
+
+              <p style="color: #666; font-size: 14px;">
+                This link will expire in 15 minutes for security reasons. If you didn't request this password reset, please ignore this email.
+              </p>
+
+              <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #667eea;">
+                <p style="margin: 0; font-size: 14px; color: #666;">
+                  <strong>Security Notice:</strong> If you're having trouble clicking the button, copy and paste this URL into your browser: ${resetUrl}
+                </p>
+              </div>
+
+              <p style="color: #666; font-size: 14px;">
+                If you need assistance, please contact your system administrator.
+              </p>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+              <p>Central Luzon State University - Information Technology Department</p>
+              <p>CLIRDEC:PRESENCE - Proximity and RFID-Enabled Smart Entry for Classroom Engagement</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+        const textContent = `
+      CLIRDEC:PRESENCE Password Reset
+
+      Hello ${userName},
+
+      You have requested to reset your password for your CLIRDEC:PRESENCE account.
+
+      Click the following link to reset your password:
+      ${resetUrl}
+
+      This link will expire in 15 minutes for security reasons.
+
+      If you didn't request this password reset, please ignore this email.
+
+      If you need assistance, please contact your system administrator.
+
+      Central Luzon State University - Information Technology Department
+      CLIRDEC:PRESENCE - Proximity and RFID-Enabled Smart Entry for Classroom Engagement
+    `;
+        return this.sendEmail({
+            to: email,
+            subject,
+            htmlContent,
+            textContent,
+        });
     }
     async sendSystemAlert(adminEmail, alertType, message, details) {
         const subject = `System Alert: ${alertType}`;
@@ -134,11 +214,13 @@ class EmailService {
               <h2 style="color: #333; margin-top: 0;">${alertType}</h2>
               <p>${message}</p>
 
-              ${details ? `
+              ${details
+            ? `
                 <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: monospace; font-size: 12px;">
                   ${JSON.stringify(details, null, 2)}
                 </div>
-              ` : ''}
+              `
+            : ""}
 
               <p style="color: #666; font-size: 14px;">
                 This alert was generated by the CLIRDEC:PRESENCE system monitoring.
@@ -151,7 +233,7 @@ class EmailService {
         return this.sendEmail({
             to: adminEmail,
             subject,
-            htmlContent
+            htmlContent,
         });
     }
 }

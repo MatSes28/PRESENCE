@@ -43,10 +43,10 @@ app.use((0, express_session_1.default)({
         maxAge: 24 * 60 * 60 * 1000,
     },
 }));
-app.use(express_1.default.static(path_1.default.join(process.cwd(), "server/public")));
+app.use(express_1.default.static(path_1.default.join(process.cwd(), "public")));
 app.use("/api", routes_js_1.default);
 app.get("*", (req, res) => {
-    res.sendFile(path_1.default.join(process.cwd(), "server/public/index.html"));
+    res.sendFile(path_1.default.join(process.cwd(), "public/index.html"));
 });
 app.get("/health", async (req, res) => {
     try {
