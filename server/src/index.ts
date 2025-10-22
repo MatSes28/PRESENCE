@@ -20,10 +20,7 @@ const wss = new WebSocketServer({ server });
 app.use(helmet());
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? ["https://your-domain.com"] // Replace with your actual domain
-        : ["http://localhost:5173"], // Vite dev server
+    origin: true, // Allow all origins in development
     credentials: true,
   })
 );
