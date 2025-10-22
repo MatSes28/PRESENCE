@@ -1,4 +1,8 @@
-import { TransactionalEmailsApi, SendSmtpEmail } from "@getbrevo/brevo";
+import {
+  TransactionalEmailsApi,
+  SendSmtpEmail,
+  TransactionalEmailsApiApiKeys,
+} from "@getbrevo/brevo";
 
 interface EmailOptions {
   to: string;
@@ -12,10 +16,11 @@ class EmailService {
 
   constructor() {
     this.apiInstance = new TransactionalEmailsApi();
-    this.apiInstance.setApiKey(
-      TransactionalEmailsApi.ApiKeys.apiKey,
-      process.env.BREVO_API_KEY!
-    );
+    // Email service is optional - skip initialization if no API key
+    if (process.env.BREVO_API_KEY) {
+      this.apiInstance.authentications["apiKey"].apiKey =
+        process.env.BREVO_API_KEY;
+    }
   }
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
