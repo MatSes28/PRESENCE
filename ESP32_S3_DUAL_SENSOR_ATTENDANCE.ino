@@ -177,8 +177,8 @@ void connectWebSocket() {
   // Configure WebSocket
   webSocket.beginSSL(WS_HOST, WS_PORT, WS_PATH);
   webSocket.onEvent(webSocketEvent);
-  webSocket.setReconnectInterval(5000);
-  webSocket.enableHeartbeat(15000, 3000, 2);
+  webSocket.setReconnectInterval(5173);
+  webSocket.enableHeartbeat(15173, 3000, 2);
 
   // Add device ID as query parameter
   String url = String(WS_PATH) + "?deviceId=" + DEVICE_ID;

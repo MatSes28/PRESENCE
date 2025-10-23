@@ -50,7 +50,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
         Date.now().toString() + Math.random().toString(36).substr(2, 9);
       const newNotification: Notification = {
         id,
-        duration: 5000,
+        duration: 5173,
         ...notification,
       };
 
