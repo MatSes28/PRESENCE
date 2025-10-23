@@ -66,11 +66,11 @@ export const Sidebar: React.FC = () => {
   );
 
   return (
-    <div className="w-64 bg-white shadow-lg flex flex-col">
+    <div className="w-64 bg-gray-900 shadow-lg flex flex-col">
       {/* Logo and Branding */}
-      <div className="p-6 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-800">CLIRDEC Presence</h1>
-        <p className="text-sm text-gray-600">Attendance System</p>
+      <div className="p-6 border-b border-gray-700">
+        <h1 className="text-xl font-bold text-cyan-400">CLIRDEC Presence</h1>
+        <p className="text-sm text-gray-300">Attendance System</p>
       </div>
 
       {/* Navigation Menu */}
@@ -82,8 +82,8 @@ export const Sidebar: React.FC = () => {
                 <a
                   className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
                     location === item.path
-                      ? "bg-indigo-100 text-indigo-700"
-                      : "text-gray-700 hover:bg-gray-100"
+                      ? "bg-cyan-600 text-white"
+                      : "text-gray-300 hover:bg-gray-700 hover:text-white"
                   }`}
                 >
                   <span className="mr-3">{item.icon}</span>
@@ -96,19 +96,19 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* User Profile Section */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-700">
         <div className="flex items-center mb-4">
-          <div className="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center text-white font-semibold">
+          <div className="w-10 h-10 bg-cyan-500 rounded-full flex items-center justify-center text-white font-semibold">
             {user?.name?.charAt(0).toUpperCase()}
           </div>
           <div className="ml-3">
-            <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-            <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+            <p className="text-sm font-medium text-white">{user?.name}</p>
+            <p className="text-xs text-gray-400 capitalize">{user?.role}</p>
           </div>
         </div>
         <button
           onClick={logout}
-          className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          className="w-full px-4 py-2 text-left text-red-400 hover:bg-red-900 rounded-lg transition-colors"
         >
           🚪 Logout
         </button>

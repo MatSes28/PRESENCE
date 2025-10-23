@@ -149,7 +149,7 @@ export const LiveAttendance = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-white">
+          <h3 className="text-lg font-medium text-cyan-400">
             Live Attendance Monitoring
           </h3>
           <p className="text-sm text-gray-300">
@@ -172,7 +172,7 @@ export const LiveAttendance = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gray-800 rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4 border border-gray-700">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
@@ -190,7 +190,7 @@ export const LiveAttendance = () => {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4 border border-gray-700">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
@@ -208,7 +208,7 @@ export const LiveAttendance = () => {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4 border border-gray-700">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
@@ -226,7 +226,7 @@ export const LiveAttendance = () => {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4 border border-gray-700">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
@@ -246,9 +246,11 @@ export const LiveAttendance = () => {
       </div>
 
       {/* Live Events Feed */}
-      <div className="bg-gray-800 rounded-lg shadow">
+      <div className="bg-gray-800 rounded-lg shadow border border-gray-700">
         <div className="px-6 py-4 border-b border-gray-700">
-          <h4 className="text-lg font-medium text-white">Live Events Feed</h4>
+          <h4 className="text-lg font-medium text-cyan-400">
+            Live Events Feed
+          </h4>
           <p className="text-sm text-gray-300">
             Real-time system events and attendance records
           </p>
@@ -306,8 +308,10 @@ export const LiveAttendance = () => {
       </div>
 
       {/* System Status */}
-      <div className="bg-gray-800 rounded-lg shadow p-6">
-        <h4 className="text-lg font-medium text-white mb-4">System Status</h4>
+      <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+        <h4 className="text-lg font-medium text-cyan-400 mb-4">
+          System Status
+        </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex items-center space-x-3">
             <div

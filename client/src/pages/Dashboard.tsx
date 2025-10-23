@@ -142,7 +142,7 @@ export const Dashboard = () => {
     trendValue?: string;
     color?: string;
   }) => (
-    <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+    <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
       <div className="flex items-center">
         <div
           className={`w-12 h-12 bg-${color}-500 rounded-full flex items-center justify-center`}
@@ -150,18 +150,18 @@ export const Dashboard = () => {
           <span className="text-white text-lg">{icon}</span>
         </div>
         <div className="ml-4">
-          <dt className="text-sm font-medium text-gray-600 truncate">
+          <dt className="text-sm font-medium text-gray-300 truncate">
             {title}
           </dt>
-          <dd className="text-2xl font-semibold text-gray-800">{value}</dd>
+          <dd className="text-2xl font-semibold text-white">{value}</dd>
           {trend && trendValue && (
             <div
               className={`flex items-center text-sm ${
                 trend === "up"
-                  ? "text-green-600"
+                  ? "text-green-400"
                   : trend === "down"
-                  ? "text-red-600"
-                  : "text-gray-500"
+                  ? "text-red-400"
+                  : "text-gray-400"
               }`}
             >
               <span>{trend === "up" ? "↗" : trend === "down" ? "↘" : "→"}</span>
@@ -185,24 +185,24 @@ export const Dashboard = () => {
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-800 mb-4">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+          <h3 className="text-lg font-medium text-cyan-400 mb-4">
             Start New Session
           </h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Class
               </label>
-              <select className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-800">
+              <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
                 <option>Select a class...</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Session Type
               </label>
-              <select className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-800">
+              <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
                 <option>Lecture</option>
                 <option>Lab</option>
                 <option>Exam</option>
@@ -212,7 +212,7 @@ export const Dashboard = () => {
           <div className="flex justify-end space-x-3 mt-6">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+              className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
             >
               Cancel
             </button>
@@ -265,18 +265,18 @@ export const Dashboard = () => {
 
       {/* Active Sessions and Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-          <h4 className="text-lg font-medium text-gray-800 mb-4">
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
             Active Sessions
           </h4>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">CS101 - Lecture</span>
-              <span className="text-green-600">Active</span>
+              <span className="text-gray-300">CS101 - Lecture</span>
+              <span className="text-green-400">Active</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Lab 201 - Practical</span>
-              <span className="text-green-600">Active</span>
+              <span className="text-gray-300">Lab 201 - Practical</span>
+              <span className="text-green-400">Active</span>
             </div>
           </div>
           <button
@@ -287,62 +287,58 @@ export const Dashboard = () => {
           </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-          <h4 className="text-lg font-medium text-gray-800 mb-4">
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
             Quick Actions
           </h4>
           <div className="space-y-3">
-            <button className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded">
+            <button className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded">
               📚 Add Students
             </button>
-            <button className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded">
+            <button className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded">
               📊 View Reports
             </button>
-            <button className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded">
+            <button className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded">
               📢 Send Notifications
             </button>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-          <h4 className="text-lg font-medium text-gray-800 mb-4">
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
             System Overview
           </h4>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Total Events</span>
-              <span className="text-gray-800">
-                {dashboardStats.totalEvents}
-              </span>
+              <span className="text-gray-300">Total Events</span>
+              <span className="text-white">{dashboardStats.totalEvents}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Active Devices</span>
-              <span className="text-gray-800">
-                {dashboardStats.activeDevices}
-              </span>
+              <span className="text-gray-300">Active Devices</span>
+              <span className="text-white">{dashboardStats.activeDevices}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Real-time Activity */}
-      <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-        <h4 className="text-lg font-medium text-gray-800 mb-4">
+      <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+        <h4 className="text-lg font-medium text-cyan-400 mb-4">
           Real-time Activity
         </h4>
         <div className="space-y-3 max-h-64 overflow-y-auto">
           {realTimeData.length === 0 ? (
-            <p className="text-gray-500">No recent activity</p>
+            <p className="text-gray-400">No recent activity</p>
           ) : (
             realTimeData.map((data: any, index: number) => (
               <div
                 key={index}
-                className="bg-gray-50 p-3 rounded border border-gray-200"
+                className="bg-gray-700 p-3 rounded border border-gray-600"
               >
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-400">
                   {new Date(data.timestamp).toLocaleTimeString()}
                 </p>
-                <p className="text-sm text-gray-800">
+                <p className="text-sm text-white">
                   {data.type === "rfid_scan" && `RFID: ${data.rfidUid}`}
                   {data.type === "sensor_trigger" &&
                     `${data.sensorType} sensor: ${data.distance}cm`}
@@ -360,7 +356,7 @@ export const Dashboard = () => {
     <div className="space-y-6">
       {loading ? (
         <div className="flex items-center justify-center h-full">
-          <div className="text-gray-800">Loading...</div>
+          <div className="text-white">Loading...</div>
         </div>
       ) : (
         overviewContent

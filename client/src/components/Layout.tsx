@@ -8,7 +8,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-900">
       {/* Sidebar */}
       <Sidebar />
 
@@ -18,7 +18,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <TopBar />
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-6 bg-gray-900">
+          {children}
+        </main>
       </div>
     </div>
   );
