@@ -1,19 +1,14 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { useLocation } from "wouter";
 
 export const LoginForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { login, loading, error } = useAuth();
-  const [, setLocation] = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await login(email, password);
-    if (success) {
-      setLocation("/");
-    }
+    await login(email, password);
   };
 
   return (

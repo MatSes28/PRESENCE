@@ -1,4 +1,4 @@
-import { Router, Route } from "wouter";
+import { Router, Route, useLocation } from "wouter";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import {
   NotificationProvider,
@@ -19,11 +19,21 @@ import { Settings } from "./pages/Settings";
 import { Roster } from "./pages/Roster";
 import { UserManagement } from "./pages/UserManagement";
 import { ResetPassword } from "./pages/ResetPassword";
+import { useEffect } from "react";
 
 function AppContent() {
   const { user, loading } = useAuth();
+  const [, setLocation] = useLocation();
 
   console.log("AppContent render - user:", user, "loading:", loading);
+
+  // Handle redirect after successful login
+  useEffect(() => {
+    if (!loading && user) {
+      console.log("User authenticated, redirecting to dashboard");
+      setLocation("/");
+    }
+  }, [user, loading, setLocation]);
 
   if (loading) {
     return (
