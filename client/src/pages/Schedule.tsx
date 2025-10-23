@@ -183,17 +183,17 @@ export const Schedule = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">
+          <h3 className="text-lg font-medium text-white">
             Class Schedule Management
           </h3>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-300">
             Manage class timetables and sessions
           </p>
         </div>
         {user?.role === "admin" && (
           <button
             onClick={() => setShowAddForm(true)}
-            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
             Add Schedule
           </button>
@@ -202,12 +202,14 @@ export const Schedule = () => {
 
       {/* Add Schedule Form */}
       {showAddForm && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h4 className="text-lg font-medium mb-4">Add New Schedule</h4>
+        <div className="bg-gray-800 rounded-lg shadow p-6">
+          <h4 className="text-lg font-medium text-white mb-4">
+            Add New Schedule
+          </h4>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Subject ID *
                 </label>
                 <input
@@ -217,12 +219,12 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, subjectId: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="Subject ID"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Classroom ID *
                 </label>
                 <input
@@ -232,12 +234,12 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, classroomId: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="Classroom ID"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Faculty ID *
                 </label>
                 <input
@@ -247,12 +249,12 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, facultyId: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="Faculty ID"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Day of Week *
                 </label>
                 <select
@@ -260,7 +262,7 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, dayOfWeek: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   {DAYS_OF_WEEK.map((day, index) => (
                     <option key={index} value={index.toString()}>
@@ -270,7 +272,7 @@ export const Schedule = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Start Time *
                 </label>
                 <input
@@ -280,11 +282,11 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, startTime: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   End Time *
                 </label>
                 <input
@@ -294,11 +296,11 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, endTime: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Semester *
                 </label>
                 <select
@@ -306,7 +308,7 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, semester: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   <option value="1st Semester">1st Semester</option>
                   <option value="2nd Semester">2nd Semester</option>
@@ -314,7 +316,7 @@ export const Schedule = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Academic Year *
                 </label>
                 <input
@@ -324,7 +326,7 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, academicYear: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="2024-2025"
                 />
               </div>
@@ -334,7 +336,7 @@ export const Schedule = () => {
                 type="button"
                 onClick={resetForm}
                 disabled={submitting}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md"
+                className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed rounded-md"
               >
                 Cancel
               </button>
@@ -342,7 +344,7 @@ export const Schedule = () => {
                 type="submit"
                 loading={submitting}
                 loadingText="Adding..."
-                className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
+                className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-4 py-2 rounded-md text-sm font-medium"
               >
                 Add Schedule
               </LoadingButton>
@@ -352,24 +354,24 @@ export const Schedule = () => {
       )}
 
       {/* Weekly Schedule View */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h4 className="text-lg font-medium text-gray-900">Weekly Schedule</h4>
-          <p className="text-sm text-gray-500">
+      <div className="bg-gray-800 rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-700">
+          <h4 className="text-lg font-medium text-white">Weekly Schedule</h4>
+          <p className="text-sm text-gray-300">
             Current semester class timetable
           </p>
         </div>
         <div className="overflow-x-auto">
-          <div className="grid grid-cols-8 gap-px bg-gray-200">
+          <div className="grid grid-cols-8 gap-px bg-gray-700">
             {/* Time column header */}
-            <div className="bg-gray-50 px-4 py-3 text-sm font-medium text-gray-500">
+            <div className="bg-gray-900 px-4 py-3 text-sm font-medium text-gray-300">
               Time
             </div>
             {/* Day headers */}
             {DAYS_OF_WEEK.map((day) => (
               <div
                 key={day}
-                className="bg-gray-50 px-4 py-3 text-sm font-medium text-gray-500 text-center"
+                className="bg-gray-900 px-4 py-3 text-sm font-medium text-gray-300 text-center"
               >
                 {day}
               </div>
@@ -384,7 +386,7 @@ export const Schedule = () => {
 
               return (
                 <div key={hour} className="contents">
-                  <div className="bg-white px-4 py-8 text-sm text-gray-500 border-r">
+                  <div className="bg-gray-800 px-4 py-8 text-sm text-gray-400 border-r border-gray-700">
                     {timeLabel}
                   </div>
                   {DAYS_OF_WEEK.map((day, dayIndex) => {
@@ -399,20 +401,20 @@ export const Schedule = () => {
                     return (
                       <div
                         key={`${day}-${hour}`}
-                        className="bg-white px-2 py-2 min-h-16 border-r"
+                        className="bg-gray-800 px-2 py-2 min-h-16 border-r border-gray-700"
                       >
                         {hourSchedules.map((schedule) => (
                           <div
                             key={schedule.id}
-                            className="bg-teal-100 border border-teal-200 rounded p-2 mb-1 text-xs"
+                            className="bg-cyan-900 border border-cyan-700 rounded p-2 mb-1 text-xs"
                           >
-                            <div className="font-medium text-teal-800">
+                            <div className="font-medium text-cyan-300">
                               Subject {schedule.subjectId}
                             </div>
-                            <div className="text-teal-600">
+                            <div className="text-cyan-400">
                               Room {schedule.classroomId}
                             </div>
-                            <div className="text-teal-600">
+                            <div className="text-cyan-400">
                               {formatTime(schedule.startTime)} -{" "}
                               {formatTime(schedule.endTime)}
                             </div>
@@ -429,50 +431,50 @@ export const Schedule = () => {
       </div>
 
       {/* Schedule List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h4 className="text-lg font-medium text-gray-900">
+      <div className="bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-700">
+          <h4 className="text-lg font-medium text-white">
             All Schedules ({schedules.length})
           </h4>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-700">
+            <thead className="bg-gray-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Subject
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Classroom
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Day
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Time
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Semester
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-gray-800 divide-y divide-gray-700">
               {schedules.map((schedule) => (
-                <tr key={schedule.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <tr key={schedule.id} className="hover:bg-gray-700">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
                     Subject {schedule.subjectId}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                     Room {schedule.classroomId}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                     {DAYS_OF_WEEK[schedule.dayOfWeek]}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                     {formatTime(schedule.startTime)} -{" "}
                     {formatTime(schedule.endTime)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                     {schedule.semester} {schedule.academicYear}
                   </td>
                 </tr>
@@ -482,7 +484,7 @@ export const Schedule = () => {
         </div>
         {schedules.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-500">
+            <p className="text-gray-400">
               No schedules found. Add your first schedule to get started.
             </p>
           </div>

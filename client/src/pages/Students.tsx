@@ -207,17 +207,15 @@ export const Students = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">
-            Student Management
-          </h3>
-          <p className="text-sm text-gray-500">
+          <h3 className="text-lg font-medium text-white">Student Management</h3>
+          <p className="text-sm text-gray-300">
             Manage student records and RFID assignments
           </p>
         </div>
         {user?.role === "admin" && (
           <button
             onClick={() => setShowAddForm(true)}
-            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
             Add Student
           </button>
@@ -226,14 +224,14 @@ export const Students = () => {
 
       {/* Add/Edit Form */}
       {showAddForm && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h4 className="text-lg font-medium mb-4">
+        <div className="bg-gray-800 rounded-lg shadow p-6">
+          <h4 className="text-lg font-medium text-white mb-4">
             {editingStudent ? "Edit Student" : "Add New Student"}
           </h4>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Student ID *
                 </label>
                 <input
@@ -247,21 +245,21 @@ export const Students = () => {
                     );
                     studentValidation.setFieldTouched("studentId");
                   }}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                     studentValidation.getFieldError("studentId")
                       ? "border-red-500"
-                      : "border-gray-300"
+                      : "border-gray-600"
                   }`}
                   placeholder="e.g., 2021001"
                 />
                 {studentValidation.getFieldError("studentId") && (
-                  <p className="text-red-600 text-sm mt-1">
+                  <p className="text-red-400 text-sm mt-1">
                     {studentValidation.getFieldError("studentId")}
                   </p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Full Name *
                 </label>
                 <input
@@ -275,21 +273,21 @@ export const Students = () => {
                     );
                     studentValidation.setFieldTouched("name");
                   }}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                     studentValidation.getFieldError("name")
                       ? "border-red-500"
-                      : "border-gray-300"
+                      : "border-gray-600"
                   }`}
                   placeholder="Enter full name"
                 />
                 {studentValidation.getFieldError("name") && (
-                  <p className="text-red-600 text-sm mt-1">
+                  <p className="text-red-400 text-sm mt-1">
                     {studentValidation.getFieldError("name")}
                   </p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Email
                 </label>
                 <input
@@ -303,21 +301,21 @@ export const Students = () => {
                     );
                     studentValidation.setFieldTouched("email");
                   }}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                     studentValidation.getFieldError("email")
                       ? "border-red-500"
-                      : "border-gray-300"
+                      : "border-gray-600"
                   }`}
                   placeholder="student@email.com"
                 />
                 {studentValidation.getFieldError("email") && (
-                  <p className="text-red-600 text-sm mt-1">
+                  <p className="text-red-400 text-sm mt-1">
                     {studentValidation.getFieldError("email")}
                   </p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   RFID UID
                 </label>
                 <input
@@ -326,12 +324,12 @@ export const Students = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, rfidUid: e.target.value })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="RFID card UID"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Parent Email *
                 </label>
                 <input
@@ -345,15 +343,15 @@ export const Students = () => {
                     );
                     studentValidation.setFieldTouched("parentEmail");
                   }}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                     studentValidation.getFieldError("parentEmail")
                       ? "border-red-500"
-                      : "border-gray-300"
+                      : "border-gray-600"
                   }`}
                   placeholder="parent@email.com"
                 />
                 {studentValidation.getFieldError("parentEmail") && (
-                  <p className="text-red-600 text-sm mt-1">
+                  <p className="text-red-400 text-sm mt-1">
                     {studentValidation.getFieldError("parentEmail")}
                   </p>
                 )}
@@ -364,7 +362,7 @@ export const Students = () => {
                 type="button"
                 onClick={resetForm}
                 disabled={submitting}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md"
+                className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed rounded-md"
               >
                 Cancel
               </button>
@@ -372,7 +370,7 @@ export const Students = () => {
                 type="submit"
                 loading={submitting}
                 loadingText={editingStudent ? "Updating..." : "Adding..."}
-                className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-md text-sm font-medium"
+                className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-4 py-2 rounded-md text-sm font-medium"
               >
                 {editingStudent ? "Update" : "Add"} Student
               </LoadingButton>
@@ -382,51 +380,51 @@ export const Students = () => {
       )}
 
       {/* Students Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h4 className="text-lg font-medium text-gray-900">
+      <div className="bg-gray-800 shadow rounded-lg overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-700">
+          <h4 className="text-lg font-medium text-white">
             Students ({students.length})
           </h4>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-700">
+            <thead className="bg-gray-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Student ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Email
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   RFID Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-gray-800 divide-y divide-gray-700">
               {students.map((student) => (
-                <tr key={student.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <tr key={student.id} className="hover:bg-gray-700">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
                     {student.studentId}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                     {student.name}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                     {student.email || "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         student.rfidUid
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
+                          ? "bg-green-900 text-green-300"
+                          : "bg-yellow-900 text-yellow-300"
                       }`}
                     >
                       {student.rfidUid ? "Assigned" : "Not Assigned"}
@@ -437,14 +435,14 @@ export const Students = () => {
                       <>
                         <button
                           onClick={() => startEdit(student)}
-                          className="text-teal-600 hover:text-teal-900"
+                          className="text-cyan-400 hover:text-cyan-300"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(student.id)}
                           disabled={deleting === student.id}
-                          className="text-red-600 hover:text-red-900 disabled:text-red-400 disabled:cursor-not-allowed"
+                          className="text-red-400 hover:text-red-300 disabled:text-red-600 disabled:cursor-not-allowed"
                         >
                           {deleting === student.id ? "Deleting..." : "Delete"}
                         </button>
@@ -458,7 +456,7 @@ export const Students = () => {
         </div>
         {students.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-500">
+            <p className="text-gray-400">
               No students found. Add your first student to get started.
             </p>
           </div>

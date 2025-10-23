@@ -96,8 +96,8 @@ export const UserManagement: React.FC = () => {
   if (user?.role !== "admin") {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-        <p className="text-gray-600">
+        <h2 className="text-2xl font-bold text-white mb-4">Access Denied</h2>
+        <p className="text-gray-400">
           You don't have permission to access this page.
         </p>
       </div>
@@ -107,8 +107,8 @@ export const UserManagement: React.FC = () => {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading users...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto"></div>
+        <p className="mt-4 text-gray-400">Loading users...</p>
       </div>
     );
   }
@@ -116,96 +116,96 @@ export const UserManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
+        <h2 className="text-2xl font-bold text-white">User Management</h2>
         <button
           onClick={() => setShowCreateForm(true)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
         >
           Add New User
         </button>
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="bg-gray-800 rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-700">
+          <thead className="bg-gray-900">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Name
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Email
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Role
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Department
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-gray-800 divide-y divide-gray-700">
             {users.map((user) => (
-              <tr key={user.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              <tr key={user.id} className="hover:bg-gray-700">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
                   {user.name}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                   {user.email}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span
                     className={`px-2 py-1 text-xs font-medium rounded-full ${
                       user.role === "admin"
-                        ? "bg-purple-100 text-purple-800"
-                        : "bg-blue-100 text-blue-800"
+                        ? "bg-purple-900 text-purple-300"
+                        : "bg-blue-900 text-blue-300"
                     }`}
                   >
                     {user.role}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                   {user.department || "-"}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span
                     className={`px-2 py-1 text-xs font-medium rounded-full ${
                       user.isActive
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
+                        ? "bg-green-900 text-green-300"
+                        : "bg-red-900 text-red-300"
                     }`}
                   >
                     {user.isActive ? "Active" : "Inactive"}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-2">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 space-x-2">
                   <button
                     onClick={() => setEditingUser(user)}
-                    className="text-indigo-600 hover:text-indigo-900"
+                    className="text-cyan-400 hover:text-cyan-300"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleResetPassword(user.id)}
-                    className="text-blue-600 hover:text-blue-900"
+                    className="text-blue-400 hover:text-blue-300"
                   >
                     Reset Password
                   </button>
                   <button
                     onClick={() => handleSoftDelete(user.id)}
-                    className="text-yellow-600 hover:text-yellow-900"
+                    className="text-yellow-400 hover:text-yellow-300"
                   >
                     Deactivate
                   </button>
                   <button
                     onClick={() => handleHardDelete(user.id)}
-                    className="text-red-600 hover:text-red-900"
+                    className="text-red-400 hover:text-red-300"
                   >
                     Delete
                   </button>
@@ -218,18 +218,20 @@ export const UserManagement: React.FC = () => {
 
       {/* Create/Edit User Modal would go here */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Create New User</h3>
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center">
+          <div className="bg-gray-800 p-6 rounded-lg w-full max-w-md">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Create New User
+            </h3>
             {/* Form implementation */}
             <div className="flex justify-end space-x-2">
               <button
                 onClick={() => setShowCreateForm(false)}
-                className="px-4 py-2 bg-gray-600 text-white rounded"
+                className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-indigo-600 text-white rounded">
+              <button className="px-4 py-2 bg-cyan-600 text-white rounded hover:bg-cyan-700">
                 Create
               </button>
             </div>

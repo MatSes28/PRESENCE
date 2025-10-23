@@ -121,13 +121,13 @@ export const LiveAttendance = () => {
   const getEventColor = (status?: string) => {
     switch (status) {
       case "valid":
-        return "text-green-600 bg-green-50";
+        return "text-green-400 bg-green-900";
       case "invalid":
-        return "text-red-600 bg-red-50";
+        return "text-red-400 bg-red-900";
       case "discrepancy":
-        return "text-yellow-600 bg-yellow-50";
+        return "text-yellow-400 bg-yellow-900";
       default:
-        return "text-gray-600 bg-gray-50";
+        return "text-gray-400 bg-gray-900";
     }
   };
 
@@ -149,10 +149,10 @@ export const LiveAttendance = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">
+          <h3 className="text-lg font-medium text-white">
             Live Attendance Monitoring
           </h3>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-300">
             Real-time attendance tracking and system events
           </p>
         </div>
@@ -163,7 +163,7 @@ export const LiveAttendance = () => {
                 isConnected ? "bg-green-500" : "bg-red-500"
               }`}
             ></div>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-400">
               {isConnected ? "Connected" : "Disconnected"}
             </span>
           </div>
@@ -172,7 +172,7 @@ export const LiveAttendance = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
@@ -180,17 +180,17 @@ export const LiveAttendance = () => {
               </div>
             </div>
             <div className="ml-4">
-              <dt className="text-sm font-medium text-gray-500 truncate">
+              <dt className="text-sm font-medium text-gray-300 truncate">
                 Total Events
               </dt>
-              <dd className="text-lg font-semibold text-gray-900">
+              <dd className="text-lg font-semibold text-white">
                 {stats.totalEvents}
               </dd>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
@@ -198,17 +198,17 @@ export const LiveAttendance = () => {
               </div>
             </div>
             <div className="ml-4">
-              <dt className="text-sm font-medium text-gray-500 truncate">
+              <dt className="text-sm font-medium text-gray-300 truncate">
                 Valid Entries
               </dt>
-              <dd className="text-lg font-semibold text-gray-900">
+              <dd className="text-lg font-semibold text-white">
                 {stats.validEntries}
               </dd>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
@@ -216,17 +216,17 @@ export const LiveAttendance = () => {
               </div>
             </div>
             <div className="ml-4">
-              <dt className="text-sm font-medium text-gray-500 truncate">
+              <dt className="text-sm font-medium text-gray-300 truncate">
                 Discrepancies
               </dt>
-              <dd className="text-lg font-semibold text-gray-900">
+              <dd className="text-lg font-semibold text-white">
                 {stats.discrepancies}
               </dd>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
@@ -234,10 +234,10 @@ export const LiveAttendance = () => {
               </div>
             </div>
             <div className="ml-4">
-              <dt className="text-sm font-medium text-gray-500 truncate">
+              <dt className="text-sm font-medium text-gray-300 truncate">
                 Active Devices
               </dt>
-              <dd className="text-lg font-semibold text-gray-900">
+              <dd className="text-lg font-semibold text-white">
                 {stats.activeDevices}
               </dd>
             </div>
@@ -246,12 +246,10 @@ export const LiveAttendance = () => {
       </div>
 
       {/* Live Events Feed */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h4 className="text-lg font-medium text-gray-900">
-            Live Events Feed
-          </h4>
-          <p className="text-sm text-gray-500">
+      <div className="bg-gray-800 rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-700">
+          <h4 className="text-lg font-medium text-white">Live Events Feed</h4>
+          <p className="text-sm text-gray-300">
             Real-time system events and attendance records
           </p>
         </div>
@@ -259,18 +257,18 @@ export const LiveAttendance = () => {
           {events.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-4xl mb-4">📡</div>
-              <p className="text-gray-500">Waiting for attendance events...</p>
-              <p className="text-sm text-gray-400 mt-2">
+              <p className="text-gray-400">Waiting for attendance events...</p>
+              <p className="text-sm text-gray-500 mt-2">
                 Events will appear here as students interact with the system
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="divide-y divide-gray-700">
               {events.map((event) => (
-                <div key={event.id} className="px-6 py-4 hover:bg-gray-50">
+                <div key={event.id} className="px-6 py-4 hover:bg-gray-700">
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0">
-                      <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center">
                         <span className="text-lg">
                           {getEventIcon(event.type)}
                         </span>
@@ -278,7 +276,7 @@ export const LiveAttendance = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-white">
                           {getEventDescription(event)}
                         </p>
                         <div className="flex items-center space-x-2">
@@ -289,12 +287,12 @@ export const LiveAttendance = () => {
                           >
                             {event.status || "unknown"}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-gray-400">
                             {new Date(event.timestamp).toLocaleTimeString()}
                           </span>
                         </div>
                       </div>
-                      <div className="mt-1 flex items-center space-x-4 text-xs text-gray-500">
+                      <div className="mt-1 flex items-center space-x-4 text-xs text-gray-400">
                         <span>Device: {event.deviceId}</span>
                         <span>Type: {event.type.replace("_", " ")}</span>
                       </div>
@@ -308,10 +306,8 @@ export const LiveAttendance = () => {
       </div>
 
       {/* System Status */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h4 className="text-lg font-medium text-gray-900 mb-4">
-          System Status
-        </h4>
+      <div className="bg-gray-800 rounded-lg shadow p-6">
+        <h4 className="text-lg font-medium text-white mb-4">System Status</h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex items-center space-x-3">
             <div
@@ -320,10 +316,10 @@ export const LiveAttendance = () => {
               }`}
             ></div>
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-white">
                 WebSocket Connection
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-400">
                 {isConnected
                   ? "Connected to server"
                   : "Disconnected from server"}
@@ -334,8 +330,8 @@ export const LiveAttendance = () => {
           <div className="flex items-center space-x-3">
             <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
             <div>
-              <p className="text-sm font-medium text-gray-900">IoT Devices</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-sm font-medium text-white">IoT Devices</p>
+              <p className="text-xs text-gray-400">
                 {stats.activeDevices} device
                 {stats.activeDevices !== 1 ? "s" : ""} online
               </p>
@@ -345,10 +341,10 @@ export const LiveAttendance = () => {
           <div className="flex items-center space-x-3">
             <div className="w-3 h-3 bg-green-500 rounded-full"></div>
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-white">
                 Attendance System
               </p>
-              <p className="text-xs text-gray-500">Active and monitoring</p>
+              <p className="text-xs text-gray-400">Active and monitoring</p>
             </div>
           </div>
         </div>

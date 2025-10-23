@@ -99,21 +99,19 @@ export const Reports = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h3 className="text-lg font-medium text-gray-900">
-          Attendance Reports
-        </h3>
-        <p className="text-sm text-gray-500">
+        <h3 className="text-lg font-medium text-white">Attendance Reports</h3>
+        <p className="text-sm text-gray-300">
           Download attendance reports with timestamps and entry/exit status
         </p>
       </div>
 
       {/* Report Configuration */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-gray-800 rounded-lg shadow p-6">
         <div className="space-y-6">
           {/* Date Range */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 Start Date
               </label>
               <input
@@ -125,11 +123,11 @@ export const Reports = () => {
                     startDate: e.target.value,
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 End Date
               </label>
               <input
@@ -138,14 +136,14 @@ export const Reports = () => {
                 onChange={(e) =>
                   setReportParams({ ...reportParams, endDate: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
             </div>
           </div>
 
           {/* Subject Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-300 mb-1">
               Subject Filter
             </label>
             <input
@@ -159,7 +157,7 @@ export const Reports = () => {
                     : undefined,
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
               placeholder="Filter by subject"
             />
           </div>
@@ -169,7 +167,7 @@ export const Reports = () => {
             <button
               onClick={handleGenerateReport}
               disabled={generating}
-              className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-6 py-3 rounded-md text-sm font-medium flex items-center space-x-2"
+              className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-6 py-3 rounded-md text-sm font-medium flex items-center space-x-2"
             >
               {generating ? (
                 <>

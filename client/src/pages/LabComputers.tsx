@@ -96,14 +96,14 @@ export const LabComputers = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "available":
-        return "bg-gray-100 text-gray-800"; // Changed to gray for available
+        return "bg-gray-900 text-gray-300"; // Changed to gray for available
       case "in_use":
       case "active":
-        return "bg-green-100 text-green-800"; // Changed to green for occupied
+        return "bg-green-900 text-green-300"; // Changed to green for occupied
       case "maintenance":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-900 text-yellow-300";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-900 text-gray-300";
     }
   };
 
@@ -220,10 +220,10 @@ export const LabComputers = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">
+          <h3 className="text-lg font-medium text-white">
             Lab Computer Management
           </h3>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-300">
             Monitor and manage computer lab resources
           </p>
         </div>
@@ -233,7 +233,7 @@ export const LabComputers = () => {
               fetchComputers();
               fetchAssignments();
             }}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
             Refresh
           </button>
@@ -242,47 +242,47 @@ export const LabComputers = () => {
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4">
           <div className="flex items-center">
             <div className="text-2xl mr-3">💻</div>
             <div>
-              <p className="text-sm font-medium text-gray-500">
+              <p className="text-sm font-medium text-gray-300">
                 Total Computers
               </p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-white">
                 {computers.length}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4">
           <div className="flex items-center">
             <div className="text-2xl mr-3">⚫</div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Available</p>
-              <p className="text-2xl font-bold text-gray-600">
+              <p className="text-sm font-medium text-gray-300">Available</p>
+              <p className="text-2xl font-bold text-gray-400">
                 {computers.filter((c) => c.status === "available").length}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4">
           <div className="flex items-center">
             <div className="text-2xl mr-3">🟢</div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Occupied</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-sm font-medium text-gray-300">Occupied</p>
+              <p className="text-2xl font-bold text-green-400">
                 {computers.filter((c) => c.status === "in_use").length}
               </p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-gray-800 rounded-lg shadow p-4">
           <div className="flex items-center">
             <div className="text-2xl mr-3">🟡</div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Maintenance</p>
-              <p className="text-2xl font-bold text-yellow-600">
+              <p className="text-sm font-medium text-gray-300">Maintenance</p>
+              <p className="text-2xl font-bold text-yellow-400">
                 {computers.filter((c) => c.status === "maintenance").length}
               </p>
             </div>
@@ -300,12 +300,12 @@ export const LabComputers = () => {
         if (!isLabRoom) return null;
 
         return (
-          <div key={classroomId} className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h4 className="text-lg font-medium text-gray-900">
+          <div key={classroomId} className="bg-gray-800 rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-700">
+              <h4 className="text-lg font-medium text-white">
                 Lab Room {classroomId}
               </h4>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-300">
                 Real-time computer usage monitoring •
                 {
                   classroomComputers.filter((c) => c.status === "available")
@@ -323,14 +323,14 @@ export const LabComputers = () => {
                   return (
                     <div
                       key={computer.id}
-                      className="border border-gray-200 rounded-lg p-4"
+                      className="border border-gray-700 rounded-lg p-4 bg-gray-900"
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2">
                           <span className="text-lg">
                             {getStatusIcon(computer.status)}
                           </span>
-                          <span className="font-medium text-gray-900">
+                          <span className="font-medium text-white">
                             {computer.name}
                           </span>
                         </div>
@@ -345,14 +345,14 @@ export const LabComputers = () => {
                         </span>
                       </div>
 
-                      <div className="space-y-2 text-sm text-gray-600">
+                      <div className="space-y-2 text-sm text-gray-400">
                         <div>IP: {computer.ipAddress}</div>
                         {computer.macAddress && (
                           <div>MAC: {computer.macAddress}</div>
                         )}
                         {assignment && (
                           <div className="space-y-1">
-                            <div className="text-green-600 font-medium">
+                            <div className="text-green-400 font-medium">
                               Currently using: {assignment.studentName}
                             </div>
                             {assignment.loginTime && (
@@ -382,7 +382,7 @@ export const LabComputers = () => {
                           <button
                             onClick={() => releaseComputer(computer.id)}
                             disabled={processing === `release-${computer.id}`}
-                            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
+                            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
                           >
                             {processing === `release-${computer.id}`
                               ? "Releasing..."
@@ -395,7 +395,7 @@ export const LabComputers = () => {
                             disabled={
                               processing === `maintenance-${computer.id}`
                             }
-                            className="flex-1 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-400 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
+                            className="flex-1 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
                           >
                             {processing === `maintenance-${computer.id}`
                               ? "Setting..."
@@ -408,7 +408,7 @@ export const LabComputers = () => {
                             disabled={
                               processing === `maintenance-${computer.id}`
                             }
-                            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
+                            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
                           >
                             {processing === `maintenance-${computer.id}`
                               ? "Activating..."
@@ -417,7 +417,7 @@ export const LabComputers = () => {
                         )}
                         <button
                           onClick={() => setSelectedComputer(computer)}
-                          className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-xs font-medium"
+                          className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-xs font-medium"
                         >
                           Details
                         </button>
@@ -432,37 +432,37 @@ export const LabComputers = () => {
       })}
 
       {/* Real-Time Computer Usage Monitoring */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h4 className="text-lg font-medium text-gray-900">
+      <div className="bg-gray-800 rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-700">
+          <h4 className="text-lg font-medium text-white">
             Real-Time Computer Usage
           </h4>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-300">
             Live monitoring of laboratory computer sessions
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-700">
+            <thead className="bg-gray-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Computer
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Student
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Assigned At
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Duration
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-gray-800 divide-y divide-gray-700">
               {assignments
                 .filter((a) => !a.releasedAt)
                 .map((assignment) => {
@@ -475,17 +475,17 @@ export const LabComputers = () => {
                   ); // minutes
 
                   return (
-                    <tr key={assignment.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <tr key={assignment.id} className="hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
                         {computer?.name} (Room {computer?.classroomId})
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                         {assignment.studentName}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                         {new Date(assignment.assignedAt).toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                         {assignment.sessionDuration
                           ? `${assignment.sessionDuration} min`
                           : `${duration} min`}
@@ -496,7 +496,7 @@ export const LabComputers = () => {
                           disabled={
                             processing === `release-${assignment.computerId}`
                           }
-                          className="text-red-600 hover:text-red-900 disabled:text-red-400 disabled:cursor-not-allowed"
+                          className="text-red-400 hover:text-red-300 disabled:text-red-600 disabled:cursor-not-allowed"
                         >
                           {processing === `release-${assignment.computerId}`
                             ? "Releasing..."
@@ -511,23 +511,23 @@ export const LabComputers = () => {
         </div>
         {assignments.filter((a) => !a.releasedAt).length === 0 && (
           <div className="text-center py-8">
-            <p className="text-gray-500">No active computer assignments</p>
+            <p className="text-gray-400">No active computer assignments</p>
           </div>
         )}
       </div>
 
       {/* Computer Details Modal */}
       {selectedComputer && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-gray-800 border-gray-700">
             <div className="mt-3">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
+                <h3 className="text-lg font-medium text-white">
                   Computer Details: {selectedComputer.name}
                 </h3>
                 <button
                   onClick={() => setSelectedComputer(null)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-300"
                 >
                   ✕
                 </button>
@@ -536,7 +536,7 @@ export const LabComputers = () => {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-300">
                       Status
                     </label>
                     <span
@@ -548,20 +548,20 @@ export const LabComputers = () => {
                     </span>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-300">
                       Room
                     </label>
-                    <span className="text-sm text-gray-900">
+                    <span className="text-sm text-white">
                       {selectedComputer.classroomId}
                     </span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
                     Network Info
                   </label>
-                  <div className="bg-gray-50 p-3 rounded text-sm">
+                  <div className="bg-gray-900 p-3 rounded text-sm text-white">
                     <div>IP: {selectedComputer.ipAddress}</div>
                     {selectedComputer.macAddress && (
                       <div>MAC: {selectedComputer.macAddress}</div>
@@ -571,10 +571,10 @@ export const LabComputers = () => {
 
                 {selectedComputer.currentUser && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
                       Current User
                     </label>
-                    <div className="bg-blue-50 p-3 rounded text-sm text-blue-800">
+                    <div className="bg-blue-900 p-3 rounded text-sm text-blue-300">
                       {selectedComputer.currentUser}
                     </div>
                   </div>
@@ -583,7 +583,7 @@ export const LabComputers = () => {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => setSelectedComputer(null)}
-                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium"
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium"
                   >
                     Close
                   </button>
