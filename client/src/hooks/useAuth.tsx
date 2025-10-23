@@ -68,7 +68,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setError(null);
       setLoading(true);
 
+      console.log("Making login API call...");
       const response = await api.login(email, password);
+      console.log("API response:", response);
 
       if (response.success && response.data) {
         setUser(response.data as User);
@@ -77,10 +79,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.log("Login successful, user set:", response.data);
         return true;
       } else {
+        console.log(
+          "Login failed - response not successful:",
+          response.message
+        );
         setError(response.message || "Login failed");
         return false;
       }
     } catch (err) {
+      console.error("Login error caught:", err);
       const errorMessage = err instanceof Error ? err.message : "Login failed";
       setError(errorMessage);
       return false;

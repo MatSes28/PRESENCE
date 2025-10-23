@@ -19,13 +19,20 @@ export const LoginForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginSuccess(false); // Clear any previous success state
+
+    console.log("Starting login attempt...");
     const success = await login(email, password);
+    console.log("Login result:", success, "Error:", error);
+
     if (success) {
+      console.log("Login successful, showing success message");
       setLoginSuccess(true);
       // Redirect to dashboard after successful login
       setTimeout(() => {
         setLocation("/");
       }, 1000); // Small delay to show success message
+    } else {
+      console.log("Login failed, error:", error);
     }
   };
 

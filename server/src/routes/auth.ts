@@ -15,7 +15,10 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log("Login attempt for email:", email);
+
     if (!email || !password) {
+      console.log("Login failed - missing email or password");
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
@@ -23,6 +26,7 @@ router.post("/login", async (req, res) => {
     }
 
     // Find user by email
+    console.log("Searching for user with email:", email);
     const userResult = await db
       .select()
       .from(users)
@@ -32,6 +36,7 @@ router.post("/login", async (req, res) => {
     console.log("User result:", userResult);
 
     if (userResult.length === 0) {
+      console.log("Login failed - user not found");
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
@@ -39,15 +44,21 @@ router.post("/login", async (req, res) => {
     }
 
     const user = userResult[0];
+    console.log("User found, checking password");
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
+    console.log("Password valid:", isValidPassword);
+
     if (!isValidPassword) {
+      console.log("Login failed - invalid password");
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
       });
     }
+
+    console.log("Login successful for user:", user.email);
 
     // Set session
     if (req.session) {
