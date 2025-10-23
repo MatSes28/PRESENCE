@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getWebSocketClient } from "../lib/websocket";
 import { useAuth } from "../hooks/useAuth";
+import { api } from "../lib/api";
 
 interface AttendanceEvent {
   id: string;
@@ -19,12 +20,34 @@ export const LiveAttendance = () => {
   const { user } = useAuth();
   const [events, setEvents] = useState<AttendanceEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [rfidInput, setRfidInput] = useState("");
+  const [attendanceData, setAttendanceData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalEvents: 0,
     validEntries: 0,
     discrepancies: 0,
     activeDevices: 0,
   });
+
+  // Fetch initial attendance data
+  useEffect(() => {
+    const fetchAttendanceData = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get("/attendance");
+        if (response.success && Array.isArray(response.data)) {
+          setAttendanceData(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch attendance data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAttendanceData();
+  }, []);
 
   useEffect(() => {
     const wsClient = getWebSocketClient(user?.id);
@@ -68,6 +91,8 @@ export const LiveAttendance = () => {
         status: data.isValid ? "valid" : "discrepancy",
       });
       updateStats(data);
+      // Update attendance data
+      setAttendanceData((prev) => [data, ...prev.slice(0, 99)]);
     });
 
     wsClient.on("deviceStatus", (data) => {
@@ -103,6 +128,36 @@ export const LiveAttendance = () => {
         ? prev.discrepancies + 1
         : prev.discrepancies,
     }));
+  };
+
+  const simulateRfidTap = async () => {
+    if (!rfidInput.trim()) return;
+
+    try {
+      const response = await api.post("/attendance/simulate-rfid", {
+        rfidUid: rfidInput.trim(),
+      });
+
+      if (response.success) {
+        setRfidInput("");
+        // The WebSocket will handle updating the UI
+      } else {
+        console.error("RFID simulation failed:", response.message);
+      }
+    } catch (error) {
+      console.error("Failed to simulate RFID tap:", error);
+    }
+  };
+
+  const refreshAttendanceData = async () => {
+    try {
+      const response = await api.get("/attendance");
+      if (response.success && Array.isArray(response.data)) {
+        setAttendanceData(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to refresh attendance data:", error);
+    }
   };
 
   const getEventIcon = (type: string) => {
@@ -157,6 +212,12 @@ export const LiveAttendance = () => {
           </p>
         </div>
         <div className="flex items-center space-x-4">
+          <button
+            onClick={refreshAttendanceData}
+            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium rounded-lg"
+          >
+            Refresh
+          </button>
           <div className="flex items-center space-x-2">
             <div
               className={`w-3 h-3 rounded-full ${
@@ -164,9 +225,151 @@ export const LiveAttendance = () => {
               }`}
             ></div>
             <span className="text-sm text-gray-400">
-              {isConnected ? "Connected" : "Disconnected"}
+              RFID Scanner {isConnected ? "Active" : "Inactive"}
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* RFID Scanner Simulation */}
+      <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+        <h4 className="text-lg font-medium text-cyan-400 mb-4">
+          RFID Scanner Simulation
+        </h4>
+        <div className="flex space-x-4">
+          <input
+            type="text"
+            value={rfidInput}
+            onChange={(e) => setRfidInput(e.target.value)}
+            placeholder="Enter RFID card ID"
+            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+          />
+          <button
+            onClick={simulateRfidTap}
+            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg"
+          >
+            Simulate Tap
+          </button>
+        </div>
+      </div>
+
+      {/* Live Attendance Table */}
+      <div className="bg-gray-800 rounded-lg shadow border border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400">
+            Live Attendance Table
+          </h4>
+          <p className="text-sm text-gray-300">
+            Current session attendance records
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="text-white">Loading attendance data...</div>
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-700">
+              <thead className="bg-gray-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Student
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Student ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Check-in Time
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Computer
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-gray-800 divide-y divide-gray-700">
+                {attendanceData.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-12 text-center text-gray-400"
+                    >
+                      No attendance records found
+                    </td>
+                  </tr>
+                ) : (
+                  attendanceData.slice(0, 10).map((record: any) => (
+                    <tr key={record.id} className="hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+                            <span className="text-xs text-white">
+                              {record.student?.name?.charAt(0) || "?"}
+                            </span>
+                          </div>
+                          <div className="ml-3">
+                            <div className="text-sm font-medium text-white">
+                              {record.student?.name || "Unknown"}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {record.student?.studentId || "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            record.status === "present"
+                              ? "bg-green-100 text-green-800"
+                              : record.status === "late"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : record.status === "absent"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {record.status || "unknown"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {record.entryTime
+                          ? new Date(record.entryTime).toLocaleTimeString()
+                          : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {record.computerAssignment?.computer?.name || "N/A"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          {record.status === "present" && (
+                            <button className="text-cyan-400 hover:text-cyan-300">
+                              Monitor
+                            </button>
+                          )}
+                          {record.status === "absent" && (
+                            <>
+                              <button className="text-blue-400 hover:text-blue-300">
+                                Excuse
+                              </button>
+                              <button className="text-gray-400 hover:text-gray-300">
+                                Contact
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

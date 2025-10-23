@@ -9,6 +9,8 @@ import reportRoutes from "./routes/reports.js";
 import userRoutes from "./routes/users.js";
 import computerRoutes from "./routes/computers.js";
 import notificationRoutes from "./routes/notifications.js";
+import iotRoutes from "./routes/iot.js";
+import dashboardRoutes from "./routes/dashboard.js";
 // Removed audit routes - not in paper scope
 
 const router = Router();
@@ -24,5 +26,7 @@ router.use("/reports", reportRoutes);
 router.use("/users", userRoutes);
 router.use("/computers", computerRoutes);
 router.use("/notifications", notificationRoutes);
+router.use("/iot", iotRoutes);
+router.use("/dashboard", dashboardRoutes);
 
 export default router;

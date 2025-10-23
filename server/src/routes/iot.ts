@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { iotDeviceManager } from "../services/iotDeviceManager.js";
-import { sendToDevice } from "../services/websocket.js";
+import { sendToDevice, broadcastToWebClients } from "../services/websocket.js";
 
 const router = Router();
 
@@ -278,6 +278,43 @@ router.get("/connected", requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error("Get connected devices error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Simulate RFID tap for testing
+router.post("/attendance/simulate-rfid", requireAuth, async (req, res) => {
+  try {
+    const { rfidUid } = req.body;
+
+    if (!rfidUid) {
+      return res.status(400).json({
+        success: false,
+        message: "RFID UID is required",
+      });
+    }
+
+    // Simulate RFID scan by sending to WebSocket
+    const simulatedData = {
+      type: "rfid_scan",
+      rfidUid,
+      deviceId: "simulator",
+      timestamp: new Date().toISOString(),
+    };
+
+    // Send to WebSocket for real-time updates
+    broadcastToWebClients("rfidScan", simulatedData);
+
+    res.json({
+      success: true,
+      message: "RFID tap simulated successfully",
+      data: simulatedData,
+    });
+  } catch (error) {
+    console.error("Simulate RFID error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",

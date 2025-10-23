@@ -42,6 +42,21 @@ export const Settings = () => {
     academicYear: new Date().getFullYear().toString(),
   });
 
+  const [hardwareSettings, setHardwareSettings] = useState({
+    rfidScannerPort: "COM3",
+    proximitySensorThreshold: 5,
+    dualValidation: true,
+    autoReconnect: true,
+  });
+
+  const [emailSettings, setEmailSettings] = useState({
+    smtpServer: "smtp.gmail.com",
+    senderEmail: "clirdec.presence@clsu.edu.ph",
+    absenceThreshold: 3,
+    dailySummary: true,
+    lateNotifications: true,
+  });
+
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -125,42 +140,11 @@ export const Settings = () => {
     }
   };
 
-  const handleSystemSettingsUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      const response = await api.updateUserSettings({
-        emailNotifications: systemSettings.emailNotifications,
-        darkMode: false,
-        language: "en",
-      });
-      if (response.success) {
-        addNotification({
-          type: "success",
-          title: "System Settings Updated",
-          message: "System settings have been updated successfully!",
-        });
-      } else {
-        addNotification({
-          type: "error",
-          title: "Update Failed",
-          message: response.message || "Failed to update system settings",
-        });
-      }
-    } catch (err: any) {
-      addNotification({
-        type: "error",
-        title: "Error",
-        message:
-          err.data?.message ||
-          "An error occurred while updating system settings",
-      });
-    }
-  };
-
   const tabs = [
     { id: "profile", label: "Profile", icon: "👤" },
     { id: "security", label: "Security", icon: "🔒" },
+    { id: "hardware", label: "Hardware", icon: "🔧" },
+    { id: "email", label: "Email", icon: "📧" },
     { id: "system", label: "System", icon: "⚙️" },
   ];
 
@@ -395,121 +379,361 @@ export const Settings = () => {
             </div>
           )}
 
+          {/* Hardware Configuration */}
+          {activeTab === "hardware" && user?.role === "admin" && (
+            <div>
+              <h4 className="text-lg font-medium text-white mb-4">
+                Hardware Configuration
+              </h4>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      RFID Scanner Port
+                    </label>
+                    <input
+                      type="text"
+                      value={hardwareSettings.rfidScannerPort}
+                      onChange={(e) =>
+                        setHardwareSettings({
+                          ...hardwareSettings,
+                          rfidScannerPort: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      placeholder="COM3"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Proximity Sensor Threshold
+                    </label>
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={hardwareSettings.proximitySensorThreshold}
+                        onChange={(e) =>
+                          setHardwareSettings({
+                            ...hardwareSettings,
+                            proximitySensorThreshold: parseInt(e.target.value),
+                          })
+                        }
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span>1m</span>
+                        <span className="text-cyan-400">
+                          {hardwareSettings.proximitySensorThreshold}m
+                        </span>
+                        <span>10m</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={hardwareSettings.dualValidation}
+                      onChange={(e) =>
+                        setHardwareSettings({
+                          ...hardwareSettings,
+                          dualValidation: e.target.checked,
+                        })
+                      }
+                      className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
+                    />
+                    <label className="ml-2 block text-sm text-white">
+                      Require dual validation (RFID + Proximity)
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={hardwareSettings.autoReconnect}
+                      onChange={(e) =>
+                        setHardwareSettings({
+                          ...hardwareSettings,
+                          autoReconnect: e.target.checked,
+                        })
+                      }
+                      className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
+                    />
+                    <label className="ml-2 block text-sm text-white">
+                      Auto-reconnect on hardware failure
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    Test Connection
+                  </button>
+                  <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    Save Hardware Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Email Notifications */}
+          {activeTab === "email" && user?.role === "admin" && (
+            <div>
+              <h4 className="text-lg font-medium text-white mb-4">
+                Email Notifications
+              </h4>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      SMTP Server
+                    </label>
+                    <input
+                      type="text"
+                      value={emailSettings.smtpServer}
+                      onChange={(e) =>
+                        setEmailSettings({
+                          ...emailSettings,
+                          smtpServer: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      placeholder="smtp.gmail.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Sender Email
+                    </label>
+                    <input
+                      type="email"
+                      value={emailSettings.senderEmail}
+                      onChange={(e) =>
+                        setEmailSettings({
+                          ...emailSettings,
+                          senderEmail: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      placeholder="clirdec.presence@clsu.edu.ph"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Absence Threshold (consecutive days)
+                  </label>
+                  <select
+                    value={emailSettings.absenceThreshold}
+                    onChange={(e) =>
+                      setEmailSettings({
+                        ...emailSettings,
+                        absenceThreshold: parseInt(e.target.value),
+                      })
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value="1">1 consecutive day</option>
+                    <option value="2">2 consecutive days</option>
+                    <option value="3">3 consecutive days</option>
+                    <option value="5">5 consecutive days</option>
+                  </select>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={emailSettings.dailySummary}
+                      onChange={(e) =>
+                        setEmailSettings({
+                          ...emailSettings,
+                          dailySummary: e.target.checked,
+                        })
+                      }
+                      className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
+                    />
+                    <label className="ml-2 block text-sm text-white">
+                      Send daily attendance summary
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={emailSettings.lateNotifications}
+                      onChange={(e) =>
+                        setEmailSettings({
+                          ...emailSettings,
+                          lateNotifications: e.target.checked,
+                        })
+                      }
+                      className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
+                    />
+                    <label className="ml-2 block text-sm text-white">
+                      Send notifications for late arrivals
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    Test Email
+                  </button>
+                  <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    Save Email Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* System Settings */}
           {activeTab === "system" && user?.role === "admin" && (
             <div>
               <h4 className="text-lg font-medium text-white mb-4">
                 System Settings
               </h4>
-              <form onSubmit={handleSystemSettingsUpdate} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Late Threshold (minutes)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="60"
-                      value={systemSettings.lateThreshold}
-                      onChange={(e) =>
-                        setSystemSettings({
-                          ...systemSettings,
-                          lateThreshold: parseInt(e.target.value) || 15,
-                        })
-                      }
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">
-                      Default: 15 minutes (as per paper)
-                    </p>
+              <div className="space-y-6">
+                {/* Class Session Settings */}
+                <div>
+                  <h5 className="text-md font-medium text-cyan-400 mb-3">
+                    Class Session Settings
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Auto-start Buffer (minutes)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="60"
+                        value={systemSettings.lateThreshold}
+                        onChange={(e) =>
+                          setSystemSettings({
+                            ...systemSettings,
+                            lateThreshold: parseInt(e.target.value) || 15,
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Late Threshold (minutes)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={systemSettings.lateThreshold}
+                        onChange={(e) =>
+                          setSystemSettings({
+                            ...systemSettings,
+                            lateThreshold: parseInt(e.target.value) || 15,
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Default: 15 minutes (as per paper)
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Absent Threshold (%)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={systemSettings.absentThreshold}
-                      onChange={(e) =>
-                        setSystemSettings({
-                          ...systemSettings,
-                          absentThreshold: parseInt(e.target.value) || 60,
-                        })
-                      }
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">
-                      Default: 60% of class time (as per paper)
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Semester
-                    </label>
-                    <select
-                      value={systemSettings.semester}
-                      onChange={(e) =>
-                        setSystemSettings({
-                          ...systemSettings,
-                          semester: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    >
-                      <option value="1st Semester">1st Semester</option>
-                      <option value="2nd Semester">2nd Semester</option>
-                      <option value="Summer">Summer</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Academic Year
-                    </label>
-                    <input
-                      type="text"
-                      value={systemSettings.academicYear}
-                      onChange={(e) =>
-                        setSystemSettings({
-                          ...systemSettings,
-                          academicYear: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                      placeholder="2024-2025"
-                    />
+
+                  <div className="mt-4 space-y-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={systemSettings.emailNotifications}
+                        onChange={(e) =>
+                          setSystemSettings({
+                            ...systemSettings,
+                            emailNotifications: e.target.checked,
+                          })
+                        }
+                        className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
+                      />
+                      <label className="ml-2 block text-sm text-white">
+                        Auto-end sessions after scheduled time
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={systemSettings.emailNotifications}
+                        onChange={(e) =>
+                          setSystemSettings({
+                            ...systemSettings,
+                            emailNotifications: e.target.checked,
+                          })
+                        }
+                        className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
+                      />
+                      <label className="ml-2 block text-sm text-white">
+                        Require professor tap to activate session
+                      </label>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={systemSettings.emailNotifications}
-                    onChange={(e) =>
-                      setSystemSettings({
-                        ...systemSettings,
-                        emailNotifications: e.target.checked,
-                      })
-                    }
-                    className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
-                  />
-                  <label className="ml-2 block text-sm text-white">
-                    Enable email notifications for absences
-                  </label>
+                {/* System Status Card */}
+                <div>
+                  <h5 className="text-md font-medium text-cyan-400 mb-3">
+                    System Status
+                  </h5>
+                  <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <div>
+                          <p className="text-sm font-medium text-white">
+                            Database
+                          </p>
+                          <p className="text-xs text-gray-400">Connected</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <div>
+                          <p className="text-sm font-medium text-white">
+                            RFID Scanner
+                          </p>
+                          <p className="text-xs text-gray-400">Active</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                        <div>
+                          <p className="text-sm font-medium text-white">
+                            Proximity Sensors
+                          </p>
+                          <p className="text-xs text-gray-400">2/3 active</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <button className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">
+                        Refresh
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex justify-end">
-                  <LoadingButton
-                    type="submit"
-                    loading={false}
-                    className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
-                  >
-                    Save System Settings
-                  </LoadingButton>
+                <div className="flex justify-between items-center">
+                  <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    Reset to Defaults
+                  </button>
+                  <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    Save Settings
+                  </button>
                 </div>
-              </form>
+              </div>
             </div>
           )}
         </div>

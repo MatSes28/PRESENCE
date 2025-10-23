@@ -7,6 +7,7 @@ import {
   commonValidationRules,
 } from "../hooks/useFormValidation";
 import { useAuth } from "../hooks/useAuth";
+import { useLocation } from "wouter";
 
 interface Student {
   id: number;
@@ -21,12 +22,16 @@ interface Student {
 export const Students = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [yearFilter, setYearFilter] = useState("All Years");
+  const [sectionFilter, setSectionFilter] = useState("All Sections");
 
   const [formData, setFormData] = useState({
     studentId: "",
@@ -34,6 +39,8 @@ export const Students = () => {
     email: "",
     rfidUid: "",
     parentEmail: "",
+    year: "",
+    section: "",
   });
 
   // Form validation hooks - Make parent email mandatory
@@ -172,6 +179,8 @@ export const Students = () => {
       email: "",
       rfidUid: "",
       parentEmail: "",
+      year: "",
+      section: "",
     });
     setEditingStudent(null);
     setShowAddForm(false);
@@ -185,6 +194,8 @@ export const Students = () => {
       email: student.email || "",
       rfidUid: student.rfidUid || "",
       parentEmail: student.parentEmail || "",
+      year: (student as any).year || "",
+      section: (student as any).section || "",
     });
     setEditingStudent(student);
     setShowAddForm(true);
@@ -201,7 +212,7 @@ export const Students = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header Actions */}
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-medium text-white">Student Management</h3>
@@ -209,14 +220,80 @@ export const Students = () => {
             Manage student records and RFID assignments
           </p>
         </div>
-        {user?.role === "admin" && (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-          >
-            Add Student
+        <div className="flex space-x-3">
+          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            Import CSV
           </button>
-        )}
+          {user?.role === "admin" && (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              Add Student
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Search & Filters */}
+      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Search
+            </label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by name or ID"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Year
+            </label>
+            <select
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+            >
+              <option>All Years</option>
+              <option>1st Year</option>
+              <option>2nd Year</option>
+              <option>3rd Year</option>
+              <option>4th Year</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Section
+            </label>
+            <select
+              value={sectionFilter}
+              onChange={(e) => setSectionFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+            >
+              <option>All Sections</option>
+              <option>Section A</option>
+              <option>Section B</option>
+              <option>Section C</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setYearFilter("All Years");
+                setSectionFilter("All Sections");
+              }}
+              className="w-full px-3 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-md text-sm font-medium"
+            >
+              Clear Filters
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Add/Edit Form */}
@@ -376,8 +453,8 @@ export const Students = () => {
         </div>
       )}
 
-      {/* Students Table */}
-      <div className="bg-gray-800 shadow rounded-lg overflow-hidden">
+      {/* Students Table (Desktop) */}
+      <div className="hidden md:block bg-gray-800 shadow rounded-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-700">
           <h4 className="text-lg font-medium text-white">
             Students ({students.length})
@@ -388,16 +465,19 @@ export const Students = () => {
             <thead className="bg-gray-900">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                  Student
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Student ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Name
+                  RFID Card
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Email
+                  Parent Email
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  RFID Status
+                  Attendance Rate
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Actions
@@ -407,25 +487,47 @@ export const Students = () => {
             <tbody className="bg-gray-800 divide-y divide-gray-700">
               {students.map((student) => (
                 <tr key={student.id} className="hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
+                        <span className="text-sm text-white">
+                          {student.name.charAt(0)}
+                        </span>
+                      </div>
+                      <div className="ml-3">
+                        <div className="text-sm font-medium text-white">
+                          {student.name}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                     {student.studentId}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                    {student.name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                    {student.email || "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         student.rfidUid
                           ? "bg-green-900 text-green-300"
-                          : "bg-yellow-900 text-yellow-300"
+                          : "bg-red-900 text-red-300"
                       }`}
                     >
-                      {student.rfidUid ? "Assigned" : "Not Assigned"}
+                      {student.rfidUid || "Not Assigned"}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                    {student.parentEmail}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-16 bg-gray-700 rounded-full h-2 mr-2">
+                        <div
+                          className="bg-green-500 h-2 rounded-full"
+                          style={{ width: "85%" }}
+                        ></div>
+                      </div>
+                      <span className="text-sm text-gray-300">85%</span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     {user?.role === "admin" && (
@@ -435,6 +537,15 @@ export const Students = () => {
                           className="text-cyan-400 hover:text-cyan-300"
                         >
                           Edit
+                        </button>
+                        <button
+                          onClick={() => setLocation(`/students/${student.id}`)}
+                          className="text-gray-400 hover:text-gray-300"
+                        >
+                          View
+                        </button>
+                        <button className="text-blue-400 hover:text-blue-300">
+                          Contact
                         </button>
                         <button
                           onClick={() => handleDelete(student.id)}
@@ -458,6 +569,136 @@ export const Students = () => {
             </p>
           </div>
         )}
+      </div>
+
+      {/* Students Cards (Mobile) */}
+      <div className="md:hidden space-y-4">
+        {students.map((student) => (
+          <div
+            key={student.id}
+            className="bg-gray-800 rounded-lg p-4 border border-gray-700"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center">
+                  <span className="text-lg text-white">
+                    {student.name.charAt(0)}
+                  </span>
+                </div>
+                <div className="ml-3">
+                  <div className="text-sm font-medium text-white">
+                    {student.name}
+                  </div>
+                  <div className="text-sm text-gray-400">
+                    {student.studentId}
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col items-end">
+                <span
+                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mb-2 ${
+                    student.rfidUid
+                      ? "bg-green-900 text-green-300"
+                      : "bg-red-900 text-red-300"
+                  }`}
+                >
+                  {student.rfidUid ? "RFID Assigned" : "No RFID"}
+                </span>
+                <div className="flex items-center">
+                  <div className="w-12 bg-gray-700 rounded-full h-1.5 mr-2">
+                    <div
+                      className="bg-green-500 h-1.5 rounded-full"
+                      style={{ width: "85%" }}
+                    ></div>
+                  </div>
+                  <span className="text-xs text-gray-300">85%</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-between items-center">
+              <div className="text-xs text-gray-400">
+                Parent: {student.parentEmail}
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setLocation(`/students/${student.id}`)}
+                  className="text-cyan-400 hover:text-cyan-300 text-sm"
+                >
+                  View
+                </button>
+                <button className="text-blue-400 hover:text-blue-300 text-sm">
+                  Contact
+                </button>
+                {user?.role === "admin" && (
+                  <>
+                    <button
+                      onClick={() => startEdit(student)}
+                      className="text-gray-400 hover:text-gray-300 text-sm"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(student.id)}
+                      disabled={deleting === student.id}
+                      className="text-red-400 hover:text-red-300 disabled:text-red-600 disabled:cursor-not-allowed text-sm"
+                    >
+                      {deleting === student.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Summary Cards (Bottom) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-lg">👥</span>
+            </div>
+            <div className="ml-4">
+              <dt className="text-sm font-medium text-gray-300">
+                Total Students
+              </dt>
+              <dd className="text-2xl font-semibold text-white">
+                {students.length}
+              </dd>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-lg">✅</span>
+            </div>
+            <div className="ml-4">
+              <dt className="text-sm font-medium text-gray-300">
+                Active Students
+              </dt>
+              <dd className="text-2xl font-semibold text-white">
+                {students.filter((s) => s.rfidUid).length}
+              </dd>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-lg">🎫</span>
+            </div>
+            <div className="ml-4">
+              <dt className="text-sm font-medium text-gray-300">
+                With RFID Cards
+              </dt>
+              <dd className="text-2xl font-semibold text-white">
+                {students.filter((s) => s.rfidUid).length}
+              </dd>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

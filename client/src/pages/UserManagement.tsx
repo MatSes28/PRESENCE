@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
+import { useNotifications } from "../components/NotificationSystem";
+import { LoadingButton } from "../components/LoadingSpinner";
+import {
+  useFormValidation,
+  commonValidationRules,
+} from "../hooks/useFormValidation";
 
 interface User {
   id: string;
@@ -15,9 +21,46 @@ interface User {
 
 export const UserManagement: React.FC = () => {
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    role: "faculty" as "admin" | "faculty",
+    facultyId: "",
+    department: "Information Technology",
+    gender: "",
+  });
+
+  // Form validation hooks
+  const userValidation = useFormValidation({
+    firstName: commonValidationRules.name,
+    lastName: commonValidationRules.name,
+    email: commonValidationRules.email,
+    password: commonValidationRules.password,
+    confirmPassword: {
+      ...commonValidationRules.password,
+      custom: (value) => {
+        if (value !== formData.password) {
+          return "Passwords do not match";
+        }
+        return "";
+      },
+    },
+    facultyId: {
+      required: formData.role === "faculty",
+      minLength: 3,
+      pattern: /^[A-Z0-9]+$/,
+    },
+  });
 
   useEffect(() => {
     if (user?.role === "admin") {
@@ -27,49 +70,135 @@ export const UserManagement: React.FC = () => {
 
   const loadUsers = async () => {
     try {
-      const response = await api.get("/users");
-      setUsers(response.data as User[]);
+      const response = await api.getUsers();
+      if (response.success) {
+        setUsers((response.data as User[]) || []);
+      } else {
+        addNotification({
+          type: "error",
+          title: "Failed to Load Users",
+          message: response.message || "Unable to fetch user data",
+        });
+        setUsers([]);
+      }
     } catch (error) {
       console.error("Failed to load users:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to connect to the server. Please check your connection.",
+      });
+      setUsers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSoftDelete = async (userId: string) => {
-    if (!confirm("Are you sure you want to deactivate this user?")) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
+    if (!userValidation.validateForm(formData)) {
+      addNotification({
+        type: "error",
+        title: "Validation Error",
+        message: "Please fix the errors in the form",
+      });
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      await api.delete(`/users/${userId}/soft`);
-      loadUsers();
+      const userData = {
+        email: formData.email,
+        name: `${formData.firstName} ${formData.lastName}`,
+        password: formData.password,
+        role: formData.role,
+      };
+
+      const response = await api.createUser(userData);
+
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "User Created",
+          message: "User has been successfully created!",
+        });
+        loadUsers();
+        resetForm();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Save Failed",
+          message: response.message || "Failed to create user",
+        });
+      }
     } catch (error) {
-      console.error("Failed to deactivate user:", error);
+      console.error("Failed to create user:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to create user. Please check your connection and try again.",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleHardDelete = async (userId: string) => {
+  const handleDelete = async (userId: string) => {
     if (
       !confirm(
-        "Are you sure you want to permanently delete this user? This action cannot be undone."
+        "Are you sure you want to delete this user? This action cannot be undone."
       )
-    )
+    ) {
       return;
+    }
 
+    setDeleting(userId);
     try {
-      await api.delete(`/users/${userId}/hard`);
-      loadUsers();
+      const response = await api.deleteUser(parseInt(userId));
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "User Deleted",
+          message: "User has been successfully removed from the system.",
+        });
+        loadUsers();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Delete Failed",
+          message: response.message || "Failed to delete user",
+        });
+      }
     } catch (error) {
       console.error("Failed to delete user:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message:
+          "Failed to delete user. Please check your connection and try again.",
+      });
+    } finally {
+      setDeleting(null);
     }
   };
 
-  const handleResetPassword = async (userId: string) => {
-    try {
-      await api.post(`/users/${userId}/reset-password`);
-      alert("Password reset email sent successfully");
-    } catch (error) {
-      console.error("Failed to reset password:", error);
-    }
+  const resetForm = () => {
+    setFormData({
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: "faculty",
+      facultyId: "",
+      department: "Information Technology",
+      gender: "",
+    });
+    setShowCreateForm(false);
+    userValidation.clearErrors();
   };
 
   if (user?.role !== "admin") {
@@ -165,22 +294,11 @@ export const UserManagement: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 space-x-2">
                   <button
-                    onClick={() => handleResetPassword(user.id)}
-                    className="text-blue-400 hover:text-blue-300"
+                    onClick={() => handleDelete(user.id)}
+                    disabled={deleting === user.id}
+                    className="text-red-400 hover:text-red-300 disabled:text-red-600 disabled:cursor-not-allowed"
                   >
-                    Reset Password
-                  </button>
-                  <button
-                    onClick={() => handleSoftDelete(user.id)}
-                    className="text-yellow-400 hover:text-yellow-300"
-                  >
-                    Deactivate
-                  </button>
-                  <button
-                    onClick={() => handleHardDelete(user.id)}
-                    className="text-red-400 hover:text-red-300"
-                  >
-                    Delete
+                    {deleting === user.id ? "Deleting..." : "Delete"}
                   </button>
                 </td>
               </tr>
@@ -189,25 +307,219 @@ export const UserManagement: React.FC = () => {
         </table>
       </div>
 
-      {/* Create/Edit User Modal would go here */}
+      {/* Create User Modal */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-gray-800 p-6 rounded-lg w-full max-w-md">
-            <h3 className="text-lg font-semibold text-white mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-lg border border-gray-700 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-medium text-cyan-400 mb-6">
               Create New User
             </h3>
-            {/* Form implementation */}
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setShowCreateForm(false)}
-                className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
-              >
-                Cancel
-              </button>
-              <button className="px-4 py-2 bg-cyan-600 text-white rounded hover:bg-cyan-700">
-                Create
-              </button>
-            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.firstName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, firstName: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    placeholder="Enter first name"
+                  />
+                  {userValidation.errors.firstName && (
+                    <p className="text-red-400 text-xs mt-1">
+                      {userValidation.errors.firstName}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Last Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.lastName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, lastName: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    placeholder="Enter last name"
+                  />
+                  {userValidation.errors.lastName && (
+                    <p className="text-red-400 text-xs mt-1">
+                      {userValidation.errors.lastName}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  placeholder="Enter email address"
+                />
+                {userValidation.errors.email && (
+                  <p className="text-red-400 text-xs mt-1">
+                    {userValidation.errors.email}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Password *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    placeholder="Enter password"
+                  />
+                  {userValidation.errors.password && (
+                    <p className="text-red-400 text-xs mt-1">
+                      {userValidation.errors.password}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Confirm Password *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={formData.confirmPassword}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        confirmPassword: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    placeholder="Confirm password"
+                  />
+                  {userValidation.errors.confirmPassword && (
+                    <p className="text-red-400 text-xs mt-1">
+                      {userValidation.errors.confirmPassword}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Role *
+                  </label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        role: e.target.value as "admin" | "faculty",
+                      })
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value="faculty">Faculty</option>
+                    <option value="admin">Administrator</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Gender
+                  </label>
+                  <select
+                    value={formData.gender}
+                    onChange={(e) =>
+                      setFormData({ ...formData, gender: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              {formData.role === "faculty" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Faculty ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.facultyId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, facultyId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    placeholder="Enter faculty ID"
+                  />
+                  {userValidation.errors.facultyId && (
+                    <p className="text-red-400 text-xs mt-1">
+                      {userValidation.errors.facultyId}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Department
+                </label>
+                <input
+                  type="text"
+                  value={formData.department}
+                  onChange={(e) =>
+                    setFormData({ ...formData, department: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  placeholder="Enter department"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  disabled={submitting}
+                  className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:cursor-not-allowed rounded-md"
+                >
+                  Cancel
+                </button>
+                <LoadingButton
+                  type="submit"
+                  loading={submitting}
+                  loadingText="Creating..."
+                  className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  Create User
+                </LoadingButton>
+              </div>
+            </form>
           </div>
         </div>
       )}

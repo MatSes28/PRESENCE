@@ -1,6 +1,8 @@
 import { useAuth } from "../hooks/useAuth";
 import { useState, useEffect } from "react";
 import { getWebSocketClient } from "../lib/websocket";
+import { api } from "../lib/api";
+import { useLocation } from "wouter";
 
 // Enhanced Dashboard with Statistics Cards and Tabs
 // Main Dashboard interface with comprehensive management features
@@ -18,6 +20,7 @@ interface DashboardStats {
 
 export const Dashboard = () => {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [realTimeData, setRealTimeData] = useState<any[]>([]);
   const [deviceStatus, setDeviceStatus] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
@@ -38,11 +41,31 @@ export const Dashboard = () => {
     const fetchDashboardStats = async () => {
       try {
         setLoading(true);
-        // Uncomment and implement API call
-        // const response = await api.get('/api/dashboard/stats');
-        // setDashboardStats(response.data);
-
-        // Mock data for now
+        const response = await api.get("/dashboard/stats");
+        if (response.success && response.data) {
+          setDashboardStats((prev) => ({
+            ...prev,
+            ...(response.data as Partial<DashboardStats>),
+            activeDevices: deviceStatus.filter((d) => d.status === "online")
+              .length,
+          }));
+        } else {
+          // Fallback to mock data if API fails
+          setDashboardStats({
+            todayClasses: 5,
+            presentStudents: 120,
+            absentStudents: 10,
+            attendanceRate: 92.3,
+            totalEvents: 150,
+            activeDevices: deviceStatus.filter((d) => d.status === "online")
+              .length,
+            systemUptime: "7d 12h 30m",
+            errorRate: 0.5,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard stats:", error);
+        // Fallback to mock data
         setDashboardStats({
           todayClasses: 5,
           presentStudents: 120,
@@ -54,8 +77,6 @@ export const Dashboard = () => {
           systemUptime: "7d 12h 30m",
           errorRate: 0.5,
         });
-      } catch (error) {
-        console.error("Failed to fetch dashboard stats:", error);
       } finally {
         setLoading(false);
       }
@@ -291,10 +312,16 @@ export const Dashboard = () => {
             Quick Actions
           </h4>
           <div className="space-y-3">
-            <button className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded">
+            <button
+              onClick={() => setLocation("/students")}
+              className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded"
+            >
               📚 Add Students
             </button>
-            <button className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded">
+            <button
+              onClick={() => setLocation("/reports")}
+              className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded"
+            >
               📊 View Reports
             </button>
             <button className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded">
@@ -353,6 +380,27 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-700">
+        <nav className="-mb-px flex space-x-8">
+          <button className="border-cyan-400 text-cyan-400 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+            Overview
+          </button>
+          <button className="border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+            Analytics
+          </button>
+          <button className="border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+            Security
+          </button>
+          <button className="border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+            Performance
+          </button>
+          <button className="border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+            RFID Tools
+          </button>
+        </nav>
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center h-full">
           <div className="text-white">Loading...</div>

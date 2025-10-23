@@ -37,6 +37,9 @@ export const Schedule = () => {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [faculty, setFaculty] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     subjectId: "",
     classroomId: "",
@@ -51,7 +54,28 @@ export const Schedule = () => {
   useEffect(() => {
     fetchSchedules();
     fetchSessions();
+    fetchReferenceData();
   }, []);
+
+  const fetchReferenceData = async () => {
+    try {
+      // Fetch subjects, classrooms, and faculty for dropdowns
+      const [subjectsRes, classroomsRes, usersRes] = await Promise.all([
+        fetch("/api/subjects").then((r) => r.json()),
+        api.getClassrooms(),
+        api.getUsers(),
+      ]);
+
+      if (subjectsRes.success && Array.isArray(subjectsRes.data))
+        setSubjects(subjectsRes.data);
+      if (classroomsRes.success && Array.isArray(classroomsRes.data))
+        setClassrooms(classroomsRes.data);
+      if (usersRes.success && Array.isArray(usersRes.data))
+        setFaculty(usersRes.data.filter((u: any) => u.role === "faculty"));
+    } catch (error) {
+      console.error("Failed to fetch reference data:", error);
+    }
+  };
 
   const fetchSchedules = async () => {
     try {
@@ -180,7 +204,7 @@ export const Schedule = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header Actions */}
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-medium text-white">
@@ -190,14 +214,19 @@ export const Schedule = () => {
             Manage class timetables and sessions
           </p>
         </div>
-        {user?.role === "admin" && (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-          >
-            Add Schedule
+        <div className="flex space-x-3">
+          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            Upload CSV
           </button>
-        )}
+          {user?.role === "admin" && (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              Add Schedule
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Add Schedule Form */}
@@ -210,48 +239,63 @@ export const Schedule = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Subject ID *
+                  Subject *
                 </label>
-                <input
-                  type="number"
+                <select
                   required
                   value={formData.subjectId}
                   onChange={(e) =>
                     setFormData({ ...formData, subjectId: e.target.value })
                   }
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  placeholder="Subject ID"
-                />
+                >
+                  <option value="">Select Subject</option>
+                  {subjects.map((subject: any) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.code} - {subject.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Classroom ID *
+                  Classroom *
                 </label>
-                <input
-                  type="number"
+                <select
                   required
                   value={formData.classroomId}
                   onChange={(e) =>
                     setFormData({ ...formData, classroomId: e.target.value })
                   }
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  placeholder="Classroom ID"
-                />
+                >
+                  <option value="">Select Classroom</option>
+                  {classrooms.map((classroom: any) => (
+                    <option key={classroom.id} value={classroom.id}>
+                      {classroom.name} ({classroom.location})
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Faculty ID *
+                  Faculty *
                 </label>
-                <input
-                  type="number"
+                <select
                   required
                   value={formData.facultyId}
                   onChange={(e) =>
                     setFormData({ ...formData, facultyId: e.target.value })
                   }
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  placeholder="Faculty ID"
-                />
+                >
+                  <option value="">Select Faculty</option>
+                  {faculty.map((member: any) => (
+                    <option key={member.id} value={member.id}>
+                      {member.firstName} {member.lastName}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -353,12 +397,14 @@ export const Schedule = () => {
         </div>
       )}
 
-      {/* Weekly Schedule View */}
+      {/* Current Week Schedule */}
       <div className="bg-gray-800 rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-700">
-          <h4 className="text-lg font-medium text-white">Weekly Schedule</h4>
+          <h4 className="text-lg font-medium text-white">
+            Current Week Schedule
+          </h4>
           <p className="text-sm text-gray-300">
-            Current semester class timetable
+            Weekly class timetable with auto-start indicators
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -406,17 +452,24 @@ export const Schedule = () => {
                         {hourSchedules.map((schedule) => (
                           <div
                             key={schedule.id}
-                            className="bg-cyan-900 border border-cyan-700 rounded p-2 mb-1 text-xs"
+                            className="bg-cyan-900 border border-cyan-700 rounded p-2 mb-1 text-xs relative"
                           >
                             <div className="font-medium text-cyan-300">
-                              Subject {schedule.subjectId}
+                              {schedule.subjectName ||
+                                `Subject ${schedule.subjectId}`}
                             </div>
                             <div className="text-cyan-400">
-                              Room {schedule.classroomId}
+                              {schedule.classroomName ||
+                                `Room ${schedule.classroomId}`}
                             </div>
                             <div className="text-cyan-400">
                               {formatTime(schedule.startTime)} -{" "}
                               {formatTime(schedule.endTime)}
+                            </div>
+                            <div className="absolute top-1 right-1">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-600 text-white">
+                                Auto
+                              </span>
                             </div>
                           </div>
                         ))}
@@ -426,6 +479,66 @@ export const Schedule = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-lg">📚</span>
+            </div>
+            <div className="ml-4">
+              <dt className="text-sm font-medium text-gray-300">
+                Total Classes
+              </dt>
+              <dd className="text-2xl font-semibold text-white">
+                {schedules.length}
+              </dd>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-lg">🔄</span>
+            </div>
+            <div className="ml-4">
+              <dt className="text-sm font-medium text-gray-300">Auto-Start</dt>
+              <dd className="text-2xl font-semibold text-white">
+                {schedules.length}
+              </dd>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-lg">🏫</span>
+            </div>
+            <div className="ml-4">
+              <dt className="text-sm font-medium text-gray-300">
+                Unique Rooms
+              </dt>
+              <dd className="text-2xl font-semibold text-white">
+                {new Set(schedules.map((s) => s.classroomId)).size}
+              </dd>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-lg">📖</span>
+            </div>
+            <div className="ml-4">
+              <dt className="text-sm font-medium text-gray-300">Subjects</dt>
+              <dd className="text-2xl font-semibold text-white">
+                {new Set(schedules.map((s) => s.subjectId)).size}
+              </dd>
+            </div>
           </div>
         </div>
       </div>
