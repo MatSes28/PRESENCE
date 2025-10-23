@@ -364,14 +364,64 @@ export const Dashboard = ({ initialSection = "Dashboard" }: DashboardProps) => {
                   Real-time system events and attendance records
                 </p>
               </div>
-              <div className="p-6 text-center">
-                <div className="text-4xl mb-4">📡</div>
-                <p className="text-gray-300">
-                  Waiting for attendance events...
-                </p>
-                <p className="text-sm text-gray-400 mt-2">
-                  Events will appear here as students interact with the system
-                </p>
+              <div className="p-6">
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {realTimeData.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-4xl mb-4">📡</div>
+                      <p className="text-gray-300">
+                        Waiting for attendance events...
+                      </p>
+                      <p className="text-sm text-gray-400 mt-2">
+                        Events will appear here as students interact with the
+                        system
+                      </p>
+                    </div>
+                  ) : (
+                    realTimeData.map((data: any, index: number) => (
+                      <div
+                        key={index}
+                        className="bg-gray-700 p-3 rounded border border-gray-600"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-sm">
+                                {data.type === "rfid_scan" && "🎫"}
+                                {data.type === "sensor_trigger" && "📡"}
+                                {data.type === "attendance_record" && "✅"}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-sm text-white">
+                                {data.type === "rfid_scan" &&
+                                  `RFID Card Scanned`}
+                                {data.type === "sensor_trigger" &&
+                                  `${data.sensorType} Sensor Triggered`}
+                                {data.type === "attendance_record" &&
+                                  `Attendance Recorded`}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {new Date(data.timestamp).toLocaleTimeString()}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              data.status === "valid"
+                                ? "bg-green-600 text-white"
+                                : data.status === "invalid"
+                                ? "bg-red-600 text-white"
+                                : "bg-yellow-600 text-white"
+                            }`}
+                          >
+                            {data.status || "unknown"}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -380,22 +430,77 @@ export const Dashboard = ({ initialSection = "Dashboard" }: DashboardProps) => {
       case "Students":
         return (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium text-white">
-                Student Management
-              </h3>
-              <p className="text-sm text-gray-300">
-                Manage student information and records
-              </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-medium text-white">
+                  Student Management
+                </h3>
+                <p className="text-sm text-gray-300">
+                  Manage student information and records
+                </p>
+              </div>
+              <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                Add New Student
+              </button>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
-              <div className="text-4xl mb-4">👥</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Students - Coming Soon
-              </h3>
-              <p className="text-gray-300">
-                Student management features will be available here.
-              </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">👥</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Total Students
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">✅</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Active Today
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">🎫</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      RFID Cards
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h4 className="text-lg font-medium text-white">
+                  Recent Students
+                </h4>
+              </div>
+              <div className="p-6 text-center">
+                <div className="text-4xl mb-4">📚</div>
+                <p className="text-gray-300">No students registered yet</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Add students to start managing attendance records
+                </p>
+              </div>
             </div>
           </div>
         );
@@ -403,22 +508,96 @@ export const Dashboard = ({ initialSection = "Dashboard" }: DashboardProps) => {
       case "Reports":
         return (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium text-white">
-                Reports & Analytics
-              </h3>
-              <p className="text-sm text-gray-300">
-                View attendance reports and data insights
-              </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-medium text-white">
+                  Reports & Analytics
+                </h3>
+                <p className="text-sm text-gray-300">
+                  View attendance reports and data insights
+                </p>
+              </div>
+              <div className="flex space-x-3">
+                <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                  Generate Report
+                </button>
+                <button className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                  Export Data
+                </button>
+              </div>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
-              <div className="text-4xl mb-4">📈</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Reports - Coming Soon
-              </h3>
-              <p className="text-gray-300">
-                Reporting features will be available here.
-              </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">📊</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Today's Attendance
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0%</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">👥</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Total Records
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">⚠️</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Late Arrivals
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">🏫</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Classes Today
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h4 className="text-lg font-medium text-white">
+                  Recent Reports
+                </h4>
+              </div>
+              <div className="p-6 text-center">
+                <div className="text-4xl mb-4">📈</div>
+                <p className="text-gray-300">No reports generated yet</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Generate your first attendance report to get started
+                </p>
+              </div>
             </div>
           </div>
         );
@@ -426,20 +605,88 @@ export const Dashboard = ({ initialSection = "Dashboard" }: DashboardProps) => {
       case "Schedule":
         return (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium text-white">Class Schedule</h3>
-              <p className="text-sm text-gray-300">
-                View and manage class timetables
-              </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-medium text-white">
+                  Class Schedule
+                </h3>
+                <p className="text-sm text-gray-300">
+                  View and manage class timetables
+                </p>
+              </div>
+              <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                Add Class
+              </button>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
-              <div className="text-4xl mb-4">📅</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Schedule - Coming Soon
-              </h3>
-              <p className="text-gray-300">
-                Schedule management features will be available here.
-              </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-gray-800 rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-700">
+                  <h4 className="text-lg font-medium text-white">
+                    Today's Schedule
+                  </h4>
+                </div>
+                <div className="p-6 text-center">
+                  <div className="text-4xl mb-4">📅</div>
+                  <p className="text-gray-300">
+                    No classes scheduled for today
+                  </p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    Add classes to see them here
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-700">
+                  <h4 className="text-lg font-medium text-white">
+                    Weekly Overview
+                  </h4>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-3">
+                    {[
+                      "Monday",
+                      "Tuesday",
+                      "Wednesday",
+                      "Thursday",
+                      "Friday",
+                    ].map((day) => (
+                      <div
+                        key={day}
+                        className="flex items-center justify-between p-3 bg-gray-700 rounded"
+                      >
+                        <span className="text-white font-medium">{day}</span>
+                        <span className="text-gray-300 text-sm">
+                          No classes
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h4 className="text-lg font-medium text-white">Quick Stats</h4>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-cyan-400">0</div>
+                    <div className="text-sm text-gray-300">Total Classes</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-400">0</div>
+                    <div className="text-sm text-gray-300">Active Classes</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-400">0</div>
+                    <div className="text-sm text-gray-300">Faculty Members</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -447,20 +694,91 @@ export const Dashboard = ({ initialSection = "Dashboard" }: DashboardProps) => {
       case "Lab Computers":
         return (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium text-white">Lab Computers</h3>
-              <p className="text-sm text-gray-300">
-                Monitor and manage computer allocation
-              </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-medium text-white">
+                  Lab Computers
+                </h3>
+                <p className="text-sm text-gray-300">
+                  Monitor and manage computer allocation
+                </p>
+              </div>
+              <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                Add Computer
+              </button>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
-              <div className="text-4xl mb-4">💻</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Lab Computers - Coming Soon
-              </h3>
-              <p className="text-gray-300">
-                Computer management features will be available here.
-              </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">💻</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Online
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">🔴</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Offline
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">🔧</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Maintenance
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">👥</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      In Use
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h4 className="text-lg font-medium text-white">
+                  Computer Status
+                </h4>
+              </div>
+              <div className="p-6 text-center">
+                <div className="text-4xl mb-4">🖥️</div>
+                <p className="text-gray-300">No computers configured</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Add computers to start monitoring their status
+                </p>
+              </div>
             </div>
           </div>
         );
@@ -476,14 +794,142 @@ export const Dashboard = ({ initialSection = "Dashboard" }: DashboardProps) => {
                 Configure system preferences
               </p>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
-              <div className="text-4xl mb-4">⚙️</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Settings - Coming Soon
-              </h3>
-              <p className="text-gray-300">
-                System configuration features will be available here.
-              </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <h4 className="text-lg font-medium text-white mb-4">
+                  General Settings
+                </h4>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      System Name
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      placeholder="CLIRDEC Presence"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Time Zone
+                    </label>
+                    <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                      <option>Asia/Shanghai</option>
+                      <option>Asia/Manila</option>
+                      <option>UTC</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="autoBackup"
+                      className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
+                    />
+                    <label
+                      htmlFor="autoBackup"
+                      className="ml-2 block text-sm text-gray-300"
+                    >
+                      Enable automatic backups
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <h4 className="text-lg font-medium text-white mb-4">
+                  Notification Settings
+                </h4>
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="emailNotifications"
+                      className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
+                      defaultChecked
+                    />
+                    <label
+                      htmlFor="emailNotifications"
+                      className="ml-2 block text-sm text-gray-300"
+                    >
+                      Email notifications
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="lateAlerts"
+                      className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
+                    />
+                    <label
+                      htmlFor="lateAlerts"
+                      className="ml-2 block text-sm text-gray-300"
+                    >
+                      Late arrival alerts
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="deviceAlerts"
+                      className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
+                      defaultChecked
+                    />
+                    <label
+                      htmlFor="deviceAlerts"
+                      className="ml-2 block text-sm text-gray-300"
+                    >
+                      Device status alerts
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg shadow p-6">
+              <h4 className="text-lg font-medium text-white mb-4">
+                System Information
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-300">Version:</span>
+                    <span className="text-white">1.0.0</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-300">Database:</span>
+                    <span className="text-green-400">Connected</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-300">WebSocket:</span>
+                    <span className="text-green-400">Connected</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-300">Uptime:</span>
+                    <span className="text-white">0d 0h 0m</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-300">Last Backup:</span>
+                    <span className="text-gray-400">Never</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-300">Storage Used:</span>
+                    <span className="text-white">0 MB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                Cancel
+              </button>
+              <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                Save Changes
+              </button>
             </div>
           </div>
         );
@@ -491,20 +937,73 @@ export const Dashboard = ({ initialSection = "Dashboard" }: DashboardProps) => {
       case "Class Roster":
         return (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium text-white">Class Roster</h3>
-              <p className="text-sm text-gray-300">
-                View enrolled students by class
-              </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-medium text-white">Class Roster</h3>
+                <p className="text-sm text-gray-300">
+                  View enrolled students by class
+                </p>
+              </div>
+              <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                Manage Enrollment
+              </button>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
-              <div className="text-4xl mb-4">📋</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Class Roster - Coming Soon
-              </h3>
-              <p className="text-gray-300">
-                Roster management features will be available here.
-              </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">📚</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Active Classes
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">👥</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Total Enrolled
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">⏰</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Today's Classes
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h4 className="text-lg font-medium text-white">Class List</h4>
+              </div>
+              <div className="p-6 text-center">
+                <div className="text-4xl mb-4">📋</div>
+                <p className="text-gray-300">No classes available</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Create classes and enroll students to see roster information
+                </p>
+              </div>
             </div>
           </div>
         );
@@ -512,22 +1011,78 @@ export const Dashboard = ({ initialSection = "Dashboard" }: DashboardProps) => {
       case "Faculty":
         return (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium text-white">
-                Faculty Management
-              </h3>
-              <p className="text-sm text-gray-300">
-                Manage faculty information and permissions
-              </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-medium text-white">
+                  Faculty Management
+                </h3>
+                <p className="text-sm text-gray-300">
+                  Manage faculty information and permissions
+                </p>
+              </div>
+              <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                Add Faculty
+              </button>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
-              <div className="text-4xl mb-4">👨‍🏫</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Faculty Management - Coming Soon
-              </h3>
-              <p className="text-gray-300">
-                Faculty management features will be available here.
-              </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">👨‍🏫</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Total Faculty
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">✅</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Active Today
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">🏫</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Departments
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h4 className="text-lg font-medium text-white">
+                  Faculty Members
+                </h4>
+              </div>
+              <div className="p-6 text-center">
+                <div className="text-4xl mb-4">👨‍🏫</div>
+                <p className="text-gray-300">No faculty members added yet</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Add faculty members to start managing permissions and class
+                  assignments
+                </p>
+              </div>
             </div>
           </div>
         );
@@ -535,22 +1090,135 @@ export const Dashboard = ({ initialSection = "Dashboard" }: DashboardProps) => {
       case "User Management":
         return (
           <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium text-white">
-                User Management
-              </h3>
-              <p className="text-sm text-gray-300">
-                Manage system users and permissions
-              </p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-medium text-white">
+                  User Management
+                </h3>
+                <p className="text-sm text-gray-300">
+                  Manage system users and permissions
+                </p>
+              </div>
+              <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                Add User
+              </button>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
-              <div className="text-4xl mb-4">👤</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                User Management - Coming Soon
-              </h3>
-              <p className="text-gray-300">
-                User management features will be available here.
-              </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">👤</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Total Users
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">🛡️</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Administrators
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">👨‍🏫</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Faculty
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-6">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-lg">🔧</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Technicians
+                    </dt>
+                    <dd className="text-2xl font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h4 className="text-lg font-medium text-white">System Users</h4>
+              </div>
+              <div className="p-6 text-center">
+                <div className="text-4xl mb-4">👥</div>
+                <p className="text-gray-300">No users configured yet</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Add users to start managing system access and permissions
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg shadow p-6">
+              <h4 className="text-lg font-medium text-white mb-4">
+                Permission Overview
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h5 className="text-md font-medium text-cyan-400 mb-3">
+                    Administrator Access
+                  </h5>
+                  <div className="space-y-2 text-sm text-gray-300">
+                    <div className="flex items-center">
+                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      Full system access
+                    </div>
+                    <div className="flex items-center">
+                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      User management
+                    </div>
+                    <div className="flex items-center">
+                      <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                      System configuration
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h5 className="text-md font-medium text-blue-400 mb-3">
+                    Faculty Access
+                  </h5>
+                  <div className="space-y-2 text-sm text-gray-300">
+                    <div className="flex items-center">
+                      <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                      Attendance monitoring
+                    </div>
+                    <div className="flex items-center">
+                      <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                      Student management
+                    </div>
+                    <div className="flex items-center">
+                      <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                      Report generation
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );
