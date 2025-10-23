@@ -58,49 +58,43 @@ function AppContent() {
   console.log("User authenticated, showing dashboard");
   return (
     <Router>
-      <Route
-        path="/"
-        component={() => <Dashboard initialSection="Dashboard" />}
-      />
-      <Route
-        path="/dashboard"
-        component={() => <Dashboard initialSection="Dashboard" />}
-      />
+      <Route path="/" component={Dashboard} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route
         path="/students"
-        component={() => <Dashboard initialSection="Students" />}
+        component={() => <Dashboard initialTab="Students" />}
       />
       <Route
         path="/reports"
-        component={() => <Dashboard initialSection="Reports" />}
+        component={() => <Dashboard initialTab="Reports" />}
       />
       <Route
         path="/lab-computers"
-        component={() => <Dashboard initialSection="Lab Computers" />}
+        component={() => <Dashboard initialTab="Lab Computers" />}
       />
       <Route
         path="/attendance"
-        component={() => <Dashboard initialSection="Live Attendance" />}
+        component={() => <Dashboard initialTab="Live Attendance" />}
       />
       <Route
         path="/schedule"
-        component={() => <Dashboard initialSection="Schedule" />}
+        component={() => <Dashboard initialTab="Schedule" />}
       />
       <Route
         path="/faculty"
-        component={() => <Dashboard initialSection="Faculty" />}
+        component={() => <Dashboard initialTab="Faculty" />}
       />
       <Route
         path="/settings"
-        component={() => <Dashboard initialSection="Settings" />}
+        component={() => <Dashboard initialTab="Settings" />}
       />
       <Route
         path="/roster"
-        component={() => <Dashboard initialSection="Class Roster" />}
+        component={() => <Dashboard initialTab="Class Roster" />}
       />
       <Route
         path="/users"
-        component={() => <Dashboard initialSection="User Management" />}
+        component={() => <Dashboard initialTab="User Management" />}
       />
     </Router>
   );

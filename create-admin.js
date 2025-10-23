@@ -24,8 +24,7 @@ async function createAdmin() {
       .values({
         email: "admin@clsu.edu.ph",
         password: hashedPassword,
-        firstName: "System",
-        lastName: "Administrator",
+        name: "System Administrator",
         role: "admin",
       })
       .returning();
