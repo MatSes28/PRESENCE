@@ -62,39 +62,75 @@ function AppContent() {
       <Route path="/dashboard" component={Dashboard} />
       <Route
         path="/students"
-        component={() => <Dashboard initialTab="Students" />}
+        component={() => (
+          <Layout>
+            <Students />
+          </Layout>
+        )}
       />
       <Route
         path="/reports"
-        component={() => <Dashboard initialTab="Reports" />}
+        component={() => (
+          <Layout>
+            <Reports />
+          </Layout>
+        )}
       />
       <Route
         path="/lab-computers"
-        component={() => <Dashboard initialTab="Lab Computers" />}
+        component={() => (
+          <Layout>
+            <LabComputers />
+          </Layout>
+        )}
       />
       <Route
         path="/attendance"
-        component={() => <Dashboard initialTab="Live Attendance" />}
+        component={() => (
+          <Layout>
+            <LiveAttendance />
+          </Layout>
+        )}
       />
       <Route
         path="/schedule"
-        component={() => <Dashboard initialTab="Schedule" />}
+        component={() => (
+          <Layout>
+            <Schedule />
+          </Layout>
+        )}
       />
       <Route
         path="/faculty"
-        component={() => <Dashboard initialTab="Faculty" />}
+        component={() => (
+          <Layout>
+            <FacultyManagement />
+          </Layout>
+        )}
       />
       <Route
         path="/settings"
-        component={() => <Dashboard initialTab="Settings" />}
+        component={() => (
+          <Layout>
+            <Settings />
+          </Layout>
+        )}
       />
       <Route
         path="/roster"
-        component={() => <Dashboard initialTab="Class Roster" />}
+        component={() => (
+          <Layout>
+            <Roster />
+          </Layout>
+        )}
       />
       <Route
         path="/users"
-        component={() => <Dashboard initialTab="User Management" />}
+        component={() => (
+          <Layout>
+            <UserManagement />
+          </Layout>
+        )}
       />
     </Router>
   );
