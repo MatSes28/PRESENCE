@@ -1,14 +1,22 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "../hooks/useAuth";
 
 export const LoginForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const { login, loading, error } = useAuth();
+  const [, setLocation] = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(email, password);
+    const success = await login(email, password);
+    if (success) {
+      setLoginSuccess(true);
+      // Redirect to dashboard after successful login
+      setLocation("/");
+    }
   };
 
   return (
@@ -111,6 +119,14 @@ export const LoginForm = () => {
             {error && (
               <div className="bg-red-900/50 border border-red-700 rounded-lg p-4">
                 <div className="text-sm text-red-300">{error}</div>
+              </div>
+            )}
+
+            {loginSuccess && (
+              <div className="bg-green-900/50 border border-green-700 rounded-lg p-4">
+                <div className="text-sm text-green-300">
+                  Login successful! Redirecting to dashboard...
+                </div>
               </div>
             )}
 
