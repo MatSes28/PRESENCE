@@ -58,8 +58,22 @@ function AppContent() {
   console.log("User authenticated, showing dashboard");
   return (
     <Router>
-      <Route path="/" component={Dashboard} />
-      <Route path="/dashboard" component={Dashboard} />
+      <Route
+        path="/"
+        component={() => (
+          <Layout>
+            <Dashboard />
+          </Layout>
+        )}
+      />
+      <Route
+        path="/dashboard"
+        component={() => (
+          <Layout>
+            <Dashboard />
+          </Layout>
+        )}
+      />
       <Route
         path="/students"
         component={() => (
