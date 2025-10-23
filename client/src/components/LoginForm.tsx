@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "../hooks/useAuth";
 
@@ -9,13 +9,23 @@ export const LoginForm = () => {
   const { login, loading, error } = useAuth();
   const [, setLocation] = useLocation();
 
+  // Clear success message when error occurs
+  useEffect(() => {
+    if (error) {
+      setLoginSuccess(false);
+    }
+  }, [error]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginSuccess(false); // Clear any previous success state
     const success = await login(email, password);
     if (success) {
       setLoginSuccess(true);
       // Redirect to dashboard after successful login
-      setLocation("/");
+      setTimeout(() => {
+        setLocation("/");
+      }, 1000); // Small delay to show success message
     }
   };
 
