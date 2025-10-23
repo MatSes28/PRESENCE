@@ -68,13 +68,28 @@ const menuSections: MenuSection[] = [
       { name: "Settings", icon: "⚙️", description: "System configuration" },
     ],
   },
+  {
+    title: "Management",
+    items: [
+      { name: "Faculty", icon: "👨‍🏫", description: "Faculty management" },
+      {
+        name: "User Management",
+        icon: "👤",
+        description: "User administration",
+      },
+    ],
+  },
 ];
 
-export const Dashboard = () => {
+interface DashboardProps {
+  initialSection?: string;
+}
+
+export const Dashboard = ({ initialSection = "Dashboard" }: DashboardProps) => {
   const { user, logout } = useAuth();
   const [realTimeData, setRealTimeData] = useState<any[]>([]);
   const [deviceStatus, setDeviceStatus] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState("Dashboard");
+  const [activeSection, setActiveSection] = useState(initialSection);
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -239,19 +254,19 @@ export const Dashboard = () => {
                 <div className="text-sm">
                   <div className="space-y-2">
                     <button
-                      onClick={() => setLocation("/students")}
+                      onClick={() => setActiveSection("Students")}
                       className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-600 rounded"
                     >
                       📚 Manage Students
                     </button>
                     <button
-                      onClick={() => setLocation("/reports")}
+                      onClick={() => setActiveSection("Reports")}
                       className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-600 rounded"
                     >
                       📊 View Reports
                     </button>
                     <button
-                      onClick={() => setLocation("/schedule")}
+                      onClick={() => setActiveSection("Schedule")}
                       className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-600 rounded"
                     >
                       📅 View Schedule
@@ -262,6 +277,284 @@ export const Dashboard = () => {
             </div>
           </div>
         );
+
+      case "Live Attendance":
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-medium text-white">
+                  Live Attendance Monitoring
+                </h3>
+                <p className="text-sm text-gray-300">
+                  Real-time attendance tracking and system events
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-gray-800 rounded-lg shadow p-4">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm">📊</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Total Events
+                    </dt>
+                    <dd className="text-lg font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-4">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm">✅</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Valid Entries
+                    </dt>
+                    <dd className="text-lg font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-4">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm">⚠️</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Discrepancies
+                    </dt>
+                    <dd className="text-lg font-semibold text-white">0</dd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded-lg shadow p-4">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm">📡</span>
+                  </div>
+                  <div className="ml-4">
+                    <dt className="text-sm font-medium text-gray-300 truncate">
+                      Active Devices
+                    </dt>
+                    <dd className="text-lg font-semibold text-white">
+                      {
+                        deviceStatus.filter((d: any) => d.status === "online")
+                          .length
+                      }
+                    </dd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h4 className="text-lg font-medium text-white">
+                  Live Events Feed
+                </h4>
+                <p className="text-sm text-gray-300">
+                  Real-time system events and attendance records
+                </p>
+              </div>
+              <div className="p-6 text-center">
+                <div className="text-4xl mb-4">📡</div>
+                <p className="text-gray-300">
+                  Waiting for attendance events...
+                </p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Events will appear here as students interact with the system
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "Students":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-white">
+                Student Management
+              </h3>
+              <p className="text-sm text-gray-300">
+                Manage student information and records
+              </p>
+            </div>
+            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
+              <div className="text-4xl mb-4">👥</div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Students - Coming Soon
+              </h3>
+              <p className="text-gray-300">
+                Student management features will be available here.
+              </p>
+            </div>
+          </div>
+        );
+
+      case "Reports":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-white">
+                Reports & Analytics
+              </h3>
+              <p className="text-sm text-gray-300">
+                View attendance reports and data insights
+              </p>
+            </div>
+            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
+              <div className="text-4xl mb-4">📈</div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Reports - Coming Soon
+              </h3>
+              <p className="text-gray-300">
+                Reporting features will be available here.
+              </p>
+            </div>
+          </div>
+        );
+
+      case "Schedule":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-white">Class Schedule</h3>
+              <p className="text-sm text-gray-300">
+                View and manage class timetables
+              </p>
+            </div>
+            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
+              <div className="text-4xl mb-4">📅</div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Schedule - Coming Soon
+              </h3>
+              <p className="text-gray-300">
+                Schedule management features will be available here.
+              </p>
+            </div>
+          </div>
+        );
+
+      case "Lab Computers":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-white">Lab Computers</h3>
+              <p className="text-sm text-gray-300">
+                Monitor and manage computer allocation
+              </p>
+            </div>
+            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
+              <div className="text-4xl mb-4">💻</div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Lab Computers - Coming Soon
+              </h3>
+              <p className="text-gray-300">
+                Computer management features will be available here.
+              </p>
+            </div>
+          </div>
+        );
+
+      case "Settings":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-white">
+                System Settings
+              </h3>
+              <p className="text-sm text-gray-300">
+                Configure system preferences
+              </p>
+            </div>
+            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
+              <div className="text-4xl mb-4">⚙️</div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Settings - Coming Soon
+              </h3>
+              <p className="text-gray-300">
+                System configuration features will be available here.
+              </p>
+            </div>
+          </div>
+        );
+
+      case "Class Roster":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-white">Class Roster</h3>
+              <p className="text-sm text-gray-300">
+                View enrolled students by class
+              </p>
+            </div>
+            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
+              <div className="text-4xl mb-4">📋</div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Class Roster - Coming Soon
+              </h3>
+              <p className="text-gray-300">
+                Roster management features will be available here.
+              </p>
+            </div>
+          </div>
+        );
+
+      case "Faculty":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-white">
+                Faculty Management
+              </h3>
+              <p className="text-sm text-gray-300">
+                Manage faculty information and permissions
+              </p>
+            </div>
+            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
+              <div className="text-4xl mb-4">👨‍🏫</div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Faculty Management - Coming Soon
+              </h3>
+              <p className="text-gray-300">
+                Faculty management features will be available here.
+              </p>
+            </div>
+          </div>
+        );
+
+      case "User Management":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium text-white">
+                User Management
+              </h3>
+              <p className="text-sm text-gray-300">
+                Manage system users and permissions
+              </p>
+            </div>
+            <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
+              <div className="text-4xl mb-4">👤</div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                User Management - Coming Soon
+              </h3>
+              <p className="text-gray-300">
+                User management features will be available here.
+              </p>
+            </div>
+          </div>
+        );
+
       default:
         return (
           <div className="bg-gray-800 rounded-lg shadow p-8 text-center">
@@ -305,24 +598,7 @@ export const Dashboard = () => {
                       <button
                         key={itemIndex}
                         onClick={() => {
-                          // Handle navigation for actual pages
-                          if (item.name === "Students") {
-                            setLocation("/students");
-                          } else if (item.name === "Reports") {
-                            setLocation("/reports");
-                          } else if (item.name === "IoT Devices") {
-                            setLocation("/devices");
-                          } else if (item.name === "Lab Computers") {
-                            setLocation("/lab-computers");
-                          } else if (item.name === "Live Attendance") {
-                            setLocation("/attendance");
-                          } else if (item.name === "Schedule") {
-                            setLocation("/schedule");
-                          } else if (item.name === "Settings") {
-                            setLocation("/settings");
-                          } else {
-                            setActiveSection(item.name);
-                          }
+                          setActiveSection(item.name);
                         }}
                         className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                           activeSection === item.name
