@@ -1,5 +1,6 @@
 import { useAuth } from "../hooks/useAuth";
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { getWebSocketClient } from "../lib/websocket";
 
 type MenuSection = {
@@ -74,6 +75,7 @@ export const Dashboard = () => {
   const [realTimeData, setRealTimeData] = useState<any[]>([]);
   const [deviceStatus, setDeviceStatus] = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState("Dashboard");
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const wsClient = getWebSocketClient(user?.id);
@@ -237,19 +239,19 @@ export const Dashboard = () => {
                 <div className="text-sm">
                   <div className="space-y-2">
                     <button
-                      onClick={() => (window.location.href = "/students")}
+                      onClick={() => setLocation("/students")}
                       className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-600 rounded"
                     >
                       📚 Manage Students
                     </button>
                     <button
-                      onClick={() => (window.location.href = "/reports")}
+                      onClick={() => setLocation("/reports")}
                       className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-600 rounded"
                     >
                       📊 View Reports
                     </button>
                     <button
-                      onClick={() => (window.location.href = "/schedule")}
+                      onClick={() => setLocation("/schedule")}
                       className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-600 rounded"
                     >
                       📅 View Schedule
@@ -305,19 +307,19 @@ export const Dashboard = () => {
                         onClick={() => {
                           // Handle navigation for actual pages
                           if (item.name === "Students") {
-                            window.location.href = "/students";
+                            setLocation("/students");
                           } else if (item.name === "Reports") {
-                            window.location.href = "/reports";
+                            setLocation("/reports");
                           } else if (item.name === "IoT Devices") {
-                            window.location.href = "/devices";
+                            setLocation("/devices");
                           } else if (item.name === "Lab Computers") {
-                            window.location.href = "/lab-computers";
+                            setLocation("/lab-computers");
                           } else if (item.name === "Live Attendance") {
-                            window.location.href = "/attendance";
+                            setLocation("/attendance");
                           } else if (item.name === "Schedule") {
-                            window.location.href = "/schedule";
+                            setLocation("/schedule");
                           } else if (item.name === "Settings") {
-                            window.location.href = "/settings";
+                            setLocation("/settings");
                           } else {
                             setActiveSection(item.name);
                           }
