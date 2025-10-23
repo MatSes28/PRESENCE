@@ -1,7 +1,6 @@
 import { useAuth } from "../hooks/useAuth";
 import { useState, useEffect } from "react";
 import { getWebSocketClient } from "../lib/websocket";
-import { api } from "../lib/api";
 
 // Enhanced Dashboard with Statistics Cards and Tabs
 // Main Dashboard interface with comprehensive management features
@@ -18,7 +17,7 @@ interface DashboardStats {
 }
 
 export const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [realTimeData, setRealTimeData] = useState<any[]>([]);
   const [deviceStatus, setDeviceStatus] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({

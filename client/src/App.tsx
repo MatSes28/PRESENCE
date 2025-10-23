@@ -6,7 +6,6 @@ import {
 } from "./components/NotificationSystem";
 import { LoginForm } from "./components/LoginForm";
 import { Layout } from "./components/Layout";
-import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/Dashboard";
 import { Students } from "./pages/Students";
 import { Reports } from "./pages/Reports";

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 
 interface Subject {
@@ -18,7 +17,6 @@ interface Student {
 }
 
 export const Roster: React.FC = () => {
-  const { user } = useAuth();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [students, setStudents] = useState<Student[]>([]);
@@ -37,7 +35,7 @@ export const Roster: React.FC = () => {
   const loadSubjects = async () => {
     try {
       const response = await api.get("/subjects");
-      setSubjects(response.data);
+      setSubjects(response.data as Subject[]);
     } catch (error) {
       console.error("Failed to load subjects:", error);
     }
@@ -50,7 +48,7 @@ export const Roster: React.FC = () => {
     try {
       // Simplified: students belong to subjects directly, no separate enrollment tracking
       const response = await api.get(`/subjects/${selectedSubject}/students`);
-      setStudents(response.data);
+      setStudents(response.data as Student[]);
     } catch (error) {
       console.error("Failed to load roster:", error);
       setStudents([]);

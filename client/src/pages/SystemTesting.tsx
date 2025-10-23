@@ -1,9 +1,7 @@
 import React, { useState } from "react";
-import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 
 export const SystemTesting: React.FC = () => {
-  const { user } = useAuth();
   const [testResults, setTestResults] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -16,7 +14,7 @@ export const SystemTesting: React.FC = () => {
       });
       setTestResults((prev) => [
         ...prev,
-        `RFID Test: ${response.data.message}`,
+        `RFID Test: ${(response.data as any).message}`,
       ]);
     } catch (error) {
       setTestResults((prev) => [...prev, `RFID Test Failed: ${error}`]);
@@ -31,7 +29,7 @@ export const SystemTesting: React.FC = () => {
       const response = await api.get("/testing/health-check");
       setTestResults((prev) => [
         ...prev,
-        `Health Check: ${response.data.status}`,
+        `Health Check: ${(response.data as any).status}`,
       ]);
     } catch (error) {
       setTestResults((prev) => [...prev, `Health Check Failed: ${error}`]);
@@ -50,7 +48,7 @@ export const SystemTesting: React.FC = () => {
       });
       setTestResults((prev) => [
         ...prev,
-        `Test Attendance: ${response.data.message}`,
+        `Test Attendance: ${(response.data as any).message}`,
       ]);
     } catch (error) {
       setTestResults((prev) => [...prev, `Test Attendance Failed: ${error}`]);

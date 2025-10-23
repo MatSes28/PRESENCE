@@ -50,9 +50,6 @@ export const Students = () => {
 
   const fetchStudents = async () => {
     try {
-      // Faculty users should only see students enrolled in their subjects
-      const endpoint =
-        user?.role === "faculty" ? "/students/faculty" : "/students";
       const response = await api.getStudents();
       if (response.success) {
         setStudents((response.data as Student[]) || []);
@@ -92,7 +89,7 @@ export const Students = () => {
 
     setSubmitting(true);
     try {
-      let response;
+      let response: any;
       if (editingStudent) {
         response = await api.updateStudent(editingStudent.id, formData);
       } else {

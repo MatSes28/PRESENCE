@@ -64,37 +64,6 @@ export const Reports = () => {
     }
   };
 
-  const reportTypes = [
-    {
-      value: "attendance",
-      label: "Attendance Report",
-      description: "Student attendance records with timestamps",
-    },
-    {
-      value: "students",
-      label: "Student Report",
-      description: "Student information and RFID assignments",
-    },
-    {
-      value: "classroom",
-      label: "Classroom Report",
-      description: "Classroom usage and device status",
-    },
-  ];
-
-  const formatOptions = [
-    {
-      value: "pdf",
-      label: "PDF Document",
-      description: "Formatted report document",
-    },
-    {
-      value: "csv",
-      label: "CSV Spreadsheet",
-      description: "Data export for analysis",
-    },
-  ];
-
   return (
     <div className="space-y-6">
       {/* Header */}

@@ -18,7 +18,6 @@ export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   useEffect(() => {
     if (user?.role === "admin") {
@@ -29,31 +28,11 @@ export const UserManagement: React.FC = () => {
   const loadUsers = async () => {
     try {
       const response = await api.get("/users");
-      setUsers(response.data);
+      setUsers(response.data as User[]);
     } catch (error) {
       console.error("Failed to load users:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCreateUser = async (userData: Partial<User>) => {
-    try {
-      await api.post("/users", userData);
-      loadUsers();
-      setShowCreateForm(false);
-    } catch (error) {
-      console.error("Failed to create user:", error);
-    }
-  };
-
-  const handleUpdateUser = async (userId: string, userData: Partial<User>) => {
-    try {
-      await api.put(`/users/${userId}`, userData);
-      loadUsers();
-      setEditingUser(null);
-    } catch (error) {
-      console.error("Failed to update user:", error);
     }
   };
 
@@ -185,12 +164,6 @@ export const UserManagement: React.FC = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 space-x-2">
-                  <button
-                    onClick={() => setEditingUser(user)}
-                    className="text-cyan-400 hover:text-cyan-300"
-                  >
-                    Edit
-                  </button>
                   <button
                     onClick={() => handleResetPassword(user.id)}
                     className="text-blue-400 hover:text-blue-300"
