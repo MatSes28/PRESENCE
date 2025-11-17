@@ -11,6 +11,20 @@ import { db } from "./storage.js";
 import routes from "./routes.js";
 import { setupWebSocket } from "./services/websocket.js";
 import { sql } from "drizzle-orm";
+import {
+  users,
+  students,
+  classrooms,
+  subjects,
+  schedules,
+  classSessions,
+  attendanceRecords,
+  computers,
+  computerAssignments,
+  iotDevices,
+  enrollments,
+  emailNotifications,
+} from "../../shared/schema.js";
 
 const app = express();
 const server = createServer(app);
@@ -47,7 +61,7 @@ app.use(
     cookie: {
       secure: false, // Set to false for development to work with HTTP
       httpOnly: true,
-      sameSite: 'lax', // Allow cookies to work with proxy
+      sameSite: "lax", // Allow cookies to work with proxy
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
@@ -66,27 +80,109 @@ app.get("*", (req, res) => {
 
 // Health check endpoint
 app.get("/health", async (req, res) => {
-  try {
-    // Test database connection
-    await db.execute(sql`SELECT 1`);
-    res.json({
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      database: "connected",
-    });
-  } catch (error) {
-    console.error("Health check failed:", error);
-    res.status(500).json({
-      status: "error",
-      timestamp: new Date().toISOString(),
-      database: "disconnected",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+  const healthStatus: any = {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    database: isDatabaseAvailable ? "connected" : "disconnected",
+    emailService: process.env.BREVO_API_KEY ? "configured" : "not_configured",
+  };
+
+  // Test database connection if it was previously available
+  if (isDatabaseAvailable) {
+    try {
+      await db.execute(sql`SELECT 1`);
+    } catch (error) {
+      isDatabaseAvailable = false;
+      healthStatus.database = "disconnected";
+      healthStatus.database_error =
+        error instanceof Error ? error.message : "Unknown error";
+    }
   }
+
+  // Test email service
+  if (process.env.BREVO_API_KEY) {
+    try {
+      const { emailService } = await import("./services/emailService.js");
+      // We can't easily test the actual API without sending an email,
+      // but we can check if the service is initialized
+      healthStatus.emailService = "initialized";
+    } catch (error) {
+      healthStatus.emailService = "error";
+      healthStatus.emailService_error =
+        error instanceof Error ? error.message : "Unknown error";
+    }
+  }
+
+  const isHealthy =
+    healthStatus.database === "connected" &&
+    healthStatus.emailService !== "error";
+  healthStatus.status = isHealthy ? "ok" : "degraded";
+
+  res.status(isHealthy ? 200 : 503).json(healthStatus);
 });
 
 // Setup WebSocket
 setupWebSocket(wss);
+
+// Global flag to track database availability
+let isDatabaseAvailable = false;
+
+// Function to check database connectivity
+async function checkDatabaseConnection() {
+  try {
+    await db.execute(sql`SELECT 1`);
+    isDatabaseAvailable = true;
+    console.log(`✅ Database connected successfully`);
+    return true;
+  } catch (error) {
+    isDatabaseAvailable = false;
+    console.error(`❌ Database connection failed:`, error);
+    return false;
+  }
+}
+
+// Function to log database table counts
+async function logTableCounts() {
+  if (!isDatabaseAvailable) {
+    console.log(
+      "⚠️  Skipping table count logging due to database unavailability"
+    );
+    return;
+  }
+
+  console.log("📊 Checking database table counts...");
+
+  const tables = [
+    { name: "users", table: users },
+    { name: "students", table: students },
+    { name: "classrooms", table: classrooms },
+    { name: "subjects", table: subjects },
+    { name: "schedules", table: schedules },
+    { name: "class_sessions", table: classSessions },
+    { name: "attendance_records", table: attendanceRecords },
+    { name: "computers", table: computers },
+    { name: "computer_assignments", table: computerAssignments },
+    { name: "iot_devices", table: iotDevices },
+    { name: "enrollments", table: enrollments },
+    { name: "email_notifications", table: emailNotifications },
+  ];
+
+  for (const { name, table } of tables) {
+    try {
+      const result = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(table);
+      const count = result[0]?.count || 0;
+      console.log(`  ${name}: ${count} records`);
+    } catch (error) {
+      console.log(
+        `  ${name}: ERROR - ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+}
 
 const PORT = process.env.PORT || 3000;
 
@@ -96,13 +192,8 @@ server.listen(PORT, async () => {
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
 
   // Test database connection on startup
-  try {
-    await db.execute(sql`SELECT 1`);
-    console.log(`✅ Database connected successfully`);
-  } catch (error) {
-    console.error(`❌ Database connection failed:`, error);
-    process.exit(1);
-  }
+  await checkDatabaseConnection();
+  await logTableCounts();
 });
 
 // Graceful shutdown

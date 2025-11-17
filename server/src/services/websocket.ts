@@ -119,7 +119,7 @@ export function setupWebSocket(wss: WebSocketServer) {
   });
 }
 
-function handleDeviceMessage(
+async function handleDeviceMessage(
   ws: WebSocketClient,
   message: WSMessage,
   deviceId?: string | null
@@ -127,10 +127,33 @@ function handleDeviceMessage(
   switch (message.type) {
     case "rfid_scan":
       // Handle RFID scan from ESP32
+      console.log(
+        `[RFID SCAN] Received from device ${deviceId}: ${message.payload.rfidUid}`
+      );
+
+      let processingResult = null;
+
+      try {
+        // Process the RFID scan through attendance monitor
+        const { attendanceMonitor } = await import("./attendanceMonitor.js");
+        console.log(`[RFID SCAN] Calling attendanceMonitor.processRFIDScan`);
+        processingResult = await attendanceMonitor.processRFIDScan({
+          deviceId,
+          rfidUid: message.payload.rfidUid,
+          timestamp: message.payload.timestamp || new Date().toISOString(),
+        });
+
+        console.log(`[RFID SCAN] Processing result:`, processingResult);
+      } catch (error) {
+        console.error(`[RFID SCAN] Error processing RFID scan:`, error);
+        processingResult = { success: false, message: error.message };
+      }
+
       broadcastToWebClients("rfid_scan", {
         deviceId,
         rfidUid: message.payload.rfidUid,
         timestamp: message.payload.timestamp || new Date().toISOString(),
+        processingResult,
       });
       break;
 

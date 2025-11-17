@@ -286,7 +286,7 @@ router.get("/connected", requireAuth, async (req, res) => {
 });
 
 // Simulate RFID tap for testing
-router.post("/attendance/simulate-rfid", requireAuth, async (req, res) => {
+router.post("/attendance/simulate-rfid", async (req, res) => {
   try {
     const { rfidUid } = req.body;
 
@@ -298,12 +298,33 @@ router.post("/attendance/simulate-rfid", requireAuth, async (req, res) => {
     }
 
     // Simulate RFID scan by sending to WebSocket
-    const simulatedData = {
+    const simulatedData: any = {
       type: "rfid_scan",
       rfidUid,
       deviceId: "simulator",
       timestamp: new Date().toISOString(),
     };
+
+    // Also process the RFID scan directly for testing
+    try {
+      const { attendanceMonitor } = await import(
+        "../services/attendanceMonitor.js"
+      );
+      console.log(`[SIMULATE RFID] Processing RFID scan: ${rfidUid}`);
+      const result = await attendanceMonitor.processRFIDScan({
+        deviceId: "simulator",
+        rfidUid,
+        timestamp: simulatedData.timestamp,
+      });
+      console.log(`[SIMULATE RFID] Processing result:`, result);
+      simulatedData.processingResult = result;
+    } catch (error) {
+      console.error(`[SIMULATE RFID] Error processing RFID scan:`, error);
+      simulatedData.processingResult = {
+        success: false,
+        message: error.message,
+      };
+    }
 
     // Send to WebSocket for real-time updates
     broadcastToWebClients("rfidScan", simulatedData);

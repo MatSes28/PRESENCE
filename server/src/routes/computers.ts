@@ -7,6 +7,8 @@ import {
   students,
   users,
   schedules,
+  classSessions,
+  enrollments,
 } from "../schema.js";
 import {
   requireAuth,
@@ -122,6 +124,9 @@ router.put("/:id", requireAdminOrFaculty, async (req, res) => {
 
     // If faculty, check if they have access to this computer
     if (userRole === "faculty") {
+      console.log(
+        `[COMPUTER ASSIGN] Faculty access check for computerId=${computerId}, userId=${userId}`
+      );
       const computerCheck = await db
         .select()
         .from(computers)
@@ -131,7 +136,13 @@ router.put("/:id", requireAdminOrFaculty, async (req, res) => {
         )
         .limit(1);
 
+      console.log(
+        `[COMPUTER ASSIGN] Faculty access check result: ${computerCheck.length} matching records`
+      );
       if (computerCheck.length === 0) {
+        console.log(
+          `[COMPUTER ASSIGN] Access denied for faculty userId=${userId} to computerId=${computerId}`
+        );
         return res.status(403).json({
           success: false,
           message: "Access denied to this computer",
@@ -192,8 +203,12 @@ router.get("/assignments", async (req, res) => {
         studentId: computerAssignments.studentId,
         studentName: students.name,
         classSessionId: computerAssignments.classSessionId,
+        status: computerAssignments.status,
         assignedAt: computerAssignments.assignedAt,
         releasedAt: computerAssignments.releasedAt,
+        loginTime: computerAssignments.loginTime,
+        logoutTime: computerAssignments.logoutTime,
+        sessionDuration: computerAssignments.sessionDuration,
       })
       .from(computerAssignments)
       .leftJoin(students, eq(computerAssignments.studentId, students.id));
@@ -214,32 +229,109 @@ router.post("/assign", requireAdminOrFaculty, async (req, res) => {
     const userRole = req.session?.userRole;
     const userId = req.session?.userId;
 
-    if (!computerId || !studentId) {
+    console.log(
+      `[COMPUTER ASSIGN] Attempting assignment: computerId=${computerId}, studentId=${studentId}, classSessionId=${classSessionId}, userRole=${userRole}, userId=${userId}`
+    );
+
+    if (!computerId || !studentId || !classSessionId) {
+      console.log(
+        `[COMPUTER ASSIGN] Missing required fields: computerId=${computerId}, studentId=${studentId}, classSessionId=${classSessionId}`
+      );
       return res.status(400).json({
         success: false,
-        message: "Computer ID and Student ID are required",
+        message: "Computer ID, Student ID, and Class Session ID are required",
       });
     }
 
-    // If faculty, check if they have access to this computer
+    // If faculty, check if they have access to this computer and class session
     if (userRole === "faculty") {
-      const computerCheck = await db
+      console.log(
+        `[COMPUTER ASSIGN] Faculty access check for computerId=${computerId}, classSessionId=${classSessionId}, userId=${userId}`
+      );
+
+      // Check if faculty teaches this specific class session
+      const sessionCheck = await db
         .select()
-        .from(computers)
-        .innerJoin(schedules, eq(computers.classroomId, schedules.classroomId))
+        .from(classSessions)
+        .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
         .where(
-          and(eq(computers.id, computerId), eq(schedules.facultyId, userId))
+          and(
+            eq(classSessions.id, classSessionId),
+            eq(schedules.facultyId, userId)
+          )
         )
         .limit(1);
 
-      if (computerCheck.length === 0) {
+      console.log(
+        `[COMPUTER ASSIGN] Faculty session access check result: ${sessionCheck.length} matching records`
+      );
+      if (sessionCheck.length === 0) {
+        console.log(
+          `[COMPUTER ASSIGN] Access denied for faculty userId=${userId} to classSessionId=${classSessionId}`
+        );
         return res.status(403).json({
           success: false,
-          message: "Access denied to this computer",
+          message: "Access denied: You do not teach this class session",
         });
       }
     }
 
+    // Validate that student is enrolled in the subject of this class session
+    console.log(
+      `[COMPUTER ASSIGN] Checking student enrollment for studentId=${studentId}, classSessionId=${classSessionId}`
+    );
+    const enrollmentCheck = await db
+      .select()
+      .from(classSessions)
+      .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+      .innerJoin(
+        enrollments,
+        and(
+          eq(enrollments.subjectId, schedules.subjectId),
+          eq(enrollments.studentId, studentId)
+        )
+      )
+      .where(eq(classSessions.id, classSessionId))
+      .limit(1);
+
+    console.log(
+      `[COMPUTER ASSIGN] Student enrollment check result: ${enrollmentCheck.length} matching records`
+    );
+    if (enrollmentCheck.length === 0) {
+      console.log(
+        `[COMPUTER ASSIGN] Student ${studentId} is not enrolled in the subject for classSessionId=${classSessionId}`
+      );
+      return res.status(400).json({
+        success: false,
+        message: "Student is not enrolled in this class subject",
+      });
+    }
+
+    // Check if computer is already assigned
+    const existingAssignment = await db
+      .select()
+      .from(computerAssignments)
+      .where(
+        and(
+          eq(computerAssignments.computerId, computerId),
+          isNull(computerAssignments.releasedAt)
+        )
+      )
+      .limit(1);
+
+    if (existingAssignment.length > 0) {
+      console.log(
+        `[COMPUTER ASSIGN] Computer ${computerId} is already assigned (assignmentId=${existingAssignment[0].id})`
+      );
+      return res.status(409).json({
+        success: false,
+        message: "Computer is already assigned to another student",
+      });
+    }
+
+    console.log(
+      `[COMPUTER ASSIGN] Updating computer ${computerId} status to in_use`
+    );
     // Update computer status to in_use
     await db
       .update(computers)
@@ -249,6 +341,9 @@ router.post("/assign", requireAdminOrFaculty, async (req, res) => {
       })
       .where(eq(computers.id, computerId));
 
+    console.log(
+      `[COMPUTER ASSIGN] Creating assignment record for computerId=${computerId}, studentId=${studentId}, classSessionId=${classSessionId}`
+    );
     // Create assignment record
     const assignment = await db
       .insert(computerAssignments)
@@ -256,10 +351,14 @@ router.post("/assign", requireAdminOrFaculty, async (req, res) => {
         computerId,
         studentId,
         classSessionId,
+        status: "active",
         assignedAt: new Date(),
       })
       .returning();
 
+    console.log(
+      `[COMPUTER ASSIGN] Assignment created successfully: assignmentId=${assignment[0].id}`
+    );
     res.status(201).json({ success: true, data: assignment[0] });
   } catch (error) {
     console.error("Error assigning computer:", error);
@@ -279,6 +378,10 @@ router.post(
       const userRole = req.session?.userRole;
       const userId = req.session?.userId;
 
+      console.log(
+        `[COMPUTER RELEASE] Attempting release: assignmentId=${assignmentId}, userRole=${userRole}, userId=${userId}`
+      );
+
       // Get assignment to find computer
       const assignment = await db
         .select()
@@ -287,15 +390,25 @@ router.post(
         .limit(1);
 
       if (assignment.length === 0) {
+        console.log(
+          `[COMPUTER RELEASE] Assignment not found: assignmentId=${assignmentId}`
+        );
         return res
           .status(404)
           .json({ success: false, message: "Assignment not found" });
       }
 
+      console.log(
+        `[COMPUTER RELEASE] Found assignment: computerId=${assignment[0].computerId}, studentId=${assignment[0].studentId}`
+      );
+
       const computerId = assignment[0].computerId;
 
       // If faculty, check if they have access to this computer
       if (userRole === "faculty") {
+        console.log(
+          `[COMPUTER RELEASE] Faculty access check for computerId=${computerId}, userId=${userId}`
+        );
         const computerCheck = await db
           .select()
           .from(computers)
@@ -308,7 +421,13 @@ router.post(
           )
           .limit(1);
 
+        console.log(
+          `[COMPUTER RELEASE] Faculty access check result: ${computerCheck.length} matching records`
+        );
         if (computerCheck.length === 0) {
+          console.log(
+            `[COMPUTER RELEASE] Access denied for faculty userId=${userId} to computerId=${computerId}`
+          );
           return res.status(403).json({
             success: false,
             message: "Access denied to this computer",
@@ -316,18 +435,28 @@ router.post(
         }
       }
 
+      console.log(
+        `[COMPUTER RELEASE] Updating computer ${computerId} status to available`
+      );
       // Update computer status to available
       await db
         .update(computers)
         .set({ status: "available", updatedAt: new Date() })
         .where(eq(computers.id, computerId));
 
-      // Update assignment with release time
+      console.log(
+        `[COMPUTER RELEASE] Updating assignment ${assignmentId} with releasedAt timestamp`
+      );
+      // Update assignment with release time and status
       await db
         .update(computerAssignments)
-        .set({ releasedAt: new Date() })
+        .set({
+          releasedAt: new Date(),
+          status: "completed",
+        })
         .where(eq(computerAssignments.id, assignmentId));
 
+      console.log(`[COMPUTER RELEASE] Computer released successfully`);
       res.json({ success: true, message: "Computer released successfully" });
     } catch (error) {
       console.error("Error releasing computer:", error);

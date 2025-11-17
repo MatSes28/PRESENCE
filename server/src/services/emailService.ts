@@ -18,20 +18,23 @@ class EmailService {
     this.apiInstance = new TransactionalEmailsApi();
     // Email service is optional - skip initialization if no API key
     if (process.env.BREVO_API_KEY) {
-      // Check if TransactionalEmailsApiApiKeys exists and has apiKey
-      if (
-        TransactionalEmailsApiApiKeys &&
-        TransactionalEmailsApiApiKeys.apiKey
-      ) {
-        this.apiInstance.setApiKey(
-          TransactionalEmailsApiApiKeys.apiKey,
-          process.env.BREVO_API_KEY
-        );
-      } else {
+      try {
+        // Try to set API key using ApiClient (more reliable)
+        const { ApiClient } = require("@getbrevo/brevo");
+        ApiClient.instance.authentications["api-key"].apiKey =
+          process.env.BREVO_API_KEY;
+        console.log("✅ Brevo API key configured successfully");
+      } catch (error) {
         console.warn(
-          "Brevo API key configuration is invalid - email service disabled"
+          "❌ Brevo API key configuration failed:",
+          error instanceof Error ? error.message : "Unknown error"
         );
+        console.warn("Email service will be disabled");
       }
+    } else {
+      console.warn(
+        "⚠️  No BREVO_API_KEY found in environment - email service disabled"
+      );
     }
   }
 
