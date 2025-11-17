@@ -8,7 +8,7 @@ import {
   schedules,
   classrooms,
   subjects,
-} from "../../shared/schema.js";
+} from "../schema.js";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 
 const router = Router();

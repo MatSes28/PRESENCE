@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../storage.js";
-import { classrooms } from "../../../shared/schema.js";
+import { classrooms } from "../schema.js";
 import { eq } from "drizzle-orm";
 
 const router = Router();

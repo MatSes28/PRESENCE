@@ -1,23 +1,63 @@
 import { Router } from "express";
 import { db } from "../storage.js";
-import {
-  schedules,
-  subjects,
-  classrooms,
-  users,
-} from "../../../shared/schema.js";
-import { eq } from "drizzle-orm";
+import { schedules, subjects, classrooms, users } from "../schema.js";
+import { eq, desc } from "drizzle-orm";
+import { sql } from "drizzle-orm";
+import multer from "multer";
+import csv from "csv-parser";
+import { Readable } from "stream";
 
 const router = Router();
+
+// Configure multer for file uploads
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Middleware to check authentication
+const requireAuth = (req: any, res: any, next: any) => {
+  if (!req.session?.userId) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+  next();
+};
 
 // Get all schedules
 router.get("/", async (req, res) => {
   try {
-    const allSchedules = await db.select().from(schedules);
-    res.json(allSchedules);
+    const allSchedules = await db
+      .select({
+        id: schedules.id,
+        subjectId: schedules.subjectId,
+        subjectName: subjects.name,
+        classroomId: schedules.classroomId,
+        classroomName: classrooms.name,
+        facultyId: schedules.facultyId,
+        facultyName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+        dayOfWeek: schedules.dayOfWeek,
+        startTime: schedules.startTime,
+        endTime: schedules.endTime,
+        semester: schedules.semester,
+        academicYear: schedules.academicYear,
+        createdAt: schedules.createdAt,
+      })
+      .from(schedules)
+      .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
+      .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
+      .innerJoin(users, eq(schedules.facultyId, users.id))
+      .orderBy(desc(schedules.createdAt));
+
+    res.json({
+      success: true,
+      data: allSchedules,
+    });
   } catch (error) {
     console.error("Error fetching schedules:", error);
-    res.status(500).json({ error: "Failed to fetch schedules" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch schedules",
+    });
   }
 });
 
@@ -127,5 +167,123 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to delete schedule" });
   }
 });
+
+// CSV Upload endpoint
+router.post(
+  "/upload-csv",
+  requireAuth,
+  upload.single("csv"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "No CSV file provided",
+        });
+      }
+
+      const results: any[] = [];
+      const stream = Readable.from(req.file.buffer.toString());
+
+      stream
+        .pipe(csv())
+        .on("data", (data) => results.push(data))
+        .on("end", async () => {
+          try {
+            let imported = 0;
+            let errors = 0;
+
+            for (const row of results) {
+              try {
+                // Find subject by code
+                const subject = await db
+                  .select()
+                  .from(subjects)
+                  .where(eq(subjects.code, row.subjectCode))
+                  .limit(1);
+
+                // Find classroom by name
+                const classroom = await db
+                  .select()
+                  .from(classrooms)
+                  .where(eq(classrooms.name, row.classroomName))
+                  .limit(1);
+
+                // Find faculty by email
+                const faculty = await db
+                  .select()
+                  .from(users)
+                  .where(eq(users.email, row.facultyEmail))
+                  .limit(1);
+
+                if (
+                  subject.length === 0 ||
+                  classroom.length === 0 ||
+                  faculty.length === 0
+                ) {
+                  errors++;
+                  continue;
+                }
+
+                // Map day name to number
+                const dayMap: { [key: string]: number } = {
+                  sunday: 0,
+                  monday: 1,
+                  tuesday: 2,
+                  wednesday: 3,
+                  thursday: 4,
+                  friday: 5,
+                  saturday: 6,
+                };
+                const dayOfWeek = dayMap[row.dayOfWeek?.toLowerCase()] ?? 1;
+
+                await db.insert(schedules).values({
+                  subjectId: subject[0].id,
+                  classroomId: classroom[0].id,
+                  facultyId: faculty[0].id,
+                  dayOfWeek,
+                  startTime: row.startTime,
+                  endTime: row.endTime,
+                  semester: row.semester,
+                  academicYear: row.academicYear,
+                });
+
+                imported++;
+              } catch (error) {
+                console.error("Error importing row:", error, row);
+                errors++;
+              }
+            }
+
+            res.json({
+              success: true,
+              message: `Imported ${imported} schedules, ${errors} errors`,
+              imported,
+              errors,
+            });
+          } catch (error) {
+            console.error("CSV processing error:", error);
+            res.status(500).json({
+              success: false,
+              message: "Failed to process CSV data",
+            });
+          }
+        })
+        .on("error", (error) => {
+          console.error("CSV parsing error:", error);
+          res.status(500).json({
+            success: false,
+            message: "Failed to parse CSV file",
+          });
+        });
+    } catch (error) {
+      console.error("CSV upload error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+);
 
 export default router;

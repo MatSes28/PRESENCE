@@ -7,11 +7,11 @@ import { useAuth } from "../hooks/useAuth";
 interface Schedule {
   id: number;
   subjectId: number;
-  subjectName?: string;
+  subjectName: string;
   classroomId: number;
-  classroomName?: string;
+  classroomName: string;
   facultyId: number;
-  facultyName?: string;
+  facultyName: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
@@ -50,6 +50,7 @@ export const Schedule = () => {
     semester: "1st Semester",
     academicYear: new Date().getFullYear().toString(),
   });
+  const [uploadingCsv, setUploadingCsv] = useState(false);
 
   useEffect(() => {
     fetchSchedules();
@@ -104,9 +105,12 @@ export const Schedule = () => {
 
   const fetchSessions = async () => {
     try {
-      // This would need a backend endpoint for sessions
-      // For now, we'll show a placeholder
-      // setSessions([]);
+      const response = await fetch("/api/sessions");
+      const data = await response.json();
+      if (data.success) {
+        // Process sessions data if needed
+        console.log("Sessions:", data.sessions);
+      }
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
     } finally {
@@ -186,6 +190,53 @@ export const Schedule = () => {
     return schedules.filter((schedule) => schedule.dayOfWeek === dayOfWeek);
   };
 
+  const handleCsvUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingCsv(true);
+    try {
+      const formData = new FormData();
+      formData.append("csv", file);
+
+      const response = await fetch("/api/schedules/upload-csv", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        addNotification({
+          type: "success",
+          title: "CSV Upload Successful",
+          message: `Successfully imported ${result.imported} schedules`,
+        });
+        fetchSchedules();
+      } else {
+        addNotification({
+          type: "error",
+          title: "CSV Upload Failed",
+          message: result.message || "Failed to import schedules from CSV",
+        });
+      }
+    } catch (error) {
+      console.error("CSV upload error:", error);
+      addNotification({
+        type: "error",
+        title: "Upload Error",
+        message: "Failed to upload CSV file. Please try again.",
+      });
+    } finally {
+      setUploadingCsv(false);
+      // Reset file input
+      event.target.value = "";
+    }
+  };
+
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(":");
     const hour = parseInt(hours);
@@ -215,9 +266,20 @@ export const Schedule = () => {
           </p>
         </div>
         <div className="flex space-x-3">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-            Upload CSV
-          </button>
+          <label
+            className={`bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium cursor-pointer ${
+              uploadingCsv ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+          >
+            {uploadingCsv ? "Uploading..." : "Upload CSV"}
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCsvUpload}
+              disabled={uploadingCsv}
+              className="hidden"
+            />
+          </label>
           {user?.role === "admin" && (
             <button
               onClick={() => setShowAddForm(true)}
@@ -455,12 +517,10 @@ export const Schedule = () => {
                             className="bg-cyan-900 border border-cyan-700 rounded p-2 mb-1 text-xs relative"
                           >
                             <div className="font-medium text-cyan-300">
-                              {schedule.subjectName ||
-                                `Subject ${schedule.subjectId}`}
+                              {schedule.subjectName}
                             </div>
                             <div className="text-cyan-400">
-                              {schedule.classroomName ||
-                                `Room ${schedule.classroomId}`}
+                              {schedule.classroomName}
                             </div>
                             <div className="text-cyan-400">
                               {formatTime(schedule.startTime)} -{" "}
@@ -575,10 +635,10 @@ export const Schedule = () => {
               {schedules.map((schedule) => (
                 <tr key={schedule.id} className="hover:bg-gray-700">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                    Subject {schedule.subjectId}
+                    {schedule.subjectName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                    Room {schedule.classroomId}
+                    {schedule.classroomName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                     {DAYS_OF_WEEK[schedule.dayOfWeek]}
