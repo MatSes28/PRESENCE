@@ -14,14 +14,14 @@ export const ForgotPassword = () => {
     setMessage("");
 
     try {
-      const response = await api.forgotPassword(email);
+      const response = await api.post("/auth/forgot-password", { email });
       if (response.success) {
         setMessage("Password reset instructions have been sent to your email.");
       } else {
         setError(response.message || "Failed to send reset instructions.");
       }
-    } catch (err) {
-      setError("An error occurred. Please try again.");
+    } catch (err: any) {
+      setError(err?.data?.message || "An error occurred. Please try again.");
     } finally {
       setLoading(false);
     }

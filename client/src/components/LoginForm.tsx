@@ -159,7 +159,16 @@ export const LoginForm = () => {
               </button>
             </div>
 
-            <div className="text-center">
+            <div className="text-center space-y-2">
+              <p className="text-sm text-gray-500">
+                <button
+                  type="button"
+                  className="text-teal-400 hover:text-teal-300 underline"
+                  onClick={() => (window.location.href = "/forgot-password")}
+                >
+                  Forgot your password?
+                </button>
+              </p>
               <p className="text-sm text-gray-500">
                 Central Luzon State University - IT Department
               </p>
