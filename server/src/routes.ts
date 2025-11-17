@@ -5,6 +5,7 @@ import attendanceRoutes from "./routes/attendance.js";
 import classroomRoutes from "./routes/classrooms.js";
 import scheduleRoutes from "./routes/schedules.js";
 import classSessionRoutes from "./routes/classSessions.js";
+import subjectRoutes from "./routes/subjects.js";
 import reportRoutes from "./routes/reports.js";
 import userRoutes from "./routes/users.js";
 import computerRoutes from "./routes/computers.js";
@@ -40,5 +41,6 @@ router.use("/computers", computerRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/iot", iotRoutes);
 router.use("/dashboard", dashboardRoutes);
+router.use("/subjects", subjectRoutes);
 
 export default router;
