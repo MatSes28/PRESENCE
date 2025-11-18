@@ -58,9 +58,15 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 // GET /api/computers/:id - Get computer by ID
-router.get("/:id", async (req, res) => {
+router.get("/:id", requireAuth, async (req, res) => {
   try {
     const computerId = parseInt(req.params.id);
+    if (isNaN(computerId)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid computer ID" });
+    }
+
     const computer = await db
       .select()
       .from(computers)
@@ -194,7 +200,7 @@ router.delete("/:id", requireAdmin, async (req, res) => {
 });
 
 // GET /api/computers/assignments - Get all computer assignments with student names
-router.get("/assignments", async (req, res) => {
+router.get("/assignments", requireAuth, async (req, res) => {
   try {
     const assignments = await db
       .select({
