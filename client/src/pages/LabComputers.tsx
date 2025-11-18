@@ -303,17 +303,14 @@ export const LabComputers = () => {
       {/* Laboratory Computer Usage Monitoring */}
       {classrooms.map((classroomId) => {
         const classroomComputers = getComputersByClassroom(classroomId);
-        // Only show laboratory classrooms (not lecture rooms)
-        const isLabRoom = classroomComputers.some(
-          (comp) => comp.classroomId > 100
-        ); // Assuming lab rooms have higher IDs
-        if (!isLabRoom) return null;
+        // Show all classrooms with computers (remove the lab room filter)
+        if (classroomComputers.length === 0) return null;
 
         return (
           <div key={classroomId} className="bg-gray-800 rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-700">
               <h4 className="text-lg font-medium text-white">
-                Lab Room {classroomId}
+                Room {classroomId}
               </h4>
               <p className="text-sm text-gray-300">
                 Real-time computer usage monitoring •
