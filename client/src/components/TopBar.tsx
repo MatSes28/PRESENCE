@@ -62,7 +62,7 @@ export const TopBar: React.FC = () => {
           {/* User Avatar Dropdown */}
           <div className="relative">
             <button
-              onClick={() => setShowLogoutConfirm(!showLogoutConfirm)}
+              onClick={() => setShowLogoutConfirm(true)}
               className="flex items-center space-x-3 hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors"
             >
               <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
