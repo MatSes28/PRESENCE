@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "../hooks/useAuth";
+import { ConfirmationDialog } from "./ConfirmationDialog";
 
 interface NavItem {
   path: string;
@@ -59,11 +60,17 @@ const navigationItems: NavItem[] = [
 export const Sidebar: React.FC = () => {
   const { user, logout } = useAuth();
   const [location] = useLocation();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const filteredNavItems = navigationItems.filter(
     (item) =>
       user?.role && item.roles.includes(user.role as "admin" | "faculty")
   );
+
+  const handleLogout = async () => {
+    setShowLogoutConfirm(false);
+    await logout();
+  };
 
   return (
     <div className="w-64 bg-gray-900 shadow-lg flex flex-col">
@@ -107,12 +114,24 @@ export const Sidebar: React.FC = () => {
           </div>
         </div>
         <button
-          onClick={logout}
+          onClick={() => setShowLogoutConfirm(true)}
           className="w-full px-4 py-2 text-left text-red-400 hover:bg-red-900 rounded-lg transition-colors"
         >
           🚪 Logout
         </button>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmationDialog
+        isOpen={showLogoutConfirm}
+        title="Confirm Logout"
+        message="Are you sure you want to log out of your account?"
+        confirmText="Yes"
+        cancelText="No"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </div>
   );
 };
