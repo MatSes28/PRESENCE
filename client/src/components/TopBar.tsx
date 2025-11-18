@@ -92,8 +92,8 @@ export const TopBar: React.FC = () => {
               isOpen={showLogoutConfirm}
               title="Confirm Logout"
               message="Are you sure you want to log out of your account?"
-              confirmText="Logout"
-              cancelText="Cancel"
+              confirmText="Yes"
+              cancelText="No"
               confirmButtonClass="bg-red-600 hover:bg-red-700"
               onConfirm={handleLogout}
               onCancel={() => setShowLogoutConfirm(false)}
