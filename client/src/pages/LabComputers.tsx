@@ -41,6 +41,16 @@ export const LabComputers = () => {
     fetchAssignments();
   }, []);
 
+  // Add a separate useEffect to handle loading state
+  useEffect(() => {
+    // Set loading to false after a reasonable timeout to prevent infinite loading
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 10000); // 10 seconds timeout
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const fetchComputers = async () => {
     try {
       const response = await api.getComputers();

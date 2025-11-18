@@ -3,3 +3,11 @@ ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS is_active boolean DEFAUL
 ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true NOT NULL;
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true NOT NULL;
 ALTER TABLE subjects ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true NOT NULL;
+ALTER TABLE computers ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true NOT NULL;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true NOT NULL;
+ALTER TABLE classrooms ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true NOT NULL;
+ALTER TABLE computer_assignments ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true NOT NULL;
+ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true NOT NULL;
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true NOT NULL;
+ALTER TABLE email_notifications ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true NOT NULL;
