@@ -111,9 +111,13 @@ export const UserManagement: React.FC = () => {
     try {
       const userData = {
         email: formData.email,
-        name: `${formData.firstName} ${formData.lastName}`,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
         password: formData.password,
         role: formData.role,
+        facultyId: formData.facultyId || undefined,
+        department: formData.department || undefined,
+        gender: formData.gender || undefined,
       };
 
       const response = await api.createUser(userData);

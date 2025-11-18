@@ -144,9 +144,13 @@ class ApiClient {
 
   async createUser(userData: {
     email: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     role: string;
     password: string;
+    facultyId?: string;
+    department?: string;
+    gender?: string;
   }) {
     return this.request("/users", {
       method: "POST",
