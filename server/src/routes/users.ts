@@ -98,7 +98,7 @@ router.post("/", async (req, res) => {
     }
 
     const bcrypt = await import("bcryptjs");
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt.default.hash(password, 12);
 
     const newUser = await db
       .insert(users)
