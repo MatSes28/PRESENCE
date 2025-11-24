@@ -8,6 +8,7 @@ import {
   users,
 } from "../schema.js";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { sessionScheduler } from "../services/scheduler.js";
 
 const router = Router();
 
@@ -117,52 +118,13 @@ router.post("/auto-create", requireAuth, async (req, res) => {
     }
 
     const targetDate = new Date(date);
-    const dayOfWeek = targetDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
-
-    // Find all schedules for this day
-    const daySchedules = await db
-      .select()
-      .from(schedules)
-      .where(eq(schedules.dayOfWeek, dayOfWeek));
-
-    const createdSessions = [];
-
-    for (const schedule of daySchedules) {
-      // Check if session already exists for this schedule and date
-      const existingSession = await db
-        .select()
-        .from(classSessions)
-        .where(
-          and(
-            eq(classSessions.scheduleId, schedule.id),
-            gte(classSessions.date, new Date(targetDate.getTime())),
-            lte(
-              classSessions.date,
-              new Date(targetDate.getTime() + 24 * 60 * 60 * 1000)
-            )
-          )
-        )
-        .limit(1);
-
-      if (existingSession.length === 0) {
-        // Create new session
-        const [newSession] = await db
-          .insert(classSessions)
-          .values({
-            scheduleId: schedule.id,
-            date: targetDate,
-            status: "scheduled", // Will be activated automatically at start time
-          })
-          .returning();
-
-        createdSessions.push(newSession);
-      }
-    }
+    const createdCount = await sessionScheduler.createSessionsForDate(
+      targetDate
+    );
 
     res.json({
       success: true,
-      message: `Created ${createdSessions.length} class sessions`,
-      sessions: createdSessions,
+      message: `Created ${createdCount} class sessions`,
     });
   } catch (error) {
     console.error("Auto-create sessions error:", error);

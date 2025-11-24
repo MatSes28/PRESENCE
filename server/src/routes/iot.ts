@@ -285,6 +285,142 @@ router.get("/connected", requireAuth, async (req, res) => {
   }
 });
 
+// Sensor calibration endpoints
+router.post(
+  "/devices/:deviceId/calibration/start",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const { deviceId } = req.params;
+
+      const success = await iotDeviceManager.startCalibration(deviceId);
+
+      if (!success) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to start calibration",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Calibration started successfully",
+      });
+    } catch (error) {
+      console.error("Start calibration error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+);
+
+router.post(
+  "/devices/:deviceId/calibration/complete",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const { deviceId } = req.params;
+      const {
+        entryThreshold,
+        exitThreshold,
+        baselineDistance,
+        calibrationSamples,
+      } = req.body;
+
+      if (!entryThreshold || !exitThreshold || !baselineDistance) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Entry threshold, exit threshold, and baseline distance are required",
+        });
+      }
+
+      const calibrationData = {
+        entryThreshold: parseFloat(entryThreshold),
+        exitThreshold: parseFloat(exitThreshold),
+        baselineDistance: parseFloat(baselineDistance),
+        lastCalibrated: new Date(),
+        calibrationSamples,
+      };
+
+      const success = await iotDeviceManager.completeCalibration(
+        deviceId,
+        calibrationData
+      );
+
+      if (!success) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to complete calibration",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Calibration completed successfully",
+      });
+    } catch (error) {
+      console.error("Complete calibration error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+);
+
+router.get("/devices/:deviceId/calibration", requireAuth, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+
+    const status = await iotDeviceManager.getCalibrationStatus(deviceId);
+
+    res.json({
+      success: true,
+      deviceId,
+      calibration: status,
+    });
+  } catch (error) {
+    console.error("Get calibration status error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+router.post(
+  "/devices/:deviceId/calibration/reset",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const { deviceId } = req.params;
+
+      const success = await iotDeviceManager.resetCalibration(deviceId);
+
+      if (!success) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to reset calibration",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Calibration reset successfully",
+      });
+    } catch (error) {
+      console.error("Reset calibration error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+);
+
 // Simulate RFID tap for testing
 router.post("/attendance/simulate-rfid", async (req, res) => {
   try {

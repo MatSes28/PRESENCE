@@ -11,6 +11,17 @@ import {
 } from "../schema.js";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { attendanceMonitor } from "../services/attendanceMonitor.js";
+import {
+  wrapAsync,
+  handleDatabaseError,
+  AppError,
+} from "../utils/errorHandler.js";
+import {
+  validateRequired,
+  validateNumeric,
+  validateDate,
+  sanitizeInput,
+} from "../middleware/validation.js";
 
 const router = Router();
 
@@ -142,16 +153,15 @@ router.get("/stats/:sessionId", requireAuth, async (req, res) => {
 });
 
 // Manual attendance entry
-router.post("/manual", requireAuth, async (req, res) => {
-  try {
+router.post(
+  "/manual",
+  requireAuth,
+  validateRequired(["studentId", "classSessionId"]),
+  validateNumeric(["studentId", "classSessionId"]),
+  validateDate(["entryTime", "exitTime"]),
+  sanitizeInput(["notes"]),
+  wrapAsync(async (req, res) => {
     const { studentId, classSessionId, entryTime, exitTime, notes } = req.body;
-
-    if (!studentId || !classSessionId) {
-      return res.status(400).json({
-        success: false,
-        message: "Student ID and Class Session ID are required",
-      });
-    }
 
     // Check if record already exists
     const existingRecord = await db
@@ -166,11 +176,10 @@ router.post("/manual", requireAuth, async (req, res) => {
       .limit(1);
 
     if (existingRecord.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message:
-          "Attendance record already exists for this student and session",
-      });
+      throw new AppError(
+        "Attendance record already exists for this student and session",
+        409
+      );
     }
 
     const [newRecord] = await db
@@ -193,14 +202,8 @@ router.post("/manual", requireAuth, async (req, res) => {
       message: "Attendance record created successfully",
       record: newRecord,
     });
-  } catch (error) {
-    console.error("Manual attendance entry error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-});
+  })
+);
 
 // Update attendance record
 router.put("/:id", requireAuth, async (req, res) => {
