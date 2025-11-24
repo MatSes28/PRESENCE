@@ -42,7 +42,14 @@ const postgres_1 = __importDefault(require("postgres"));
 const schema = __importStar(require("./schema.js"));
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-    throw new Error('DATABASE_URL environment variable is required');
+    console.error("❌ DATABASE_URL environment variable is required but not set");
+    throw new Error("DATABASE_URL environment variable is required");
 }
-const client = (0, postgres_1.default)(connectionString, { prepare: false });
+const client = (0, postgres_1.default)(connectionString, {
+    prepare: false,
+    max: 10,
+    idle_timeout: 20,
+    connect_timeout: 10,
+    onnotice: () => { },
+});
 exports.db = (0, postgres_js_1.drizzle)(client, { schema });

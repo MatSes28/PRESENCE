@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const storage_js_1 = require("../storage.js");
-const schema_js_1 = require("../../../shared/schema.js");
+const schema_js_1 = require("../schema.js");
 const drizzle_orm_1 = require("drizzle-orm");
 const router = (0, express_1.Router)();
 router.get("/", async (req, res) => {

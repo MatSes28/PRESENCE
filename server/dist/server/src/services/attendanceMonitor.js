@@ -4,11 +4,16 @@ exports.attendanceMonitor = void 0;
 const storage_js_1 = require("../storage.js");
 const schema_js_1 = require("../schema.js");
 const drizzle_orm_1 = require("drizzle-orm");
+const iotDeviceManager_js_1 = require("./iotDeviceManager.js");
+const errorHandler_js_1 = require("../utils/errorHandler.js");
 class AttendanceMonitor {
     activeSessions = new Map();
     validationWindow = 7000;
     async processRFIDScan(scan) {
         try {
+            if (!scan.rfidUid || !scan.deviceId) {
+                throw new errorHandler_js_1.AppError("Invalid RFID scan data: missing RFID UID or device ID", 400);
+            }
             const student = await storage_js_1.db
                 .select()
                 .from(schema_js_1.students)
@@ -19,6 +24,16 @@ class AttendanceMonitor {
                 return { success: false, message: "Unknown RFID card" };
             }
             const studentData = student[0];
+            try {
+                await storage_js_1.db.insert(schema_js_1.rfidScans).values({
+                    deviceId: scan.deviceId,
+                    rfidUid: scan.rfidUid,
+                    timestamp: new Date(scan.timestamp),
+                });
+            }
+            catch (error) {
+                console.warn("Failed to store RFID scan:", error);
+            }
             const now = new Date();
             const currentSession = await this.findActiveClassSession(now);
             if (!currentSession) {
@@ -48,12 +63,21 @@ class AttendanceMonitor {
             };
         }
         catch (error) {
-            console.error("Error processing RFID scan:", error);
-            return { success: false, message: "Internal error" };
+            if (error instanceof errorHandler_js_1.AppError) {
+                throw error;
+            }
+            const appError = (0, errorHandler_js_1.handleDatabaseError)(error);
+            console.error("Error processing RFID scan:", appError);
+            return { success: false, message: appError.message };
         }
     }
     async processSensorTrigger(trigger) {
         try {
+            const isValidReading = await iotDeviceManager_js_1.iotDeviceManager.validateSensorReading(trigger.deviceId, trigger.sensorType, trigger.distance);
+            if (!isValidReading) {
+                console.warn(`Invalid sensor reading from ${trigger.deviceId}, ignoring trigger`);
+                return { success: false, message: "Invalid sensor reading" };
+            }
             const now = new Date();
             const currentSession = await this.findActiveClassSession(now);
             if (!currentSession) {
@@ -121,7 +145,14 @@ class AttendanceMonitor {
         return activeSchedules.length > 0 ? activeSchedules[0].session : null;
     }
     async findRecentRFIDScans(deviceId, currentTime) {
-        return [];
+        const validationWindowStart = new Date(currentTime.getTime() - this.validationWindow);
+        const recentScans = await storage_js_1.db
+            .select()
+            .from(schema_js_1.rfidScans)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.rfidScans.deviceId, deviceId), (0, drizzle_orm_1.gte)(schema_js_1.rfidScans.timestamp, validationWindowStart), (0, drizzle_orm_1.lte)(schema_js_1.rfidScans.timestamp, currentTime)))
+            .orderBy((0, drizzle_orm_1.desc)(schema_js_1.rfidScans.timestamp))
+            .limit(5);
+        return recentScans;
     }
     async createAttendanceRecord(record) {
         const [newRecord] = await storage_js_1.db

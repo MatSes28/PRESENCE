@@ -1,7 +1,41 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const iotDeviceManager_js_1 = require("../services/iotDeviceManager.js");
+const websocket_js_1 = require("../services/websocket.js");
 const router = (0, express_1.Router)();
 const requireAuth = (req, res, next) => {
     if (!req.session?.userId) {
@@ -230,6 +264,155 @@ router.get("/connected", requireAuth, async (req, res) => {
     }
     catch (error) {
         console.error("Get connected devices error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+});
+router.post("/devices/:deviceId/calibration/start", requireAuth, async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const success = await iotDeviceManager_js_1.iotDeviceManager.startCalibration(deviceId);
+        if (!success) {
+            return res.status(500).json({
+                success: false,
+                message: "Failed to start calibration",
+            });
+        }
+        res.json({
+            success: true,
+            message: "Calibration started successfully",
+        });
+    }
+    catch (error) {
+        console.error("Start calibration error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+});
+router.post("/devices/:deviceId/calibration/complete", requireAuth, async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const { entryThreshold, exitThreshold, baselineDistance, calibrationSamples, } = req.body;
+        if (!entryThreshold || !exitThreshold || !baselineDistance) {
+            return res.status(400).json({
+                success: false,
+                message: "Entry threshold, exit threshold, and baseline distance are required",
+            });
+        }
+        const calibrationData = {
+            entryThreshold: parseFloat(entryThreshold),
+            exitThreshold: parseFloat(exitThreshold),
+            baselineDistance: parseFloat(baselineDistance),
+            lastCalibrated: new Date(),
+            calibrationSamples,
+        };
+        const success = await iotDeviceManager_js_1.iotDeviceManager.completeCalibration(deviceId, calibrationData);
+        if (!success) {
+            return res.status(500).json({
+                success: false,
+                message: "Failed to complete calibration",
+            });
+        }
+        res.json({
+            success: true,
+            message: "Calibration completed successfully",
+        });
+    }
+    catch (error) {
+        console.error("Complete calibration error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+});
+router.get("/devices/:deviceId/calibration", requireAuth, async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const status = await iotDeviceManager_js_1.iotDeviceManager.getCalibrationStatus(deviceId);
+        res.json({
+            success: true,
+            deviceId,
+            calibration: status,
+        });
+    }
+    catch (error) {
+        console.error("Get calibration status error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+});
+router.post("/devices/:deviceId/calibration/reset", requireAuth, async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const success = await iotDeviceManager_js_1.iotDeviceManager.resetCalibration(deviceId);
+        if (!success) {
+            return res.status(500).json({
+                success: false,
+                message: "Failed to reset calibration",
+            });
+        }
+        res.json({
+            success: true,
+            message: "Calibration reset successfully",
+        });
+    }
+    catch (error) {
+        console.error("Reset calibration error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+});
+router.post("/attendance/simulate-rfid", async (req, res) => {
+    try {
+        const { rfidUid } = req.body;
+        if (!rfidUid) {
+            return res.status(400).json({
+                success: false,
+                message: "RFID UID is required",
+            });
+        }
+        const simulatedData = {
+            type: "rfid_scan",
+            rfidUid,
+            deviceId: "simulator",
+            timestamp: new Date().toISOString(),
+        };
+        try {
+            const { attendanceMonitor } = await Promise.resolve().then(() => __importStar(require("../services/attendanceMonitor.js")));
+            console.log(`[SIMULATE RFID] Processing RFID scan: ${rfidUid}`);
+            const result = await attendanceMonitor.processRFIDScan({
+                deviceId: "simulator",
+                rfidUid,
+                timestamp: simulatedData.timestamp,
+            });
+            console.log(`[SIMULATE RFID] Processing result:`, result);
+            simulatedData.processingResult = result;
+        }
+        catch (error) {
+            console.error(`[SIMULATE RFID] Error processing RFID scan:`, error);
+            simulatedData.processingResult = {
+                success: false,
+                message: error.message,
+            };
+        }
+        (0, websocket_js_1.broadcastToWebClients)("rfidScan", simulatedData);
+        res.json({
+            success: true,
+            message: "RFID tap simulated successfully",
+            data: simulatedData,
+        });
+    }
+    catch (error) {
+        console.error("Simulate RFID error:", error);
         res.status(500).json({
             success: false,
             message: "Internal server error",

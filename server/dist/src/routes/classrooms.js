@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const storage_js_1 = require("../storage.js");
-const schema_js_1 = require("../../../shared/schema.js");
+const schema_js_1 = require("../schema.js");
 const drizzle_orm_1 = require("drizzle-orm");
 const router = (0, express_1.Router)();
 router.get("/", async (req, res) => {
@@ -34,12 +34,40 @@ router.get("/:id", async (req, res) => {
 });
 router.post("/", async (req, res) => {
     try {
-        const { name, location, capacity } = req.body;
+        const { name, type, capacity } = req.body;
+        if (!["lecture", "laboratory"].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: "Classroom type must be 'lecture' or 'laboratory'",
+            });
+        }
+        const existingClassrooms = await storage_js_1.db.select().from(schema_js_1.classrooms);
+        if (existingClassrooms.length >= 4) {
+            return res.status(400).json({
+                success: false,
+                message: "Maximum of 4 classrooms allowed (2 lecture, 2 lab rooms)",
+            });
+        }
+        const lectureCount = existingClassrooms.filter((c) => c.type === "lecture").length;
+        const labCount = existingClassrooms.filter((c) => c.type === "laboratory").length;
+        if (type === "lecture" && lectureCount >= 2) {
+            return res.status(400).json({
+                success: false,
+                message: "Maximum of 2 lecture rooms allowed",
+            });
+        }
+        if (type === "laboratory" && labCount >= 2) {
+            return res.status(400).json({
+                success: false,
+                message: "Maximum of 2 laboratory rooms allowed",
+            });
+        }
         const newClassroom = await storage_js_1.db
             .insert(schema_js_1.classrooms)
             .values({
             name,
-            location,
+            location: "CLIRDEC Building",
+            type,
             capacity,
         })
             .returning();

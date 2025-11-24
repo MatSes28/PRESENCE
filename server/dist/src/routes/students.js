@@ -4,18 +4,48 @@ const express_1 = require("express");
 const storage_js_1 = require("../storage.js");
 const schema_js_1 = require("../schema.js");
 const drizzle_orm_1 = require("drizzle-orm");
+const auth_js_1 = require("../middleware/auth.js");
 const router = (0, express_1.Router)();
-const requireAuth = (req, res, next) => {
-    if (!req.session?.userId) {
-        return res.status(401).json({
-            success: false,
-            message: "Authentication required",
-        });
-    }
-    next();
-};
-router.get("/", requireAuth, async (req, res) => {
+router.get("/", auth_js_1.requireAuth, async (req, res) => {
     try {
+        const userRole = req.session?.userRole;
+        const userId = req.session?.userId;
+        if (userRole === "faculty") {
+            const facultySubjects = await storage_js_1.db
+                .select({ id: schema_js_1.subjects.id })
+                .from(schema_js_1.subjects)
+                .innerJoin(schema_js_1.schedules, (0, drizzle_orm_1.eq)(schema_js_1.subjects.id, schema_js_1.schedules.subjectId))
+                .where((0, drizzle_orm_1.eq)(schema_js_1.schedules.facultyId, userId));
+            const subjectIds = facultySubjects.map((s) => s.id);
+            if (subjectIds.length === 0) {
+                return res.json({
+                    success: true,
+                    students: [],
+                });
+            }
+            const enrolledStudentIds = await storage_js_1.db
+                .select({ studentId: schema_js_1.enrollments.studentId })
+                .from(schema_js_1.enrollments)
+                .where((0, drizzle_orm_1.inArray)(schema_js_1.enrollments.subjectId, subjectIds));
+            const studentIds = [
+                ...new Set(enrolledStudentIds.map((e) => e.studentId)),
+            ];
+            if (studentIds.length === 0) {
+                return res.json({
+                    success: true,
+                    students: [],
+                });
+            }
+            const allStudents = await storage_js_1.db
+                .select()
+                .from(schema_js_1.students)
+                .where((0, drizzle_orm_1.inArray)(schema_js_1.students.id, studentIds))
+                .orderBy(schema_js_1.students.name);
+            return res.json({
+                success: true,
+                students: allStudents,
+            });
+        }
         const allStudents = await storage_js_1.db.select().from(schema_js_1.students).orderBy(schema_js_1.students.name);
         res.json({
             success: true,
@@ -30,7 +60,7 @@ router.get("/", requireAuth, async (req, res) => {
         });
     }
 });
-router.get("/:id", requireAuth, async (req, res) => {
+router.get("/:id", auth_js_1.requireAuth, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
         const studentResult = await storage_js_1.db
@@ -57,13 +87,13 @@ router.get("/:id", requireAuth, async (req, res) => {
         });
     }
 });
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", auth_js_1.requireAdmin, async (req, res) => {
     try {
-        const { studentId, name, email, rfidUid, parentEmail } = req.body;
-        if (!studentId || !name) {
+        const { studentId, name, email, year, section, rfidUid, parentEmail, parentName, } = req.body;
+        if (!studentId || !name || !parentEmail) {
             return res.status(400).json({
                 success: false,
-                message: "Student ID and name are required",
+                message: "Student ID, name, and parent email are required",
             });
         }
         const existingStudent = await storage_js_1.db
@@ -96,8 +126,11 @@ router.post("/", requireAuth, async (req, res) => {
             studentId,
             name,
             email,
+            year,
+            section,
             rfidUid,
             parentEmail,
+            parentName,
         })
             .returning();
         res.status(201).json({
@@ -114,10 +147,10 @@ router.post("/", requireAuth, async (req, res) => {
         });
     }
 });
-router.put("/:id", requireAuth, async (req, res) => {
+router.put("/:id", auth_js_1.requireAdmin, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
-        const { name, email, rfidUid, parentEmail } = req.body;
+        const { name, email, year, section, rfidUid, parentEmail, parentName } = req.body;
         if (rfidUid) {
             const existingRFID = await storage_js_1.db
                 .select()
@@ -136,8 +169,11 @@ router.put("/:id", requireAuth, async (req, res) => {
             .set({
             name,
             email,
+            year,
+            section,
             rfidUid,
             parentEmail,
+            parentName,
             updatedAt: new Date(),
         })
             .where((0, drizzle_orm_1.eq)(schema_js_1.students.id, studentId))
@@ -162,7 +198,7 @@ router.put("/:id", requireAuth, async (req, res) => {
         });
     }
 });
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", auth_js_1.requireAdmin, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
         const attendanceCount = await storage_js_1.db
@@ -198,7 +234,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
         });
     }
 });
-router.get("/:id/attendance", requireAuth, async (req, res) => {
+router.get("/:id/attendance", auth_js_1.requireAuth, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
         const { limit = 50, offset = 0 } = req.query;
@@ -226,7 +262,7 @@ router.get("/:id/attendance", requireAuth, async (req, res) => {
         });
     }
 });
-router.post("/:id/assign-rfid", requireAuth, async (req, res) => {
+router.post("/:id/assign-rfid", auth_js_1.requireAdmin, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
         const { rfidUid } = req.body;

@@ -65,4 +65,4 @@ RUN npm run build
 WORKDIR /app
 
 # Start the application
-CMD ["node", "server/dist/src/index.js"]
+CMD ["sh", "-c", "echo 'Starting CLIRDEC:PRESENCE server...' && node server/dist/src/index.js"]
