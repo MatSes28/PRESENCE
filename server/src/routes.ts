@@ -16,18 +16,6 @@ import dashboardRoutes from "./routes/dashboard.js";
 
 const router = Router();
 
-// Health check route
-router.get("/health", async (req, res) => {
-  const healthStatus: any = {
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    database: "unknown", // Database status checked by main health endpoint
-    emailService: process.env.BREVO_API_KEY ? "configured" : "not_configured",
-  };
-
-  res.json(healthStatus);
-});
-
 // Mount route modules
 router.use("/auth", authRoutes);
 router.use("/students", studentRoutes);
