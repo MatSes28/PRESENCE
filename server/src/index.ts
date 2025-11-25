@@ -129,9 +129,12 @@ app.use("/api", routes);
 
 // Specific routes for client-side navigation
 app.get("/forgot-password", (req, res) => {
+  console.log("Forgot password route hit!");
   if (fs.existsSync(path.join(publicPath, "index.html"))) {
+    console.log("Serving index.html for forgot-password");
     res.sendFile(path.join(publicPath, "index.html"));
   } else {
+    console.log("Index.html not found, serving debug page");
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -224,8 +227,10 @@ async function logTableCounts() {
 
 const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+const HOST = process.env.HOST || "0.0.0.0";
+
+server.listen({ port: PORT, host: HOST }, () => {
+  console.log(`🚀 Server running on ${HOST}:${PORT}`);
   console.log(`🌐 WebSocket server ready`);
 
   // Don't check database on startup to avoid crashes
