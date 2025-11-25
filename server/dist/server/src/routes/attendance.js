@@ -216,7 +216,7 @@ router.get("/sessions/active", requireAuth, async (req, res) => {
                 id: schema_js_1.schedules.id,
                 subject: schema_js_1.subjects.name,
                 classroom: schema_js_1.classrooms.name,
-                faculty: (0, drizzle_orm_1.sql) `CONCAT(${schema_js_1.users.firstName}, ' ', ${schema_js_1.users.lastName})`,
+                faculty: schema_js_1.users.name,
             },
         })
             .from(schema_js_1.classSessions)

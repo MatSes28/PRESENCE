@@ -10,11 +10,23 @@ const attendance_js_1 = __importDefault(require("./routes/attendance.js"));
 const classrooms_js_1 = __importDefault(require("./routes/classrooms.js"));
 const schedules_js_1 = __importDefault(require("./routes/schedules.js"));
 const classSessions_js_1 = __importDefault(require("./routes/classSessions.js"));
+const subjects_js_1 = __importDefault(require("./routes/subjects.js"));
 const reports_js_1 = __importDefault(require("./routes/reports.js"));
 const users_js_1 = __importDefault(require("./routes/users.js"));
 const computers_js_1 = __importDefault(require("./routes/computers.js"));
 const notifications_js_1 = __importDefault(require("./routes/notifications.js"));
+const iot_js_1 = __importDefault(require("./routes/iot.js"));
+const dashboard_js_1 = __importDefault(require("./routes/dashboard.js"));
 const router = (0, express_1.Router)();
+router.get("/health", async (req, res) => {
+    const healthStatus = {
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        database: "unknown",
+        emailService: process.env.BREVO_API_KEY ? "configured" : "not_configured",
+    };
+    res.json(healthStatus);
+});
 router.use("/auth", auth_js_1.default);
 router.use("/students", students_js_1.default);
 router.use("/attendance", attendance_js_1.default);
@@ -25,4 +37,7 @@ router.use("/reports", reports_js_1.default);
 router.use("/users", users_js_1.default);
 router.use("/computers", computers_js_1.default);
 router.use("/notifications", notifications_js_1.default);
+router.use("/iot", iot_js_1.default);
+router.use("/dashboard", dashboard_js_1.default);
+router.use("/subjects", subjects_js_1.default);
 exports.default = router;
