@@ -63,18 +63,10 @@ router.post("/", async (req, res) => {
     });
   }
   try {
-    const {
-      email,
-      firstName,
-      lastName,
-      role,
-      password,
-      facultyId,
-      department,
-      gender,
-    } = req.body;
+    const { email, name, role, password, facultyId, department, gender } =
+      req.body;
 
-    if (!email || !firstName || !lastName || !role || !password) {
+    if (!email || !name || !role || !password) {
       return res
         .status(400)
         .json({ success: false, message: "All fields are required" });
@@ -104,8 +96,7 @@ router.post("/", async (req, res) => {
       .insert(users)
       .values({
         email,
-        firstName,
-        lastName,
+        name,
         role,
         password: hashedPassword,
         facultyId,
@@ -135,13 +126,12 @@ router.put("/:id", async (req, res) => {
   }
   try {
     const userId = parseInt(req.params.id);
-    const { email, firstName, lastName, role, facultyId, department, gender } =
-      req.body;
+    const { email, name, role, facultyId, department, gender } = req.body;
 
-    if (!email || !firstName || !lastName || !role) {
+    if (!email || !name || !role) {
       return res.status(400).json({
         success: false,
-        message: "Email, first name, last name, and role are required",
+        message: "Email, name, and role are required",
       });
     }
 
@@ -177,8 +167,7 @@ router.put("/:id", async (req, res) => {
       .update(users)
       .set({
         email,
-        firstName,
-        lastName,
+        name,
         role,
         facultyId,
         department,

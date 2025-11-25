@@ -285,7 +285,7 @@ router.get("/sessions/active", requireAuth, async (req, res) => {
           id: schedules.id,
           subject: subjects.name,
           classroom: classrooms.name,
-          faculty: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+          faculty: users.name,
         },
       })
       .from(classSessions)

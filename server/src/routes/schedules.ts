@@ -34,7 +34,7 @@ router.get("/", async (req, res) => {
         classroomId: schedules.classroomId,
         classroomName: classrooms.name,
         facultyId: schedules.facultyId,
-        facultyName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+        facultyName: users.name,
         dayOfWeek: schedules.dayOfWeek,
         startTime: schedules.startTime,
         endTime: schedules.endTime,
