@@ -5,4 +5,4 @@ builder = "dockerfile"
 [deploy]
 healthcheckPath = "/health"
 restartPolicyType = "ON_FAILURE"
-startCommand = "node /app/server/dist/server/src/index.js"
+startCommand = "node dist/server/src/index.js"
