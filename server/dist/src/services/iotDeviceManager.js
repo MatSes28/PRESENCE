@@ -21,8 +21,8 @@ class IoTDeviceManager {
                     classroomId: config.classroomId,
                     deviceType: config.deviceType,
                     config: config.config,
-                    status: "offline",
-                    updatedAt: new Date(),
+                    status: 'offline',
+                    updatedAt: new Date()
                 })
                     .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, config.deviceId))
                     .returning();
@@ -37,7 +37,7 @@ class IoTDeviceManager {
                     classroomId: config.classroomId,
                     deviceType: config.deviceType,
                     config: config.config,
-                    status: "offline",
+                    status: 'offline'
                 })
                     .returning();
                 console.log(`Registered new IoT device: ${config.deviceId}`);
@@ -45,7 +45,7 @@ class IoTDeviceManager {
             }
         }
         catch (error) {
-            console.error("Error registering IoT device:", error);
+            console.error('Error registering IoT device:', error);
             throw error;
         }
     }
@@ -56,7 +56,7 @@ class IoTDeviceManager {
                 deviceId,
                 status,
                 lastSeen: now,
-                config,
+                config
             });
             await storage_js_1.db
                 .update(schema_js_1.iotDevices)
@@ -64,18 +64,18 @@ class IoTDeviceManager {
                 status,
                 lastSeen: now,
                 config,
-                updatedAt: now,
+                updatedAt: now
             })
                 .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, deviceId));
             console.log(`Updated device status: ${deviceId} -> ${status}`);
         }
         catch (error) {
-            console.error("Error updating device status:", error);
+            console.error('Error updating device status:', error);
         }
     }
     async getDeviceStatus(deviceId) {
         const cached = this.deviceStatuses.get(deviceId);
-        if (cached && Date.now() - cached.lastSeen.getTime() < 60000) {
+        if (cached && (Date.now() - cached.lastSeen.getTime()) < 60000) {
             return cached;
         }
         try {
@@ -90,14 +90,14 @@ class IoTDeviceManager {
                     deviceId: dbDevice.deviceId,
                     status: dbDevice.status,
                     lastSeen: dbDevice.lastSeen || new Date(),
-                    config: dbDevice.config,
+                    config: dbDevice.config
                 };
                 this.deviceStatuses.set(deviceId, status);
                 return status;
             }
         }
         catch (error) {
-            console.error("Error getting device status:", error);
+            console.error('Error getting device status:', error);
         }
         return null;
     }
@@ -106,14 +106,14 @@ class IoTDeviceManager {
             return await storage_js_1.db
                 .select({
                 device: schema_js_1.iotDevices,
-                classroom: schema_js_1.classrooms,
+                classroom: schema_js_1.classrooms
             })
                 .from(schema_js_1.iotDevices)
                 .innerJoin(schema_js_1.classrooms, (0, drizzle_orm_1.eq)(schema_js_1.iotDevices.classroomId, schema_js_1.classrooms.id))
                 .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.classroomId, classroomId));
         }
         catch (error) {
-            console.error("Error getting devices by classroom:", error);
+            console.error('Error getting devices by classroom:', error);
             return [];
         }
     }
@@ -122,24 +122,24 @@ class IoTDeviceManager {
             return await storage_js_1.db
                 .select({
                 device: schema_js_1.iotDevices,
-                classroom: schema_js_1.classrooms,
+                classroom: schema_js_1.classrooms
             })
                 .from(schema_js_1.iotDevices)
                 .innerJoin(schema_js_1.classrooms, (0, drizzle_orm_1.eq)(schema_js_1.iotDevices.classroomId, schema_js_1.classrooms.id));
         }
         catch (error) {
-            console.error("Error getting all devices:", error);
+            console.error('Error getting all devices:', error);
             return [];
         }
     }
     async sendCommandToDevice(deviceId, command, params) {
         const message = {
-            type: "command",
+            type: 'command',
             command,
             params,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date().toISOString()
         };
-        return (0, websocket_js_1.sendToDevice)(deviceId, "command", message);
+        return (0, websocket_js_1.sendToDevice)(deviceId, 'command', message);
     }
     async configureDevice(deviceId, config) {
         try {
@@ -147,29 +147,27 @@ class IoTDeviceManager {
                 .update(schema_js_1.iotDevices)
                 .set({
                 config,
-                updatedAt: new Date(),
+                updatedAt: new Date()
             })
                 .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, deviceId));
-            return this.sendCommandToDevice(deviceId, "update_config", config);
+            return this.sendCommandToDevice(deviceId, 'update_config', config);
         }
         catch (error) {
-            console.error("Error configuring device:", error);
+            console.error('Error configuring device:', error);
             return false;
         }
     }
     async restartDevice(deviceId) {
-        return this.sendCommandToDevice(deviceId, "restart");
+        return this.sendCommandToDevice(deviceId, 'restart');
     }
     async updateDeviceFirmware(deviceId, firmwareUrl) {
-        return this.sendCommandToDevice(deviceId, "update_firmware", {
-            firmwareUrl,
-        });
+        return this.sendCommandToDevice(deviceId, 'update_firmware', { firmwareUrl });
     }
     async getOnlineDevices() {
         const onlineDevices = [];
         for (const [deviceId, status] of this.deviceStatuses) {
-            if (status.status === "online" &&
-                Date.now() - status.lastSeen.getTime() < 300000) {
+            if (status.status === 'online' &&
+                (Date.now() - status.lastSeen.getTime()) < 300000) {
                 onlineDevices.push(deviceId);
             }
         }
@@ -179,11 +177,11 @@ class IoTDeviceManager {
         const now = Date.now();
         const offlineThreshold = 10 * 60 * 1000;
         for (const [deviceId, status] of this.deviceStatuses) {
-            if (now - status.lastSeen.getTime() > offlineThreshold) {
-                await this.updateDeviceStatus(deviceId, "offline");
+            if ((now - status.lastSeen.getTime()) > offlineThreshold) {
+                await this.updateDeviceStatus(deviceId, 'offline');
             }
         }
-        console.log("Cleaned up offline devices");
+        console.log('Cleaned up offline devices');
     }
     startPeriodicCleanup() {
         setInterval(() => {
@@ -201,103 +199,8 @@ class IoTDeviceManager {
                 const type = item.device.classroomId.toString();
                 acc[type] = (acc[type] || 0) + 1;
                 return acc;
-            }, {}),
+            }, {})
         };
-    }
-    async startCalibration(deviceId) {
-        try {
-            await storage_js_1.db
-                .update(schema_js_1.iotDevices)
-                .set({
-                calibrationStatus: "calibrating",
-                updatedAt: new Date(),
-            })
-                .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, deviceId));
-            return this.sendCommandToDevice(deviceId, "start_calibration");
-        }
-        catch (error) {
-            console.error("Error starting calibration:", error);
-            return false;
-        }
-    }
-    async completeCalibration(deviceId, calibrationData) {
-        try {
-            await storage_js_1.db
-                .update(schema_js_1.iotDevices)
-                .set({
-                sensorCalibration: calibrationData,
-                calibrationStatus: "calibrated",
-                updatedAt: new Date(),
-            })
-                .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, deviceId));
-            console.log(`Completed calibration for device: ${deviceId}`);
-            return true;
-        }
-        catch (error) {
-            console.error("Error completing calibration:", error);
-            return false;
-        }
-    }
-    async getCalibrationStatus(deviceId) {
-        try {
-            const device = await storage_js_1.db
-                .select()
-                .from(schema_js_1.iotDevices)
-                .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, deviceId))
-                .limit(1);
-            if (device.length === 0) {
-                return { status: "unknown" };
-            }
-            return {
-                status: device[0].calibrationStatus || "uncalibrated",
-                calibration: device[0].sensorCalibration,
-            };
-        }
-        catch (error) {
-            console.error("Error getting calibration status:", error);
-            return { status: "error" };
-        }
-    }
-    async validateSensorReading(deviceId, sensorType, distance) {
-        try {
-            const calibrationStatus = await this.getCalibrationStatus(deviceId);
-            if (calibrationStatus.status !== "calibrated" ||
-                !calibrationStatus.calibration) {
-                console.warn(`Device ${deviceId} is not calibrated, accepting reading`);
-                return true;
-            }
-            const calibration = calibrationStatus.calibration;
-            const threshold = sensorType === "entry"
-                ? calibration.entryThreshold
-                : calibration.exitThreshold;
-            const isValid = Math.abs(distance - calibration.baselineDistance) <= threshold;
-            if (!isValid) {
-                console.warn(`Invalid sensor reading for ${deviceId}: distance=${distance}, threshold=${threshold}, baseline=${calibration.baselineDistance}`);
-            }
-            return isValid;
-        }
-        catch (error) {
-            console.error("Error validating sensor reading:", error);
-            return false;
-        }
-    }
-    async resetCalibration(deviceId) {
-        try {
-            await storage_js_1.db
-                .update(schema_js_1.iotDevices)
-                .set({
-                sensorCalibration: null,
-                calibrationStatus: "uncalibrated",
-                updatedAt: new Date(),
-            })
-                .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, deviceId));
-            console.log(`Reset calibration for device: ${deviceId}`);
-            return true;
-        }
-        catch (error) {
-            console.error("Error resetting calibration:", error);
-            return false;
-        }
     }
 }
 exports.iotDeviceManager = new IoTDeviceManager();

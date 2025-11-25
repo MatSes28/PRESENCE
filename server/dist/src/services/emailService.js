@@ -1,26 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.emailService = void 0;
-const brevo_1 = require("@getbrevo/brevo");
+const brevo_1 = require("brevo");
 class EmailService {
     apiInstance;
     constructor() {
         this.apiInstance = new brevo_1.TransactionalEmailsApi();
-        if (process.env.BREVO_API_KEY) {
-            try {
-                const { ApiClient } = require("@getbrevo/brevo");
-                ApiClient.instance.authentications["api-key"].apiKey =
-                    process.env.BREVO_API_KEY;
-                console.log("✅ Brevo API key configured successfully");
-            }
-            catch (error) {
-                console.warn("❌ Brevo API key configuration failed:", error instanceof Error ? error.message : "Unknown error");
-                console.warn("Email service will be disabled");
-            }
-        }
-        else {
-            console.warn("⚠️  No BREVO_API_KEY found in environment - email service disabled");
-        }
+        this.apiInstance.setApiKey(brevo_1.TransactionalEmailsApi.ApiKeys.apiKey, process.env.BREVO_API_KEY);
     }
     async sendEmail(options) {
         try {
@@ -28,8 +14,8 @@ class EmailService {
             sendSmtpEmail.subject = options.subject;
             sendSmtpEmail.htmlContent = options.htmlContent;
             sendSmtpEmail.sender = {
-                name: "CLIRDEC:PRESENCE",
-                email: process.env.FROM_EMAIL || "noreply@clirdec-presence.com",
+                name: 'CLIRDEC:PRESENCE',
+                email: process.env.FROM_EMAIL || 'noreply@clirdec-presence.com'
             };
             sendSmtpEmail.to = [{ email: options.to }];
             sendSmtpEmail.textContent = options.textContent;
@@ -38,71 +24,16 @@ class EmailService {
             return true;
         }
         catch (error) {
-            console.error("Failed to send email:", error);
+            console.error('Failed to send email:', error);
             return false;
         }
     }
-    async sendAbsenceNotification(parentEmail, studentName, subjectName, date) {
-        const subject = `Student Absence Alert - ${studentName}`;
-        const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>${subject}</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; margin-bottom: 20px;">
-              <h1 style="color: white; margin: 0; text-align: center;">CLIRDEC:PRESENCE</h1>
-              <p style="color: white; margin: 10px 0 0 0; text-align: center; opacity: 0.9;">Attendance Monitoring System</p>
-            </div>
-
-            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-              <h2 style="color: #333; margin-top: 0;">Student Absence Alert</h2>
-
-              <div style="background: #fee2e2; border: 1px solid #fecaca; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0; color: #dc2626; font-weight: bold;">Your child ${studentName} was marked absent from ${subjectName} on ${date.toLocaleDateString()}.</p>
-              </div>
-
-              <p style="color: #666; font-size: 14px;">
-                This is an automated notification from the CLIRDEC:PRESENCE attendance monitoring system.
-                If you have any questions, please contact your faculty member or the department.
-              </p>
-            </div>
-
-            <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-              <p>Central Luzon State University - Information Technology Department</p>
-              <p>CLIRDEC:PRESENCE - Proximity and RFID-Enabled Smart Entry for Classroom Engagement</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-        const textContent = `
-      CLIRDEC:PRESENCE Student Absence Alert
-
-      Your child ${studentName} was marked absent from ${subjectName} on ${date.toLocaleDateString()}.
-
-      This is an automated notification from the CLIRDEC:PRESENCE attendance monitoring system.
-      If you have any questions, please contact your faculty member or the department.
-
-      Central Luzon State University - Information Technology Department
-      CLIRDEC:PRESENCE - Proximity and RFID-Enabled Smart Entry for Classroom Engagement
-    `;
-        return this.sendEmail({
-            to: parentEmail,
-            subject,
-            htmlContent,
-            textContent,
-        });
-    }
     async sendAttendanceNotification(parentEmail, studentName, status, classInfo, timestamp) {
-        const subject = `Student Attendance Alert - ${studentName}`;
-        const statusMessages = {
-            present: "Your child was marked present",
-            late: "Your child was marked late",
-            absent: "Your child was marked absent",
+        const subject = `Attendance Notification - ${studentName}`;
+        const statusColors = {
+            present: '#10B981',
+            late: '#F59E0B',
+            absent: '#EF4444'
         };
         const htmlContent = `
       <!DOCTYPE html>
@@ -119,15 +50,23 @@ class EmailService {
             </div>
 
             <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-              <h2 style="color: #333; margin-top: 0;">Student Attendance Alert</h2>
+              <h2 style="color: #333; margin-top: 0;">Attendance Notification</h2>
 
-              <div style="background: #fee2e2; border: 1px solid #fecaca; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 0; color: #dc2626; font-weight: bold;">${statusMessages[status]} for ${studentName} in ${classInfo} on ${timestamp.toLocaleDateString()}.</p>
+              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0;"><strong>Student:</strong> ${studentName}</p>
+                <p style="margin: 10px 0 0 0;"><strong>Class:</strong> ${classInfo}</p>
+                <p style="margin: 10px 0 0 0;"><strong>Time:</strong> ${timestamp.toLocaleString()}</p>
+                <p style="margin: 10px 0 0 0;">
+                  <strong>Status:</strong>
+                  <span style="display: inline-block; padding: 4px 12px; border-radius: 20px; color: white; background-color: ${statusColors[status]}; font-weight: bold;">
+                    ${status.toUpperCase()}
+                  </span>
+                </p>
               </div>
 
               <p style="color: #666; font-size: 14px;">
                 This is an automated notification from the CLIRDEC:PRESENCE attendance monitoring system.
-                If you have any questions, please contact your faculty member or the department.
+                If you have any questions, please contact your faculty member.
               </p>
             </div>
 
@@ -140,21 +79,23 @@ class EmailService {
       </html>
     `;
         const textContent = `
-      CLIRDEC:PRESENCE Student Attendance Alert
+      CLIRDEC:PRESENCE Attendance Notification
 
-      ${statusMessages[status]} for ${studentName} in ${classInfo} on ${timestamp.toLocaleDateString()}.
+      Student: ${studentName}
+      Class: ${classInfo}
+      Time: ${timestamp.toLocaleString()}
+      Status: ${status.toUpperCase()}
 
       This is an automated notification from the CLIRDEC:PRESENCE attendance monitoring system.
-      If you have any questions, please contact your faculty member or the department.
+      If you have any questions, please contact your faculty member.
 
       Central Luzon State University - Information Technology Department
-      CLIRDEC:PRESENCE - Proximity and RFID-Enabled Smart Entry for Classroom Engagement
     `;
         return this.sendEmail({
             to: parentEmail,
             subject,
             htmlContent,
-            textContent,
+            textContent
         });
     }
     async sendBulkAttendanceNotifications(notifications) {
@@ -168,88 +109,10 @@ class EmailService {
             else {
                 failed++;
             }
-            await new Promise((resolve) => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
         console.log(`Bulk email results: ${success} sent, ${failed} failed`);
         return { success, failed };
-    }
-    async sendPasswordResetEmail(email, userName, resetUrl) {
-        const subject = "Password Reset Request - CLIRDEC:PRESENCE";
-        const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>${subject}</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; margin-bottom: 20px;">
-              <h1 style="color: white; margin: 0; text-align: center;">CLIRDEC:PRESENCE</h1>
-              <p style="color: white; margin: 10px 0 0 0; text-align: center; opacity: 0.9;">Password Reset</p>
-            </div>
-
-            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-              <h2 style="color: #333; margin-top: 0;">Reset Your Password</h2>
-
-              <p>Hello ${userName},</p>
-
-              <p>You have requested to reset your password for your CLIRDEC:PRESENCE account. Click the button below to reset your password:</p>
-
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${resetUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-                  Reset Password
-                </a>
-              </div>
-
-              <p style="color: #666; font-size: 14px;">
-                This link will expire in 15 minutes for security reasons. If you didn't request this password reset, please ignore this email.
-              </p>
-
-              <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #667eea;">
-                <p style="margin: 0; font-size: 14px; color: #666;">
-                  <strong>Security Notice:</strong> If you're having trouble clicking the button, copy and paste this URL into your browser: ${resetUrl}
-                </p>
-              </div>
-
-              <p style="color: #666; font-size: 14px;">
-                If you need assistance, please contact your system administrator.
-              </p>
-            </div>
-
-            <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-              <p>Central Luzon State University - Information Technology Department</p>
-              <p>CLIRDEC:PRESENCE - Proximity and RFID-Enabled Smart Entry for Classroom Engagement</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-        const textContent = `
-      CLIRDEC:PRESENCE Password Reset
-
-      Hello ${userName},
-
-      You have requested to reset your password for your CLIRDEC:PRESENCE account.
-
-      Click the following link to reset your password:
-      ${resetUrl}
-
-      This link will expire in 15 minutes for security reasons.
-
-      If you didn't request this password reset, please ignore this email.
-
-      If you need assistance, please contact your system administrator.
-
-      Central Luzon State University - Information Technology Department
-      CLIRDEC:PRESENCE - Proximity and RFID-Enabled Smart Entry for Classroom Engagement
-    `;
-        return this.sendEmail({
-            to: email,
-            subject,
-            htmlContent,
-            textContent,
-        });
     }
     async sendSystemAlert(adminEmail, alertType, message, details) {
         const subject = `System Alert: ${alertType}`;
@@ -271,13 +134,11 @@ class EmailService {
               <h2 style="color: #333; margin-top: 0;">${alertType}</h2>
               <p>${message}</p>
 
-              ${details
-            ? `
+              ${details ? `
                 <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0; font-family: monospace; font-size: 12px;">
                   ${JSON.stringify(details, null, 2)}
                 </div>
-              `
-            : ""}
+              ` : ''}
 
               <p style="color: #666; font-size: 14px;">
                 This alert was generated by the CLIRDEC:PRESENCE system monitoring.
@@ -290,7 +151,7 @@ class EmailService {
         return this.sendEmail({
             to: adminEmail,
             subject,
-            htmlContent,
+            htmlContent
         });
     }
 }

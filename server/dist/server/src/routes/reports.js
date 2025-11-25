@@ -16,10 +16,8 @@ const requireAuth = (req, res, next) => {
 };
 router.post("/generate", requireAuth, async (req, res) => {
     try {
-        console.log("[REPORTS] Generate request:", req.body);
         const { type, format, startDate, endDate, classroomId, subjectId } = req.body;
         if (!type || !format) {
-            console.log("[REPORTS] Missing type or format");
             return res.status(400).json({
                 success: false,
                 message: "Report type and format are required",
@@ -29,22 +27,18 @@ router.post("/generate", requireAuth, async (req, res) => {
         let filename;
         switch (type) {
             case "attendance":
-                console.log("[REPORTS] Generating attendance report");
                 data = await generateAttendanceReport(startDate, endDate, classroomId, subjectId);
                 filename = `attendance-report-${new Date().toISOString().split("T")[0]}`;
                 break;
             case "students":
-                console.log("[REPORTS] Generating student report");
                 data = await generateStudentReport(startDate, endDate);
                 filename = `student-report-${new Date().toISOString().split("T")[0]}`;
                 break;
             case "classroom":
-                console.log("[REPORTS] Generating classroom report");
                 data = await generateClassroomReport(startDate, endDate, classroomId);
                 filename = `classroom-report-${new Date().toISOString().split("T")[0]}`;
                 break;
             default:
-                console.log("[REPORTS] Invalid report type:", type);
                 return res.status(400).json({
                     success: false,
                     message: "Invalid report type",

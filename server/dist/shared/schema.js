@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.emailNotificationsRelations = exports.rfidScansRelations = exports.enrollmentsRelations = exports.iotDevicesRelations = exports.computerAssignmentsRelations = exports.computersRelations = exports.attendanceRecordsRelations = exports.classSessionsRelations = exports.schedulesRelations = exports.subjectsRelations = exports.classroomsRelations = exports.studentsRelations = exports.usersRelations = exports.emailNotifications = exports.rfidScans = exports.enrollments = exports.iotDevices = exports.computerAssignments = exports.computers = exports.attendanceRecords = exports.classSessions = exports.schedules = exports.subjects = exports.classrooms = exports.students = exports.users = void 0;
+exports.emailNotificationsRelations = exports.enrollmentsRelations = exports.iotDevicesRelations = exports.computerAssignmentsRelations = exports.computersRelations = exports.attendanceRecordsRelations = exports.classSessionsRelations = exports.schedulesRelations = exports.subjectsRelations = exports.classroomsRelations = exports.studentsRelations = exports.usersRelations = exports.emailNotifications = exports.enrollments = exports.iotDevices = exports.computerAssignments = exports.computers = exports.attendanceRecords = exports.classSessions = exports.schedules = exports.subjects = exports.classrooms = exports.students = exports.users = void 0;
 const pg_core_1 = require("drizzle-orm/pg-core");
 const drizzle_orm_1 = require("drizzle-orm");
 exports.users = (0, pg_core_1.pgTable)("users", {
@@ -146,10 +146,6 @@ exports.iotDevices = (0, pg_core_1.pgTable)("iot_devices", {
     status: (0, pg_core_1.varchar)("status", { length: 20 }).default("offline").notNull(),
     lastSeen: (0, pg_core_1.timestamp)("last_seen"),
     config: (0, pg_core_1.jsonb)("config"),
-    sensorCalibration: (0, pg_core_1.jsonb)("sensor_calibration"),
-    calibrationStatus: (0, pg_core_1.varchar)("calibration_status", { length: 20 })
-        .default("uncalibrated")
-        .notNull(),
     isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
     createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
     updatedAt: (0, pg_core_1.timestamp)("updated_at").defaultNow().notNull(),
@@ -166,14 +162,6 @@ exports.enrollments = (0, pg_core_1.pgTable)("enrollments", {
     academicYear: (0, pg_core_1.varchar)("academic_year", { length: 20 }).notNull(),
     enrolledAt: (0, pg_core_1.timestamp)("enrolled_at").defaultNow().notNull(),
     isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
-});
-exports.rfidScans = (0, pg_core_1.pgTable)("rfid_scans", {
-    id: (0, pg_core_1.serial)("id").primaryKey(),
-    deviceId: (0, pg_core_1.varchar)("device_id", { length: 100 }).notNull(),
-    rfidUid: (0, pg_core_1.varchar)("rfid_uid", { length: 50 }).notNull(),
-    timestamp: (0, pg_core_1.timestamp)("timestamp").notNull(),
-    isActive: (0, pg_core_1.boolean)("is_active").default(true).notNull(),
-    createdAt: (0, pg_core_1.timestamp)("created_at").defaultNow().notNull(),
 });
 exports.emailNotifications = (0, pg_core_1.pgTable)("email_notifications", {
     id: (0, pg_core_1.serial)("id").primaryKey(),
@@ -278,7 +266,6 @@ exports.enrollmentsRelations = (0, drizzle_orm_1.relations)(exports.enrollments,
         references: [exports.subjects.id],
     }),
 }));
-exports.rfidScansRelations = (0, drizzle_orm_1.relations)(exports.rfidScans, ({}) => ({}));
 exports.emailNotificationsRelations = (0, drizzle_orm_1.relations)(exports.emailNotifications, ({ one }) => ({
     student: one(exports.students, {
         fields: [exports.emailNotifications.studentId],

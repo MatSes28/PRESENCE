@@ -5,8 +5,6 @@ const storage_js_1 = require("../storage.js");
 const schema_js_1 = require("../schema.js");
 const drizzle_orm_1 = require("drizzle-orm");
 const attendanceMonitor_js_1 = require("../services/attendanceMonitor.js");
-const errorHandler_js_1 = require("../utils/errorHandler.js");
-const validation_js_1 = require("../middleware/validation.js");
 const router = (0, express_1.Router)();
 const requireAuth = (req, res, next) => {
     if (!req.session?.userId) {
@@ -98,36 +96,54 @@ router.get("/stats/:sessionId", requireAuth, async (req, res) => {
         });
     }
 });
-router.post("/manual", requireAuth, (0, validation_js_1.validateRequired)(["studentId", "classSessionId"]), (0, validation_js_1.validateNumeric)(["studentId", "classSessionId"]), (0, validation_js_1.validateDate)(["entryTime", "exitTime"]), (0, validation_js_1.sanitizeInput)(["notes"]), (0, errorHandler_js_1.wrapAsync)(async (req, res) => {
-    const { studentId, classSessionId, entryTime, exitTime, notes } = req.body;
-    const existingRecord = await storage_js_1.db
-        .select()
-        .from(schema_js_1.attendanceRecords)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, studentId), (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, classSessionId)))
-        .limit(1);
-    if (existingRecord.length > 0) {
-        throw new errorHandler_js_1.AppError("Attendance record already exists for this student and session", 409);
+router.post("/manual", requireAuth, async (req, res) => {
+    try {
+        const { studentId, classSessionId, entryTime, exitTime, notes } = req.body;
+        if (!studentId || !classSessionId) {
+            return res.status(400).json({
+                success: false,
+                message: "Student ID and Class Session ID are required",
+            });
+        }
+        const existingRecord = await storage_js_1.db
+            .select()
+            .from(schema_js_1.attendanceRecords)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, studentId), (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, classSessionId)))
+            .limit(1);
+        if (existingRecord.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: "Attendance record already exists for this student and session",
+            });
+        }
+        const [newRecord] = await storage_js_1.db
+            .insert(schema_js_1.attendanceRecords)
+            .values({
+            studentId,
+            classSessionId,
+            entryTime: entryTime ? new Date(entryTime) : null,
+            exitTime: exitTime ? new Date(exitTime) : null,
+            rfidDetected: false,
+            sensorDetected: false,
+            isValid: true,
+            discrepancyFlag: false,
+            notes: notes || "Manually entered",
+        })
+            .returning();
+        res.status(201).json({
+            success: true,
+            message: "Attendance record created successfully",
+            record: newRecord,
+        });
     }
-    const [newRecord] = await storage_js_1.db
-        .insert(schema_js_1.attendanceRecords)
-        .values({
-        studentId,
-        classSessionId,
-        entryTime: entryTime ? new Date(entryTime) : null,
-        exitTime: exitTime ? new Date(exitTime) : null,
-        rfidDetected: false,
-        sensorDetected: false,
-        isValid: true,
-        discrepancyFlag: false,
-        notes: notes || "Manually entered",
-    })
-        .returning();
-    res.status(201).json({
-        success: true,
-        message: "Attendance record created successfully",
-        record: newRecord,
-    });
-}));
+    catch (error) {
+        console.error("Manual attendance entry error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+});
 router.put("/:id", requireAuth, async (req, res) => {
     try {
         const recordId = parseInt(req.params.id);
@@ -200,7 +216,7 @@ router.get("/sessions/active", requireAuth, async (req, res) => {
                 id: schema_js_1.schedules.id,
                 subject: schema_js_1.subjects.name,
                 classroom: schema_js_1.classrooms.name,
-                faculty: (0, drizzle_orm_1.sql) `CONCAT(${schema_js_1.users.firstName}, ' ', ${schema_js_1.users.lastName})`,
+                faculty: schema_js_1.users.name,
             },
         })
             .from(schema_js_1.classSessions)
