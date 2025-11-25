@@ -15,6 +15,7 @@ RUN npm install
 # Copy server source code
 COPY server/ ./server/
 COPY shared/ ./shared/
+COPY client/ ./client/
 
 # Install server dependencies
 WORKDIR /app/server
@@ -24,9 +25,6 @@ RUN npm install
 WORKDIR /app
 RUN mkdir -p server/shared && cp -r shared/* server/shared/
 WORKDIR /app/server
-
-# Copy client source code
-COPY client/ ./client/
 
 # Copy database setup script
 COPY database_setup.sql ./server/
