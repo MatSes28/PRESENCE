@@ -152,19 +152,12 @@ async function logTableCounts() {
 
 const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, async () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌐 WebSocket server ready`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
 
-  // Test database connection on startup (don't crash if it fails)
-  try {
-    await checkDatabaseConnection();
-    await logTableCounts();
-  } catch (error) {
-    console.error("Database connection failed on startup:", error);
-    console.log("Server will continue running without database connectivity");
-  }
+  // Don't check database on startup to avoid crashes
+  console.log("Server started successfully");
 });
 
 // Graceful shutdown

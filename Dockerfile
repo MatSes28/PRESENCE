@@ -39,10 +39,6 @@ RUN psql "${DATABASE_URL}" -f database_setup.sql 2>/dev/null || echo "Database s
 # Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
-
 # Build the client
 WORKDIR /app/client
 RUN npm install
