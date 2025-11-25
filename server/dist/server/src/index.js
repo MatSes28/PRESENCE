@@ -148,13 +148,23 @@ async function logTableCounts() {
         }
     }
 }
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 const HOST = process.env.HOST || "0.0.0.0";
-server.listen({ port: PORT, host: HOST }, () => {
-    console.log(`🚀 Server running on ${HOST}:${PORT}`);
-    console.log(`🌐 WebSocket server ready`);
-    console.log("Server started successfully");
-});
+try {
+    server.listen({ port: PORT, host: HOST }, () => {
+        console.log(`🚀 Server running on ${HOST}:${PORT}`);
+        console.log(`🌐 WebSocket server ready`);
+        console.log("Server started successfully");
+    });
+    server.on("error", (error) => {
+        console.error("Server error:", error);
+        process.exit(1);
+    });
+}
+catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+}
 process.on("SIGTERM", () => {
     console.log("SIGTERM received, shutting down gracefully");
     server.close(() => {
