@@ -29,8 +29,8 @@ COPY client/ ./client/
 # Copy database setup script
 COPY database_setup.sql ./
 
-# Copy simple Railway-compatible server
-COPY simple-railway-server.js ./
+# Copy Railway-compatible server
+COPY railway-server.js ./
 
 # Copy main server files
 COPY server/src/index.ts ./server/src/
@@ -71,8 +71,8 @@ RUN npm run build
 # Copy shared directory to server for runtime imports
 RUN cp -r ../shared ./
 
-# Go back to server directory for startup
-WORKDIR /app/server
+# Go back to root directory
+WORKDIR /app
 
-# Start the main Express server
-CMD ["npm", "start"]
+# Start the Railway-compatible Express server
+CMD node railway-server.js
