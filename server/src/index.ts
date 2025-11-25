@@ -38,7 +38,7 @@ app.use(
   cors({
     origin:
       process.env.NODE_ENV === "production"
-        ? process.env.ALLOWED_ORIGINS?.split(",") || true // Allow all in production if not specified
+        ? process.env.ALLOWED_ORIGINS?.split(",") || false
         : true, // Allow all origins in development
     credentials: true,
   })
@@ -57,15 +57,9 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Session configuration
-const sessionSecret =
-  process.env.SESSION_SECRET || "fallback-session-secret-for-deployment";
-if (
-  !sessionSecret ||
-  sessionSecret === "fallback-session-secret-for-deployment"
-) {
-  console.warn(
-    "⚠️  Using fallback session secret. Set SESSION_SECRET environment variable for security."
-  );
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+  throw new Error("SESSION_SECRET environment variable is required");
 }
 
 app.use(
@@ -98,20 +92,8 @@ app.get("/health", async (req, res) => {
   if (isDatabaseAvailable) {
     try {
       await db.execute(sql`SELECT 1`);
-      healthStatus.database = "connected";
     } catch (error) {
       isDatabaseAvailable = false;
-      healthStatus.database = "disconnected";
-      healthStatus.database_error =
-        error instanceof Error ? error.message : "Unknown error";
-    }
-  } else {
-    // Try to connect if not previously available
-    try {
-      await db.execute(sql`SELECT 1`);
-      isDatabaseAvailable = true;
-      healthStatus.database = "connected";
-    } catch (error) {
       healthStatus.database = "disconnected";
       healthStatus.database_error =
         error instanceof Error ? error.message : "Unknown error";
@@ -130,18 +112,11 @@ app.get("/health", async (req, res) => {
       healthStatus.emailService_error =
         error instanceof Error ? error.message : "Unknown error";
     }
-  } else {
-    healthStatus.emailService = "not_configured";
   }
 
-  // For production deployment, be more lenient with health checks
-  // The app should be considered healthy if it's running, even if services are down
-  const isProduction = process.env.NODE_ENV === "production";
-  const isHealthy = isProduction
-    ? true // In production, app is healthy if it's running
-    : healthStatus.database === "connected" &&
-      healthStatus.emailService !== "error";
-
+  const isHealthy =
+    healthStatus.database === "connected" &&
+    healthStatus.emailService !== "error";
   healthStatus.status = isHealthy ? "ok" : "degraded";
 
   res.status(isHealthy ? 200 : 503).json(healthStatus);
@@ -193,13 +168,8 @@ app.use((req, res) => {
   });
 });
 
-// Setup WebSocket (with error handling)
-try {
-  setupWebSocket(wss);
-} catch (error) {
-  console.error("Failed to setup WebSocket:", error);
-  // Don't crash the app if WebSocket setup fails
-}
+// Setup WebSocket
+setupWebSocket(wss);
 
 // Global flag to track database availability
 let isDatabaseAvailable = false;
@@ -268,37 +238,13 @@ server.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌐 WebSocket server ready`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔧 Environment: ${process.env.NODE_ENV || "development"}`);
 
   // Test database connection on startup
-  console.log("🔌 Testing database connection...");
   await checkDatabaseConnection();
-
-  console.log("📊 Logging table counts...");
   await logTableCounts();
 
-  // Start session scheduler (with error handling)
-  try {
-    console.log("⏰ Starting session scheduler...");
-    sessionScheduler.start();
-    console.log("✅ Session scheduler started successfully");
-  } catch (error) {
-    console.error("❌ Failed to start session scheduler:", error);
-    // Don't crash the app if scheduler fails to start
-  }
-
-  console.log("🎉 Server startup complete!");
-});
-
-// Handle uncaught exceptions
-process.on("uncaughtException", (error) => {
-  console.error("❌ Uncaught Exception:", error);
-  process.exit(1);
-});
-
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
-  process.exit(1);
+  // Start session scheduler
+  sessionScheduler.start();
 });
 
 // Graceful shutdown
