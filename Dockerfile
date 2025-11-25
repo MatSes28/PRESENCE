@@ -29,9 +29,6 @@ COPY client/ ./client/
 # Copy database setup script
 COPY database_setup.sql ./
 
-# Copy static server for testing
-COPY static-server.js ./
-
 # Copy main server files
 COPY server/src/index.ts ./server/src/
 COPY server/src/routes.ts ./server/src/
@@ -76,5 +73,5 @@ RUN cp -r ../shared ./
 # Go back to root directory
 WORKDIR /app
 
-# Start the static test application for Railway deployment testing
-CMD node static-server.js
+# Start the main application
+CMD cd server && npm start
