@@ -1,9 +1,12 @@
+console.log("🔥 Railway server script starting...");
+
 const express = require("express");
 const app = express();
 
 const PORT = process.env.PORT || 3000;
 
 console.log("🚀 Starting Railway-compatible Express server...");
+console.log("📝 Immediate startup check - script is running");
 console.log("Environment variables:");
 console.log("- PORT:", process.env.PORT);
 console.log("- NODE_ENV:", process.env.NODE_ENV);
@@ -60,10 +63,15 @@ app.use("*", (req, res) => {
   });
 });
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", (err) => {
+  if (err) {
+    console.error("❌ Failed to start Railway server:", err);
+    process.exit(1);
+  }
   console.log(`🚀 Railway server successfully listening on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🌍 Bound to all interfaces`);
+  console.log(`🔗 Server address:`, app.listen().address());
 });
 
 process.on("SIGTERM", () => {
