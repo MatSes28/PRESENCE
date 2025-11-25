@@ -1,5 +1,3 @@
-console.log("🚀 Starting CLIRDEC:PRESENCE server...");
-
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -264,46 +262,30 @@ async function logTableCounts() {
   }
 }
 
-// Set NODE_ENV to production if not set (Railway deployment)
-if (!process.env.NODE_ENV) {
-  process.env.NODE_ENV = "production";
-}
-
-const PORT = parseInt(process.env.PORT || "3000", 10);
-
-console.log(
-  `🔧 Starting server with PORT=${PORT}, NODE_ENV=${process.env.NODE_ENV}`
-);
+const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, async () => {
-  console.log(`🚀 Server successfully listening on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌐 WebSocket server ready`);
-  console.log(`📊 Health check available at http://localhost:${PORT}/health`);
+  console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔧 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`🌍 Server bound to all interfaces`);
 
-  // Test database connection on startup (non-blocking)
+  // Test database connection on startup
   console.log("🔌 Testing database connection...");
-  checkDatabaseConnection()
-    .then(() => {
-      console.log("📊 Logging table counts...");
-      return logTableCounts();
-    })
-    .catch((error) => {
-      console.error("❌ Database initialization failed:", error);
-    });
+  await checkDatabaseConnection();
 
-  // Start session scheduler (non-blocking)
-  setTimeout(() => {
-    try {
-      console.log("⏰ Starting session scheduler...");
-      sessionScheduler.start();
-      console.log("✅ Session scheduler started successfully");
-    } catch (error) {
-      console.error("❌ Failed to start session scheduler:", error);
-      // Don't crash the app if scheduler fails to start
-    }
-  }, 2000); // Start scheduler 2 seconds after server starts
+  console.log("📊 Logging table counts...");
+  await logTableCounts();
+
+  // Start session scheduler (with error handling)
+  try {
+    console.log("⏰ Starting session scheduler...");
+    sessionScheduler.start();
+    console.log("✅ Session scheduler started successfully");
+  } catch (error) {
+    console.error("❌ Failed to start session scheduler:", error);
+    // Don't crash the app if scheduler fails to start
+  }
 
   console.log("🎉 Server startup complete!");
 });
