@@ -10,7 +10,6 @@ import path from "path";
 import { db } from "./storage.js";
 import routes from "./routes.js";
 import { setupWebSocket } from "./services/websocket.js";
-import { sessionScheduler } from "./services/scheduler.js";
 import { sql } from "drizzle-orm";
 import {
   users,
@@ -35,10 +34,7 @@ const wss = new WebSocketServer({ server });
 app.use(helmet());
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? process.env.ALLOWED_ORIGINS?.split(",") || false
-        : true, // Allow all origins in development
+    origin: true, // Allow all origins in development
     credentials: true,
   })
 );
@@ -56,18 +52,14 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Session configuration
-const sessionSecret = process.env.SESSION_SECRET;
-if (!sessionSecret) {
-  throw new Error("SESSION_SECRET environment variable is required");
-}
-
 app.use(
   session({
-    secret: sessionSecret,
+    secret:
+      process.env.SESSION_SECRET || "fallback-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // HTTPS in production
+      secure: false, // Set to false for development to work with HTTP
       httpOnly: true,
       sameSite: "lax", // Allow cookies to work with proxy
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
@@ -84,44 +76,6 @@ app.use("/api", routes);
 // Catch all handler: send back React's index.html file for client-side routing
 app.get("*", (req, res) => {
   res.sendFile(path.join(process.cwd(), "public/index.html"));
-});
-
-// Global error handling middleware
-app.use((err: any, req: any, res: any, next: any) => {
-  console.error("Unhandled error:", err);
-
-  // Log error details for debugging
-  const errorDetails = {
-    message: err.message,
-    stack: err.stack,
-    url: req.url,
-    method: req.method,
-    ip: req.ip,
-    userAgent: req.get("User-Agent"),
-    timestamp: new Date().toISOString(),
-  };
-
-  console.error("Error details:", JSON.stringify(errorDetails, null, 2));
-
-  // Don't leak error details in production
-  const isProduction = process.env.NODE_ENV === "production";
-
-  res.status(err.status || 500).json({
-    success: false,
-    message: isProduction ? "Internal server error" : err.message,
-    ...(isProduction ? {} : { stack: err.stack }),
-    timestamp: new Date().toISOString(),
-  });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Route not found",
-    path: req.path,
-    method: req.method,
-  });
 });
 
 // Health check endpoint
@@ -240,9 +194,6 @@ server.listen(PORT, async () => {
   // Test database connection on startup
   await checkDatabaseConnection();
   await logTableCounts();
-
-  // Start session scheduler
-  sessionScheduler.start();
 });
 
 // Graceful shutdown

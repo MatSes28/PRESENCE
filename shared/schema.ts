@@ -173,11 +173,6 @@ export const iotDevices = pgTable("iot_devices", {
   status: varchar("status", { length: 20 }).default("offline").notNull(), // online, offline, maintenance
   lastSeen: timestamp("last_seen"),
   config: jsonb("config"),
-  // Sensor calibration data
-  sensorCalibration: jsonb("sensor_calibration"), // { entryThreshold: number, exitThreshold: number, baselineDistance: number, lastCalibrated: Date }
-  calibrationStatus: varchar("calibration_status", { length: 20 })
-    .default("uncalibrated")
-    .notNull(), // calibrated, uncalibrated, calibrating
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -196,16 +191,6 @@ export const enrollments = pgTable("enrollments", {
   academicYear: varchar("academic_year", { length: 20 }).notNull(),
   enrolledAt: timestamp("enrolled_at").defaultNow().notNull(),
   isActive: boolean("is_active").default(true).notNull(),
-});
-
-// RFID Scans table (for sensor validation)
-export const rfidScans = pgTable("rfid_scans", {
-  id: serial("id").primaryKey(),
-  deviceId: varchar("device_id", { length: 100 }).notNull(),
-  rfidUid: varchar("rfid_uid", { length: 50 }).notNull(),
-  timestamp: timestamp("timestamp").notNull(),
-  isActive: boolean("is_active").default(true).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Email Notifications table
@@ -334,10 +319,6 @@ export const enrollmentsRelations = relations(enrollments, ({ one }) => ({
   }),
 }));
 
-export const rfidScansRelations = relations(rfidScans, ({}) => ({
-  // No relations needed for RFID scans
-}));
-
 export const emailNotificationsRelations = relations(
   emailNotifications,
   ({ one }) => ({
@@ -385,9 +366,6 @@ export type NewIotDevice = typeof iotDevices.$inferInsert;
 
 export type Enrollment = typeof enrollments.$inferSelect;
 export type NewEnrollment = typeof enrollments.$inferInsert;
-
-export type RfidScan = typeof rfidScans.$inferSelect;
-export type NewRfidScan = typeof rfidScans.$inferInsert;
 
 export type EmailNotification = typeof emailNotifications.$inferSelect;
 export type NewEmailNotification = typeof emailNotifications.$inferInsert;

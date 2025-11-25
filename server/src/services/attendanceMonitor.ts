@@ -4,12 +4,9 @@ import {
   students,
   classSessions,
   schedules,
-  rfidScans,
 } from "../schema.js";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte } from "drizzle-orm";
 import { sendToDevice } from "./websocket.js";
-import { iotDeviceManager } from "./iotDeviceManager.js";
-import { handleDatabaseError, AppError } from "../utils/errorHandler.js";
 
 interface RFIDScan {
   deviceId: string;
@@ -39,14 +36,6 @@ class AttendanceMonitor {
 
   async processRFIDScan(scan: RFIDScan) {
     try {
-      // Validate input
-      if (!scan.rfidUid || !scan.deviceId) {
-        throw new AppError(
-          "Invalid RFID scan data: missing RFID UID or device ID",
-          400
-        );
-      }
-
       // Find student by RFID UID
       const student = await db
         .select()
@@ -60,18 +49,6 @@ class AttendanceMonitor {
       }
 
       const studentData = student[0];
-
-      // Store RFID scan for sensor validation
-      try {
-        await db.insert(rfidScans).values({
-          deviceId: scan.deviceId,
-          rfidUid: scan.rfidUid,
-          timestamp: new Date(scan.timestamp),
-        });
-      } catch (error) {
-        // Log but don't fail - RFID scan storage is not critical
-        console.warn("Failed to store RFID scan:", error);
-      }
 
       // Find active class session for current time
       const now = new Date();
@@ -113,31 +90,13 @@ class AttendanceMonitor {
         session: currentSession,
       };
     } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      const appError = handleDatabaseError(error);
-      console.error("Error processing RFID scan:", appError);
-      return { success: false, message: appError.message };
+      console.error("Error processing RFID scan:", error);
+      return { success: false, message: "Internal error" };
     }
   }
 
   async processSensorTrigger(trigger: SensorTrigger) {
     try {
-      // Validate sensor reading against calibration data
-      const isValidReading = await iotDeviceManager.validateSensorReading(
-        trigger.deviceId,
-        trigger.sensorType,
-        trigger.distance
-      );
-
-      if (!isValidReading) {
-        console.warn(
-          `Invalid sensor reading from ${trigger.deviceId}, ignoring trigger`
-        );
-        return { success: false, message: "Invalid sensor reading" };
-      }
-
       // Find active class session
       const now = new Date();
       const currentSession = await this.findActiveClassSession(now);
@@ -259,25 +218,9 @@ class AttendanceMonitor {
   }
 
   private async findRecentRFIDScans(deviceId: string, currentTime: Date) {
-    // Find RFID scans within the validation window (7 seconds) for this device
-    const validationWindowStart = new Date(
-      currentTime.getTime() - this.validationWindow
-    );
-
-    const recentScans = await db
-      .select()
-      .from(rfidScans)
-      .where(
-        and(
-          eq(rfidScans.deviceId, deviceId),
-          gte(rfidScans.timestamp, validationWindowStart),
-          lte(rfidScans.timestamp, currentTime)
-        )
-      )
-      .orderBy(desc(rfidScans.timestamp))
-      .limit(5); // Get up to 5 most recent scans
-
-    return recentScans;
+    // This would typically query a cache or recent scans table
+    // For now, return empty array - implement based on your caching strategy
+    return [];
   }
 
   private async createAttendanceRecord(
