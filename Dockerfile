@@ -41,12 +41,11 @@ RUN apk add --no-cache postgresql-client curl
 # Setup database schema (skip if already exists)
 RUN psql "${DATABASE_URL}" -f database_setup.sql 2>/dev/null || echo "Database setup completed or already exists"
 
+# Set default port
+ENV PORT=3000
+
 # Expose port
 EXPOSE 3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD node healthcheck.js
 
 # Build the client
 WORKDIR /app/server/client

@@ -13,21 +13,36 @@ app.use(express.json());
 // Health check endpoint
 app.get("/health", (req, res) => {
   console.log("Health check received at", new Date().toISOString());
+  console.log("Health check from IP:", req.ip);
+  console.log("Health check user-agent:", req.get("User-Agent"));
+
   res.status(200).json({
     status: "ok",
     timestamp: new Date().toISOString(),
     message: "Minimal server is running",
     environment: process.env.NODE_ENV || "unknown",
     port: process.env.PORT || "unknown",
+    server_address: server.address(),
   });
 });
 
-// Catch-all for SPA
+// Catch-all for SPA and health checks
 app.get("*", (req, res) => {
-  res.json({
-    message: "CLIRDEC:PRESENCE API",
-    status: "running",
+  console.log("Request received at", new Date().toISOString());
+  console.log("Request path:", req.path);
+  console.log("Request from IP:", req.ip);
+  console.log("Request user-agent:", req.get("User-Agent"));
+
+  // Always return health response for Railway compatibility
+  res.status(200).json({
+    status: "ok",
     timestamp: new Date().toISOString(),
+    message: "Minimal server is running",
+    environment: process.env.NODE_ENV || "unknown",
+    port: process.env.PORT || "unknown",
+    server_address: server ? server.address() : "server not started",
+    request_path: req.path,
+    request_ip: req.ip,
   });
 });
 
@@ -43,6 +58,7 @@ app.use((err, req, res, next) => {
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
+console.log(`Parsed PORT: ${PORT} (from env: ${process.env.PORT})`);
 console.log(`Attempting to listen on port ${PORT}...`);
 
 const server = app
