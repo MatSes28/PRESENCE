@@ -31,21 +31,24 @@ COPY client/ ./client/
 # Copy database setup script
 COPY database_setup.sql ./
 
-# Copy minimal server and healthcheck for testing
-COPY minimal-server.js ./
-COPY healthcheck.js ./
+# Copy static server for testing
+COPY static-server.js ./
 
 # Install PostgreSQL client for database setup
 RUN apk add --no-cache postgresql-client curl
 
-# Setup database schema (skip if already exists)
-RUN psql "${DATABASE_URL}" -f database_setup.sql 2>/dev/null || echo "Database setup completed or already exists"
+# Skip database setup during build - will be handled at runtime
+# RUN psql "${DATABASE_URL}" -f database_setup.sql 2>/dev/null || echo "Database setup completed or already exists"
 
 # Set default port
-ENV PORT=3000
+ENV PORT=8080
 
 # Expose port
-EXPOSE 3000
+EXPOSE 8080
+
+# Health check that actually tests the service
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+  CMD curl -f http://127.0.0.1:8080/health || exit 1
 
 # Build the client
 WORKDIR /app/server/client
@@ -67,5 +70,5 @@ RUN npm run build
 # Go back to root directory
 WORKDIR /app
 
-# Start the minimal test application
-CMD node minimal-server.js
+# Start the static test application
+CMD node static-server.js
