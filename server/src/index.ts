@@ -113,7 +113,7 @@ app.use(
 );
 
 // Serve static files from client build
-const publicPath = path.join(__dirname, "../../../server/public");
+const publicPath = path.join(__dirname, "../../../public");
 console.log("Serving static files from:", publicPath);
 
 // Ensure public directory exists
@@ -210,7 +210,7 @@ async function logTableCounts() {
   }
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 const HOST = process.env.HOST || "0.0.0.0";
 
