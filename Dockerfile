@@ -31,12 +31,11 @@ COPY client/ ./client/
 # Copy database setup script
 COPY database_setup.sql ./
 
-# Copy minimal server and healthcheck for testing
+# Copy minimal server for testing
 COPY minimal-server.js ./
-COPY healthcheck.js ./
 
 # Install PostgreSQL client for database setup
-RUN apk add --no-cache postgresql-client curl
+RUN apk add --no-cache postgresql-client
 
 # Setup database schema (skip if already exists)
 RUN psql "${DATABASE_URL}" -f database_setup.sql 2>/dev/null || echo "Database setup completed or already exists"
@@ -45,8 +44,8 @@ RUN psql "${DATABASE_URL}" -f database_setup.sql 2>/dev/null || echo "Database s
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD node healthcheck.js
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
 
 # Build the client
 WORKDIR /app/server/client
@@ -69,4 +68,4 @@ RUN npm run build
 WORKDIR /app
 
 # Start the minimal test application
-CMD node minimal-server.js
+CMD ["sh", "-c", "echo 'Starting CLIRDEC:PRESENCE minimal server...' && node minimal-server.js"]
