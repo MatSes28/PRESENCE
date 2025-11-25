@@ -104,6 +104,15 @@ app.use(express.static(publicPath));
 // Routes
 app.use("/api", routes);
 
+// Specific routes for client-side navigation
+app.get("/forgot-password", (req, res) => {
+  res.sendFile(path.join(publicPath, "index.html"));
+});
+
+app.get("/reset-password", (req, res) => {
+  res.sendFile(path.join(publicPath, "index.html"));
+});
+
 // Catch all handler: send back React's index.html file for client-side routing
 app.get("*", (req, res) => {
   res.sendFile(path.join(publicPath, "index.html"));

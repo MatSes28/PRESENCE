@@ -64,6 +64,12 @@ if (!fs.existsSync(publicPath)) {
 }
 app.use(express.static(publicPath));
 app.use("/api", routes);
+app.get("/forgot-password", (req, res) => {
+    res.sendFile(path.join(publicPath, "index.html"));
+});
+app.get("/reset-password", (req, res) => {
+    res.sendFile(path.join(publicPath, "index.html"));
+});
 app.get("*", (req, res) => {
     res.sendFile(path.join(publicPath, "index.html"));
 });
