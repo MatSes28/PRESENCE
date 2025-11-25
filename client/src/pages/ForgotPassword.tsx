@@ -16,7 +16,7 @@ export const ForgotPassword = () => {
     setMessage("");
 
     try {
-      const response = await api.post("/auth/forgot-password", { email });
+      const response = await api.forgotPassword(email);
       if (response.success) {
         setMessage("Password reset instructions have been sent to your email.");
       } else {
