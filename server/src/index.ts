@@ -45,6 +45,29 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Root route for SPA
+app.get("/", (req, res) => {
+  if (fs.existsSync(path.join(publicPath, "index.html"))) {
+    res.sendFile(path.join(publicPath, "index.html"));
+  } else {
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>CLIRDEC:PRESENCE</title>
+        </head>
+        <body>
+          <h1>CLIRDEC:PRESENCE</h1>
+          <p>Index.html not found at: ${path.join(publicPath, "index.html")}</p>
+          <p>Public path: ${publicPath}</p>
+          <p>Working directory: ${process.cwd()}</p>
+          <p>__dirname: ${__dirname}</p>
+        </body>
+      </html>
+    `);
+  }
+});
+
 // Security middleware
 app.use(helmet());
 app.use(
