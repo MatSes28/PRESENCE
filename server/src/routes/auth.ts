@@ -71,7 +71,7 @@ router.post("/login", async (req, res) => {
         // Add name field for frontend compatibility
         const userWithName = {
           ...userWithoutPassword,
-          name: `${user.firstName} ${user.lastName}`,
+          name: user.name,
         };
 
         res.json({
@@ -150,7 +150,7 @@ router.get("/me", async (req, res) => {
     // Add name field for frontend compatibility
     const userWithName = {
       ...userWithoutPassword,
-      name: `${user.firstName} ${user.lastName}`,
+      name: user.name,
     };
 
     res.json({
@@ -180,18 +180,17 @@ router.post("/register", async (req, res) => {
     const {
       email,
       password,
-      firstName,
-      lastName,
+      name,
       role = "faculty",
       facultyId,
       department,
       gender,
     } = req.body;
 
-    if (!email || !password || !firstName || !lastName) {
+    if (!email || !password || !name) {
       return res.status(400).json({
         success: false,
-        message: "Email, password, first name, and last name are required",
+        message: "Email, password, and name are required",
       });
     }
 
@@ -219,8 +218,7 @@ router.post("/register", async (req, res) => {
       .values({
         email,
         password: hashedPassword,
-        firstName,
-        lastName,
+        name,
         role,
         facultyId,
         department,
@@ -254,13 +252,12 @@ router.put("/profile", async (req, res) => {
       });
     }
 
-    const { firstName, lastName, email, facultyId, department, gender } =
-      req.body;
+    const { name, email, facultyId, department, gender } = req.body;
 
-    if (!firstName || !lastName || !email) {
+    if (!name || !email) {
       return res.status(400).json({
         success: false,
-        message: "First name, last name, and email are required",
+        message: "Name and email are required",
       });
     }
 
@@ -281,7 +278,7 @@ router.put("/profile", async (req, res) => {
     // Update user profile
     await db
       .update(users)
-      .set({ firstName, lastName, email, facultyId, department, gender })
+      .set({ name, email, facultyId, department, gender })
       .where(eq(users.id, req.session.userId));
 
     res.json({
@@ -444,8 +441,7 @@ router.post("/forgot-password", async (req, res) => {
     try {
       // Get user name for email
       const user = userResult[0];
-      const userName =
-        `${user.firstName} ${user.lastName}`.trim() || user.email;
+      const userName = user.name || user.email;
 
       await emailService.sendPasswordResetEmail(email, userName, resetLink);
       console.log(`[AUTH] Password reset email sent to ${email}`);
@@ -584,8 +580,7 @@ router.post("/force-reset-defaults", async (req, res) => {
       await db.insert(users).values({
         email: "faculty@clsu.edu.ph",
         password: facultyPassword,
-        firstName: "Faculty",
-        lastName: "Member",
+        name: "Faculty Member",
         role: "faculty",
       });
     }
