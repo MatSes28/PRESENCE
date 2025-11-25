@@ -29,12 +29,13 @@ WORKDIR /app/server
 COPY client/ ./client/
 
 # Copy database setup script
-COPY database_setup.sql ./
+COPY database_setup.sql ./server/
 
 # Install PostgreSQL client for database setup
 RUN apk add --no-cache postgresql-client
 
 # Setup database schema (skip if already exists)
+WORKDIR /app/server
 RUN psql "${DATABASE_URL}" -f database_setup.sql 2>/dev/null || echo "Database setup completed or already exists"
 
 # Expose port
@@ -45,24 +46,21 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
 # Build the client
-WORKDIR /app/server/client
+WORKDIR /app/client
 RUN npm install
-RUN npx vite build
+RUN npm run build
 
 # Copy built client to server public directory
-RUN mkdir -p ../public
-RUN cp -r dist/* ../public/
-
-# Go back to root directory
-WORKDIR /app
+RUN mkdir -p ../server/public
+RUN cp -r dist/* ../server/public/
 
 # Build the server
 WORKDIR /app/server
 RUN npm install
 RUN npm run build
 
-# Go back to root directory
-WORKDIR /app
+# Set working directory for runtime
+WORKDIR /app/server
 
 # Start the application
-CMD ["node", "server/dist/src/index.js"]
+CMD ["node", "dist/src/index.js"]

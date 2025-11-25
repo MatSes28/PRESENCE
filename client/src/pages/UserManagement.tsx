@@ -29,8 +29,7 @@ export const UserManagement: React.FC = () => {
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
+    name: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -42,8 +41,7 @@ export const UserManagement: React.FC = () => {
 
   // Form validation hooks
   const userValidation = useFormValidation({
-    firstName: commonValidationRules.name,
-    lastName: commonValidationRules.name,
+    name: commonValidationRules.name,
     email: commonValidationRules.email,
     password: commonValidationRules.password,
     confirmPassword: {
@@ -111,8 +109,7 @@ export const UserManagement: React.FC = () => {
     try {
       const userData = {
         email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+        name: formData.name,
         password: formData.password,
         role: formData.role,
         facultyId: formData.facultyId || undefined,
@@ -191,8 +188,7 @@ export const UserManagement: React.FC = () => {
 
   const resetForm = () => {
     setFormData({
-      firstName: "",
-      lastName: "",
+      name: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -319,47 +315,25 @@ export const UserManagement: React.FC = () => {
               Create New User
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    First Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.firstName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    placeholder="Enter first name"
-                  />
-                  {userValidation.errors.firstName && (
-                    <p className="text-red-400 text-xs mt-1">
-                      {userValidation.errors.firstName}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Last Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.lastName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    placeholder="Enter last name"
-                  />
-                  {userValidation.errors.lastName && (
-                    <p className="text-red-400 text-xs mt-1">
-                      {userValidation.errors.lastName}
-                    </p>
-                  )}
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  placeholder="Enter full name"
+                />
+                {userValidation.errors.name && (
+                  <p className="text-red-400 text-xs mt-1">
+                    {userValidation.errors.name}
+                  </p>
+                )}
               </div>
 
               <div>

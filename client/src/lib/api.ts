@@ -144,8 +144,7 @@ class ApiClient {
 
   async createUser(userData: {
     email: string;
-    firstName: string;
-    lastName: string;
+    name: string;
     role: string;
     password: string;
     facultyId?: string;
@@ -160,7 +159,14 @@ class ApiClient {
 
   async updateUser(
     id: number,
-    userData: Partial<{ email: string; name: string; role: string }>
+    userData: Partial<{
+      email: string;
+      name: string;
+      role: string;
+      facultyId?: string;
+      department?: string;
+      gender?: string;
+    }>
   ) {
     return this.request(`/users/${id}`, {
       method: "PUT",
