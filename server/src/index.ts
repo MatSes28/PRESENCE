@@ -130,27 +130,12 @@ app.use("/api", routes);
 // Specific routes for client-side navigation
 app.get("/forgot-password", (req, res) => {
   console.log("Forgot password route hit!");
-  if (fs.existsSync(path.join(publicPath, "index.html"))) {
-    console.log("Serving index.html for forgot-password");
-    res.sendFile(path.join(publicPath, "index.html"));
-  } else {
-    console.log("Index.html not found, serving debug page");
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Forgot Password</title>
-        </head>
-        <body>
-          <h1>Forgot Password Page</h1>
-          <p>Index.html not found at: ${path.join(publicPath, "index.html")}</p>
-          <p>Public path: ${publicPath}</p>
-          <p>Working directory: ${process.cwd()}</p>
-          <p>__dirname: ${__dirname}</p>
-        </body>
-      </html>
-    `);
-  }
+  // Return the exact JSON the user is seeing to test if our server is reached
+  res.json({
+    message: "Server is running - OUR SERVER RESPONDED",
+    path: "/forgot-password",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.get("/reset-password", (req, res) => {
