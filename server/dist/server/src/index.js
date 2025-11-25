@@ -43,7 +43,6 @@ const express_session_1 = __importDefault(require("express-session"));
 const http_1 = require("http");
 const ws_1 = require("ws");
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
-const path_1 = __importDefault(require("path"));
 const storage_js_1 = require("./storage.js");
 const routes_js_1 = __importDefault(require("./routes.js"));
 const websocket_js_1 = require("./services/websocket.js");
@@ -76,10 +75,10 @@ app.use((0, express_session_1.default)({
         maxAge: 24 * 60 * 60 * 1000,
     },
 }));
-app.use(express_1.default.static(path_1.default.join(process.cwd(), "public")));
+app.use(express_1.default.static("/app/server/public"));
 app.use("/api", routes_js_1.default);
 app.get("*", (req, res) => {
-    res.sendFile(path_1.default.join(process.cwd(), "public/index.html"));
+    res.sendFile("/app/server/public/index.html");
 });
 app.get("/health", async (req, res) => {
     const healthStatus = {
