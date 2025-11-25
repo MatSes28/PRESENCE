@@ -32,10 +32,8 @@ COPY database_setup.sql ./
 # Copy simple Railway-compatible server
 COPY simple-railway-server.js ./
 
-# Copy main server files
-COPY server/src/index.ts ./server/src/
-COPY server/src/routes.ts ./server/src/
-COPY server/src/storage.ts ./server/src/
+# Copy all server source files
+COPY server/src/ ./server/src/
 
 # Install PostgreSQL client for database setup
 RUN apk add --no-cache postgresql-client curl
