@@ -25,7 +25,6 @@ import {
   iotDevices,
   enrollments,
   emailNotifications,
-  rfidScans,
 } from "../../shared/schema.js";
 
 const app = express();
@@ -79,49 +78,6 @@ app.use(
 // Serve static files from client build
 app.use(express.static(path.join(process.cwd(), "public")));
 
-// Health check endpoint (must be before catch-all handler)
-app.get("/health", async (req, res) => {
-  const healthStatus: any = {
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    database: isDatabaseAvailable ? "connected" : "disconnected",
-    emailService: process.env.BREVO_API_KEY ? "configured" : "not_configured",
-  };
-
-  // Test database connection if it was previously available
-  if (isDatabaseAvailable) {
-    try {
-      await db.execute(sql`SELECT 1`);
-    } catch (error) {
-      isDatabaseAvailable = false;
-      healthStatus.database = "disconnected";
-      healthStatus.database_error =
-        error instanceof Error ? error.message : "Unknown error";
-    }
-  }
-
-  // Test email service
-  if (process.env.BREVO_API_KEY) {
-    try {
-      const { emailService } = await import("./services/emailService.js");
-      // We can't easily test the actual API without sending an email,
-      // but we can check if the service is initialized
-      healthStatus.emailService = "initialized";
-    } catch (error) {
-      healthStatus.emailService = "error";
-      healthStatus.emailService_error =
-        error instanceof Error ? error.message : "Unknown error";
-    }
-  }
-
-  const isHealthy =
-    healthStatus.database === "connected" &&
-    healthStatus.emailService !== "error";
-  healthStatus.status = isHealthy ? "ok" : "degraded";
-
-  res.status(isHealthy ? 200 : 503).json(healthStatus);
-});
-
 // Routes
 app.use("/api", routes);
 
@@ -168,6 +124,49 @@ app.use((req, res) => {
   });
 });
 
+// Health check endpoint
+app.get("/health", async (req, res) => {
+  const healthStatus: any = {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    database: isDatabaseAvailable ? "connected" : "disconnected",
+    emailService: process.env.BREVO_API_KEY ? "configured" : "not_configured",
+  };
+
+  // Test database connection if it was previously available
+  if (isDatabaseAvailable) {
+    try {
+      await db.execute(sql`SELECT 1`);
+    } catch (error) {
+      isDatabaseAvailable = false;
+      healthStatus.database = "disconnected";
+      healthStatus.database_error =
+        error instanceof Error ? error.message : "Unknown error";
+    }
+  }
+
+  // Test email service
+  if (process.env.BREVO_API_KEY) {
+    try {
+      const { emailService } = await import("./services/emailService.js");
+      // We can't easily test the actual API without sending an email,
+      // but we can check if the service is initialized
+      healthStatus.emailService = "initialized";
+    } catch (error) {
+      healthStatus.emailService = "error";
+      healthStatus.emailService_error =
+        error instanceof Error ? error.message : "Unknown error";
+    }
+  }
+
+  const isHealthy =
+    healthStatus.database === "connected" &&
+    healthStatus.emailService !== "error";
+  healthStatus.status = isHealthy ? "ok" : "degraded";
+
+  res.status(isHealthy ? 200 : 503).json(healthStatus);
+});
+
 // Setup WebSocket
 setupWebSocket(wss);
 
@@ -212,7 +211,6 @@ async function logTableCounts() {
     { name: "iot_devices", table: iotDevices },
     { name: "enrollments", table: enrollments },
     { name: "email_notifications", table: emailNotifications },
-    { name: "rfid_scans", table: rfidScans },
   ];
 
   for (const { name, table } of tables) {

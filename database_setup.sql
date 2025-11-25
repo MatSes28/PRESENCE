@@ -17,13 +17,8 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     password TEXT NOT NULL,
-    first_name VARCHAR(255) NOT NULL,
-    last_name VARCHAR(255) NOT NULL,
-    faculty_id VARCHAR(50),
-    department VARCHAR(255),
-    gender VARCHAR(20),
+    name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'faculty' CHECK (role IN ('admin', 'faculty')),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -36,15 +31,8 @@ CREATE TABLE students (
     student_id VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255),
-    year INTEGER,
-    section VARCHAR(50),
-    program VARCHAR(100) NOT NULL DEFAULT 'BSIT',
-    department VARCHAR(100) NOT NULL DEFAULT 'DIT',
-    college VARCHAR(100) NOT NULL DEFAULT 'College of Engineering',
     rfid_uid VARCHAR(50) UNIQUE,
-    parent_email VARCHAR(255) NOT NULL,
-    parent_name VARCHAR(255),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    parent_email VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -55,10 +43,8 @@ CREATE TABLE students (
 CREATE TABLE classrooms (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    location VARCHAR(255) NOT NULL DEFAULT 'CLIRDEC Building',
-    type VARCHAR(50) NOT NULL DEFAULT 'lecture',
+    location VARCHAR(255),
     capacity INTEGER,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -70,7 +56,6 @@ CREATE TABLE subjects (
     code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -87,7 +72,6 @@ CREATE TABLE schedules (
     end_time VARCHAR(10) NOT NULL,
     semester VARCHAR(50) NOT NULL,
     academic_year VARCHAR(20) NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -98,8 +82,7 @@ CREATE TABLE class_sessions (
     id SERIAL PRIMARY KEY,
     schedule_id INTEGER NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,
     date TIMESTAMP WITH TIME ZONE NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'active', 'completed', 'cancelled')),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    status VARCHAR(20) NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'active', 'completed')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -112,13 +95,11 @@ CREATE TABLE attendance_records (
     class_session_id INTEGER NOT NULL REFERENCES class_sessions(id) ON DELETE CASCADE,
     entry_time TIMESTAMP WITH TIME ZONE,
     exit_time TIMESTAMP WITH TIME ZONE,
-    status VARCHAR(20),
     rfid_detected BOOLEAN NOT NULL DEFAULT FALSE,
     sensor_detected BOOLEAN NOT NULL DEFAULT FALSE,
     is_valid BOOLEAN NOT NULL DEFAULT FALSE,
     discrepancy_flag BOOLEAN NOT NULL DEFAULT FALSE,
     notes TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -133,7 +114,6 @@ CREATE TABLE computers (
     ip_address VARCHAR(45),
     mac_address VARCHAR(17),
     status VARCHAR(20) NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'in_use', 'maintenance')),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -146,41 +126,9 @@ CREATE TABLE computer_assignments (
     computer_id INTEGER NOT NULL REFERENCES computers(id) ON DELETE CASCADE,
     student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     class_session_id INTEGER NOT NULL REFERENCES class_sessions(id) ON DELETE CASCADE,
-    login_time TIMESTAMP WITH TIME ZONE,
-    logout_time TIMESTAMP WITH TIME ZONE,
-    session_duration INTEGER,
-    status VARCHAR(20) NOT NULL DEFAULT 'assigned' CHECK (status IN ('assigned', 'active', 'completed')),
     assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     released_at TIMESTAMP WITH TIME ZONE,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     UNIQUE(computer_id, class_session_id) -- One computer per session
-);
-
--- ===========================================
--- ENROLLMENTS TABLE - Student-subject enrollments
--- ===========================================
-CREATE TABLE enrollments (
-    id SERIAL PRIMARY KEY,
-    student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-    subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
-    semester VARCHAR(50) NOT NULL,
-    academic_year VARCHAR(20) NOT NULL,
-    enrolled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE
-);
-
--- ===========================================
--- EMAIL NOTIFICATIONS TABLE - Notification history
--- ===========================================
-CREATE TABLE email_notifications (
-    id SERIAL PRIMARY KEY,
-    student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-    class_session_id INTEGER NOT NULL REFERENCES class_sessions(id) ON DELETE CASCADE,
-    type VARCHAR(20) NOT NULL,
-    sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    recipient_email VARCHAR(255) NOT NULL,
-    message TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- ===========================================
@@ -194,9 +142,6 @@ CREATE TABLE iot_devices (
     status VARCHAR(20) NOT NULL DEFAULT 'offline' CHECK (status IN ('online', 'offline', 'maintenance')),
     last_seen TIMESTAMP WITH TIME ZONE,
     config JSONB,
-    sensor_calibration JSONB,
-    calibration_status VARCHAR(20) NOT NULL DEFAULT 'uncalibrated',
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -239,35 +184,10 @@ CREATE INDEX idx_computers_status ON computers(status);
 CREATE INDEX idx_assignments_computer_session ON computer_assignments(computer_id, class_session_id);
 CREATE INDEX idx_assignments_student_session ON computer_assignments(student_id, class_session_id);
 
--- RFID scans table for sensor validation
-CREATE TABLE rfid_scans (
-    id SERIAL PRIMARY KEY,
-    device_id VARCHAR(100) NOT NULL,
-    rfid_uid VARCHAR(50) NOT NULL,
-    timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Add sensor calibration columns to iot_devices
-ALTER TABLE iot_devices ADD COLUMN sensor_calibration JSONB;
-ALTER TABLE iot_devices ADD COLUMN calibration_status VARCHAR(20) DEFAULT 'uncalibrated' NOT NULL;
-ALTER TABLE iot_devices ADD COLUMN is_active BOOLEAN DEFAULT TRUE NOT NULL;
-
--- Enrollments indexes
-CREATE INDEX idx_enrollments_student_subject ON enrollments(student_id, subject_id);
-CREATE INDEX idx_enrollments_semester_year ON enrollments(semester, academic_year);
-
--- Email notifications indexes
-CREATE INDEX idx_email_notifications_student ON email_notifications(student_id);
-CREATE INDEX idx_email_notifications_session ON email_notifications(class_session_id);
-CREATE INDEX idx_email_notifications_sent_at ON email_notifications(sent_at);
-
 -- IoT devices indexes
 CREATE INDEX idx_iot_devices_device_id ON iot_devices(device_id);
 CREATE INDEX idx_iot_devices_classroom ON iot_devices(classroom_id);
 CREATE INDEX idx_iot_devices_status ON iot_devices(status);
-CREATE INDEX idx_rfid_scans_device_timestamp ON rfid_scans(device_id, timestamp);
 
 -- ===========================================
 -- TRIGGERS for updated_at timestamps
@@ -349,12 +269,12 @@ CREATE TRIGGER trigger_iot_devices_updated_at
 
 -- Insert sample admin user (password should be hashed in production)
 -- Password: admin123 (hashed)
-INSERT INTO users (email, password, first_name, last_name, role) VALUES
-('admin@clsu.edu.ph', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uB0Y/CjVzQy', 'System', 'Administrator', 'admin');
+INSERT INTO users (email, password, name, role) VALUES
+('admin@clsu.edu.ph', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uB0Y/CjVzQy', 'System Administrator', 'admin');
 
 -- Insert sample faculty
-INSERT INTO users (email, password, first_name, last_name, role) VALUES
-('faculty@clsu.edu.ph', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uB0Y/CjVzQy', 'Maria', 'Santos', 'faculty');
+INSERT INTO users (email, password, name, role) VALUES
+('faculty@clsu.edu.ph', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uB0Y/CjVzQy', 'Dr. Maria Santos', 'faculty');
 
 -- Insert sample classrooms
 INSERT INTO classrooms (name, location, capacity) VALUES
