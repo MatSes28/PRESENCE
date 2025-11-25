@@ -7,6 +7,8 @@ import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import rateLimit from "express-rate-limit";
 import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
 
 import { db } from "./storage.js";
 import routes from "./routes.js";
@@ -26,6 +28,9 @@ import {
   enrollments,
   emailNotifications,
 } from "../../shared/schema.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = createServer(app);
@@ -85,8 +90,15 @@ app.use(
 );
 
 // Serve static files from client build
-const publicPath = "/app/server/public";
+const publicPath = path.join(__dirname, "../public");
 console.log("Serving static files from:", publicPath);
+
+// Ensure public directory exists
+if (!fs.existsSync(publicPath)) {
+  fs.mkdirSync(publicPath, { recursive: true });
+  console.log("Created public directory:", publicPath);
+}
+
 app.use(express.static(publicPath));
 
 // Routes

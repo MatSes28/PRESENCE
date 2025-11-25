@@ -1,8 +1,4 @@
-import {
-  TransactionalEmailsApi,
-  SendSmtpEmail,
-  TransactionalEmailsApiApiKeys,
-} from "@getbrevo/brevo";
+// import { TransactionalEmailsApi, SendSmtpEmail } from "@getbrevo/brevo"; // Disabled due to import issues
 
 interface EmailOptions {
   to: string;
@@ -12,30 +8,12 @@ interface EmailOptions {
 }
 
 class EmailService {
-  private apiInstance: TransactionalEmailsApi;
+  private apiInstance: any;
 
   constructor() {
-    this.apiInstance = new TransactionalEmailsApi();
-    // Email service is optional - skip initialization if no API key
-    if (process.env.BREVO_API_KEY) {
-      try {
-        // Try to set API key using ApiClient (more reliable)
-        const { ApiClient } = require("@getbrevo/brevo");
-        ApiClient.instance.authentications["api-key"].apiKey =
-          process.env.BREVO_API_KEY;
-        console.log("✅ Brevo API key configured successfully");
-      } catch (error) {
-        console.warn(
-          "❌ Brevo API key configuration failed:",
-          error instanceof Error ? error.message : "Unknown error"
-        );
-        console.warn("Email service will be disabled");
-      }
-    } else {
-      console.warn(
-        "⚠️  No BREVO_API_KEY found in environment - email service disabled"
-      );
-    }
+    // Email service disabled due to import issues
+    console.warn("⚠️  Email service disabled due to configuration issues");
+    this.apiInstance = null;
   }
 
   async sendEmail(options: EmailOptions): Promise<boolean> {

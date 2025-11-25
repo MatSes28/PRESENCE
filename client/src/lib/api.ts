@@ -375,7 +375,7 @@ class ApiClient {
   }
 
   async getDeviceStatus(deviceId: string) {
-    return this.request(`/iot/devices/${deviceId}/status`);
+    return this.request(`/iot/devices/${deviceId}`);
   }
 
   async sendDeviceCommand(deviceId: string, command: string, params?: any) {

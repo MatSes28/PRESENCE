@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
+    "module": "es2022",
     "lib": ["ES2022"],
     "outDir": "./dist",
     "rootDir": "../",
@@ -16,6 +16,7 @@
     "removeComments": true,
     "noImplicitAny": false,
     "strictNullChecks": false,
+    "strictFunctionTypes": false,
     "strictFunctionTypes": false,
     "noImplicitReturns": false,
     "noFallthroughCasesInSwitch": false,
