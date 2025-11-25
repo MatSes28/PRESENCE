@@ -1,18 +1,15 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.attendanceMonitor = void 0;
-const storage_js_1 = require("../storage.js");
-const schema_js_1 = require("../schema.js");
-const drizzle_orm_1 = require("drizzle-orm");
+import { db } from "../storage.js";
+import { attendanceRecords, students, classSessions, schedules, } from "../schema.js";
+import { eq, and, gte, lte } from "drizzle-orm";
 class AttendanceMonitor {
     activeSessions = new Map();
     validationWindow = 7000;
     async processRFIDScan(scan) {
         try {
-            const student = await storage_js_1.db
+            const student = await db
                 .select()
-                .from(schema_js_1.students)
-                .where((0, drizzle_orm_1.eq)(schema_js_1.students.rfidUid, scan.rfidUid))
+                .from(students)
+                .where(eq(students.rfidUid, scan.rfidUid))
                 .limit(1);
             if (!student.length) {
                 console.log(`Unknown RFID UID: ${scan.rfidUid}`);
@@ -25,10 +22,10 @@ class AttendanceMonitor {
                 console.log(`No active class session for student ${studentData.id}`);
                 return { success: false, message: "No active class session" };
             }
-            const existingRecord = await storage_js_1.db
+            const existingRecord = await db
                 .select()
-                .from(schema_js_1.attendanceRecords)
-                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, studentData.id), (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, currentSession.id)))
+                .from(attendanceRecords)
+                .where(and(eq(attendanceRecords.studentId, studentData.id), eq(attendanceRecords.classSessionId, currentSession.id)))
                 .limit(1);
             if (existingRecord.length) {
                 await this.updateAttendanceRecord(existingRecord[0], "rfid", now);
@@ -70,18 +67,18 @@ class AttendanceMonitor {
                 };
             }
             const recentScan = recentScans[0];
-            const student = await storage_js_1.db
+            const student = await db
                 .select()
-                .from(schema_js_1.students)
-                .where((0, drizzle_orm_1.eq)(schema_js_1.students.rfidUid, recentScan.rfidUid))
+                .from(students)
+                .where(eq(students.rfidUid, recentScan.rfidUid))
                 .limit(1);
             if (!student.length) {
                 return { success: false, message: "Student not found" };
             }
-            const existingRecord = await storage_js_1.db
+            const existingRecord = await db
                 .select()
-                .from(schema_js_1.attendanceRecords)
-                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, student[0].id), (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, currentSession.id)))
+                .from(attendanceRecords)
+                .where(and(eq(attendanceRecords.studentId, student[0].id), eq(attendanceRecords.classSessionId, currentSession.id)))
                 .limit(1);
             if (existingRecord.length) {
                 await this.updateAttendanceRecord(existingRecord[0], "sensor", now, trigger.sensorType);
@@ -110,22 +107,22 @@ class AttendanceMonitor {
     async findActiveClassSession(currentTime) {
         const dayOfWeek = currentTime.getDay();
         const currentTimeStr = currentTime.toTimeString().slice(0, 8);
-        const activeSchedules = await storage_js_1.db
+        const activeSchedules = await db
             .select({
-            schedule: schema_js_1.schedules,
-            session: schema_js_1.classSessions,
+            schedule: schedules,
+            session: classSessions,
         })
-            .from(schema_js_1.schedules)
-            .innerJoin(schema_js_1.classSessions, (0, drizzle_orm_1.eq)(schema_js_1.schedules.id, schema_js_1.classSessions.scheduleId))
-            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.schedules.dayOfWeek, dayOfWeek), (0, drizzle_orm_1.eq)(schema_js_1.classSessions.status, "active"), (0, drizzle_orm_1.lte)(schema_js_1.schedules.startTime, currentTimeStr), (0, drizzle_orm_1.gte)(schema_js_1.schedules.endTime, currentTimeStr), (0, drizzle_orm_1.gte)(schema_js_1.classSessions.date, new Date(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate())), (0, drizzle_orm_1.lte)(schema_js_1.classSessions.date, new Date(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate() + 1))));
+            .from(schedules)
+            .innerJoin(classSessions, eq(schedules.id, classSessions.scheduleId))
+            .where(and(eq(schedules.dayOfWeek, dayOfWeek), eq(classSessions.status, "active"), lte(schedules.startTime, currentTimeStr), gte(schedules.endTime, currentTimeStr), gte(classSessions.date, new Date(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate())), lte(classSessions.date, new Date(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate() + 1))));
         return activeSchedules.length > 0 ? activeSchedules[0].session : null;
     }
     async findRecentRFIDScans(deviceId, currentTime) {
         return [];
     }
     async createAttendanceRecord(record) {
-        const [newRecord] = await storage_js_1.db
-            .insert(schema_js_1.attendanceRecords)
+        const [newRecord] = await db
+            .insert(attendanceRecords)
             .values({
             studentId: record.studentId,
             classSessionId: record.classSessionId,
@@ -159,14 +156,14 @@ class AttendanceMonitor {
             (existingRecord.rfidDetected || updateData.rfidDetected) &&
                 (existingRecord.sensorDetected || updateData.sensorDetected);
         updateData.discrepancyFlag = !updateData.isValid;
-        await storage_js_1.db
-            .update(schema_js_1.attendanceRecords)
+        await db
+            .update(attendanceRecords)
             .set(updateData)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.id, existingRecord.id));
+            .where(eq(attendanceRecords.id, existingRecord.id));
         console.log(`Updated attendance record: ${existingRecord.id}`);
     }
     async createDiscrepancyRecord(trigger, sessionId) {
-        await storage_js_1.db.insert(schema_js_1.attendanceRecords).values({
+        await db.insert(attendanceRecords).values({
             studentId: 0,
             classSessionId: sessionId,
             sensorDetected: true,
@@ -178,20 +175,20 @@ class AttendanceMonitor {
         console.log(`Created discrepancy record for sensor trigger`);
     }
     async validateAttendanceRecord(recordId) {
-        await storage_js_1.db
-            .update(schema_js_1.attendanceRecords)
+        await db
+            .update(attendanceRecords)
             .set({
             isValid: true,
             discrepancyFlag: false,
             notes: "Manually validated",
         })
-            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.id, recordId));
+            .where(eq(attendanceRecords.id, recordId));
     }
     async getAttendanceStats(sessionId) {
-        const records = await storage_js_1.db
+        const records = await db
             .select()
-            .from(schema_js_1.attendanceRecords)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, sessionId));
+            .from(attendanceRecords)
+            .where(eq(attendanceRecords.classSessionId, sessionId));
         const stats = {
             totalRecords: records.length,
             validRecords: records.filter((r) => r.isValid).length,
@@ -204,4 +201,4 @@ class AttendanceMonitor {
         return stats;
     }
 }
-exports.attendanceMonitor = new AttendanceMonitor();
+export const attendanceMonitor = new AttendanceMonitor();

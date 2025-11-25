@@ -1,16 +1,11 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
-const crypto_1 = __importDefault(require("crypto"));
-const storage_js_1 = require("../storage.js");
-const schema_js_1 = require("../schema.js");
-const drizzle_orm_1 = require("drizzle-orm");
-const emailService_js_1 = require("../services/emailService.js");
-const router = (0, express_1.Router)();
+import { Router } from "express";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { db } from "../storage.js";
+import { users } from "../schema.js";
+import { eq } from "drizzle-orm";
+import { emailService } from "../services/emailService.js";
+const router = Router();
 router.post("/login", async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -20,10 +15,10 @@ router.post("/login", async (req, res) => {
                 message: "Email and password are required",
             });
         }
-        const userResult = await storage_js_1.db
+        const userResult = await db
             .select()
-            .from(schema_js_1.users)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.email, email))
+            .from(users)
+            .where(eq(users.email, email))
             .limit(1);
         if (userResult.length === 0) {
             return res.status(401).json({
@@ -35,7 +30,7 @@ router.post("/login", async (req, res) => {
         console.log(`[AUTH] Attempting login for ${email}`);
         console.log(`[AUTH] Stored hash: ${user.password}`);
         const isValidPassword = password === "admin123" ||
-            (await bcryptjs_1.default.compare(password, user.password));
+            (await bcrypt.compare(password, user.password));
         console.log(`[AUTH] Password valid: ${isValidPassword}`);
         if (!isValidPassword) {
             return res.status(401).json({
@@ -113,10 +108,10 @@ router.get("/me", async (req, res) => {
                 message: "Not authenticated",
             });
         }
-        const userResult = await storage_js_1.db
+        const userResult = await db
             .select()
-            .from(schema_js_1.users)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.id, req.session.userId))
+            .from(users)
+            .where(eq(users.id, req.session.userId))
             .limit(1);
         if (userResult.length === 0) {
             return res.status(404).json({
@@ -158,10 +153,10 @@ router.post("/register", async (req, res) => {
                 message: "Email, password, and name are required",
             });
         }
-        const existingUser = await storage_js_1.db
+        const existingUser = await db
             .select()
-            .from(schema_js_1.users)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.email, email))
+            .from(users)
+            .where(eq(users.email, email))
             .limit(1);
         if (existingUser.length > 0) {
             return res.status(409).json({
@@ -170,9 +165,9 @@ router.post("/register", async (req, res) => {
             });
         }
         const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
-        const hashedPassword = await bcryptjs_1.default.hash(password, saltRounds);
-        const [newUser] = await storage_js_1.db
-            .insert(schema_js_1.users)
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const [newUser] = await db
+            .insert(users)
             .values({
             email,
             password: hashedPassword,
@@ -213,10 +208,10 @@ router.put("/profile", async (req, res) => {
                 message: "Name and email are required",
             });
         }
-        const existingUser = await storage_js_1.db
+        const existingUser = await db
             .select()
-            .from(schema_js_1.users)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.email, email))
+            .from(users)
+            .where(eq(users.email, email))
             .limit(1);
         if (existingUser.length > 0 && existingUser[0].id !== req.session.userId) {
             return res.status(409).json({
@@ -224,10 +219,10 @@ router.put("/profile", async (req, res) => {
                 message: "Email is already taken",
             });
         }
-        await storage_js_1.db
-            .update(schema_js_1.users)
+        await db
+            .update(users)
             .set({ name, email, facultyId, department, gender })
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.id, req.session.userId));
+            .where(eq(users.id, req.session.userId));
         res.json({
             success: true,
             message: "Profile updated successfully",
@@ -256,10 +251,10 @@ router.put("/change-password", async (req, res) => {
                 message: "Current and new passwords are required",
             });
         }
-        const userResult = await storage_js_1.db
+        const userResult = await db
             .select()
-            .from(schema_js_1.users)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.id, req.session.userId))
+            .from(users)
+            .where(eq(users.id, req.session.userId))
             .limit(1);
         if (userResult.length === 0) {
             return res.status(404).json({
@@ -268,7 +263,7 @@ router.put("/change-password", async (req, res) => {
             });
         }
         const user = userResult[0];
-        const isValidPassword = await bcryptjs_1.default.compare(currentPassword, user.password);
+        const isValidPassword = await bcrypt.compare(currentPassword, user.password);
         if (!isValidPassword) {
             return res.status(401).json({
                 success: false,
@@ -276,11 +271,11 @@ router.put("/change-password", async (req, res) => {
             });
         }
         const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
-        const hashedPassword = await bcryptjs_1.default.hash(newPassword, saltRounds);
-        await storage_js_1.db
-            .update(schema_js_1.users)
+        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+        await db
+            .update(users)
             .set({ password: hashedPassword })
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.id, user.id));
+            .where(eq(users.id, user.id));
         res.json({
             success: true,
             message: "Password changed successfully",
@@ -331,10 +326,10 @@ router.post("/forgot-password", async (req, res) => {
                 message: "Email is required",
             });
         }
-        const userResult = await storage_js_1.db
+        const userResult = await db
             .select()
-            .from(schema_js_1.users)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.email, email))
+            .from(users)
+            .where(eq(users.email, email))
             .limit(1);
         if (userResult.length === 0) {
             return res.json({
@@ -342,13 +337,13 @@ router.post("/forgot-password", async (req, res) => {
                 message: "If an account with this email exists, password reset instructions have been sent.",
             });
         }
-        const resetToken = crypto_1.default.randomBytes(32).toString("hex");
+        const resetToken = crypto.randomBytes(32).toString("hex");
         const resetTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
         const resetLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
         try {
             const user = userResult[0];
             const userName = user.name || user.email;
-            await emailService_js_1.emailService.sendPasswordResetEmail(email, userName, resetLink);
+            await emailService.sendPasswordResetEmail(email, userName, resetLink);
             console.log(`[AUTH] Password reset email sent to ${email}`);
         }
         catch (emailError) {
@@ -398,10 +393,10 @@ router.post("/reset-password", async (req, res) => {
                 message: "Passwords do not match",
             });
         }
-        const userResult = await storage_js_1.db
+        const userResult = await db
             .select()
-            .from(schema_js_1.users)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.email, email))
+            .from(users)
+            .where(eq(users.email, email))
             .limit(1);
         if (userResult.length === 0) {
             return res.status(404).json({
@@ -416,11 +411,11 @@ router.post("/reset-password", async (req, res) => {
             });
         }
         const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
-        const hashedPassword = await bcryptjs_1.default.hash(newPassword, saltRounds);
-        await storage_js_1.db
-            .update(schema_js_1.users)
+        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+        await db
+            .update(users)
             .set({ password: hashedPassword })
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.email, email));
+            .where(eq(users.email, email));
         console.log(`[AUTH] Password reset completed for ${email}`);
         res.json({
             success: true,
@@ -439,20 +434,20 @@ router.post("/force-reset-defaults", async (req, res) => {
     try {
         console.log("[AUTH] Force resetting default passwords...");
         const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
-        const adminPassword = await bcryptjs_1.default.hash("admin123", saltRounds);
-        const facultyPassword = await bcryptjs_1.default.hash("faculty123", saltRounds);
-        const adminResult = await storage_js_1.db
-            .update(schema_js_1.users)
+        const adminPassword = await bcrypt.hash("admin123", saltRounds);
+        const facultyPassword = await bcrypt.hash("faculty123", saltRounds);
+        const adminResult = await db
+            .update(users)
             .set({ password: adminPassword })
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.email, "admin@clsu.edu.ph"))
+            .where(eq(users.email, "admin@clsu.edu.ph"))
             .returning();
-        const facultyResult = await storage_js_1.db
-            .update(schema_js_1.users)
+        const facultyResult = await db
+            .update(users)
             .set({ password: facultyPassword })
-            .where((0, drizzle_orm_1.eq)(schema_js_1.users.email, "faculty@clsu.edu.ph"))
+            .where(eq(users.email, "faculty@clsu.edu.ph"))
             .returning();
         if (facultyResult.length === 0) {
-            await storage_js_1.db.insert(schema_js_1.users).values({
+            await db.insert(users).values({
                 email: "faculty@clsu.edu.ph",
                 password: facultyPassword,
                 name: "Faculty Member",
@@ -477,4 +472,4 @@ router.post("/force-reset-defaults", async (req, res) => {
         });
     }
 });
-exports.default = router;
+export default router;

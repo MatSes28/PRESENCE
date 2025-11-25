@@ -1,13 +1,11 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const storage_js_1 = require("../storage.js");
-const schema_js_1 = require("../schema.js");
-const drizzle_orm_1 = require("drizzle-orm");
-const router = (0, express_1.Router)();
+import { Router } from "express";
+import { db } from "../storage.js";
+import { classrooms } from "../schema.js";
+import { eq } from "drizzle-orm";
+const router = Router();
 router.get("/", async (req, res) => {
     try {
-        const allClassrooms = await storage_js_1.db.select().from(schema_js_1.classrooms);
+        const allClassrooms = await db.select().from(classrooms);
         res.json(allClassrooms);
     }
     catch (error) {
@@ -18,10 +16,10 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const classroom = await storage_js_1.db
+        const classroom = await db
             .select()
-            .from(schema_js_1.classrooms)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.classrooms.id, parseInt(id)));
+            .from(classrooms)
+            .where(eq(classrooms.id, parseInt(id)));
         if (classroom.length === 0) {
             return res.status(404).json({ error: "Classroom not found" });
         }
@@ -41,7 +39,7 @@ router.post("/", async (req, res) => {
                 message: "Classroom type must be 'lecture' or 'laboratory'",
             });
         }
-        const existingClassrooms = await storage_js_1.db.select().from(schema_js_1.classrooms);
+        const existingClassrooms = await db.select().from(classrooms);
         if (existingClassrooms.length >= 4) {
             return res.status(400).json({
                 success: false,
@@ -62,8 +60,8 @@ router.post("/", async (req, res) => {
                 message: "Maximum of 2 laboratory rooms allowed",
             });
         }
-        const newClassroom = await storage_js_1.db
-            .insert(schema_js_1.classrooms)
+        const newClassroom = await db
+            .insert(classrooms)
             .values({
             name,
             location: "CLIRDEC Building",
@@ -82,10 +80,10 @@ router.put("/:id", async (req, res) => {
     try {
         const { id } = req.params;
         const { name, location, capacity } = req.body;
-        const updatedClassroom = await storage_js_1.db
-            .update(schema_js_1.classrooms)
+        const updatedClassroom = await db
+            .update(classrooms)
             .set({ name, location, capacity })
-            .where((0, drizzle_orm_1.eq)(schema_js_1.classrooms.id, parseInt(id)))
+            .where(eq(classrooms.id, parseInt(id)))
             .returning();
         if (updatedClassroom.length === 0) {
             return res.status(404).json({ error: "Classroom not found" });
@@ -100,9 +98,9 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const deletedClassroom = await storage_js_1.db
-            .delete(schema_js_1.classrooms)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.classrooms.id, parseInt(id)))
+        const deletedClassroom = await db
+            .delete(classrooms)
+            .where(eq(classrooms.id, parseInt(id)))
             .returning();
         if (deletedClassroom.length === 0) {
             return res.status(404).json({ error: "Classroom not found" });
@@ -114,4 +112,4 @@ router.delete("/:id", async (req, res) => {
         res.status(500).json({ error: "Failed to delete classroom" });
     }
 });
-exports.default = router;
+export default router;

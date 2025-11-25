@@ -17,28 +17,11 @@ class EmailService {
   }
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
-    try {
-      const sendSmtpEmail = new SendSmtpEmail();
-
-      sendSmtpEmail.subject = options.subject;
-      sendSmtpEmail.htmlContent = options.htmlContent;
-      sendSmtpEmail.sender = {
-        name: "CLIRDEC:PRESENCE",
-        email: process.env.FROM_EMAIL || "noreply@clirdec-presence.com",
-      };
-      sendSmtpEmail.to = [{ email: options.to }];
-      sendSmtpEmail.textContent = options.textContent;
-
-      const result = await this.apiInstance.sendTransacEmail(sendSmtpEmail);
-
-      console.log(
-        `Email sent successfully to ${options.to}: ${result.response.statusCode}`
-      );
-      return true;
-    } catch (error) {
-      console.error("Failed to send email:", error);
-      return false;
-    }
+    // Email service is disabled
+    console.log(
+      `Email sending disabled: would send to ${options.to} with subject "${options.subject}"`
+    );
+    return false;
   }
 
   async sendAbsenceNotification(

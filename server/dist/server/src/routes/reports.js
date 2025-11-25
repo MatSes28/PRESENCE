@@ -1,10 +1,8 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const storage_js_1 = require("../storage.js");
-const schema_js_1 = require("../schema.js");
-const drizzle_orm_1 = require("drizzle-orm");
-const router = (0, express_1.Router)();
+import { Router } from "express";
+import { db } from "../storage.js";
+import { attendanceRecords, students, classSessions, schedules, subjects, classrooms, users, } from "../schema.js";
+import { eq, and, gte, lte, desc, count, sql } from "drizzle-orm";
+const router = Router();
 const requireAuth = (req, res, next) => {
     if (!req.session?.userId) {
         return res.status(401).json({
@@ -75,15 +73,15 @@ router.post("/generate", requireAuth, async (req, res) => {
 router.get("/attendance/:sessionId", requireAuth, async (req, res) => {
     try {
         const { sessionId } = req.params;
-        const records = await storage_js_1.db
+        const records = await db
             .select({
-            record: schema_js_1.attendanceRecords,
-            student: schema_js_1.students,
+            record: attendanceRecords,
+            student: students,
         })
-            .from(schema_js_1.attendanceRecords)
-            .innerJoin(schema_js_1.students, (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, schema_js_1.students.id))
-            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, parseInt(sessionId)))
-            .orderBy(schema_js_1.attendanceRecords.createdAt);
+            .from(attendanceRecords)
+            .innerJoin(students, eq(attendanceRecords.studentId, students.id))
+            .where(eq(attendanceRecords.classSessionId, parseInt(sessionId)))
+            .orderBy(attendanceRecords.createdAt);
         res.json({
             success: true,
             data: records,
@@ -103,16 +101,16 @@ router.get("/student/:studentId", async (req, res) => {
         const { startDate, endDate } = req.query;
         let records;
         if (startDate && endDate) {
-            records = await storage_js_1.db
+            records = await db
                 .select()
-                .from(schema_js_1.attendanceRecords)
-                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, parseInt(studentId)), (0, drizzle_orm_1.gte)(schema_js_1.attendanceRecords.createdAt, new Date(startDate)), (0, drizzle_orm_1.lte)(schema_js_1.attendanceRecords.createdAt, new Date(endDate))));
+                .from(attendanceRecords)
+                .where(and(eq(attendanceRecords.studentId, parseInt(studentId)), gte(attendanceRecords.createdAt, new Date(startDate)), lte(attendanceRecords.createdAt, new Date(endDate))));
         }
         else {
-            records = await storage_js_1.db
+            records = await db
                 .select()
-                .from(schema_js_1.attendanceRecords)
-                .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, parseInt(studentId)));
+                .from(attendanceRecords)
+                .where(eq(attendanceRecords.studentId, parseInt(studentId)));
         }
         res.json(records);
     }
@@ -127,16 +125,16 @@ router.get("/classroom/:classroomId", async (req, res) => {
         const { startDate, endDate } = req.query;
         let sessions;
         if (startDate && endDate) {
-            sessions = await storage_js_1.db
+            sessions = await db
                 .select()
-                .from(schema_js_1.classSessions)
-                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.classSessions.scheduleId, parseInt(classroomId)), (0, drizzle_orm_1.gte)(schema_js_1.classSessions.date, new Date(startDate)), (0, drizzle_orm_1.lte)(schema_js_1.classSessions.date, new Date(endDate))));
+                .from(classSessions)
+                .where(and(eq(classSessions.scheduleId, parseInt(classroomId)), gte(classSessions.date, new Date(startDate)), lte(classSessions.date, new Date(endDate))));
         }
         else {
-            sessions = await storage_js_1.db
+            sessions = await db
                 .select()
-                .from(schema_js_1.classSessions)
-                .where((0, drizzle_orm_1.eq)(schema_js_1.classSessions.scheduleId, parseInt(classroomId)));
+                .from(classSessions)
+                .where(eq(classSessions.scheduleId, parseInt(classroomId)));
         }
         res.json(sessions);
     }
@@ -148,84 +146,84 @@ router.get("/classroom/:classroomId", async (req, res) => {
 async function generateAttendanceReport(startDate, endDate, classroomId, subjectId) {
     let whereConditions = [];
     if (startDate) {
-        whereConditions.push((0, drizzle_orm_1.gte)(schema_js_1.attendanceRecords.createdAt, new Date(startDate)));
+        whereConditions.push(gte(attendanceRecords.createdAt, new Date(startDate)));
     }
     if (endDate) {
-        whereConditions.push((0, drizzle_orm_1.lte)(schema_js_1.attendanceRecords.createdAt, new Date(endDate)));
+        whereConditions.push(lte(attendanceRecords.createdAt, new Date(endDate)));
     }
-    const records = await storage_js_1.db
+    const records = await db
         .select({
-        record: schema_js_1.attendanceRecords,
-        student: schema_js_1.students,
-        session: schema_js_1.classSessions,
-        schedule: schema_js_1.schedules,
-        subject: schema_js_1.subjects,
-        classroom: schema_js_1.classrooms,
-        faculty: schema_js_1.users,
+        record: attendanceRecords,
+        student: students,
+        session: classSessions,
+        schedule: schedules,
+        subject: subjects,
+        classroom: classrooms,
+        faculty: users,
     })
-        .from(schema_js_1.attendanceRecords)
-        .innerJoin(schema_js_1.students, (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, schema_js_1.students.id))
-        .innerJoin(schema_js_1.classSessions, (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, schema_js_1.classSessions.id))
-        .innerJoin(schema_js_1.schedules, (0, drizzle_orm_1.eq)(schema_js_1.classSessions.scheduleId, schema_js_1.schedules.id))
-        .innerJoin(schema_js_1.subjects, (0, drizzle_orm_1.eq)(schema_js_1.schedules.subjectId, schema_js_1.subjects.id))
-        .innerJoin(schema_js_1.classrooms, (0, drizzle_orm_1.eq)(schema_js_1.schedules.classroomId, schema_js_1.classrooms.id))
-        .innerJoin(schema_js_1.users, (0, drizzle_orm_1.eq)(schema_js_1.schedules.facultyId, schema_js_1.users.id))
-        .where(whereConditions.length > 0 ? (0, drizzle_orm_1.and)(...whereConditions) : undefined)
-        .orderBy((0, drizzle_orm_1.desc)(schema_js_1.attendanceRecords.createdAt));
+        .from(attendanceRecords)
+        .innerJoin(students, eq(attendanceRecords.studentId, students.id))
+        .innerJoin(classSessions, eq(attendanceRecords.classSessionId, classSessions.id))
+        .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+        .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
+        .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
+        .innerJoin(users, eq(schedules.facultyId, users.id))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+        .orderBy(desc(attendanceRecords.createdAt));
     return records;
 }
 async function generateStudentReport(startDate, endDate) {
     let whereConditions = [];
     if (startDate) {
-        whereConditions.push((0, drizzle_orm_1.gte)(schema_js_1.attendanceRecords.createdAt, new Date(startDate)));
+        whereConditions.push(gte(attendanceRecords.createdAt, new Date(startDate)));
     }
     if (endDate) {
-        whereConditions.push((0, drizzle_orm_1.lte)(schema_js_1.attendanceRecords.createdAt, new Date(endDate)));
+        whereConditions.push(lte(attendanceRecords.createdAt, new Date(endDate)));
     }
-    const studentStats = await storage_js_1.db
+    const studentStats = await db
         .select({
-        student: schema_js_1.students,
-        totalSessions: (0, drizzle_orm_1.count)(schema_js_1.attendanceRecords.id),
-        presentCount: (0, drizzle_orm_1.sql) `count(case when ${schema_js_1.attendanceRecords.isValid} = true then 1 end)`,
-        lateCount: (0, drizzle_orm_1.sql) `count(case when ${schema_js_1.attendanceRecords.isValid} = false and ${schema_js_1.attendanceRecords.rfidDetected} = true then 1 end)`,
-        absentCount: (0, drizzle_orm_1.sql) `count(case when ${schema_js_1.attendanceRecords.isValid} = false and ${schema_js_1.attendanceRecords.rfidDetected} = false then 1 end)`,
+        student: students,
+        totalSessions: count(attendanceRecords.id),
+        presentCount: sql `count(case when ${attendanceRecords.isValid} = true then 1 end)`,
+        lateCount: sql `count(case when ${attendanceRecords.isValid} = false and ${attendanceRecords.rfidDetected} = true then 1 end)`,
+        absentCount: sql `count(case when ${attendanceRecords.isValid} = false and ${attendanceRecords.rfidDetected} = false then 1 end)`,
     })
-        .from(schema_js_1.students)
-        .leftJoin(schema_js_1.attendanceRecords, (0, drizzle_orm_1.eq)(schema_js_1.students.id, schema_js_1.attendanceRecords.studentId))
-        .where(whereConditions.length > 0 ? (0, drizzle_orm_1.and)(...whereConditions) : undefined)
-        .groupBy(schema_js_1.students.id)
-        .orderBy((0, drizzle_orm_1.desc)((0, drizzle_orm_1.count)(schema_js_1.attendanceRecords.id)));
+        .from(students)
+        .leftJoin(attendanceRecords, eq(students.id, attendanceRecords.studentId))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+        .groupBy(students.id)
+        .orderBy(desc(count(attendanceRecords.id)));
     return studentStats;
 }
 async function generateClassroomReport(startDate, endDate, classroomId) {
     let whereConditions = [];
     if (startDate) {
-        whereConditions.push((0, drizzle_orm_1.gte)(schema_js_1.classSessions.date, new Date(startDate)));
+        whereConditions.push(gte(classSessions.date, new Date(startDate)));
     }
     if (endDate) {
-        whereConditions.push((0, drizzle_orm_1.lte)(schema_js_1.classSessions.date, new Date(endDate)));
+        whereConditions.push(lte(classSessions.date, new Date(endDate)));
     }
     if (classroomId) {
-        whereConditions.push((0, drizzle_orm_1.eq)(schema_js_1.schedules.classroomId, classroomId));
+        whereConditions.push(eq(schedules.classroomId, classroomId));
     }
-    const classroomStats = await storage_js_1.db
+    const classroomStats = await db
         .select({
-        classroom: schema_js_1.classrooms,
-        subject: schema_js_1.subjects,
-        faculty: schema_js_1.users,
-        session: schema_js_1.classSessions,
-        attendanceCount: (0, drizzle_orm_1.count)(schema_js_1.attendanceRecords.id),
-        presentCount: (0, drizzle_orm_1.sql) `count(case when ${schema_js_1.attendanceRecords.isValid} = true then 1 end)`,
+        classroom: classrooms,
+        subject: subjects,
+        faculty: users,
+        session: classSessions,
+        attendanceCount: count(attendanceRecords.id),
+        presentCount: sql `count(case when ${attendanceRecords.isValid} = true then 1 end)`,
     })
-        .from(schema_js_1.classSessions)
-        .innerJoin(schema_js_1.schedules, (0, drizzle_orm_1.eq)(schema_js_1.classSessions.scheduleId, schema_js_1.schedules.id))
-        .innerJoin(schema_js_1.classrooms, (0, drizzle_orm_1.eq)(schema_js_1.schedules.classroomId, schema_js_1.classrooms.id))
-        .innerJoin(schema_js_1.subjects, (0, drizzle_orm_1.eq)(schema_js_1.schedules.subjectId, schema_js_1.subjects.id))
-        .innerJoin(schema_js_1.users, (0, drizzle_orm_1.eq)(schema_js_1.schedules.facultyId, schema_js_1.users.id))
-        .leftJoin(schema_js_1.attendanceRecords, (0, drizzle_orm_1.eq)(schema_js_1.classSessions.id, schema_js_1.attendanceRecords.classSessionId))
-        .where(whereConditions.length > 0 ? (0, drizzle_orm_1.and)(...whereConditions) : undefined)
-        .groupBy(schema_js_1.classSessions.id, schema_js_1.classrooms.id, schema_js_1.subjects.id, schema_js_1.users.id)
-        .orderBy((0, drizzle_orm_1.desc)(schema_js_1.classSessions.date));
+        .from(classSessions)
+        .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+        .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
+        .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
+        .innerJoin(users, eq(schedules.facultyId, users.id))
+        .leftJoin(attendanceRecords, eq(classSessions.id, attendanceRecords.classSessionId))
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+        .groupBy(classSessions.id, classrooms.id, subjects.id, users.id)
+        .orderBy(desc(classSessions.date));
     return classroomStats;
 }
 function convertToCSV(data) {
@@ -237,4 +235,4 @@ function convertToCSV(data) {
         .join(","));
     return [headers, ...rows].join("\n");
 }
-exports.default = router;
+export default router;

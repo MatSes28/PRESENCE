@@ -1,42 +1,7 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const iotDeviceManager_js_1 = require("../services/iotDeviceManager.js");
-const websocket_js_1 = require("../services/websocket.js");
-const router = (0, express_1.Router)();
+import { Router } from "express";
+import { iotDeviceManager } from "../services/iotDeviceManager.js";
+import { broadcastToWebClients } from "../services/websocket.js";
+const router = Router();
 const requireAuth = (req, res, next) => {
     if (!req.session?.userId) {
         return res.status(401).json({
@@ -48,7 +13,7 @@ const requireAuth = (req, res, next) => {
 };
 router.get("/devices", requireAuth, async (req, res) => {
     try {
-        const devices = await iotDeviceManager_js_1.iotDeviceManager.getAllDevices();
+        const devices = await iotDeviceManager.getAllDevices();
         res.json({
             success: true,
             devices,
@@ -65,7 +30,7 @@ router.get("/devices", requireAuth, async (req, res) => {
 router.get("/devices/:deviceId", requireAuth, async (req, res) => {
     try {
         const { deviceId } = req.params;
-        const device = await iotDeviceManager_js_1.iotDeviceManager.getDeviceStatus(deviceId);
+        const device = await iotDeviceManager.getDeviceStatus(deviceId);
         if (!device) {
             return res.status(404).json({
                 success: false,
@@ -94,7 +59,7 @@ router.post("/devices", requireAuth, async (req, res) => {
                 message: "Device ID, Classroom ID, and Device Type are required",
             });
         }
-        const device = await iotDeviceManager_js_1.iotDeviceManager.registerDevice({
+        const device = await iotDeviceManager.registerDevice({
             deviceId,
             classroomId: parseInt(classroomId),
             deviceType,
@@ -118,7 +83,7 @@ router.put("/devices/:deviceId/config", requireAuth, async (req, res) => {
     try {
         const { deviceId } = req.params;
         const { config } = req.body;
-        const success = await iotDeviceManager_js_1.iotDeviceManager.configureDevice(deviceId, config);
+        const success = await iotDeviceManager.configureDevice(deviceId, config);
         if (!success) {
             return res.status(500).json({
                 success: false,
@@ -148,7 +113,7 @@ router.post("/devices/:deviceId/command", requireAuth, async (req, res) => {
                 message: "Command is required",
             });
         }
-        const success = await iotDeviceManager_js_1.iotDeviceManager.sendCommandToDevice(deviceId, command, params);
+        const success = await iotDeviceManager.sendCommandToDevice(deviceId, command, params);
         if (!success) {
             return res.status(500).json({
                 success: false,
@@ -171,7 +136,7 @@ router.post("/devices/:deviceId/command", requireAuth, async (req, res) => {
 router.post("/devices/:deviceId/restart", requireAuth, async (req, res) => {
     try {
         const { deviceId } = req.params;
-        const success = await iotDeviceManager_js_1.iotDeviceManager.restartDevice(deviceId);
+        const success = await iotDeviceManager.restartDevice(deviceId);
         if (!success) {
             return res.status(500).json({
                 success: false,
@@ -201,7 +166,7 @@ router.post("/devices/:deviceId/firmware", requireAuth, async (req, res) => {
                 message: "Firmware URL is required",
             });
         }
-        const success = await iotDeviceManager_js_1.iotDeviceManager.updateDeviceFirmware(deviceId, firmwareUrl);
+        const success = await iotDeviceManager.updateDeviceFirmware(deviceId, firmwareUrl);
         if (!success) {
             return res.status(500).json({
                 success: false,
@@ -224,7 +189,7 @@ router.post("/devices/:deviceId/firmware", requireAuth, async (req, res) => {
 router.get("/classrooms/:classroomId/devices", requireAuth, async (req, res) => {
     try {
         const classroomId = parseInt(req.params.classroomId);
-        const devices = await iotDeviceManager_js_1.iotDeviceManager.getDevicesByClassroom(classroomId);
+        const devices = await iotDeviceManager.getDevicesByClassroom(classroomId);
         res.json({
             success: true,
             devices,
@@ -240,7 +205,7 @@ router.get("/classrooms/:classroomId/devices", requireAuth, async (req, res) => 
 });
 router.get("/stats", requireAuth, async (req, res) => {
     try {
-        const stats = await iotDeviceManager_js_1.iotDeviceManager.getDeviceStats();
+        const stats = await iotDeviceManager.getDeviceStats();
         res.json({
             success: true,
             stats,
@@ -256,7 +221,7 @@ router.get("/stats", requireAuth, async (req, res) => {
 });
 router.get("/connected", requireAuth, async (req, res) => {
     try {
-        const connectedDevices = await iotDeviceManager_js_1.iotDeviceManager.getOnlineDevices();
+        const connectedDevices = await iotDeviceManager.getOnlineDevices();
         res.json({
             success: true,
             connectedDevices,
@@ -286,7 +251,7 @@ router.post("/attendance/simulate-rfid", async (req, res) => {
             timestamp: new Date().toISOString(),
         };
         try {
-            const { attendanceMonitor } = await Promise.resolve().then(() => __importStar(require("../services/attendanceMonitor.js")));
+            const { attendanceMonitor } = await import("../services/attendanceMonitor.js");
             console.log(`[SIMULATE RFID] Processing RFID scan: ${rfidUid}`);
             const result = await attendanceMonitor.processRFIDScan({
                 deviceId: "simulator",
@@ -303,7 +268,7 @@ router.post("/attendance/simulate-rfid", async (req, res) => {
                 message: error.message,
             };
         }
-        (0, websocket_js_1.broadcastToWebClients)("rfidScan", simulatedData);
+        broadcastToWebClients("rfidScan", simulatedData);
         res.json({
             success: true,
             message: "RFID tap simulated successfully",
@@ -318,4 +283,4 @@ router.post("/attendance/simulate-rfid", async (req, res) => {
         });
     }
 });
-exports.default = router;
+export default router;

@@ -1,11 +1,9 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const storage_js_1 = require("../storage.js");
-const schema_js_1 = require("../schema.js");
-const drizzle_orm_1 = require("drizzle-orm");
-const attendanceMonitor_js_1 = require("../services/attendanceMonitor.js");
-const router = (0, express_1.Router)();
+import { Router } from "express";
+import { db } from "../storage.js";
+import { attendanceRecords, students, classSessions, schedules, classrooms, subjects, users, } from "../schema.js";
+import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { attendanceMonitor } from "../services/attendanceMonitor.js";
+const router = Router();
 const requireAuth = (req, res, next) => {
     if (!req.session?.userId) {
         return res.status(401).json({
@@ -20,46 +18,46 @@ router.get("/", requireAuth, async (req, res) => {
         const { studentId, classSessionId, date, limit = 50, offset = 0, } = req.query;
         let whereConditions = [];
         if (studentId) {
-            whereConditions.push((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, parseInt(studentId)));
+            whereConditions.push(eq(attendanceRecords.studentId, parseInt(studentId)));
         }
         if (classSessionId) {
-            whereConditions.push((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, parseInt(classSessionId)));
+            whereConditions.push(eq(attendanceRecords.classSessionId, parseInt(classSessionId)));
         }
         if (date) {
             const startDate = new Date(date);
             const endDate = new Date(startDate);
             endDate.setDate(endDate.getDate() + 1);
-            const sessions = await storage_js_1.db
+            const sessions = await db
                 .select()
-                .from(schema_js_1.classSessions)
-                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.gte)(schema_js_1.classSessions.date, startDate), (0, drizzle_orm_1.lte)(schema_js_1.classSessions.date, endDate)));
+                .from(classSessions)
+                .where(and(gte(classSessions.date, startDate), lte(classSessions.date, endDate)));
             if (sessions.length > 0) {
-                whereConditions.push((0, drizzle_orm_1.sql) `${schema_js_1.attendanceRecords.classSessionId} IN (${sessions
+                whereConditions.push(sql `${attendanceRecords.classSessionId} IN (${sessions
                     .map((s) => s.id)
                     .join(",")})`);
             }
         }
-        const whereClause = whereConditions.length > 0 ? (0, drizzle_orm_1.and)(...whereConditions) : undefined;
-        const records = await storage_js_1.db
+        const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
+        const records = await db
             .select({
-            record: schema_js_1.attendanceRecords,
+            record: attendanceRecords,
             student: {
-                id: schema_js_1.students.id,
-                studentId: schema_js_1.students.studentId,
-                name: schema_js_1.students.name,
-                email: schema_js_1.students.email,
+                id: students.id,
+                studentId: students.studentId,
+                name: students.name,
+                email: students.email,
             },
             session: {
-                id: schema_js_1.classSessions.id,
-                date: schema_js_1.classSessions.date,
-                status: schema_js_1.classSessions.status,
+                id: classSessions.id,
+                date: classSessions.date,
+                status: classSessions.status,
             },
         })
-            .from(schema_js_1.attendanceRecords)
-            .innerJoin(schema_js_1.students, (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, schema_js_1.students.id))
-            .innerJoin(schema_js_1.classSessions, (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, schema_js_1.classSessions.id))
+            .from(attendanceRecords)
+            .innerJoin(students, eq(attendanceRecords.studentId, students.id))
+            .innerJoin(classSessions, eq(attendanceRecords.classSessionId, classSessions.id))
             .where(whereClause)
-            .orderBy((0, drizzle_orm_1.desc)(schema_js_1.attendanceRecords.createdAt))
+            .orderBy(desc(attendanceRecords.createdAt))
             .limit(parseInt(limit))
             .offset(parseInt(offset));
         res.json({
@@ -82,7 +80,7 @@ router.get("/", requireAuth, async (req, res) => {
 router.get("/stats/:sessionId", requireAuth, async (req, res) => {
     try {
         const sessionId = parseInt(req.params.sessionId);
-        const stats = await attendanceMonitor_js_1.attendanceMonitor.getAttendanceStats(sessionId);
+        const stats = await attendanceMonitor.getAttendanceStats(sessionId);
         res.json({
             success: true,
             stats,
@@ -105,10 +103,10 @@ router.post("/manual", requireAuth, async (req, res) => {
                 message: "Student ID and Class Session ID are required",
             });
         }
-        const existingRecord = await storage_js_1.db
+        const existingRecord = await db
             .select()
-            .from(schema_js_1.attendanceRecords)
-            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, studentId), (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, classSessionId)))
+            .from(attendanceRecords)
+            .where(and(eq(attendanceRecords.studentId, studentId), eq(attendanceRecords.classSessionId, classSessionId)))
             .limit(1);
         if (existingRecord.length > 0) {
             return res.status(409).json({
@@ -116,8 +114,8 @@ router.post("/manual", requireAuth, async (req, res) => {
                 message: "Attendance record already exists for this student and session",
             });
         }
-        const [newRecord] = await storage_js_1.db
-            .insert(schema_js_1.attendanceRecords)
+        const [newRecord] = await db
+            .insert(attendanceRecords)
             .values({
             studentId,
             classSessionId,
@@ -148,8 +146,8 @@ router.put("/:id", requireAuth, async (req, res) => {
     try {
         const recordId = parseInt(req.params.id);
         const { entryTime, exitTime, isValid, notes } = req.body;
-        const [updatedRecord] = await storage_js_1.db
-            .update(schema_js_1.attendanceRecords)
+        const [updatedRecord] = await db
+            .update(attendanceRecords)
             .set({
             entryTime: entryTime ? new Date(entryTime) : undefined,
             exitTime: exitTime ? new Date(exitTime) : undefined,
@@ -158,7 +156,7 @@ router.put("/:id", requireAuth, async (req, res) => {
             notes,
             updatedAt: new Date(),
         })
-            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.id, recordId))
+            .where(eq(attendanceRecords.id, recordId))
             .returning();
         if (!updatedRecord) {
             return res.status(404).json({
@@ -183,9 +181,9 @@ router.put("/:id", requireAuth, async (req, res) => {
 router.delete("/:id", requireAuth, async (req, res) => {
     try {
         const recordId = parseInt(req.params.id);
-        const deletedRecord = await storage_js_1.db
-            .delete(schema_js_1.attendanceRecords)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.id, recordId))
+        const deletedRecord = await db
+            .delete(attendanceRecords)
+            .where(eq(attendanceRecords.id, recordId))
             .returning();
         if (deletedRecord.length === 0) {
             return res.status(404).json({
@@ -209,23 +207,23 @@ router.delete("/:id", requireAuth, async (req, res) => {
 router.get("/sessions/active", requireAuth, async (req, res) => {
     try {
         const now = new Date();
-        const activeSessions = await storage_js_1.db
+        const activeSessions = await db
             .select({
-            session: schema_js_1.classSessions,
+            session: classSessions,
             schedule: {
-                id: schema_js_1.schedules.id,
-                subject: schema_js_1.subjects.name,
-                classroom: schema_js_1.classrooms.name,
-                faculty: schema_js_1.users.name,
+                id: schedules.id,
+                subject: subjects.name,
+                classroom: classrooms.name,
+                faculty: users.name,
             },
         })
-            .from(schema_js_1.classSessions)
-            .innerJoin(schema_js_1.schedules, (0, drizzle_orm_1.eq)(schema_js_1.classSessions.scheduleId, schema_js_1.schedules.id))
-            .innerJoin(schema_js_1.subjects, (0, drizzle_orm_1.eq)(schema_js_1.schedules.subjectId, schema_js_1.subjects.id))
-            .innerJoin(schema_js_1.classrooms, (0, drizzle_orm_1.eq)(schema_js_1.schedules.classroomId, schema_js_1.classrooms.id))
-            .innerJoin(schema_js_1.users, (0, drizzle_orm_1.eq)(schema_js_1.schedules.facultyId, schema_js_1.users.id))
-            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.classSessions.status, "active"), (0, drizzle_orm_1.gte)(schema_js_1.classSessions.date, new Date(now.getTime() - 2 * 60 * 60 * 1000)), (0, drizzle_orm_1.lte)(schema_js_1.classSessions.date, new Date(now.getTime() + 2 * 60 * 60 * 1000))))
-            .orderBy(schema_js_1.classSessions.date);
+            .from(classSessions)
+            .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+            .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
+            .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
+            .innerJoin(users, eq(schedules.facultyId, users.id))
+            .where(and(eq(classSessions.status, "active"), gte(classSessions.date, new Date(now.getTime() - 2 * 60 * 60 * 1000)), lte(classSessions.date, new Date(now.getTime() + 2 * 60 * 60 * 1000))))
+            .orderBy(classSessions.date);
         res.json({
             success: true,
             sessions: activeSessions,
@@ -242,7 +240,7 @@ router.get("/sessions/active", requireAuth, async (req, res) => {
 router.post("/:id/validate", requireAuth, async (req, res) => {
     try {
         const recordId = parseInt(req.params.id);
-        await attendanceMonitor_js_1.attendanceMonitor.validateAttendanceRecord(recordId);
+        await attendanceMonitor.validateAttendanceRecord(recordId);
         res.json({
             success: true,
             message: "Attendance record validated successfully",
@@ -256,4 +254,4 @@ router.post("/:id/validate", requireAuth, async (req, res) => {
         });
     }
 });
-exports.default = router;
+export default router;

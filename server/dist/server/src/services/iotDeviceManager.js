@@ -1,22 +1,19 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.iotDeviceManager = void 0;
-const storage_js_1 = require("../storage.js");
-const schema_js_1 = require("../schema.js");
-const drizzle_orm_1 = require("drizzle-orm");
-const websocket_js_1 = require("./websocket.js");
+import { db } from '../storage.js';
+import { iotDevices, classrooms } from '../schema.js';
+import { eq } from 'drizzle-orm';
+import { sendToDevice } from './websocket.js';
 class IoTDeviceManager {
     deviceStatuses = new Map();
     async registerDevice(config) {
         try {
-            const existingDevice = await storage_js_1.db
+            const existingDevice = await db
                 .select()
-                .from(schema_js_1.iotDevices)
-                .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, config.deviceId))
+                .from(iotDevices)
+                .where(eq(iotDevices.deviceId, config.deviceId))
                 .limit(1);
             if (existingDevice.length > 0) {
-                const [updatedDevice] = await storage_js_1.db
-                    .update(schema_js_1.iotDevices)
+                const [updatedDevice] = await db
+                    .update(iotDevices)
                     .set({
                     classroomId: config.classroomId,
                     deviceType: config.deviceType,
@@ -24,14 +21,14 @@ class IoTDeviceManager {
                     status: 'offline',
                     updatedAt: new Date()
                 })
-                    .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, config.deviceId))
+                    .where(eq(iotDevices.deviceId, config.deviceId))
                     .returning();
                 console.log(`Updated IoT device: ${config.deviceId}`);
                 return updatedDevice;
             }
             else {
-                const [newDevice] = await storage_js_1.db
-                    .insert(schema_js_1.iotDevices)
+                const [newDevice] = await db
+                    .insert(iotDevices)
                     .values({
                     deviceId: config.deviceId,
                     classroomId: config.classroomId,
@@ -58,15 +55,15 @@ class IoTDeviceManager {
                 lastSeen: now,
                 config
             });
-            await storage_js_1.db
-                .update(schema_js_1.iotDevices)
+            await db
+                .update(iotDevices)
                 .set({
                 status,
                 lastSeen: now,
                 config,
                 updatedAt: now
             })
-                .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, deviceId));
+                .where(eq(iotDevices.deviceId, deviceId));
             console.log(`Updated device status: ${deviceId} -> ${status}`);
         }
         catch (error) {
@@ -79,10 +76,10 @@ class IoTDeviceManager {
             return cached;
         }
         try {
-            const device = await storage_js_1.db
+            const device = await db
                 .select()
-                .from(schema_js_1.iotDevices)
-                .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, deviceId))
+                .from(iotDevices)
+                .where(eq(iotDevices.deviceId, deviceId))
                 .limit(1);
             if (device.length > 0) {
                 const dbDevice = device[0];
@@ -103,14 +100,14 @@ class IoTDeviceManager {
     }
     async getDevicesByClassroom(classroomId) {
         try {
-            return await storage_js_1.db
+            return await db
                 .select({
-                device: schema_js_1.iotDevices,
-                classroom: schema_js_1.classrooms
+                device: iotDevices,
+                classroom: classrooms
             })
-                .from(schema_js_1.iotDevices)
-                .innerJoin(schema_js_1.classrooms, (0, drizzle_orm_1.eq)(schema_js_1.iotDevices.classroomId, schema_js_1.classrooms.id))
-                .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.classroomId, classroomId));
+                .from(iotDevices)
+                .innerJoin(classrooms, eq(iotDevices.classroomId, classrooms.id))
+                .where(eq(iotDevices.classroomId, classroomId));
         }
         catch (error) {
             console.error('Error getting devices by classroom:', error);
@@ -119,13 +116,13 @@ class IoTDeviceManager {
     }
     async getAllDevices() {
         try {
-            return await storage_js_1.db
+            return await db
                 .select({
-                device: schema_js_1.iotDevices,
-                classroom: schema_js_1.classrooms
+                device: iotDevices,
+                classroom: classrooms
             })
-                .from(schema_js_1.iotDevices)
-                .innerJoin(schema_js_1.classrooms, (0, drizzle_orm_1.eq)(schema_js_1.iotDevices.classroomId, schema_js_1.classrooms.id));
+                .from(iotDevices)
+                .innerJoin(classrooms, eq(iotDevices.classroomId, classrooms.id));
         }
         catch (error) {
             console.error('Error getting all devices:', error);
@@ -139,17 +136,17 @@ class IoTDeviceManager {
             params,
             timestamp: new Date().toISOString()
         };
-        return (0, websocket_js_1.sendToDevice)(deviceId, 'command', message);
+        return sendToDevice(deviceId, 'command', message);
     }
     async configureDevice(deviceId, config) {
         try {
-            await storage_js_1.db
-                .update(schema_js_1.iotDevices)
+            await db
+                .update(iotDevices)
                 .set({
                 config,
                 updatedAt: new Date()
             })
-                .where((0, drizzle_orm_1.eq)(schema_js_1.iotDevices.deviceId, deviceId));
+                .where(eq(iotDevices.deviceId, deviceId));
             return this.sendCommandToDevice(deviceId, 'update_config', config);
         }
         catch (error) {
@@ -203,5 +200,5 @@ class IoTDeviceManager {
         };
     }
 }
-exports.iotDeviceManager = new IoTDeviceManager();
-exports.iotDeviceManager.startPeriodicCleanup();
+export const iotDeviceManager = new IoTDeviceManager();
+iotDeviceManager.startPeriodicCleanup();

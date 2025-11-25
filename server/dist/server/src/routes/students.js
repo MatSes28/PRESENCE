@@ -1,21 +1,19 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
-const storage_js_1 = require("../storage.js");
-const schema_js_1 = require("../schema.js");
-const drizzle_orm_1 = require("drizzle-orm");
-const auth_js_1 = require("../middleware/auth.js");
-const router = (0, express_1.Router)();
-router.get("/", auth_js_1.requireAuth, async (req, res) => {
+import { Router } from "express";
+import { db } from "../storage.js";
+import { students, attendanceRecords, classSessions, enrollments, subjects, schedules, } from "../schema.js";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { requireAuth, requireAdmin, } from "../middleware/auth.js";
+const router = Router();
+router.get("/", requireAuth, async (req, res) => {
     try {
         const userRole = req.session?.userRole;
         const userId = req.session?.userId;
         if (userRole === "faculty") {
-            const facultySubjects = await storage_js_1.db
-                .select({ id: schema_js_1.subjects.id })
-                .from(schema_js_1.subjects)
-                .innerJoin(schema_js_1.schedules, (0, drizzle_orm_1.eq)(schema_js_1.subjects.id, schema_js_1.schedules.subjectId))
-                .where((0, drizzle_orm_1.eq)(schema_js_1.schedules.facultyId, userId));
+            const facultySubjects = await db
+                .select({ id: subjects.id })
+                .from(subjects)
+                .innerJoin(schedules, eq(subjects.id, schedules.subjectId))
+                .where(eq(schedules.facultyId, userId));
             const subjectIds = facultySubjects.map((s) => s.id);
             if (subjectIds.length === 0) {
                 return res.json({
@@ -23,10 +21,10 @@ router.get("/", auth_js_1.requireAuth, async (req, res) => {
                     students: [],
                 });
             }
-            const enrolledStudentIds = await storage_js_1.db
-                .select({ studentId: schema_js_1.enrollments.studentId })
-                .from(schema_js_1.enrollments)
-                .where((0, drizzle_orm_1.inArray)(schema_js_1.enrollments.subjectId, subjectIds));
+            const enrolledStudentIds = await db
+                .select({ studentId: enrollments.studentId })
+                .from(enrollments)
+                .where(inArray(enrollments.subjectId, subjectIds));
             const studentIds = [
                 ...new Set(enrolledStudentIds.map((e) => e.studentId)),
             ];
@@ -36,17 +34,17 @@ router.get("/", auth_js_1.requireAuth, async (req, res) => {
                     students: [],
                 });
             }
-            const allStudents = await storage_js_1.db
+            const allStudents = await db
                 .select()
-                .from(schema_js_1.students)
-                .where((0, drizzle_orm_1.inArray)(schema_js_1.students.id, studentIds))
-                .orderBy(schema_js_1.students.name);
+                .from(students)
+                .where(inArray(students.id, studentIds))
+                .orderBy(students.name);
             return res.json({
                 success: true,
                 students: allStudents,
             });
         }
-        const allStudents = await storage_js_1.db.select().from(schema_js_1.students).orderBy(schema_js_1.students.name);
+        const allStudents = await db.select().from(students).orderBy(students.name);
         res.json({
             success: true,
             students: allStudents,
@@ -60,13 +58,13 @@ router.get("/", auth_js_1.requireAuth, async (req, res) => {
         });
     }
 });
-router.get("/:id", auth_js_1.requireAuth, async (req, res) => {
+router.get("/:id", requireAuth, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
-        const studentResult = await storage_js_1.db
+        const studentResult = await db
             .select()
-            .from(schema_js_1.students)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.students.id, studentId))
+            .from(students)
+            .where(eq(students.id, studentId))
             .limit(1);
         if (studentResult.length === 0) {
             return res.status(404).json({
@@ -87,7 +85,7 @@ router.get("/:id", auth_js_1.requireAuth, async (req, res) => {
         });
     }
 });
-router.post("/", auth_js_1.requireAdmin, async (req, res) => {
+router.post("/", requireAdmin, async (req, res) => {
     try {
         const { studentId, name, email, year, section, rfidUid, parentEmail, parentName, } = req.body;
         if (!studentId || !name || !parentEmail) {
@@ -96,10 +94,10 @@ router.post("/", auth_js_1.requireAdmin, async (req, res) => {
                 message: "Student ID, name, and parent email are required",
             });
         }
-        const existingStudent = await storage_js_1.db
+        const existingStudent = await db
             .select()
-            .from(schema_js_1.students)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.students.studentId, studentId))
+            .from(students)
+            .where(eq(students.studentId, studentId))
             .limit(1);
         if (existingStudent.length > 0) {
             return res.status(409).json({
@@ -108,10 +106,10 @@ router.post("/", auth_js_1.requireAdmin, async (req, res) => {
             });
         }
         if (rfidUid) {
-            const existingRFID = await storage_js_1.db
+            const existingRFID = await db
                 .select()
-                .from(schema_js_1.students)
-                .where((0, drizzle_orm_1.eq)(schema_js_1.students.rfidUid, rfidUid))
+                .from(students)
+                .where(eq(students.rfidUid, rfidUid))
                 .limit(1);
             if (existingRFID.length > 0) {
                 return res.status(409).json({
@@ -120,8 +118,8 @@ router.post("/", auth_js_1.requireAdmin, async (req, res) => {
                 });
             }
         }
-        const [newStudent] = await storage_js_1.db
-            .insert(schema_js_1.students)
+        const [newStudent] = await db
+            .insert(students)
             .values({
             studentId,
             name,
@@ -147,15 +145,15 @@ router.post("/", auth_js_1.requireAdmin, async (req, res) => {
         });
     }
 });
-router.put("/:id", auth_js_1.requireAdmin, async (req, res) => {
+router.put("/:id", requireAdmin, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
         const { name, email, year, section, rfidUid, parentEmail, parentName } = req.body;
         if (rfidUid) {
-            const existingRFID = await storage_js_1.db
+            const existingRFID = await db
                 .select()
-                .from(schema_js_1.students)
-                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_js_1.students.rfidUid, rfidUid), (0, drizzle_orm_1.sql) `${schema_js_1.students.id} != ${studentId}`))
+                .from(students)
+                .where(and(eq(students.rfidUid, rfidUid), sql `${students.id} != ${studentId}`))
                 .limit(1);
             if (existingRFID.length > 0) {
                 return res.status(409).json({
@@ -164,8 +162,8 @@ router.put("/:id", auth_js_1.requireAdmin, async (req, res) => {
                 });
             }
         }
-        const [updatedStudent] = await storage_js_1.db
-            .update(schema_js_1.students)
+        const [updatedStudent] = await db
+            .update(students)
             .set({
             name,
             email,
@@ -176,7 +174,7 @@ router.put("/:id", auth_js_1.requireAdmin, async (req, res) => {
             parentName,
             updatedAt: new Date(),
         })
-            .where((0, drizzle_orm_1.eq)(schema_js_1.students.id, studentId))
+            .where(eq(students.id, studentId))
             .returning();
         if (!updatedStudent) {
             return res.status(404).json({
@@ -198,22 +196,22 @@ router.put("/:id", auth_js_1.requireAdmin, async (req, res) => {
         });
     }
 });
-router.delete("/:id", auth_js_1.requireAdmin, async (req, res) => {
+router.delete("/:id", requireAdmin, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
-        const attendanceCount = await storage_js_1.db
-            .select({ count: (0, drizzle_orm_1.sql) `count(*)` })
-            .from(schema_js_1.attendanceRecords)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, studentId));
+        const attendanceCount = await db
+            .select({ count: sql `count(*)` })
+            .from(attendanceRecords)
+            .where(eq(attendanceRecords.studentId, studentId));
         if (attendanceCount[0].count > 0) {
             return res.status(409).json({
                 success: false,
                 message: "Cannot delete student with attendance records",
             });
         }
-        const deletedStudent = await storage_js_1.db
-            .delete(schema_js_1.students)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.students.id, studentId))
+        const deletedStudent = await db
+            .delete(students)
+            .where(eq(students.id, studentId))
             .returning();
         if (deletedStudent.length === 0) {
             return res.status(404).json({
@@ -234,19 +232,19 @@ router.delete("/:id", auth_js_1.requireAdmin, async (req, res) => {
         });
     }
 });
-router.get("/:id/attendance", auth_js_1.requireAuth, async (req, res) => {
+router.get("/:id/attendance", requireAuth, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
         const { limit = 50, offset = 0 } = req.query;
-        const attendanceHistory = await storage_js_1.db
+        const attendanceHistory = await db
             .select({
-            record: schema_js_1.attendanceRecords,
-            session: schema_js_1.classSessions,
+            record: attendanceRecords,
+            session: classSessions,
         })
-            .from(schema_js_1.attendanceRecords)
-            .innerJoin(schema_js_1.classSessions, (0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.classSessionId, schema_js_1.classSessions.id))
-            .where((0, drizzle_orm_1.eq)(schema_js_1.attendanceRecords.studentId, studentId))
-            .orderBy((0, drizzle_orm_1.desc)(schema_js_1.attendanceRecords.createdAt))
+            .from(attendanceRecords)
+            .innerJoin(classSessions, eq(attendanceRecords.classSessionId, classSessions.id))
+            .where(eq(attendanceRecords.studentId, studentId))
+            .orderBy(desc(attendanceRecords.createdAt))
             .limit(parseInt(limit))
             .offset(parseInt(offset));
         res.json({
@@ -262,7 +260,7 @@ router.get("/:id/attendance", auth_js_1.requireAuth, async (req, res) => {
         });
     }
 });
-router.post("/:id/assign-rfid", auth_js_1.requireAdmin, async (req, res) => {
+router.post("/:id/assign-rfid", requireAdmin, async (req, res) => {
     try {
         const studentId = parseInt(req.params.id);
         const { rfidUid } = req.body;
@@ -272,10 +270,10 @@ router.post("/:id/assign-rfid", auth_js_1.requireAdmin, async (req, res) => {
                 message: "RFID UID is required",
             });
         }
-        const existingRFID = await storage_js_1.db
+        const existingRFID = await db
             .select()
-            .from(schema_js_1.students)
-            .where((0, drizzle_orm_1.eq)(schema_js_1.students.rfidUid, rfidUid))
+            .from(students)
+            .where(eq(students.rfidUid, rfidUid))
             .limit(1);
         if (existingRFID.length > 0) {
             return res.status(409).json({
@@ -283,13 +281,13 @@ router.post("/:id/assign-rfid", auth_js_1.requireAdmin, async (req, res) => {
                 message: "RFID UID already assigned to another student",
             });
         }
-        const [updatedStudent] = await storage_js_1.db
-            .update(schema_js_1.students)
+        const [updatedStudent] = await db
+            .update(students)
             .set({
             rfidUid,
             updatedAt: new Date(),
         })
-            .where((0, drizzle_orm_1.eq)(schema_js_1.students.id, studentId))
+            .where(eq(students.id, studentId))
             .returning();
         if (!updatedStudent) {
             return res.status(404).json({
@@ -311,4 +309,4 @@ router.post("/:id/assign-rfid", auth_js_1.requireAdmin, async (req, res) => {
         });
     }
 });
-exports.default = router;
+export default router;

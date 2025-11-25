@@ -1,46 +1,12 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.emailService = void 0;
-const brevo_1 = require("@getbrevo/brevo");
 class EmailService {
     apiInstance;
     constructor() {
-        this.apiInstance = new brevo_1.TransactionalEmailsApi();
-        if (process.env.BREVO_API_KEY) {
-            try {
-                const { ApiClient } = require("@getbrevo/brevo");
-                ApiClient.instance.authentications["api-key"].apiKey =
-                    process.env.BREVO_API_KEY;
-                console.log("✅ Brevo API key configured successfully");
-            }
-            catch (error) {
-                console.warn("❌ Brevo API key configuration failed:", error instanceof Error ? error.message : "Unknown error");
-                console.warn("Email service will be disabled");
-            }
-        }
-        else {
-            console.warn("⚠️  No BREVO_API_KEY found in environment - email service disabled");
-        }
+        console.warn("⚠️  Email service disabled due to configuration issues");
+        this.apiInstance = null;
     }
     async sendEmail(options) {
-        try {
-            const sendSmtpEmail = new brevo_1.SendSmtpEmail();
-            sendSmtpEmail.subject = options.subject;
-            sendSmtpEmail.htmlContent = options.htmlContent;
-            sendSmtpEmail.sender = {
-                name: "CLIRDEC:PRESENCE",
-                email: process.env.FROM_EMAIL || "noreply@clirdec-presence.com",
-            };
-            sendSmtpEmail.to = [{ email: options.to }];
-            sendSmtpEmail.textContent = options.textContent;
-            const result = await this.apiInstance.sendTransacEmail(sendSmtpEmail);
-            console.log(`Email sent successfully to ${options.to}: ${result.response.statusCode}`);
-            return true;
-        }
-        catch (error) {
-            console.error("Failed to send email:", error);
-            return false;
-        }
+        console.log(`Email sending disabled: would send to ${options.to} with subject "${options.subject}"`);
+        return false;
     }
     async sendAbsenceNotification(parentEmail, studentName, subjectName, date) {
         const subject = `Student Absence Alert - ${studentName}`;
@@ -294,4 +260,4 @@ class EmailService {
         });
     }
 }
-exports.emailService = new EmailService();
+export const emailService = new EmailService();
