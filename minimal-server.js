@@ -2,6 +2,10 @@ const express = require("express");
 const app = express();
 
 console.log("🚀 Starting minimal CLIRDEC:PRESENCE server...");
+console.log("Environment variables:");
+console.log("- PORT:", process.env.PORT);
+console.log("- NODE_ENV:", process.env.NODE_ENV);
+console.log("- DATABASE_URL:", process.env.DATABASE_URL ? "SET" : "NOT SET");
 
 // Basic middleware
 app.use(express.json());
@@ -39,12 +43,15 @@ app.use((err, req, res, next) => {
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
-app
+console.log(`Attempting to listen on port ${PORT}...`);
+
+const server = app
   .listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Minimal server listening on port ${PORT}`);
+    console.log(`🚀 Minimal server successfully listening on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🔧 Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`🌍 Bound to all interfaces`);
+    console.log(`Server address: ${server.address()}`);
   })
   .on("error", (error) => {
     console.error("❌ Failed to start minimal server:", error);
