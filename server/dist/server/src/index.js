@@ -65,7 +65,26 @@ if (!fs.existsSync(publicPath)) {
 app.use(express.static(publicPath));
 app.use("/api", routes);
 app.get("/forgot-password", (req, res) => {
-    res.sendFile(path.join(publicPath, "index.html"));
+    if (fs.existsSync(path.join(publicPath, "index.html"))) {
+        res.sendFile(path.join(publicPath, "index.html"));
+    }
+    else {
+        res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Forgot Password</title>
+        </head>
+        <body>
+          <h1>Forgot Password Page</h1>
+          <p>Index.html not found at: ${path.join(publicPath, "index.html")}</p>
+          <p>Public path: ${publicPath}</p>
+          <p>Working directory: ${process.cwd()}</p>
+          <p>__dirname: ${__dirname}</p>
+        </body>
+      </html>
+    `);
+    }
 });
 app.get("/reset-password", (req, res) => {
     res.sendFile(path.join(publicPath, "index.html"));
