@@ -90,7 +90,7 @@ app.use(
 );
 
 // Serve static files from client build
-const publicPath = path.join(__dirname, "../../public");
+const publicPath = path.join(__dirname, "../../../public");
 console.log("Serving static files from:", publicPath);
 
 // Ensure public directory exists

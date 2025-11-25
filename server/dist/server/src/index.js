@@ -56,7 +56,7 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000,
     },
 }));
-const publicPath = path.join(__dirname, "../../public");
+const publicPath = path.join(__dirname, "../../../public");
 console.log("Serving static files from:", publicPath);
 if (!fs.existsSync(publicPath)) {
     fs.mkdirSync(publicPath, { recursive: true });

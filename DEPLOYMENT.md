@@ -46,7 +46,7 @@ In Railway dashboard, go to "Variables" and add:
 ```env
 DATABASE_URL=${{ RAILWAY_POSTGRESQL_URL }}
 BREVO_API_KEY=your_brevo_api_key
-FROM_EMAIL=matt.feria@clsu2.edu.ph
+FROM_EMAIL=clirdecpresence@gmail.com
 NODE_ENV=production
 SESSION_SECRET=your-32-character-secret-here
 ```
@@ -151,7 +151,7 @@ DATABASE_URL=postgresql://user:password@host:port/database
 
 # Email Service
 BREVO_API_KEY=your_brevo_api_key
-FROM_EMAIL=matt.feria@clsu2.edu.ph
+FROM_EMAIL=matclirdecpresence@gmail.com
 
 # Application
 NODE_ENV=production
