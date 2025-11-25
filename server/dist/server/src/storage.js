@@ -42,41 +42,14 @@ const postgres_1 = __importDefault(require("postgres"));
 const schema = __importStar(require("./schema.js"));
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-    console.warn("⚠️ DATABASE_URL environment variable not set - database operations will fail");
+    console.error("❌ DATABASE_URL environment variable is required but not set");
+    throw new Error("DATABASE_URL environment variable is required");
 }
-let client = null;
-let dbInstance = null;
-function getClient() {
-    if (!client) {
-        if (!connectionString) {
-            throw new Error("DATABASE_URL environment variable is required");
-        }
-        try {
-            client = (0, postgres_1.default)(connectionString, {
-                prepare: false,
-                max: 10,
-                idle_timeout: 20,
-                connect_timeout: 10,
-                onnotice: () => { },
-            });
-        }
-        catch (error) {
-            console.error("Failed to create database client:", error);
-            throw error;
-        }
-    }
-    return client;
-}
-function getDb() {
-    if (!dbInstance) {
-        const client = getClient();
-        dbInstance = (0, postgres_js_1.drizzle)(client, { schema });
-    }
-    return dbInstance;
-}
-exports.db = new Proxy({}, {
-    get(target, prop) {
-        const db = getDb();
-        return db[prop];
-    },
+const client = (0, postgres_1.default)(connectionString, {
+    prepare: false,
+    max: 10,
+    idle_timeout: 20,
+    connect_timeout: 10,
+    onnotice: () => { },
 });
+exports.db = (0, postgres_js_1.drizzle)(client, { schema });

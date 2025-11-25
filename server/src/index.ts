@@ -136,24 +136,13 @@ app.get("/health", async (req, res) => {
     healthStatus.emailService = "not_configured";
   }
 
-  // For production deployment, be very lenient with health checks
-  // The app should be considered healthy if it's running, regardless of service status
+  // For production deployment, be more lenient with health checks
+  // The app should be considered healthy if it's running, even if services are down
   const isProduction = process.env.NODE_ENV === "production";
   const isHealthy = isProduction
     ? true // In production, app is healthy if it's running
     : healthStatus.database === "connected" &&
       healthStatus.emailService !== "error";
-
-  // In Railway deployment, always return healthy for the first few checks
-  // to allow the app to stabilize
-  if (isProduction && !global.railwayHealthCheckCount) {
-    global.railwayHealthCheckCount = 0;
-  }
-  if (isProduction && global.railwayHealthCheckCount < 3) {
-    global.railwayHealthCheckCount++;
-    healthStatus.status = "ok";
-    return res.status(200).json(healthStatus);
-  }
 
   healthStatus.status = isHealthy ? "ok" : "degraded";
 
@@ -286,49 +275,38 @@ console.log(
   `🔧 Starting server with PORT=${PORT}, NODE_ENV=${process.env.NODE_ENV}`
 );
 
-server
-  .listen(PORT, async () => {
-    console.log(`🚀 Server successfully listening on port ${PORT}`);
-    console.log(`🌐 WebSocket server ready`);
-    console.log(`📊 Health check available at http://localhost:${PORT}/health`);
-    console.log(`🔧 Environment: ${process.env.NODE_ENV || "development"}`);
-    console.log(`🌍 Server bound to all interfaces`);
+server.listen(PORT, async () => {
+  console.log(`🚀 Server successfully listening on port ${PORT}`);
+  console.log(`🌐 WebSocket server ready`);
+  console.log(`📊 Health check available at http://localhost:${PORT}/health`);
+  console.log(`🔧 Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`🌍 Server bound to all interfaces`);
 
-    // Test database connection on startup (non-blocking)
-    console.log("🔌 Testing database connection...");
-    checkDatabaseConnection()
-      .then(() => {
-        console.log("📊 Logging table counts...");
-        return logTableCounts();
-      })
-      .catch((error) => {
-        console.error("❌ Database initialization failed:", error);
-        console.log(
-          "⚠️ Server will continue running without database connectivity"
-        );
-      });
+  // Test database connection on startup (non-blocking)
+  console.log("🔌 Testing database connection...");
+  checkDatabaseConnection()
+    .then(() => {
+      console.log("📊 Logging table counts...");
+      return logTableCounts();
+    })
+    .catch((error) => {
+      console.error("❌ Database initialization failed:", error);
+    });
 
-    // Start session scheduler (non-blocking)
-    setTimeout(() => {
-      try {
-        console.log("⏰ Starting session scheduler...");
-        sessionScheduler.start();
-        console.log("✅ Session scheduler started successfully");
-      } catch (error) {
-        console.error("❌ Failed to start session scheduler:", error);
-        console.log(
-          "⚠️ Server will continue running without session scheduler"
-        );
-      }
-    }, 2000); // Start scheduler 2 seconds after server starts
+  // Start session scheduler (non-blocking)
+  setTimeout(() => {
+    try {
+      console.log("⏰ Starting session scheduler...");
+      sessionScheduler.start();
+      console.log("✅ Session scheduler started successfully");
+    } catch (error) {
+      console.error("❌ Failed to start session scheduler:", error);
+      // Don't crash the app if scheduler fails to start
+    }
+  }, 2000); // Start scheduler 2 seconds after server starts
 
-    console.log("🎉 Server startup complete!");
-  })
-  .on("error", (error) => {
-    console.error("❌ Failed to start server:", error);
-    console.error("💥 Server startup failed - exiting");
-    process.exit(1);
-  });
+  console.log("🎉 Server startup complete!");
+});
 
 // Handle uncaught exceptions
 process.on("uncaughtException", (error) => {
