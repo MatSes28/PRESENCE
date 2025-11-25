@@ -30,6 +30,15 @@ const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
+// Health check endpoint (before other middleware)
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    message: "Server is healthy",
+  });
+});
+
 // Security middleware
 app.use(helmet());
 app.use(
@@ -76,48 +85,6 @@ app.use("/api", routes);
 // Catch all handler: send back React's index.html file for client-side routing
 app.get("*", (req, res) => {
   res.sendFile("/app/server/public/index.html");
-});
-
-// Health check endpoint
-app.get("/health", async (req, res) => {
-  const healthStatus: any = {
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    database: isDatabaseAvailable ? "connected" : "disconnected",
-    emailService: process.env.BREVO_API_KEY ? "configured" : "not_configured",
-  };
-
-  // Test database connection if it was previously available
-  if (isDatabaseAvailable) {
-    try {
-      await db.execute(sql`SELECT 1`);
-    } catch (error) {
-      isDatabaseAvailable = false;
-      healthStatus.database = "disconnected";
-      healthStatus.database_error =
-        error instanceof Error ? error.message : "Unknown error";
-    }
-  }
-
-  // Test email service
-  if (process.env.BREVO_API_KEY) {
-    try {
-      const { emailService } = await import("./services/emailService.js");
-      // We can't easily test the actual API without sending an email,
-      // but we can check if the service is initialized
-      healthStatus.emailService = "initialized";
-    } catch (error) {
-      healthStatus.emailService = "error";
-      healthStatus.emailService_error =
-        error instanceof Error ? error.message : "Unknown error";
-    }
-  }
-
-  // For Railway deployment, be more lenient with health checks
-  const isHealthy = true; // Always return healthy for Railway
-  healthStatus.status = isHealthy ? "ok" : "degraded";
-
-  res.status(isHealthy ? 200 : 503).json(healthStatus);
 });
 
 // Setup WebSocket
