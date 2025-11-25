@@ -33,6 +33,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Trust proxy for accurate IP detection behind reverse proxies
+app.set("trust proxy", true);
+
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
