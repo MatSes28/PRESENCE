@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import rateLimit from "express-rate-limit";
@@ -60,9 +61,16 @@ app.use(limiter);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Session configuration
+// Session configuration with PostgreSQL store
+const PgSession = connectPgSimple(session);
+
 app.use(
   session({
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      tableName: "user_sessions", // Will be created automatically
+      createTableIfMissing: true,
+    }),
     secret:
       process.env.SESSION_SECRET || "fallback-secret-change-in-production",
     resave: false,
