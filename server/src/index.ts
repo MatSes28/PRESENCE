@@ -69,13 +69,22 @@ app.use(
 
 // Serve static files from client build
 app.use(express.static(path.join(process.cwd(), "public")));
+// Fallback for production: use absolute path
+if (!require("fs").existsSync(path.join(process.cwd(), "public"))) {
+  app.use(express.static("/app/server/public"));
+}
 
 // Routes
 app.use("/api", routes);
 
 // Catch all handler: send back React's index.html file for client-side routing
 app.get("*", (req, res) => {
-  res.sendFile(path.join(process.cwd(), "public/index.html"));
+  const indexPath = path.join(process.cwd(), "public/index.html");
+  if (require("fs").existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.sendFile("/app/server/public/index.html");
+  }
 });
 
 // Health check endpoint

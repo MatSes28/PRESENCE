@@ -49,8 +49,8 @@ RUN npm install
 RUN npx vite build
 
 # Copy built client to server public directory
-RUN mkdir -p ../server/public
-RUN cp -r dist/* ../server/public/
+RUN mkdir -p /app/server/public
+RUN cp -r dist/* /app/server/public/
 
 # Build the server
 WORKDIR /app/server
