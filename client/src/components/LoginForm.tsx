@@ -164,7 +164,7 @@ export const LoginForm = () => {
                 <button
                   type="button"
                   className="text-teal-400 hover:text-teal-300 underline"
-                  onClick={() => (window.location.href = "/forgot-password")}
+                  onClick={() => setLocation("/forgot-password")}
                 >
                   Forgot your password?
                 </button>

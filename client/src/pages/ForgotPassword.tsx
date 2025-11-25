@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { api } from "../lib/api";
 
 export const ForgotPassword = () => {
@@ -6,6 +7,7 @@ export const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [, setLocation] = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,7 +125,7 @@ export const ForgotPassword = () => {
               <button
                 type="button"
                 className="text-teal-400 hover:text-teal-300 text-sm"
-                onClick={() => window.history.back()}
+                onClick={() => setLocation("/login")}
               >
                 ← Back to Login
               </button>
