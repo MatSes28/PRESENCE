@@ -49,7 +49,9 @@ ENV PORT=8080
 # Expose port
 EXPOSE 8080
 
-# Railway handles healthchecks automatically - no need for HEALTHCHECK directive
+# Health check that actually tests the service
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+  CMD curl -f http://127.0.0.1:8080/health || exit 1
 
 # Build the client
 WORKDIR /app/server/client

@@ -20,38 +20,34 @@ console.log("- Platform:", process.platform);
 console.log(`Parsed PORT: ${PORT} (from env: ${process.env.PORT})`);
 console.log(`Attempting to listen on port ${PORT}...`);
 
-// Railway-specific logging
-if (process.env.RAILWAY_ENVIRONMENT) {
-  console.log("🌐 Running on Railway");
-  console.log("- RAILWAY_ENVIRONMENT:", process.env.RAILWAY_ENVIRONMENT);
-  console.log("- RAILWAY_PROJECT_ID:", process.env.RAILWAY_PROJECT_ID);
-}
-
 const server = http.createServer((req, res) => {
   console.log(`Request received: ${req.method} ${req.url}`);
   console.log("Request from:", req.socket.remoteAddress);
 
-  // Handle all requests with a simple response for Railway compatibility
-  res.writeHead(200, {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  });
-
-  res.end(
-    JSON.stringify({
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      message: "CLIRDEC:PRESENCE static server is running",
-      environment: process.env.NODE_ENV || "unknown",
-      port: PORT,
-      request_url: req.url,
-      remote_address: req.socket.remoteAddress,
-      railway_env: process.env.RAILWAY_ENVIRONMENT || "not_railway",
-      uptime: process.uptime(),
-    })
-  );
+  // Simple health check
+  if (req.url === "/health" || req.url === "/") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        message: "Static server is running",
+        environment: process.env.NODE_ENV || "unknown",
+        port: process.env.PORT || "unknown",
+        request_url: req.url,
+        remote_address: req.socket.remoteAddress,
+      })
+    );
+  } else {
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        status: "not_found",
+        message: "Endpoint not found",
+        timestamp: new Date().toISOString(),
+      })
+    );
+  }
 });
 
 server.listen(PORT, "0.0.0.0", () => {
