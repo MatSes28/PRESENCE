@@ -132,12 +132,18 @@ app.get("/health", async (req, res) => {
         healthStatus.emailService = "not_configured";
     }
     const isProduction = process.env.NODE_ENV === "production";
-    if (isProduction) {
+    const isHealthy = isProduction
+        ? true
+        : healthStatus.database === "connected" &&
+            healthStatus.emailService !== "error";
+    if (isProduction && !global.railwayHealthCheckCount) {
+        global.railwayHealthCheckCount = 0;
+    }
+    if (isProduction && global.railwayHealthCheckCount < 3) {
+        global.railwayHealthCheckCount++;
         healthStatus.status = "ok";
         return res.status(200).json(healthStatus);
     }
-    const isHealthy = healthStatus.database === "connected" &&
-        healthStatus.emailService !== "error";
     healthStatus.status = isHealthy ? "ok" : "degraded";
     res.status(isHealthy ? 200 : 503).json(healthStatus);
 });
@@ -223,7 +229,7 @@ async function logTableCounts() {
             console.log(`  ${name}: ${count} records`);
         }
         catch (error) {
-            console.log(`  ${name}: Not available - ${error instanceof Error ? error.message : "Unknown error"}`);
+            console.log(`  ${name}: ERROR - ${error instanceof Error ? error.message : "Unknown error"}`);
         }
     }
 }
@@ -250,19 +256,14 @@ server
         console.log("⚠️ Server will continue running without database connectivity");
     });
     setTimeout(() => {
-        if (isDatabaseAvailable) {
-            try {
-                console.log("⏰ Starting session scheduler...");
-                scheduler_js_1.sessionScheduler.start();
-                console.log("✅ Session scheduler started successfully");
-            }
-            catch (error) {
-                console.error("❌ Failed to start session scheduler:", error);
-                console.log("⚠️ Server will continue running without session scheduler");
-            }
+        try {
+            console.log("⏰ Starting session scheduler...");
+            scheduler_js_1.sessionScheduler.start();
+            console.log("✅ Session scheduler started successfully");
         }
-        else {
-            console.log("⏰ Skipping session scheduler - database not available");
+        catch (error) {
+            console.error("❌ Failed to start session scheduler:", error);
+            console.log("⚠️ Server will continue running without session scheduler");
         }
     }, 2000);
     console.log("🎉 Server startup complete!");

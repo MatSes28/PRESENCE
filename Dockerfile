@@ -20,8 +20,10 @@ COPY shared/ ./shared/
 WORKDIR /app/server
 RUN npm install
 
-# Copy shared source files to root (needed for imports)
-COPY shared/ ./shared/
+# Copy shared source files to server (no build needed for TypeScript types)
+WORKDIR /app
+RUN mkdir -p server/shared && cp -r shared/* server/shared/
+WORKDIR /app/server
 
 # Copy client source code
 COPY client/ ./client/
@@ -29,10 +31,8 @@ COPY client/ ./client/
 # Copy database setup script
 COPY database_setup.sql ./
 
-# Copy main server files
-COPY server/src/index.ts ./server/src/
-COPY server/src/routes.ts ./server/src/
-COPY server/src/storage.ts ./server/src/
+# Copy static server for testing
+COPY static-server.js ./
 
 # Install PostgreSQL client for database setup
 RUN apk add --no-cache postgresql-client curl
@@ -67,11 +67,8 @@ WORKDIR /app/server
 RUN npm install
 RUN npm run build
 
-# Copy shared directory to server for runtime imports
-RUN cp -r ../shared ./
-
 # Go back to root directory
 WORKDIR /app
 
-# Start the main application
-CMD cd server && npm start
+# Start the static test application
+CMD node static-server.js

@@ -139,17 +139,21 @@ app.get("/health", async (req, res) => {
   // For production deployment, be very lenient with health checks
   // The app should be considered healthy if it's running, regardless of service status
   const isProduction = process.env.NODE_ENV === "production";
+  const isHealthy = isProduction
+    ? true // In production, app is healthy if it's running
+    : healthStatus.database === "connected" &&
+      healthStatus.emailService !== "error";
 
-  // Always return healthy in production - Railway should consider the app healthy if it's responding
-  if (isProduction) {
+  // In Railway deployment, always return healthy for the first few checks
+  // to allow the app to stabilize
+  if (isProduction && !global.railwayHealthCheckCount) {
+    global.railwayHealthCheckCount = 0;
+  }
+  if (isProduction && global.railwayHealthCheckCount < 3) {
+    global.railwayHealthCheckCount++;
     healthStatus.status = "ok";
     return res.status(200).json(healthStatus);
   }
-
-  // In development, check actual service status
-  const isHealthy =
-    healthStatus.database === "connected" &&
-    healthStatus.emailService !== "error";
 
   healthStatus.status = isHealthy ? "ok" : "degraded";
 
@@ -262,9 +266,8 @@ async function logTableCounts() {
       const count = result[0]?.count || 0;
       console.log(`  ${name}: ${count} records`);
     } catch (error) {
-      // Don't fail if table doesn't exist or query fails
       console.log(
-        `  ${name}: Not available - ${
+        `  ${name}: ERROR - ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
@@ -305,21 +308,17 @@ server
         );
       });
 
-    // Start session scheduler (non-blocking) - only if database is available
+    // Start session scheduler (non-blocking)
     setTimeout(() => {
-      if (isDatabaseAvailable) {
-        try {
-          console.log("⏰ Starting session scheduler...");
-          sessionScheduler.start();
-          console.log("✅ Session scheduler started successfully");
-        } catch (error) {
-          console.error("❌ Failed to start session scheduler:", error);
-          console.log(
-            "⚠️ Server will continue running without session scheduler"
-          );
-        }
-      } else {
-        console.log("⏰ Skipping session scheduler - database not available");
+      try {
+        console.log("⏰ Starting session scheduler...");
+        sessionScheduler.start();
+        console.log("✅ Session scheduler started successfully");
+      } catch (error) {
+        console.error("❌ Failed to start session scheduler:", error);
+        console.log(
+          "⚠️ Server will continue running without session scheduler"
+        );
       }
     }, 2000); // Start scheduler 2 seconds after server starts
 
