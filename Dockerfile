@@ -29,8 +29,8 @@ COPY client/ ./client/
 # Copy database setup script
 COPY database_setup.sql ./
 
-# Copy static server for testing
-COPY static-server.js ./
+# Copy Railway-compatible server
+COPY railway-server.js ./
 
 # Copy main server files
 COPY server/src/index.ts ./server/src/
@@ -43,11 +43,11 @@ RUN apk add --no-cache postgresql-client curl
 # Skip database setup during build - will be handled at runtime
 # RUN psql "${DATABASE_URL}" -f database_setup.sql 2>/dev/null || echo "Database setup completed or already exists"
 
-# Set default port
-ENV PORT=8080
+# Set default port (Railway will override this)
+ENV PORT=3000
 
 # Expose port
-EXPOSE 8080
+EXPOSE 3000
 
 # Railway handles healthchecks automatically - no need for HEALTHCHECK directive
 
@@ -74,5 +74,5 @@ RUN cp -r ../shared ./
 # Go back to root directory
 WORKDIR /app
 
-# Start the static test application for Railway deployment testing
-CMD node static-server.js
+# Start the Railway-compatible Express server
+CMD node railway-server.js
