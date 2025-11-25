@@ -77,14 +77,16 @@ app.use(
 );
 
 // Serve static files from client build
-app.use(express.static(path.join(__dirname, "../../public")));
+const publicPath = "/app/server/public";
+console.log("Serving static files from:", publicPath);
+app.use(express.static(publicPath));
 
 // Routes
 app.use("/api", routes);
 
 // Catch all handler: send back React's index.html file for client-side routing
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../../public/index.html"));
+  res.sendFile(path.join(publicPath, "index.html"));
 });
 
 // Setup WebSocket
