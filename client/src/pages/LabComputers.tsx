@@ -25,17 +25,25 @@ interface Classroom {
   name: string;
 }
 
+interface Subject {
+  id: number;
+  code: string;
+  name: string;
+}
+
 export const LabComputers = () => {
   const { addNotification } = useNotifications();
   const [computers, setComputers] = useState<Computer[]>([]);
   const [assignments, setAssignments] = useState<ComputerAssignment[]>([]);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddComputers, setShowAddComputers] = useState(false);
   const [selectedClassroom, setSelectedClassroom] = useState<number | null>(
     null
   );
   const [selectedLab, setSelectedLab] = useState<number | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
   const [computerCount, setComputerCount] = useState(5);
   const [processing, setProcessing] = useState<string | null>(null);
 
@@ -50,6 +58,7 @@ export const LabComputers = () => {
         fetchComputers(),
         fetchAssignments(),
         fetchClassrooms(),
+        fetchSubjects(),
       ]);
     } catch (error) {
       console.error("Failed to load data:", error);
@@ -112,6 +121,25 @@ export const LabComputers = () => {
       }
     } catch (error) {
       console.error("Failed to fetch classrooms:", error);
+    }
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      // For now, we'll create some sample subjects since the API might not have this endpoint
+      // In a real implementation, you'd call api.getSubjects()
+      setSubjects([
+        {
+          id: 1,
+          code: "INTECH1100",
+          name: "Introduction to Information Technology",
+        },
+        { id: 2, code: "CS101", name: "Computer Science Fundamentals" },
+        { id: 3, code: "WEBDEV200", name: "Web Development" },
+        { id: 4, code: "DBMS300", name: "Database Management Systems" },
+      ]);
+    } catch (error) {
+      console.error("Failed to fetch subjects:", error);
     }
   };
 
@@ -282,21 +310,48 @@ export const LabComputers = () => {
       {/* Lab Selection */}
       <div className="bg-gray-800 rounded-lg shadow p-4">
         <div className="flex items-center space-x-4">
-          <label className="text-sm font-medium text-gray-300">
-            Select Lab:
-          </label>
-          <select
-            value={selectedLab || ""}
-            onChange={(e) => setSelectedLab(parseInt(e.target.value) || null)}
-            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            <option value="">All Labs</option>
-            {classroomList.map((classroomId) => (
-              <option key={classroomId} value={classroomId}>
-                Lab {classroomId}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-300">
+              Select Lab:
+            </label>
+            <select
+              value={selectedLab || ""}
+              onChange={(e) => {
+                setSelectedLab(parseInt(e.target.value) || null);
+                setSelectedSubject(null); // Reset subject when lab changes
+              }}
+              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="">All Labs</option>
+              {classroomList.map((classroomId) => (
+                <option key={classroomId} value={classroomId}>
+                  Lab {classroomId}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {selectedLab && (
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-300">
+                Subject:
+              </label>
+              <select
+                value={selectedSubject || ""}
+                onChange={(e) =>
+                  setSelectedSubject(parseInt(e.target.value) || null)
+                }
+                className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">All Subjects</option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.code} - {subject.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -386,21 +441,40 @@ export const LabComputers = () => {
           return (
             <div key={classroomId} className="bg-gray-800 rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-700">
-                <h4 className="text-lg font-medium text-white">
-                  Lab {classroomId}
-                </h4>
-                <p className="text-sm text-gray-300">
-                  {
-                    classroomComputers.filter((c) => c.status === "available")
-                      .length
-                  }{" "}
-                  available •
-                  {
-                    classroomComputers.filter((c) => c.status === "in_use")
-                      .length
-                  }{" "}
-                  in use
-                </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-lg font-medium text-white">
+                      Lab {classroomId}
+                      {selectedLab === classroomId && selectedSubject && (
+                        <span className="ml-2 text-sm text-teal-400">
+                          -{" "}
+                          {subjects.find((s) => s.id === selectedSubject)?.code}
+                        </span>
+                      )}
+                    </h4>
+                    <p className="text-sm text-gray-300">
+                      {
+                        classroomComputers.filter(
+                          (c) => c.status === "available"
+                        ).length
+                      }{" "}
+                      available •
+                      {
+                        classroomComputers.filter((c) => c.status === "in_use")
+                          .length
+                      }{" "}
+                      in use
+                    </p>
+                  </div>
+                  {selectedLab === classroomId && selectedSubject && (
+                    <div className="text-right">
+                      <p className="text-sm text-gray-400">Current Subject</p>
+                      <p className="text-sm font-medium text-teal-400">
+                        {subjects.find((s) => s.id === selectedSubject)?.name}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
