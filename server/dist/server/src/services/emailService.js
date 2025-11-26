@@ -1,12 +1,49 @@
+import pkg from "@getbrevo/brevo";
+const { TransactionalEmailsApi, SendSmtpEmail, ApiClient } = pkg;
 class EmailService {
     apiInstance;
     constructor() {
-        console.warn("⚠️  Email service disabled due to configuration issues");
-        this.apiInstance = null;
+        const apiKey = process.env.BREVO_API_KEY;
+        const fromEmail = process.env.FROM_EMAIL;
+        if (!apiKey || !fromEmail) {
+            console.warn("⚠️  Email service disabled due to missing configuration (BREVO_API_KEY or FROM_EMAIL)");
+            this.apiInstance = null;
+            return;
+        }
+        try {
+            const apiClient = ApiClient.instance;
+            apiClient.authentications["api-key"].apiKey = apiKey;
+            this.apiInstance = new TransactionalEmailsApi();
+            console.log("✅ Email service initialized successfully");
+        }
+        catch (error) {
+            console.error("❌ Failed to initialize email service:", error);
+            this.apiInstance = null;
+        }
     }
     async sendEmail(options) {
-        console.log(`Email sending disabled: would send to ${options.to} with subject "${options.subject}"`);
-        return false;
+        if (!this.apiInstance) {
+            console.log(`Email sending disabled: would send to ${options.to} with subject "${options.subject}"`);
+            return false;
+        }
+        try {
+            const sendSmtpEmail = new SendSmtpEmail();
+            sendSmtpEmail.subject = options.subject;
+            sendSmtpEmail.htmlContent = options.htmlContent;
+            sendSmtpEmail.textContent = options.textContent;
+            sendSmtpEmail.sender = {
+                email: process.env.FROM_EMAIL,
+                name: "CLIRDEC:PRESENCE",
+            };
+            sendSmtpEmail.to = [{ email: options.to }];
+            const result = await this.apiInstance.sendTransacEmail(sendSmtpEmail);
+            console.log(`✅ Email sent successfully to ${options.to}`);
+            return true;
+        }
+        catch (error) {
+            console.error(`❌ Failed to send email to ${options.to}:`, error);
+            return false;
+        }
     }
     async sendAbsenceNotification(parentEmail, studentName, subjectName, date) {
         const subject = `Student Absence Alert - ${studentName}`;

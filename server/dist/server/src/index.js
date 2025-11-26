@@ -17,6 +17,7 @@ import { users, students, classrooms, subjects, schedules, classSessions, attend
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
+app.set("trust proxy", 1);
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 app.get("/health", (req, res) => {
@@ -72,9 +73,13 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false,
+        secure: process.env.NODE_ENV === "production" ||
+            !!process.env.RAILWAY_ENVIRONMENT,
         httpOnly: true,
-        sameSite: "lax",
+        sameSite: process.env.NODE_ENV === "production" ||
+            !!process.env.RAILWAY_ENVIRONMENT
+            ? "none"
+            : "lax",
         maxAge: 24 * 60 * 60 * 1000,
     },
 }));
@@ -86,17 +91,6 @@ if (!fs.existsSync(publicPath)) {
 }
 app.use(express.static(publicPath));
 app.use("/api", routes);
-app.get("/forgot-password", (req, res) => {
-    console.log("Forgot password route hit!");
-    res.json({
-        message: "Server is running - OUR SERVER RESPONDED",
-        path: "/forgot-password",
-        timestamp: new Date().toISOString(),
-    });
-});
-app.get("/reset-password", (req, res) => {
-    res.sendFile(path.join(publicPath, "index.html"));
-});
 app.get("*", (req, res) => {
     res.sendFile(path.join(publicPath, "index.html"));
 });
