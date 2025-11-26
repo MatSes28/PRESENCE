@@ -12,18 +12,23 @@ COPY shared/package*.json ./shared/
 # Install dependencies for all workspaces
 RUN npm install
 
-# Copy server source code
+# Copy source code
 COPY server/ ./server/
 COPY shared/ ./shared/
 COPY client/ ./client/
+
+# Build shared package first
+WORKDIR /app/shared
+RUN npm install
+RUN npm run build
 
 # Install server dependencies
 WORKDIR /app/server
 RUN npm install
 
-# Copy shared source files to server (no build needed for TypeScript types)
+# Copy built shared files to server
 WORKDIR /app
-RUN mkdir -p server/shared && cp -r shared/* server/shared/
+RUN mkdir -p server/shared && cp -r shared/dist/* server/shared/
 WORKDIR /app/server
 
 # Copy database setup script
