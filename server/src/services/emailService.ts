@@ -1,5 +1,5 @@
 import pkg from "@getbrevo/brevo";
-const { TransactionalEmailsApi, SendSmtpEmail } = pkg;
+const { TransactionalEmailsApi, SendSmtpEmail, ApiClient } = pkg;
 
 interface EmailOptions {
   to: string;
@@ -24,8 +24,11 @@ class EmailService {
     }
 
     try {
+      // Configure API client with API key
+      const apiClient = ApiClient.instance;
+      apiClient.authentications["api-key"].apiKey = apiKey;
+
       this.apiInstance = new TransactionalEmailsApi();
-      this.apiInstance.setApiKey(TransactionalEmailsApi.ApiKeys.apiKey, apiKey);
       console.log("✅ Email service initialized successfully");
     } catch (error) {
       console.error("❌ Failed to initialize email service:", error);
