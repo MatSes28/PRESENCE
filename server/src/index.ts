@@ -131,20 +131,7 @@ app.use(express.static(publicPath));
 // Routes
 app.use("/api", routes);
 
-// Specific routes for client-side navigation
-app.get("/forgot-password", (req, res) => {
-  console.log("Forgot password route hit!");
-  // Return the exact JSON the user is seeing to test if our server is reached
-  res.json({
-    message: "Server is running - OUR SERVER RESPONDED",
-    path: "/forgot-password",
-    timestamp: new Date().toISOString(),
-  });
-});
-
-app.get("/reset-password", (req, res) => {
-  res.sendFile(path.join(publicPath, "index.html"));
-});
+// Removed specific routes for client-side navigation - let React handle routing
 
 // Catch all handler: send back React's index.html file for client-side routing
 app.get("*", (req, res) => {
