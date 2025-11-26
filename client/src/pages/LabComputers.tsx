@@ -202,6 +202,66 @@ export const LabComputers = () => {
     e.dataTransfer.dropEffect = "move";
   };
 
+  const saveSession = async () => {
+    if (!selectedLab || !selectedSubject) return;
+
+    setProcessing("save-session");
+    try {
+      // For now, we'll simulate saving the session
+      // In a real implementation, you'd call an API to save session data
+      addNotification({
+        type: "success",
+        title: "Session Saved",
+        message: `${
+          subjects.find((s) => s.id === selectedSubject)?.code
+        } session assignments saved successfully`,
+      });
+    } catch (error) {
+      console.error("Failed to save session:", error);
+      addNotification({
+        type: "error",
+        title: "Save Failed",
+        message: "Failed to save session assignments",
+      });
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const assignNextStudents = async (count: number) => {
+    const availableComputers = getComputersByClassroom(selectedLab!)
+      .filter((c) => c.status === "available")
+      .slice(0, count);
+
+    if (availableComputers.length === 0) {
+      addNotification({
+        type: "warning",
+        title: "No Available Computers",
+        message: "All computers are currently occupied",
+      });
+      return;
+    }
+
+    setProcessing("bulk-assign");
+    try {
+      // Simulate bulk assignment
+      addNotification({
+        type: "success",
+        title: "Bulk Assignment",
+        message: `Assigned ${availableComputers.length} students to available computers`,
+      });
+      fetchAssignments();
+    } catch (error) {
+      addNotification({
+        type: "error",
+        title: "Assignment Failed",
+        message: "Failed to assign students",
+      });
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   const addComputers = async () => {
     if (!selectedClassroom) {
       addNotification({
@@ -432,43 +492,100 @@ export const LabComputers = () => {
         </div>
       </div>
 
-      {/* Student Pool for Drag & Drop */}
-      {selectedLab && (
-        <div className="bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h4 className="text-lg font-medium text-white">
-                Student Pool - Drag to Assign
-              </h4>
-              <p className="text-sm text-gray-400">
-                Drag student names onto available computers below
-              </p>
-            </div>
-            <span className="text-sm text-gray-400">
-              {students.length} students available
-            </span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 max-h-48 overflow-y-auto">
-            {students.slice(0, 24).map((student) => (
-              <div
-                key={student.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, student)}
-                onDragEnd={handleDragEnd}
-                className="bg-blue-900 hover:bg-blue-800 text-blue-100 px-3 py-2 rounded-lg text-sm font-medium cursor-move transition-colors border border-blue-700 hover:border-blue-600"
-              >
-                <div className="truncate">{student.name}</div>
-                <div className="text-xs text-blue-300 truncate">
-                  {student.studentId}
-                </div>
+      {/* Subject Session Interface */}
+      {selectedLab && selectedSubject ? (
+        <>
+          {/* Session Header */}
+          <div className="bg-gray-800 rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-lg font-medium text-white">
+                  {subjects.find((s) => s.id === selectedSubject)?.code} Session
+                </h4>
+                <p className="text-sm text-gray-400">
+                  {subjects.find((s) => s.id === selectedSubject)?.name}
+                </p>
               </div>
-            ))}
+              <div className="flex items-center space-x-4">
+                <div className="text-right">
+                  <p className="text-sm text-gray-400">Lab {selectedLab}</p>
+                  <p className="text-sm font-medium text-teal-400">
+                    {new Date().toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  onClick={saveSession}
+                  disabled={processing === "save-session"}
+                  className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium"
+                >
+                  {processing === "save-session" ? "Saving..." : "Save Session"}
+                </button>
+              </div>
+            </div>
           </div>
-          {students.length > 24 && (
-            <p className="text-xs text-gray-500 mt-2">
-              Showing first 24 students. Scroll for more.
-            </p>
-          )}
+
+          {/* Student Pool for Drag & Drop */}
+          <div className="bg-gray-800 rounded-lg shadow p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h4 className="text-lg font-medium text-white">
+                  Student Pool - Drag to Assign
+                </h4>
+                <p className="text-sm text-gray-400">
+                  Drag student names onto available computers in the lab layout
+                  below
+                </p>
+              </div>
+              <span className="text-sm text-gray-400">
+                {students.length} students available
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 max-h-48 overflow-y-auto">
+              {students.slice(0, 24).map((student) => (
+                <div
+                  key={student.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, student)}
+                  onDragEnd={handleDragEnd}
+                  className="bg-blue-900 hover:bg-blue-800 text-blue-100 px-3 py-2 rounded-lg text-sm font-medium cursor-move transition-colors border border-blue-700 hover:border-blue-600"
+                >
+                  <div className="truncate">{student.name}</div>
+                  <div className="text-xs text-blue-300 truncate">
+                    {student.studentId}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {students.length > 24 && (
+              <p className="text-xs text-gray-500 mt-2">
+                Showing first 24 students. Scroll for more.
+              </p>
+            )}
+          </div>
+        </>
+      ) : selectedLab ? (
+        /* Lab selected but no subject */
+        <div className="bg-gray-800 rounded-lg shadow p-6 text-center">
+          <div className="text-6xl mb-4">🎯</div>
+          <h3 className="text-xl font-medium text-white mb-2">
+            Select a Subject to Start Session
+          </h3>
+          <p className="text-gray-400">
+            Choose a subject from the dropdown above to view and manage computer
+            assignments for this lab session.
+          </p>
+        </div>
+      ) : (
+        /* No lab selected */
+        <div className="bg-gray-800 rounded-lg shadow p-6 text-center">
+          <div className="text-6xl mb-4">🏫</div>
+          <h3 className="text-xl font-medium text-white mb-2">
+            Select a Lab to Begin
+          </h3>
+          <p className="text-gray-400">
+            Choose a computer lab from the dropdown above to start managing
+            student assignments.
+          </p>
         </div>
       )}
 
@@ -548,126 +665,267 @@ export const LabComputers = () => {
         })()}
       </div>
 
-      {/* Computer Labs */}
-      {classroomList
-        .filter((classroomId) => !selectedLab || classroomId === selectedLab)
-        .map((classroomId) => {
-          const classroomComputers = getComputersByClassroom(classroomId);
-          if (classroomComputers.length === 0) return null;
+      {/* Lab Layout - Only show when both lab and subject are selected */}
+      {selectedLab && selectedSubject && (
+        <div className="bg-gray-800 rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-700">
+            <h4 className="text-lg font-medium text-white">
+              Lab {selectedLab} - Computer Layout
+            </h4>
+            <p className="text-sm text-gray-300">
+              Drag students from the pool above onto available computer seats
+            </p>
+          </div>
+          <div className="p-6">
+            {/* Quick Actions */}
+            <div className="flex flex-wrap gap-2 mb-6 p-4 bg-gray-900 rounded-lg">
+              <button
+                onClick={() => assignNextStudents(5)}
+                disabled={processing === "bulk-assign"}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium"
+              >
+                {processing === "bulk-assign"
+                  ? "Assigning..."
+                  : "Assign Next 5 Students"}
+              </button>
+              <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium">
+                Random Assignment
+              </button>
+              <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm font-medium">
+                Assign by Row
+              </button>
+              <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium">
+                Release All
+              </button>
+            </div>
 
-          return (
-            <div key={classroomId} className="bg-gray-800 rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-700">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-lg font-medium text-white">
-                      Lab {classroomId}
-                      {selectedLab === classroomId && selectedSubject && (
-                        <span className="ml-2 text-sm text-teal-400">
-                          -{" "}
-                          {subjects.find((s) => s.id === selectedSubject)?.code}
-                        </span>
-                      )}
-                    </h4>
-                    <p className="text-sm text-gray-300">
-                      {
-                        classroomComputers.filter(
-                          (c) => c.status === "available"
-                        ).length
-                      }{" "}
-                      available •
-                      {
-                        classroomComputers.filter((c) => c.status === "in_use")
-                          .length
-                      }{" "}
-                      in use
-                    </p>
-                  </div>
-                  {selectedLab === classroomId && selectedSubject && (
-                    <div className="text-right">
-                      <p className="text-sm text-gray-400">Current Subject</p>
-                      <p className="text-sm font-medium text-teal-400">
-                        {subjects.find((s) => s.id === selectedSubject)?.name}
-                      </p>
-                    </div>
-                  )}
+            {/* Lab Grid Layout - Representing physical arrangement */}
+            <div className="space-y-6">
+              {/* Row 1 (Front) */}
+              <div className="space-y-2">
+                <h5 className="text-sm font-medium text-gray-400 text-center">
+                  Front Row
+                </h5>
+                <div className="grid grid-cols-5 gap-4 justify-center">
+                  {getComputersByClassroom(selectedLab)
+                    .slice(0, 5)
+                    .map((computer) => {
+                      const assignment = getAssignmentForComputer(computer.id);
+                      return (
+                        <div
+                          key={computer.id}
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
+                            draggedStudent && computer.status === "available"
+                              ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
+                              : computer.status === "available"
+                              ? "border-green-500 hover:border-green-400"
+                              : computer.status === "in_use"
+                              ? "border-blue-500"
+                              : "border-yellow-500"
+                          }`}
+                          onDrop={(e) => handleDrop(e, computer.id)}
+                          onDragOver={handleDragOver}
+                        >
+                          <div className="text-center space-y-2">
+                            <div className="text-2xl">
+                              {computer.status === "available"
+                                ? "💻"
+                                : computer.status === "in_use"
+                                ? "👤"
+                                : "🔧"}
+                            </div>
+                            <div className="font-medium text-white text-sm">
+                              {computer.name}
+                            </div>
+                            {assignment ? (
+                              <div className="space-y-1">
+                                <div className="text-blue-400 font-medium text-xs">
+                                  {assignment.studentName}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {assignment.studentId}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-gray-500 text-xs italic">
+                                {computer.status === "available"
+                                  ? "Available"
+                                  : computer.status === "maintenance"
+                                  ? "Maintenance"
+                                  : "Occupied"}
+                              </div>
+                            )}
+                            {computer.status === "in_use" && (
+                              <button
+                                onClick={() => releaseComputer(computer.id)}
+                                disabled={
+                                  processing === `release-${computer.id}`
+                                }
+                                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white px-2 py-1 rounded text-xs font-medium mt-2"
+                              >
+                                {processing === `release-${computer.id}`
+                                  ? "Releasing..."
+                                  : "Release"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {classroomComputers.map((computer) => {
-                    const assignment = getAssignmentForComputer(computer.id);
-                    return (
-                      <div
-                        key={computer.id}
-                        className={`border border-gray-700 rounded-lg p-4 bg-gray-900 transition-colors ${
-                          draggedStudent && computer.status === "available"
-                            ? "border-blue-500 bg-blue-900/20"
-                            : ""
-                        }`}
-                        onDrop={(e) => handleDrop(e, computer.id)}
-                        onDragOver={handleDragOver}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-lg">
-                              {getStatusIcon(computer.status)}
-                            </span>
-                            <span className="font-medium text-white">
+
+              {/* Row 2 (Middle) */}
+              <div className="space-y-2">
+                <h5 className="text-sm font-medium text-gray-400 text-center">
+                  Middle Row
+                </h5>
+                <div className="grid grid-cols-5 gap-4 justify-center">
+                  {getComputersByClassroom(selectedLab)
+                    .slice(5, 10)
+                    .map((computer) => {
+                      const assignment = getAssignmentForComputer(computer.id);
+                      return (
+                        <div
+                          key={computer.id}
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
+                            draggedStudent && computer.status === "available"
+                              ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
+                              : computer.status === "available"
+                              ? "border-green-500 hover:border-green-400"
+                              : computer.status === "in_use"
+                              ? "border-blue-500"
+                              : "border-yellow-500"
+                          }`}
+                          onDrop={(e) => handleDrop(e, computer.id)}
+                          onDragOver={handleDragOver}
+                        >
+                          <div className="text-center space-y-2">
+                            <div className="text-2xl">
+                              {computer.status === "available"
+                                ? "💻"
+                                : computer.status === "in_use"
+                                ? "👤"
+                                : "🔧"}
+                            </div>
+                            <div className="font-medium text-white text-sm">
                               {computer.name}
-                            </span>
+                            </div>
+                            {assignment ? (
+                              <div className="space-y-1">
+                                <div className="text-blue-400 font-medium text-xs">
+                                  {assignment.studentName}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {assignment.studentId}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-gray-500 text-xs italic">
+                                {computer.status === "available"
+                                  ? "Available"
+                                  : computer.status === "maintenance"
+                                  ? "Maintenance"
+                                  : "Occupied"}
+                              </div>
+                            )}
+                            {computer.status === "in_use" && (
+                              <button
+                                onClick={() => releaseComputer(computer.id)}
+                                disabled={
+                                  processing === `release-${computer.id}`
+                                }
+                                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white px-2 py-1 rounded text-xs font-medium mt-2"
+                              >
+                                {processing === `release-${computer.id}`
+                                  ? "Releasing..."
+                                  : "Release"}
+                              </button>
+                            )}
                           </div>
-                          <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                              computer.status
-                            )}`}
-                          >
-                            {computer.status.replace("_", " ")}
-                          </span>
                         </div>
+                      );
+                    })}
+                </div>
+              </div>
 
-                        <div className="space-y-2 text-sm text-gray-400">
-                          {assignment && (
-                            <div className="space-y-1">
-                              <div className="text-blue-400 font-medium">
-                                Assigned to: {assignment.studentName}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                Since:{" "}
-                                {new Date(
-                                  assignment.assignedAt
-                                ).toLocaleTimeString()}
-                              </div>
+              {/* Row 3 (Back) */}
+              <div className="space-y-2">
+                <h5 className="text-sm font-medium text-gray-400 text-center">
+                  Back Row
+                </h5>
+                <div className="grid grid-cols-5 gap-4 justify-center">
+                  {getComputersByClassroom(selectedLab)
+                    .slice(10, 15)
+                    .map((computer) => {
+                      const assignment = getAssignmentForComputer(computer.id);
+                      return (
+                        <div
+                          key={computer.id}
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
+                            draggedStudent && computer.status === "available"
+                              ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
+                              : computer.status === "available"
+                              ? "border-green-500 hover:border-green-400"
+                              : computer.status === "in_use"
+                              ? "border-blue-500"
+                              : "border-yellow-500"
+                          }`}
+                          onDrop={(e) => handleDrop(e, computer.id)}
+                          onDragOver={handleDragOver}
+                        >
+                          <div className="text-center space-y-2">
+                            <div className="text-2xl">
+                              {computer.status === "available"
+                                ? "💻"
+                                : computer.status === "in_use"
+                                ? "👤"
+                                : "🔧"}
                             </div>
-                          )}
-                          {!assignment && computer.status === "available" && (
-                            <div className="text-gray-500 italic">
-                              Ready for assignment
+                            <div className="font-medium text-white text-sm">
+                              {computer.name}
                             </div>
-                          )}
+                            {assignment ? (
+                              <div className="space-y-1">
+                                <div className="text-blue-400 font-medium text-xs">
+                                  {assignment.studentName}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {assignment.studentId}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-gray-500 text-xs italic">
+                                {computer.status === "available"
+                                  ? "Available"
+                                  : computer.status === "maintenance"
+                                  ? "Maintenance"
+                                  : "Occupied"}
+                              </div>
+                            )}
+                            {computer.status === "in_use" && (
+                              <button
+                                onClick={() => releaseComputer(computer.id)}
+                                disabled={
+                                  processing === `release-${computer.id}`
+                                }
+                                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white px-2 py-1 rounded text-xs font-medium mt-2"
+                              >
+                                {processing === `release-${computer.id}`
+                                  ? "Releasing..."
+                                  : "Release"}
+                              </button>
+                            )}
+                          </div>
                         </div>
-
-                        <div className="flex space-x-2 mt-4">
-                          {computer.status === "in_use" && (
-                            <button
-                              onClick={() => releaseComputer(computer.id)}
-                              disabled={processing === `release-${computer.id}`}
-                              className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
-                            >
-                              {processing === `release-${computer.id}`
-                                ? "Releasing..."
-                                : "Release"}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               </div>
             </div>
-          );
-        })}
+          </div>
+        </div>
+      )}
 
       {/* Add Computers Modal */}
       {showAddComputers && (

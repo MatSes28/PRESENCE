@@ -1,1 +1,1 @@
-export * from "../../shared/schema.js";
+export * from "../../shared/dist/schema.js";
