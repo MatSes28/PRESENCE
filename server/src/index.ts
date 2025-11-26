@@ -108,9 +108,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // HTTPS only in production
+      secure: false, // Set to false for development to work with HTTP
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      sameSite: "lax", // Allow cookies to work with proxy
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
