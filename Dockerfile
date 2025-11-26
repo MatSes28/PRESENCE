@@ -17,18 +17,13 @@ COPY server/ ./server/
 COPY shared/ ./shared/
 COPY client/ ./client/
 
-# Build shared package first
-WORKDIR /app/shared
-RUN npm install
-RUN npm run build
-
 # Install server dependencies
 WORKDIR /app/server
 RUN npm install
 
-# Copy built shared files to server
+# Copy shared source files to server (no build needed for TypeScript types)
 WORKDIR /app
-RUN mkdir -p server/shared && cp -r shared/dist/* server/shared/
+RUN mkdir -p server/shared && cp -r shared/* server/shared/
 WORKDIR /app/server
 
 # Copy database setup script
@@ -62,4 +57,4 @@ RUN npm run build
 WORKDIR /app/server
 
 # Start the application
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server/src/index.js"]
