@@ -1,6 +1,4 @@
-const API_BASE_URL = (import.meta as any).env?.DEV
-  ? "http://localhost:3000"
-  : window.location.origin;
+const API_BASE_URL = "";
 
 export interface ApiResponse<T = any> {
   success: boolean;

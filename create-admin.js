@@ -3,9 +3,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { users } from "./shared/schema.js";
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:ivXwpKRBFPqDEzhjzMlfQOpBXZorhyTy@mainline.proxy.rlwy.net:22250/railway";
+const connectionString = process.env.DATABASE_URL;
 
 async function createAdmin() {
   const client = postgres(connectionString, { prepare: false });

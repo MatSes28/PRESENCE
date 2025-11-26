@@ -110,7 +110,7 @@ app.use(
     cookie: {
       secure: false, // Set to false for development to work with HTTP
       httpOnly: true,
-      sameSite: "lax", // Allow cookies to work with proxy
+      sameSite: "none", // Allow cookies to work cross-origin
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
