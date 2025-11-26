@@ -187,15 +187,10 @@ class ApiClient {
     return this.request(`/computers/${id}`);
   }
 
-  async createComputer(computer: {
-    classroomId: number;
-    name: string;
-    ipAddress?: string;
-    macAddress?: string;
-  }) {
+  async createComputers(classroomId: number, computerCount: number) {
     return this.request("/computers", {
       method: "POST",
-      body: JSON.stringify(computer),
+      body: JSON.stringify({ classroomId, computerCount }),
     });
   }
 

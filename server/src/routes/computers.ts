@@ -120,32 +120,64 @@ router.get("/:id", requireAuth, async (req, res) => {
 // POST /api/computers - Create new computer (admin or faculty)
 router.post("/", requireAdminOrFaculty, async (req, res) => {
   try {
-    const { classroomId, name, ipAddress, macAddress } = req.body;
+    const { classroomId, computerCount } = req.body;
 
-    if (!classroomId || !name) {
+    if (!classroomId) {
       return res.status(400).json({
         success: false,
-        message: "Classroom ID and name are required",
+        message: "Classroom ID is required",
       });
     }
 
-    const newComputer = await db
-      .insert(computers)
-      .values({
-        classroomId,
-        name,
-        ipAddress,
-        macAddress,
-        status: "available",
-      })
-      .returning();
+    const count = parseInt(computerCount) || 1;
+    if (count < 1 || count > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Computer count must be between 1 and 50",
+      });
+    }
 
-    res.status(201).json({ success: true, data: newComputer[0] });
+    // Get existing computers in this classroom to determine numbering
+    const existingComputers = await db
+      .select()
+      .from(computers)
+      .where(eq(computers.classroomId, classroomId));
+
+    const maxNumber =
+      existingComputers.length > 0
+        ? Math.max(
+            ...existingComputers.map((c) => {
+              const match = c.name.match(/Computer (\d+)/);
+              return match ? parseInt(match[1]) : 0;
+            })
+          )
+        : 0;
+
+    // Create multiple computers
+    const newComputers = [];
+    for (let i = 1; i <= count; i++) {
+      const computerNumber = maxNumber + i;
+      const computer = await db
+        .insert(computers)
+        .values({
+          classroomId,
+          name: `Computer ${computerNumber}`,
+          status: "available",
+        })
+        .returning();
+      newComputers.push(computer[0]);
+    }
+
+    res.status(201).json({
+      success: true,
+      data: newComputers,
+      message: `Created ${count} computer(s) in classroom ${classroomId}`,
+    });
   } catch (error) {
-    console.error("Error creating computer:", error);
+    console.error("Error creating computers:", error);
     res
       .status(500)
-      .json({ success: false, message: "Failed to create computer" });
+      .json({ success: false, message: "Failed to create computers" });
   }
 });
 

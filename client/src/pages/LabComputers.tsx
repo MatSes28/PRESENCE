@@ -6,11 +6,7 @@ interface Computer {
   id: number;
   classroomId: number;
   name: string;
-  ipAddress?: string;
-  macAddress?: string;
   status: "available" | "in_use" | "maintenance";
-  currentUser?: string;
-  lastUsed?: string;
 }
 
 interface ComputerAssignment {
@@ -18,38 +14,48 @@ interface ComputerAssignment {
   computerId: number;
   studentId: number;
   studentName: string;
+  classSessionId: number;
   assignedAt: string;
   releasedAt?: string;
-  loginTime?: string;
-  logoutTime?: string;
-  sessionDuration?: number;
   status: "assigned" | "active" | "completed";
+}
+
+interface Classroom {
+  id: number;
+  name: string;
 }
 
 export const LabComputers = () => {
   const { addNotification } = useNotifications();
   const [computers, setComputers] = useState<Computer[]>([]);
   const [assignments, setAssignments] = useState<ComputerAssignment[]>([]);
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedComputer, setSelectedComputer] = useState<Computer | null>(
+  const [showAddComputers, setShowAddComputers] = useState(false);
+  const [selectedClassroom, setSelectedClassroom] = useState<number | null>(
     null
   );
+  const [computerCount, setComputerCount] = useState(5);
   const [processing, setProcessing] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchComputers();
-    fetchAssignments();
+    loadData();
   }, []);
 
-  // Add a separate useEffect to handle loading state
-  useEffect(() => {
-    // Set loading to false after a reasonable timeout to prevent infinite loading
-    const timer = setTimeout(() => {
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchComputers(),
+        fetchAssignments(),
+        fetchClassrooms(),
+      ]);
+    } catch (error) {
+      console.error("Failed to load data:", error);
+    } finally {
       setLoading(false);
-    }, 10000); // 10 seconds timeout
-
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  };
 
   const fetchComputers = async () => {
     try {
@@ -62,7 +68,6 @@ export const LabComputers = () => {
           title: "Failed to Load Computers",
           message: response.message || "Unable to fetch computer data",
         });
-        setComputers([]);
       }
     } catch (error) {
       console.error("Failed to fetch computers:", error);
@@ -72,7 +77,6 @@ export const LabComputers = () => {
         message:
           "Failed to connect to the server. Please check your connection.",
       });
-      setComputers([]);
     }
   };
 
@@ -87,7 +91,6 @@ export const LabComputers = () => {
           title: "Failed to Load Assignments",
           message: response.message || "Unable to fetch assignment data",
         });
-        setAssignments([]);
       }
     } catch (error) {
       console.error("Failed to fetch assignments:", error);
@@ -97,49 +100,64 @@ export const LabComputers = () => {
         message:
           "Failed to connect to the server. Please check your connection.",
       });
-      setAssignments([]);
+    }
+  };
+
+  const fetchClassrooms = async () => {
+    try {
+      const response = await api.getClassrooms();
+      if (response.success) {
+        setClassrooms((response.data as Classroom[]) || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch classrooms:", error);
+    }
+  };
+
+  const addComputers = async () => {
+    if (!selectedClassroom) {
+      addNotification({
+        type: "error",
+        title: "No Classroom Selected",
+        message: "Please select a classroom first",
+      });
+      return;
+    }
+
+    setProcessing("add-computers");
+    try {
+      const response = await api.createComputers(
+        selectedClassroom,
+        computerCount
+      );
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Computers Added",
+          message:
+            response.message || `Successfully added ${computerCount} computers`,
+        });
+        setShowAddComputers(false);
+        setSelectedClassroom(null);
+        setComputerCount(5);
+        fetchComputers();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Failed to Add Computers",
+          message: response.message || "Unable to add computers",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to add computers:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message: "Failed to add computers. Please check your connection.",
+      });
     } finally {
-      setLoading(false);
+      setProcessing(null);
     }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "available":
-        return "bg-gray-900 text-gray-300"; // Changed to gray for available
-      case "in_use":
-      case "active":
-        return "bg-green-900 text-green-300"; // Changed to green for occupied
-      case "maintenance":
-        return "bg-yellow-900 text-yellow-300";
-      default:
-        return "bg-gray-900 text-gray-300";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "available":
-        return "⚫"; // Gray circle for available
-      case "in_use":
-      case "active":
-        return "🟢"; // Green circle for occupied
-      case "maintenance":
-        return "🟡";
-      default:
-        return "⚫";
-    }
-  };
-
-  const getComputersByClassroom = (classroomId: number) => {
-    return computers.filter((comp) => comp.classroomId === classroomId);
-  };
-
-  const getAssignmentForComputer = (computerId: number) => {
-    return assignments.find(
-      (assignment) =>
-        assignment.computerId === computerId && !assignment.releasedAt
-    );
   };
 
   const releaseComputer = async (computerId: number) => {
@@ -180,42 +198,46 @@ export const LabComputers = () => {
     }
   };
 
-  const setMaintenance = async (computerId: number, maintenance: boolean) => {
-    setProcessing(`maintenance-${computerId}`);
-    try {
-      const response = await api.updateComputer(computerId, {
-        status: maintenance ? "maintenance" : "available",
-      });
-      if (response.success) {
-        addNotification({
-          type: "success",
-          title: "Status Updated",
-          message: `Computer ${
-            maintenance ? "set to maintenance" : "activated"
-          } successfully!`,
-        });
-        fetchComputers();
-      } else {
-        addNotification({
-          type: "error",
-          title: "Update Failed",
-          message: response.message || "Failed to update computer status",
-        });
-      }
-    } catch (error) {
-      console.error("Failed to update computer status:", error);
-      addNotification({
-        type: "error",
-        title: "Network Error",
-        message:
-          "Failed to update computer status. Please check your connection and try again.",
-      });
-    } finally {
-      setProcessing(null);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "available":
+        return "bg-green-900 text-green-300";
+      case "in_use":
+      case "active":
+        return "bg-blue-900 text-blue-300";
+      case "maintenance":
+        return "bg-yellow-900 text-yellow-300";
+      default:
+        return "bg-gray-900 text-gray-300";
     }
   };
 
-  const classrooms = [...new Set(computers.map((comp) => comp.classroomId))];
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "available":
+        return "🟢";
+      case "in_use":
+      case "active":
+        return "🔵";
+      case "maintenance":
+        return "🟡";
+      default:
+        return "⚫";
+    }
+  };
+
+  const getComputersByClassroom = (classroomId: number) => {
+    return computers.filter((comp) => comp.classroomId === classroomId);
+  };
+
+  const getAssignmentForComputer = (computerId: number) => {
+    return assignments.find(
+      (assignment) =>
+        assignment.computerId === computerId && !assignment.releasedAt
+    );
+  };
+
+  const classroomList = [...new Set(computers.map((comp) => comp.classroomId))];
 
   if (loading) {
     return (
@@ -231,10 +253,10 @@ export const LabComputers = () => {
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-medium text-white">
-            Lab Computer Management
+            Computer Lab Management
           </h3>
           <p className="text-sm text-gray-300">
-            Monitor and manage computer lab resources
+            Simple computer assignment for faculty
           </p>
         </div>
         <div className="flex space-x-2">
@@ -246,6 +268,12 @@ export const LabComputers = () => {
             className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
           >
             Refresh
+          </button>
+          <button
+            onClick={() => setShowAddComputers(true)}
+            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+          >
+            Add Computers
           </button>
         </div>
       </div>
@@ -267,10 +295,10 @@ export const LabComputers = () => {
         </div>
         <div className="bg-gray-800 rounded-lg shadow p-4">
           <div className="flex items-center">
-            <div className="text-2xl mr-3">⚫</div>
+            <div className="text-2xl mr-3">🟢</div>
             <div>
               <p className="text-sm font-medium text-gray-300">Available</p>
-              <p className="text-2xl font-bold text-gray-400">
+              <p className="text-2xl font-bold text-green-400">
                 {computers.filter((c) => c.status === "available").length}
               </p>
             </div>
@@ -278,10 +306,10 @@ export const LabComputers = () => {
         </div>
         <div className="bg-gray-800 rounded-lg shadow p-4">
           <div className="flex items-center">
-            <div className="text-2xl mr-3">🟢</div>
+            <div className="text-2xl mr-3">🔵</div>
             <div>
-              <p className="text-sm font-medium text-gray-300">Occupied</p>
-              <p className="text-2xl font-bold text-green-400">
+              <p className="text-sm font-medium text-gray-300">In Use</p>
+              <p className="text-2xl font-bold text-blue-400">
                 {computers.filter((c) => c.status === "in_use").length}
               </p>
             </div>
@@ -300,27 +328,25 @@ export const LabComputers = () => {
         </div>
       </div>
 
-      {/* Laboratory Computer Usage Monitoring */}
-      {classrooms.map((classroomId) => {
+      {/* Computer Labs */}
+      {classroomList.map((classroomId) => {
         const classroomComputers = getComputersByClassroom(classroomId);
-        // Show all classrooms with computers (remove the lab room filter)
         if (classroomComputers.length === 0) return null;
 
         return (
           <div key={classroomId} className="bg-gray-800 rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-700">
               <h4 className="text-lg font-medium text-white">
-                Room {classroomId}
+                Lab Room {classroomId}
               </h4>
               <p className="text-sm text-gray-300">
-                Real-time computer usage monitoring •
                 {
                   classroomComputers.filter((c) => c.status === "available")
                     .length
                 }{" "}
                 available •
                 {classroomComputers.filter((c) => c.status === "in_use").length}{" "}
-                occupied
+                in use
               </p>
             </div>
             <div className="p-6">
@@ -346,40 +372,27 @@ export const LabComputers = () => {
                             computer.status
                           )}`}
                         >
-                          {computer.status === "in_use"
-                            ? "occupied"
-                            : computer.status.replace("_", " ")}
+                          {computer.status.replace("_", " ")}
                         </span>
                       </div>
 
                       <div className="space-y-2 text-sm text-gray-400">
-                        <div>IP: {computer.ipAddress}</div>
-                        {computer.macAddress && (
-                          <div>MAC: {computer.macAddress}</div>
-                        )}
                         {assignment && (
                           <div className="space-y-1">
-                            <div className="text-green-400 font-medium">
-                              Currently using: {assignment.studentName}
+                            <div className="text-blue-400 font-medium">
+                              Assigned to: {assignment.studentName}
                             </div>
-                            {assignment.loginTime && (
-                              <div className="text-xs text-gray-500">
-                                Started at:{" "}
-                                {new Date(
-                                  assignment.loginTime
-                                ).toLocaleTimeString()}
-                              </div>
-                            )}
-                            {assignment.sessionDuration && (
-                              <div className="text-xs text-gray-500">
-                                Duration: {assignment.sessionDuration} min
-                              </div>
-                            )}
+                            <div className="text-xs text-gray-500">
+                              Since:{" "}
+                              {new Date(
+                                assignment.assignedAt
+                              ).toLocaleTimeString()}
+                            </div>
                           </div>
                         )}
                         {!assignment && computer.status === "available" && (
                           <div className="text-gray-500 italic">
-                            Available for use
+                            Ready for assignment
                           </div>
                         )}
                       </div>
@@ -396,38 +409,6 @@ export const LabComputers = () => {
                               : "Release"}
                           </button>
                         )}
-                        {computer.status !== "maintenance" && (
-                          <button
-                            onClick={() => setMaintenance(computer.id, true)}
-                            disabled={
-                              processing === `maintenance-${computer.id}`
-                            }
-                            className="flex-1 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
-                          >
-                            {processing === `maintenance-${computer.id}`
-                              ? "Setting..."
-                              : "Maintenance"}
-                          </button>
-                        )}
-                        {computer.status === "maintenance" && (
-                          <button
-                            onClick={() => setMaintenance(computer.id, false)}
-                            disabled={
-                              processing === `maintenance-${computer.id}`
-                            }
-                            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
-                          >
-                            {processing === `maintenance-${computer.id}`
-                              ? "Activating..."
-                              : "Activate"}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setSelectedComputer(computer)}
-                          className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-xs font-medium"
-                        >
-                          Details
-                        </button>
                       </div>
                     </div>
                   );
@@ -438,102 +419,17 @@ export const LabComputers = () => {
         );
       })}
 
-      {/* Real-Time Computer Usage Monitoring */}
-      <div className="bg-gray-800 rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-700">
-          <h4 className="text-lg font-medium text-white">
-            Real-Time Computer Usage
-          </h4>
-          <p className="text-sm text-gray-300">
-            Live monitoring of laboratory computer sessions
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-700">
-            <thead className="bg-gray-900">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Computer
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Student
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Assigned At
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Duration
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-gray-800 divide-y divide-gray-700">
-              {assignments
-                .filter((a) => !a.releasedAt)
-                .map((assignment) => {
-                  const computer = computers.find(
-                    (c) => c.id === assignment.computerId
-                  );
-                  const duration = Math.floor(
-                    (Date.now() - new Date(assignment.assignedAt).getTime()) /
-                      60000
-                  ); // minutes
-
-                  return (
-                    <tr key={assignment.id} className="hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                        {computer?.name} (Room {computer?.classroomId})
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                        {assignment.studentName}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                        {new Date(assignment.assignedAt).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                        {assignment.sessionDuration
-                          ? `${assignment.sessionDuration} min`
-                          : `${duration} min`}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => releaseComputer(assignment.computerId)}
-                          disabled={
-                            processing === `release-${assignment.computerId}`
-                          }
-                          className="text-red-400 hover:text-red-300 disabled:text-red-600 disabled:cursor-not-allowed"
-                        >
-                          {processing === `release-${assignment.computerId}`
-                            ? "Releasing..."
-                            : "Release"}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
-        {assignments.filter((a) => !a.releasedAt).length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-400">No active computer assignments</p>
-          </div>
-        )}
-      </div>
-
-      {/* Computer Details Modal */}
-      {selectedComputer && (
+      {/* Add Computers Modal */}
+      {showAddComputers && (
         <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-gray-800 border-gray-700">
             <div className="mt-3">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-white">
-                  Computer Details: {selectedComputer.name}
+                  Add Computers to Lab
                 </h3>
                 <button
-                  onClick={() => setSelectedComputer(null)}
+                  onClick={() => setShowAddComputers(false)}
                   className="text-gray-400 hover:text-gray-300"
                 >
                   ✕
@@ -541,58 +437,57 @@ export const LabComputers = () => {
               </div>
 
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300">
-                      Status
-                    </label>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        selectedComputer.status
-                      )}`}
-                    >
-                      {selectedComputer.status}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300">
-                      Room
-                    </label>
-                    <span className="text-sm text-white">
-                      {selectedComputer.classroomId}
-                    </span>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Select Lab Room
+                  </label>
+                  <select
+                    value={selectedClassroom || ""}
+                    onChange={(e) =>
+                      setSelectedClassroom(parseInt(e.target.value) || null)
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
+                    <option value="">Choose a room...</option>
+                    {classrooms.map((classroom) => (
+                      <option key={classroom.id} value={classroom.id}>
+                        {classroom.name} (Room {classroom.id})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Network Info
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Number of Computers
                   </label>
-                  <div className="bg-gray-900 p-3 rounded text-sm text-white">
-                    <div>IP: {selectedComputer.ipAddress}</div>
-                    {selectedComputer.macAddress && (
-                      <div>MAC: {selectedComputer.macAddress}</div>
-                    )}
-                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={computerCount}
+                    onChange={(e) =>
+                      setComputerCount(parseInt(e.target.value) || 1)
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
                 </div>
-
-                {selectedComputer.currentUser && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Current User
-                    </label>
-                    <div className="bg-blue-900 p-3 rounded text-sm text-blue-300">
-                      {selectedComputer.currentUser}
-                    </div>
-                  </div>
-                )}
 
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => setSelectedComputer(null)}
+                    onClick={() => setShowAddComputers(false)}
                     className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium"
                   >
-                    Close
+                    Cancel
+                  </button>
+                  <button
+                    onClick={addComputers}
+                    disabled={processing === "add-computers"}
+                    className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium"
+                  >
+                    {processing === "add-computers"
+                      ? "Adding..."
+                      : "Add Computers"}
                   </button>
                 </div>
               </div>
