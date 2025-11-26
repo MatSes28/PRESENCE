@@ -57,6 +57,35 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/computers/assignments - Get all computer assignments with student names
+router.get("/assignments", requireAuth, async (req, res) => {
+  try {
+    const assignments = await db
+      .select({
+        id: computerAssignments.id,
+        computerId: computerAssignments.computerId,
+        studentId: computerAssignments.studentId,
+        studentName: students.name,
+        classSessionId: computerAssignments.classSessionId,
+        status: computerAssignments.status,
+        assignedAt: computerAssignments.assignedAt,
+        releasedAt: computerAssignments.releasedAt,
+        loginTime: computerAssignments.loginTime,
+        logoutTime: computerAssignments.logoutTime,
+        sessionDuration: computerAssignments.sessionDuration,
+      })
+      .from(computerAssignments)
+      .leftJoin(students, eq(computerAssignments.studentId, students.id));
+
+    res.json({ success: true, data: assignments });
+  } catch (error) {
+    console.error("Error fetching assignments:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch assignments" });
+  }
+});
+
 // GET /api/computers/:id - Get computer by ID
 router.get("/:id", requireAuth, async (req, res) => {
   try {
