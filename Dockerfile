@@ -26,9 +26,9 @@ RUN npm run build
 WORKDIR /app/server
 RUN npm install
 
-# Copy built shared files to server
+# Copy built shared files to server root (so ../../shared/ works from dist/server/src/)
 WORKDIR /app
-RUN mkdir -p server/shared && cp -r shared/dist/* server/shared/
+RUN cp -r shared/dist/* shared/
 WORKDIR /app/server
 
 # Copy database setup script
