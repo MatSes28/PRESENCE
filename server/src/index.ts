@@ -108,9 +108,15 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // Set to false for development to work with HTTP
+      secure:
+        process.env.NODE_ENV === "production" ||
+        !!process.env.RAILWAY_ENVIRONMENT, // Railway sets RAILWAY_ENVIRONMENT
       httpOnly: true,
-      sameSite: "none", // Allow cookies to work cross-origin
+      sameSite:
+        process.env.NODE_ENV === "production" ||
+        !!process.env.RAILWAY_ENVIRONMENT
+          ? "none"
+          : "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
