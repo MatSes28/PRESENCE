@@ -1,5 +1,5 @@
 import { db } from "../storage.js";
-import { securityEvents } from "../../shared/dist/schema.js";
+import { securityEvents } from "../schema.js";
 import { desc } from "drizzle-orm";
 
 export interface SecurityEventData {

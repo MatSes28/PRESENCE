@@ -136,6 +136,9 @@ export const computers = pgTable("computers", {
   macAddress: varchar("mac_address", { length: 17 }),
   status: varchar("status", { length: 20 }).default("available").notNull(), // available, in_use, maintenance
   isActive: boolean("is_active").default(true).notNull(),
+  failedLoginAttempts: integer("failed_login_attempts").default(0).notNull(),
+  lockedUntil: timestamp("locked_until"),
+  lastFailedLogin: timestamp("last_failed_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -173,9 +176,6 @@ export const iotDevices = pgTable("iot_devices", {
   lastSeen: timestamp("last_seen"),
   config: jsonb("config"),
   isActive: boolean("is_active").default(true).notNull(),
-  failedLoginAttempts: integer("failed_login_attempts").default(0).notNull(),
-  lockedUntil: timestamp("locked_until"),
-  lastFailedLogin: timestamp("last_failed_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
