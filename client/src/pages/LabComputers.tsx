@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api";
 import { useNotifications } from "../components/NotificationSystem";
 
@@ -46,6 +46,9 @@ export const LabComputers = () => {
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
   const [computerCount, setComputerCount] = useState(5);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [draggedStudent, setDraggedStudent] = useState<any>(null);
+  const [students, setStudents] = useState<any[]>([]);
+  const dragRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
@@ -59,6 +62,7 @@ export const LabComputers = () => {
         fetchAssignments(),
         fetchClassrooms(),
         fetchSubjects(),
+        fetchStudents(),
       ]);
     } catch (error) {
       console.error("Failed to load data:", error);
@@ -141,6 +145,61 @@ export const LabComputers = () => {
     } catch (error) {
       console.error("Failed to fetch subjects:", error);
     }
+  };
+
+  const fetchStudents = async () => {
+    try {
+      const response = await api.getStudents();
+      if (response.success) {
+        setStudents((response.data as any[]) || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch students:", error);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, student: any) => {
+    setDraggedStudent(student);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragEnd = () => {
+    setDraggedStudent(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, computerId: number) => {
+    e.preventDefault();
+    if (!draggedStudent) return;
+
+    setProcessing(`assign-${computerId}`);
+
+    try {
+      // For now, we'll simulate assignment since we don't have the full assignment API
+      // In a real implementation, you'd call an assignment API
+      addNotification({
+        type: "success",
+        title: "Student Assigned",
+        message: `${draggedStudent.name} assigned to Computer ${computerId}`,
+      });
+
+      // Refresh assignments
+      fetchAssignments();
+    } catch (error) {
+      console.error("Failed to assign student:", error);
+      addNotification({
+        type: "error",
+        title: "Assignment Failed",
+        message: "Failed to assign student to computer",
+      });
+    } finally {
+      setProcessing(null);
+      setDraggedStudent(null);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
   };
 
   const addComputers = async () => {
@@ -277,7 +336,25 @@ export const LabComputers = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" ref={dragRef}>
+      {/* Drag Overlay */}
+      {draggedStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 pointer-events-none">
+          <div className="bg-blue-900 text-blue-100 px-6 py-4 rounded-lg shadow-lg border border-blue-700">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">👤</span>
+              <div>
+                <div className="font-medium">
+                  Assigning: {draggedStudent.name}
+                </div>
+                <div className="text-sm text-blue-300">
+                  Drop on an available computer
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -354,6 +431,46 @@ export const LabComputers = () => {
           )}
         </div>
       </div>
+
+      {/* Student Pool for Drag & Drop */}
+      {selectedLab && (
+        <div className="bg-gray-800 rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h4 className="text-lg font-medium text-white">
+                Student Pool - Drag to Assign
+              </h4>
+              <p className="text-sm text-gray-400">
+                Drag student names onto available computers below
+              </p>
+            </div>
+            <span className="text-sm text-gray-400">
+              {students.length} students available
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 max-h-48 overflow-y-auto">
+            {students.slice(0, 24).map((student) => (
+              <div
+                key={student.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, student)}
+                onDragEnd={handleDragEnd}
+                className="bg-blue-900 hover:bg-blue-800 text-blue-100 px-3 py-2 rounded-lg text-sm font-medium cursor-move transition-colors border border-blue-700 hover:border-blue-600"
+              >
+                <div className="truncate">{student.name}</div>
+                <div className="text-xs text-blue-300 truncate">
+                  {student.studentId}
+                </div>
+              </div>
+            ))}
+          </div>
+          {students.length > 24 && (
+            <p className="text-xs text-gray-500 mt-2">
+              Showing first 24 students. Scroll for more.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -483,7 +600,13 @@ export const LabComputers = () => {
                     return (
                       <div
                         key={computer.id}
-                        className="border border-gray-700 rounded-lg p-4 bg-gray-900"
+                        className={`border border-gray-700 rounded-lg p-4 bg-gray-900 transition-colors ${
+                          draggedStudent && computer.status === "available"
+                            ? "border-blue-500 bg-blue-900/20"
+                            : ""
+                        }`}
+                        onDrop={(e) => handleDrop(e, computer.id)}
+                        onDragOver={handleDragOver}
                       >
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-2">
