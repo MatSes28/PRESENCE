@@ -48,10 +48,60 @@ export const LabComputers = () => {
   const [processing, setProcessing] = useState<string | null>(null);
   const [draggedStudent, setDraggedStudent] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
+  const [computerStatus, setComputerStatus] = useState<
+    Record<
+      number,
+      {
+        isOnline: boolean;
+        lastActivity: Date;
+        status: "idle" | "active";
+      }
+    >
+  >({});
   const dragRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
+    initializeComputerStatus();
+  }, []);
+
+  // Initialize computer status
+  const initializeComputerStatus = () => {
+    const status: Record<
+      number,
+      { isOnline: boolean; lastActivity: Date; status: "idle" | "active" }
+    > = {};
+    computers.forEach((computer) => {
+      status[computer.id] = {
+        isOnline: Math.random() > 0.2, // 80% online
+        lastActivity: new Date(Date.now() - Math.random() * 3600000), // Within last hour
+        status: Math.random() > 0.7 ? "active" : "idle",
+      };
+    });
+    setComputerStatus(status);
+  };
+
+  // Update computer status periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setComputerStatus((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((computerId) => {
+          // Randomly update activity
+          if (Math.random() < 0.1) {
+            // 10% chance to update
+            updated[parseInt(computerId)] = {
+              ...updated[parseInt(computerId)],
+              lastActivity: new Date(),
+              status: Math.random() > 0.5 ? "active" : "idle",
+            };
+          }
+        });
+        return updated;
+      });
+    }, 30000); // Update every 30 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
@@ -161,6 +211,50 @@ export const LabComputers = () => {
   const handleDragStart = (e: React.DragEvent, student: any) => {
     setDraggedStudent(student);
     e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, student: any) => {
+    setDraggedStudent(student);
+    // Prevent scrolling when touching draggable elements
+    e.preventDefault();
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!draggedStudent) return;
+
+    // Prevent scrolling during drag
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+
+    // Add visual feedback for potential drop targets
+    if (element?.closest("[data-drop-target]")) {
+      element.closest("[data-drop-target]")?.classList.add("touch-hover");
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!draggedStudent) return;
+
+    const touch = e.changedTouches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+
+    // Find the drop target
+    const dropTarget = element?.closest("[data-computer-id]");
+    if (dropTarget) {
+      const computerId = parseInt(
+        dropTarget.getAttribute("data-computer-id") || "0"
+      );
+      handleDrop(e as any, computerId);
+    }
+
+    // Clean up touch hover states
+    document.querySelectorAll(".touch-hover").forEach((el) => {
+      el.classList.remove("touch-hover");
+    });
+
+    setDraggedStudent(null);
   };
 
   const handleDragEnd = () => {
@@ -416,7 +510,7 @@ export const LabComputers = () => {
         </div>
       )}
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
         <div>
           <h3 className="text-lg font-medium text-white">
             Computer Lab Management
@@ -425,19 +519,19 @@ export const LabComputers = () => {
             Simple computer assignment for faculty
           </p>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
           <button
             onClick={() => {
               fetchComputers();
               fetchAssignments();
             }}
-            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto"
           >
             Refresh
           </button>
           <button
             onClick={() => setShowAddComputers(true)}
-            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto"
           >
             Add Computers
           </button>
@@ -446,9 +540,9 @@ export const LabComputers = () => {
 
       {/* Lab Selection */}
       <div className="bg-gray-800 rounded-lg shadow p-4">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-300">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+            <label className="text-sm font-medium text-gray-300 whitespace-nowrap">
               Select Lab:
             </label>
             <select
@@ -457,7 +551,7 @@ export const LabComputers = () => {
                 setSelectedLab(parseInt(e.target.value) || null);
                 setSelectedSubject(null); // Reset subject when lab changes
               }}
-              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 w-full sm:w-auto"
             >
               <option value="">All Labs</option>
               {classroomList.map((classroomId) => (
@@ -469,8 +563,8 @@ export const LabComputers = () => {
           </div>
 
           {selectedLab && (
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-300">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+              <label className="text-sm font-medium text-gray-300 whitespace-nowrap">
                 Subject:
               </label>
               <select
@@ -478,7 +572,7 @@ export const LabComputers = () => {
                 onChange={(e) =>
                   setSelectedSubject(parseInt(e.target.value) || null)
                 }
-                className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 w-full sm:w-auto"
               >
                 <option value="">All Subjects</option>
                 {subjects.map((subject) => (
@@ -497,7 +591,7 @@ export const LabComputers = () => {
         <>
           {/* Session Header */}
           <div className="bg-gray-800 rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between space-y-4 lg:space-y-0">
               <div>
                 <h4 className="text-lg font-medium text-white">
                   {subjects.find((s) => s.id === selectedSubject)?.code} Session
@@ -506,8 +600,8 @@ export const LabComputers = () => {
                   {subjects.find((s) => s.id === selectedSubject)?.name}
                 </p>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full lg:w-auto">
+                <div className="text-left sm:text-right">
                   <p className="text-sm text-gray-400">Lab {selectedLab}</p>
                   <p className="text-sm font-medium text-teal-400">
                     {new Date().toLocaleDateString()}
@@ -516,7 +610,7 @@ export const LabComputers = () => {
                 <button
                   onClick={saveSession}
                   disabled={processing === "save-session"}
-                  className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium"
+                  className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium w-full sm:w-auto"
                 >
                   {processing === "save-session" ? "Saving..." : "Save Session"}
                 </button>
@@ -540,14 +634,17 @@ export const LabComputers = () => {
                 {students.length} students available
               </span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 max-h-48 overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 max-h-48 overflow-y-auto">
               {students.slice(0, 24).map((student) => (
                 <div
                   key={student.id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, student)}
                   onDragEnd={handleDragEnd}
-                  className="bg-blue-900 hover:bg-blue-800 text-blue-100 px-3 py-2 rounded-lg text-sm font-medium cursor-move transition-colors border border-blue-700 hover:border-blue-600"
+                  onTouchStart={(e) => handleTouchStart(e, student)}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  className="bg-blue-900 hover:bg-blue-800 active:bg-blue-700 text-blue-100 px-3 py-2 rounded-lg text-sm font-medium cursor-move transition-colors border border-blue-700 hover:border-blue-600 touch-manipulation select-none"
                 >
                   <div className="truncate">{student.name}</div>
                   <div className="text-xs text-blue-300 truncate">
@@ -590,7 +687,7 @@ export const LabComputers = () => {
       )}
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {(() => {
           const filteredComputers = selectedLab
             ? computers.filter((c) => c.classroomId === selectedLab)
@@ -667,54 +764,104 @@ export const LabComputers = () => {
 
       {/* Lab Layout - Only show when both lab and subject are selected */}
       {selectedLab && selectedSubject && (
-        <div className="bg-gray-800 rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-700">
+        <div className="bg-gray-800 rounded-lg shadow relative overflow-hidden">
+          {/* Physical Lab Environment */}
+          <div className="absolute inset-0 opacity-10">
+            {/* Walls */}
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gray-600"></div>
+            <div className="absolute bottom-0 left-0 right-0 h-2 bg-gray-600"></div>
+            <div className="absolute top-0 bottom-0 left-0 w-2 bg-gray-600"></div>
+            <div className="absolute top-0 bottom-0 right-0 w-2 bg-gray-600"></div>
+
+            {/* Pathways */}
+            <div className="absolute top-20 left-0 right-0 h-1 bg-gray-500 opacity-50"></div>
+            <div className="absolute top-40 left-0 right-0 h-1 bg-gray-500 opacity-50"></div>
+            <div className="absolute top-60 left-0 right-0 h-1 bg-gray-500 opacity-50"></div>
+          </div>
+
+          <div className="px-6 py-4 border-b border-gray-700 relative z-10">
             <h4 className="text-lg font-medium text-white">
-              Lab {selectedLab} - Computer Layout
+              Lab {selectedLab} - Physical Layout
             </h4>
             <p className="text-sm text-gray-300">
               Drag students from the pool above onto available computer seats
             </p>
           </div>
-          <div className="p-6">
+          <div className="p-6 relative">
+            {/* Instructor Station */}
+            <div className="mb-8 flex justify-center">
+              <div className="bg-gradient-to-r from-blue-800 to-blue-900 p-4 rounded-lg border-2 border-blue-600 shadow-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="text-3xl">👨‍🏫</div>
+                  <div>
+                    <div className="text-white font-medium">
+                      Instructor Station
+                    </div>
+                    <div className="text-blue-200 text-sm">Front of Lab</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Door */}
+            <div className="absolute top-8 right-8 z-20">
+              <div className="bg-amber-800 p-3 rounded-lg border-2 border-amber-600 shadow-lg">
+                <div className="text-2xl">🚪</div>
+                <div className="text-amber-200 text-xs text-center">Exit</div>
+              </div>
+            </div>
             {/* Quick Actions */}
             <div className="flex flex-wrap gap-2 mb-6 p-4 bg-gray-900 rounded-lg">
-              <button
-                onClick={() => assignNextStudents(5)}
-                disabled={processing === "bulk-assign"}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium"
-              >
-                {processing === "bulk-assign"
-                  ? "Assigning..."
-                  : "Assign Next 5 Students"}
-              </button>
-              <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium">
-                Random Assignment
-              </button>
-              <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm font-medium">
-                Assign by Row
-              </button>
-              <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium">
-                Release All
-              </button>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:flex lg:flex-wrap gap-2 w-full">
+                <button
+                  onClick={() => assignNextStudents(5)}
+                  disabled={processing === "bulk-assign"}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium"
+                >
+                  {processing === "bulk-assign"
+                    ? "Assigning..."
+                    : "Assign Next 5 Students"}
+                </button>
+                <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium">
+                  Random Assignment
+                </button>
+                <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm font-medium">
+                  Assign by Row
+                </button>
+                <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium">
+                  Release All
+                </button>
+              </div>
             </div>
 
             {/* Lab Grid Layout - Representing physical arrangement */}
-            <div className="space-y-6">
+            <div className="space-y-8 relative">
               {/* Row 1 (Front) */}
-              <div className="space-y-2">
-                <h5 className="text-sm font-medium text-gray-400 text-center">
-                  Front Row
-                </h5>
-                <div className="grid grid-cols-5 gap-4 justify-center">
+              <div className="space-y-3">
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="h-px bg-gray-600 flex-1"></div>
+                  <h5 className="text-sm font-medium text-gray-400 bg-gray-800 px-3 py-1 rounded">
+                    🎯 Front Row (Closest to Instructor)
+                  </h5>
+                  <div className="h-px bg-gray-600 flex-1"></div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 justify-center">
                   {getComputersByClassroom(selectedLab)
                     .slice(0, 5)
                     .map((computer) => {
                       const assignment = getAssignmentForComputer(computer.id);
+                      const compStatus = computerStatus[computer.id] || {
+                        isOnline: true,
+                        lastActivity: new Date(),
+                        status: "idle" as const,
+                      };
+
                       return (
                         <div
                           key={computer.id}
-                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
+                          data-computer-id={computer.id}
+                          data-drop-target="true"
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 relative ${
                             draggedStudent && computer.status === "available"
                               ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
                               : computer.status === "available"
@@ -722,10 +869,24 @@ export const LabComputers = () => {
                               : computer.status === "in_use"
                               ? "border-blue-500"
                               : "border-yellow-500"
+                          } ${
+                            compStatus.isOnline
+                              ? "animate-pulse"
+                              : "grayscale opacity-75"
                           }`}
                           onDrop={(e) => handleDrop(e, computer.id)}
                           onDragOver={handleDragOver}
                         >
+                          {/* Connection Status Indicator */}
+                          <div
+                            className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border border-gray-800 ${
+                              compStatus.isOnline
+                                ? "bg-green-400 shadow-lg shadow-green-400/50"
+                                : "bg-red-400"
+                            }`}
+                            title={compStatus.isOnline ? "Online" : "Offline"}
+                          />
+
                           <div className="text-center space-y-2">
                             <div className="text-2xl">
                               {computer.status === "available"
@@ -768,6 +929,21 @@ export const LabComputers = () => {
                                   : "Release"}
                               </button>
                             )}
+
+                            {/* Activity Status */}
+                            <div className="text-xs text-gray-500 mt-1">
+                              <div
+                                className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                                  compStatus.status === "active"
+                                    ? "bg-blue-400 animate-pulse"
+                                    : "bg-gray-500"
+                                }`}
+                              />
+                              {compStatus.status === "active"
+                                ? "Active"
+                                : "Idle"}{" "}
+                              • {compStatus.lastActivity.toLocaleTimeString()}
+                            </div>
                           </div>
                         </div>
                       );
@@ -776,19 +952,31 @@ export const LabComputers = () => {
               </div>
 
               {/* Row 2 (Middle) */}
-              <div className="space-y-2">
-                <h5 className="text-sm font-medium text-gray-400 text-center">
-                  Middle Row
-                </h5>
-                <div className="grid grid-cols-5 gap-4 justify-center">
+              <div className="space-y-3">
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="h-px bg-gray-600 flex-1"></div>
+                  <h5 className="text-sm font-medium text-gray-400 bg-gray-800 px-3 py-1 rounded">
+                    📚 Middle Row
+                  </h5>
+                  <div className="h-px bg-gray-600 flex-1"></div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 justify-center">
                   {getComputersByClassroom(selectedLab)
                     .slice(5, 10)
                     .map((computer) => {
                       const assignment = getAssignmentForComputer(computer.id);
+                      const compStatus = computerStatus[computer.id] || {
+                        isOnline: true,
+                        lastActivity: new Date(),
+                        status: "idle" as const,
+                      };
+
                       return (
                         <div
                           key={computer.id}
-                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
+                          data-computer-id={computer.id}
+                          data-drop-target="true"
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 relative ${
                             draggedStudent && computer.status === "available"
                               ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
                               : computer.status === "available"
@@ -796,10 +984,24 @@ export const LabComputers = () => {
                               : computer.status === "in_use"
                               ? "border-blue-500"
                               : "border-yellow-500"
+                          } ${
+                            compStatus.isOnline
+                              ? "animate-pulse"
+                              : "grayscale opacity-75"
                           }`}
                           onDrop={(e) => handleDrop(e, computer.id)}
                           onDragOver={handleDragOver}
                         >
+                          {/* Connection Status Indicator */}
+                          <div
+                            className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border border-gray-800 ${
+                              compStatus.isOnline
+                                ? "bg-green-400 shadow-lg shadow-green-400/50"
+                                : "bg-red-400"
+                            }`}
+                            title={compStatus.isOnline ? "Online" : "Offline"}
+                          />
+
                           <div className="text-center space-y-2">
                             <div className="text-2xl">
                               {computer.status === "available"
@@ -842,6 +1044,21 @@ export const LabComputers = () => {
                                   : "Release"}
                               </button>
                             )}
+
+                            {/* Activity Status */}
+                            <div className="text-xs text-gray-500 mt-1">
+                              <div
+                                className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                                  compStatus.status === "active"
+                                    ? "bg-blue-400 animate-pulse"
+                                    : "bg-gray-500"
+                                }`}
+                              />
+                              {compStatus.status === "active"
+                                ? "Active"
+                                : "Idle"}{" "}
+                              • {compStatus.lastActivity.toLocaleTimeString()}
+                            </div>
                           </div>
                         </div>
                       );
@@ -850,19 +1067,31 @@ export const LabComputers = () => {
               </div>
 
               {/* Row 3 (Back) */}
-              <div className="space-y-2">
-                <h5 className="text-sm font-medium text-gray-400 text-center">
-                  Back Row
-                </h5>
-                <div className="grid grid-cols-5 gap-4 justify-center">
+              <div className="space-y-3">
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="h-px bg-gray-600 flex-1"></div>
+                  <h5 className="text-sm font-medium text-gray-400 bg-gray-800 px-3 py-1 rounded">
+                    🪑 Back Row (Farthest from Instructor)
+                  </h5>
+                  <div className="h-px bg-gray-600 flex-1"></div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 justify-center">
                   {getComputersByClassroom(selectedLab)
                     .slice(10, 15)
                     .map((computer) => {
                       const assignment = getAssignmentForComputer(computer.id);
+                      const compStatus = computerStatus[computer.id] || {
+                        isOnline: true,
+                        lastActivity: new Date(),
+                        status: "idle" as const,
+                      };
+
                       return (
                         <div
                           key={computer.id}
-                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
+                          data-computer-id={computer.id}
+                          data-drop-target="true"
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 relative ${
                             draggedStudent && computer.status === "available"
                               ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
                               : computer.status === "available"
@@ -870,10 +1099,24 @@ export const LabComputers = () => {
                               : computer.status === "in_use"
                               ? "border-blue-500"
                               : "border-yellow-500"
+                          } ${
+                            compStatus.isOnline
+                              ? "animate-pulse"
+                              : "grayscale opacity-75"
                           }`}
                           onDrop={(e) => handleDrop(e, computer.id)}
                           onDragOver={handleDragOver}
                         >
+                          {/* Connection Status Indicator */}
+                          <div
+                            className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border border-gray-800 ${
+                              compStatus.isOnline
+                                ? "bg-green-400 shadow-lg shadow-green-400/50"
+                                : "bg-red-400"
+                            }`}
+                            title={compStatus.isOnline ? "Online" : "Offline"}
+                          />
+
                           <div className="text-center space-y-2">
                             <div className="text-2xl">
                               {computer.status === "available"
@@ -916,6 +1159,21 @@ export const LabComputers = () => {
                                   : "Release"}
                               </button>
                             )}
+
+                            {/* Activity Status */}
+                            <div className="text-xs text-gray-500 mt-1">
+                              <div
+                                className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                                  compStatus.status === "active"
+                                    ? "bg-blue-400 animate-pulse"
+                                    : "bg-gray-500"
+                                }`}
+                              />
+                              {compStatus.status === "active"
+                                ? "Active"
+                                : "Idle"}{" "}
+                              • {compStatus.lastActivity.toLocaleTimeString()}
+                            </div>
                           </div>
                         </div>
                       );
@@ -930,7 +1188,7 @@ export const LabComputers = () => {
       {/* Add Computers Modal */}
       {showAddComputers && (
         <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-gray-800 border-gray-700">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-gray-800 border-gray-700">
             <div className="mt-3">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-white">
@@ -981,17 +1239,17 @@ export const LabComputers = () => {
                   />
                 </div>
 
-                <div className="flex space-x-2">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                   <button
                     onClick={() => setShowAddComputers(false)}
-                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium"
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium w-full sm:w-auto"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={addComputers}
                     disabled={processing === "add-computers"}
-                    className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium"
+                    className="flex-1 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium w-full sm:w-auto"
                   >
                     {processing === "add-computers"
                       ? "Adding..."
