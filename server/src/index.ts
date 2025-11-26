@@ -35,7 +35,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // Trust proxy for accurate IP detection behind reverse proxies
-app.set("trust proxy", true);
+app.set("trust proxy", 1);
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
