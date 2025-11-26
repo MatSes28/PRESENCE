@@ -88,14 +88,46 @@ export const ResetPassword = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-lg">
-          <div className="p-6">
-            <div className="text-center space-y-4">
-              <div className="flex justify-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+      <div className="min-h-screen flex">
+        {/* Left Panel - Same as Login */}
+        <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-teal-400 via-cyan-500 to-blue-900 relative overflow-hidden">
+          <div className="absolute inset-0 bg-black/20"></div>
+          <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
+            <div className="max-w-md text-center">
+              <h1 className="text-5xl font-bold mb-4 text-teal-100">
+                CLIRDEC:PRESENCE
+              </h1>
+              <p className="text-xl mb-8 text-cyan-100">
+                Password successfully reset
+              </p>
+              <div className="space-y-4 text-left">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                  <span className="text-cyan-100">Secure password updated</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                  <span className="text-cyan-100">Ready to log in</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                  <span className="text-cyan-100">Redirecting to login</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-300/10 rounded-full translate-y-32 -translate-x-32"></div>
+        </div>
+
+        {/* Right Panel - Success Message */}
+        <div className="flex-1 flex items-center justify-center bg-gray-900 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-md w-full space-y-8">
+            <div className="text-center">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-green-900/50 rounded-full flex items-center justify-center">
                   <svg
-                    className="w-8 h-8 text-green-600"
+                    className="w-8 h-8 text-green-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -109,10 +141,10 @@ export const ResetPassword = () => {
                   </svg>
                 </div>
               </div>
-              <h2 className="text-2xl font-bold text-green-700">
+              <h2 className="text-3xl font-bold text-teal-400 mb-2">
                 Password Reset Successful!
               </h2>
-              <p className="text-gray-600">
+              <p className="text-gray-400">
                 Your password has been updated successfully. Redirecting to
                 login...
               </p>
@@ -124,205 +156,166 @@ export const ResetPassword = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg">
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
-                </svg>
+    <div className="min-h-screen flex">
+      {/* Left Panel - Same as Login */}
+      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-teal-400 via-cyan-500 to-blue-900 relative overflow-hidden">
+        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
+          <div className="max-w-md text-center">
+            <h1 className="text-5xl font-bold mb-4 text-teal-100">
+              CLIRDEC:PRESENCE
+            </h1>
+            <p className="text-xl mb-8 text-cyan-100">Secure password reset</p>
+            <div className="space-y-4 text-left">
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                <span className="text-cyan-100">
+                  Strong password requirements
+                </span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                <span className="text-cyan-100">Secure token validation</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                <span className="text-cyan-100">
+                  Encrypted password storage
+                </span>
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Reset Your Password
+          </div>
+        </div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-300/10 rounded-full translate-y-32 -translate-x-32"></div>
+      </div>
+
+      {/* Right Panel - Reset Password Form */}
+      <div className="flex-1 flex items-center justify-center bg-gray-900 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-teal-400 mb-2">
+              Reset Password
             </h2>
-            <p className="text-gray-600 mt-2">Enter your new password below</p>
+            <p className="text-gray-400">Enter your new password below</p>
           </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="newPassword"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                New Password
-              </label>
-              <div className="relative">
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-300 mb-2"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
-                </svg>
+                  New Password
+                </label>
                 <input
-                  id="newPassword"
+                  id="password"
+                  name="password"
                   type="password"
+                  autoComplete="new-password"
+                  required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
                   placeholder="Enter new password"
-                  required
-                  autoComplete="new-password"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Must be 8+ characters with uppercase, lowercase, and number
+                </p>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Must be 8+ characters with uppercase, lowercase, and number
-              </p>
-            </div>
 
-            <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Confirm Password
-              </label>
-              <div className="relative">
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div>
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-300 mb-2"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
-                </svg>
+                  Confirm Password
+                </label>
                 <input
                   id="confirmPassword"
+                  name="confirmPassword"
                   type="password"
+                  autoComplete="new-password"
+                  required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
                   placeholder="Confirm new password"
-                  required
-                  autoComplete="new-password"
                 />
+                {/* Password Match Indicator */}
+                {confirmPassword.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm mt-1">
+                    {passwordsMatch ? (
+                      <div className="flex items-center gap-1 text-green-400">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        <span>Passwords match</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-red-400">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                        <span>Passwords do not match</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-
-              {/* Password Match Indicator */}
-              {confirmPassword.length > 0 && (
-                <div className="flex items-center gap-2 text-sm mt-1">
-                  {passwordsMatch ? (
-                    <div className="flex items-center gap-1 text-green-600">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                      <span>Passwords match</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 text-red-600">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                      <span>Passwords do not match</span>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
-            <button
-              type="submit"
-              disabled={loading || !token}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-            >
-              {loading ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Resetting Password...
-                </>
-              ) : (
-                "Reset Password"
-              )}
-            </button>
+            {error && (
+              <div className="bg-red-900/50 border border-red-500 rounded-lg p-3">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading || !token}
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
+              >
+                {loading ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Resetting...
+                  </div>
+                ) : (
+                  "Reset Password"
+                )}
+              </button>
+            </div>
 
             <div className="text-center">
               <button
                 type="button"
+                className="text-teal-400 hover:text-teal-300 text-sm"
                 onClick={() => setLocation("/")}
-                className="text-blue-600 hover:text-blue-500 text-sm flex items-center justify-center mx-auto"
               >
-                <svg
-                  className="w-4 h-4 mr-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-                Back to Login
+                ← Back to Login
               </button>
             </div>
           </form>

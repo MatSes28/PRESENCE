@@ -36,14 +36,46 @@ export const ForgotPassword = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-lg">
-          <div className="p-6">
-            <div className="text-center space-y-4">
-              <div className="flex justify-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+      <div className="min-h-screen flex">
+        {/* Left Panel - Same as Login */}
+        <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-teal-400 via-cyan-500 to-blue-900 relative overflow-hidden">
+          <div className="absolute inset-0 bg-black/20"></div>
+          <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
+            <div className="max-w-md text-center">
+              <h1 className="text-5xl font-bold mb-4 text-teal-100">
+                CLIRDEC:PRESENCE
+              </h1>
+              <p className="text-xl mb-8 text-cyan-100">
+                Password reset initiated
+              </p>
+              <div className="space-y-4 text-left">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                  <span className="text-cyan-100">Check your email inbox</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                  <span className="text-cyan-100">Click the reset link</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                  <span className="text-cyan-100">Secure password update</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-300/10 rounded-full translate-y-32 -translate-x-32"></div>
+        </div>
+
+        {/* Right Panel - Success Message */}
+        <div className="flex-1 flex items-center justify-center bg-gray-900 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-md w-full space-y-8">
+            <div className="text-center">
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 bg-green-900/50 rounded-full flex items-center justify-center">
                   <svg
-                    className="w-8 h-8 text-green-600"
+                    className="w-8 h-8 text-green-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -57,17 +89,20 @@ export const ForgotPassword = () => {
                   </svg>
                 </div>
               </div>
-              <h2 className="text-2xl font-bold text-green-700">
+              <h2 className="text-3xl font-bold text-teal-400 mb-2">
                 Check Your Email
               </h2>
-              <p className="text-gray-600">
+              <p className="text-gray-400">
                 If an account exists with this email, you will receive a
                 password reset link shortly. Please check your inbox and follow
                 the instructions.
               </p>
+            </div>
+
+            <div className="text-center">
               <button
                 onClick={() => setLocation("/")}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
               >
                 Back to Login
               </button>
@@ -79,130 +114,105 @@ export const ForgotPassword = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg">
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
+    <div className="min-h-screen flex">
+      {/* Left Panel - Same as Login */}
+      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-teal-400 via-cyan-500 to-blue-900 relative overflow-hidden">
+        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
+          <div className="max-w-md text-center">
+            <h1 className="text-5xl font-bold mb-4 text-teal-100">
+              CLIRDEC:PRESENCE
+            </h1>
+            <p className="text-xl mb-8 text-cyan-100">
+              Reset your password securely
+            </p>
+            <div className="space-y-4 text-left">
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                <span className="text-cyan-100">Secure password recovery</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                <span className="text-cyan-100">
+                  Email verification required
+                </span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
+                <span className="text-cyan-100">
+                  Contact administrator if needed
+                </span>
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Forgot Your Password?
+          </div>
+        </div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-300/10 rounded-full translate-y-32 -translate-x-32"></div>
+      </div>
+
+      {/* Right Panel - Forgot Password Form */}
+      <div className="flex-1 flex items-center justify-center bg-gray-900 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-teal-400 mb-2">
+              Forgot Password
             </h2>
-            <p className="text-gray-600 mt-2">
-              Enter your email address and we'll send you instructions to reset
-              your password.
+            <p className="text-gray-400">
+              Enter your email address and we'll help you reset your password
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className="block text-sm font-medium text-gray-300 mb-2"
               >
                 Email Address
               </label>
-              <div className="relative">
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
+                placeholder="Enter your email"
+              />
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-red-600 text-sm">{error}</p>
+              <div className="bg-red-900/50 border border-red-500 rounded-lg p-3">
+                <p className="text-red-400 text-sm">{error}</p>
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-            >
-              {loading ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Sending Reset Link...
-                </>
-              ) : (
-                "Send Reset Link"
-              )}
-            </button>
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
+              >
+                {loading ? "Sending..." : "Send Reset Instructions"}
+              </button>
+            </div>
 
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => setLocation("/")}
-                className="text-blue-600 hover:text-blue-500 text-sm flex items-center justify-center mx-auto"
+                className="text-teal-400 hover:text-teal-300 text-sm"
+                onClick={() => setLocation("/login")}
               >
-                <svg
-                  className="w-4 h-4 mr-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-                Back to Login
+                ← Back to Login
               </button>
+            </div>
+
+            <div className="text-center">
+              <p className="text-sm text-gray-500">
+                Contact your administrator if you need immediate assistance
+              </p>
             </div>
           </form>
         </div>
