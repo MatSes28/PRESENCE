@@ -1,4 +1,5 @@
-import { TransactionalEmailsApi, SendSmtpEmail } from "@getbrevo/brevo";
+import pkg from "@getbrevo/brevo";
+const { TransactionalEmailsApi, SendSmtpEmail } = pkg;
 
 interface EmailOptions {
   to: string;
@@ -8,7 +9,7 @@ interface EmailOptions {
 }
 
 class EmailService {
-  private apiInstance: TransactionalEmailsApi | null;
+  private apiInstance: any;
 
   constructor() {
     const apiKey = process.env.BREVO_API_KEY;
