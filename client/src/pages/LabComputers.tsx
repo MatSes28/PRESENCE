@@ -35,6 +35,7 @@ export const LabComputers = () => {
   const [selectedClassroom, setSelectedClassroom] = useState<number | null>(
     null
   );
+  const [selectedLab, setSelectedLab] = useState<number | null>(null);
   const [computerCount, setComputerCount] = useState(5);
   const [processing, setProcessing] = useState<string | null>(null);
 
@@ -278,146 +279,198 @@ export const LabComputers = () => {
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="text-2xl mr-3">💻</div>
-            <div>
-              <p className="text-sm font-medium text-gray-300">
-                Total Computers
-              </p>
-              <p className="text-2xl font-bold text-white">
-                {computers.length}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="text-2xl mr-3">🟢</div>
-            <div>
-              <p className="text-sm font-medium text-gray-300">Available</p>
-              <p className="text-2xl font-bold text-green-400">
-                {computers.filter((c) => c.status === "available").length}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="text-2xl mr-3">🔵</div>
-            <div>
-              <p className="text-sm font-medium text-gray-300">In Use</p>
-              <p className="text-2xl font-bold text-blue-400">
-                {computers.filter((c) => c.status === "in_use").length}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="text-2xl mr-3">🟡</div>
-            <div>
-              <p className="text-sm font-medium text-gray-300">Maintenance</p>
-              <p className="text-2xl font-bold text-yellow-400">
-                {computers.filter((c) => c.status === "maintenance").length}
-              </p>
-            </div>
-          </div>
+      {/* Lab Selection */}
+      <div className="bg-gray-800 rounded-lg shadow p-4">
+        <div className="flex items-center space-x-4">
+          <label className="text-sm font-medium text-gray-300">
+            Select Lab:
+          </label>
+          <select
+            value={selectedLab || ""}
+            onChange={(e) => setSelectedLab(parseInt(e.target.value) || null)}
+            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            <option value="">All Labs</option>
+            {classroomList.map((classroomId) => (
+              <option key={classroomId} value={classroomId}>
+                Lab {classroomId}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Computer Labs */}
-      {classroomList.map((classroomId) => {
-        const classroomComputers = getComputersByClassroom(classroomId);
-        if (classroomComputers.length === 0) return null;
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {(() => {
+          const filteredComputers = selectedLab
+            ? computers.filter((c) => c.classroomId === selectedLab)
+            : computers;
 
-        return (
-          <div key={classroomId} className="bg-gray-800 rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-700">
-              <h4 className="text-lg font-medium text-white">
-                Lab Room {classroomId}
-              </h4>
-              <p className="text-sm text-gray-300">
-                {
-                  classroomComputers.filter((c) => c.status === "available")
-                    .length
-                }{" "}
-                available •
-                {classroomComputers.filter((c) => c.status === "in_use").length}{" "}
-                in use
-              </p>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {classroomComputers.map((computer) => {
-                  const assignment = getAssignmentForComputer(computer.id);
-                  return (
-                    <div
-                      key={computer.id}
-                      className="border border-gray-700 rounded-lg p-4 bg-gray-900"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-lg">
-                            {getStatusIcon(computer.status)}
-                          </span>
-                          <span className="font-medium text-white">
-                            {computer.name}
+          return (
+            <>
+              <div className="bg-gray-800 rounded-lg shadow p-4">
+                <div className="flex items-center">
+                  <div className="text-2xl mr-3">💻</div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">
+                      Total Computers
+                      {selectedLab && ` in Lab ${selectedLab}`}
+                    </p>
+                    <p className="text-2xl font-bold text-white">
+                      {filteredComputers.length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-800 rounded-lg shadow p-4">
+                <div className="flex items-center">
+                  <div className="text-2xl mr-3">🟢</div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">
+                      Available
+                    </p>
+                    <p className="text-2xl font-bold text-green-400">
+                      {
+                        filteredComputers.filter(
+                          (c) => c.status === "available"
+                        ).length
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-800 rounded-lg shadow p-4">
+                <div className="flex items-center">
+                  <div className="text-2xl mr-3">🔵</div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">In Use</p>
+                    <p className="text-2xl font-bold text-blue-400">
+                      {
+                        filteredComputers.filter((c) => c.status === "in_use")
+                          .length
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-800 rounded-lg shadow p-4">
+                <div className="flex items-center">
+                  <div className="text-2xl mr-3">🟡</div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">
+                      Maintenance
+                    </p>
+                    <p className="text-2xl font-bold text-yellow-400">
+                      {
+                        filteredComputers.filter(
+                          (c) => c.status === "maintenance"
+                        ).length
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+
+      {/* Computer Labs */}
+      {classroomList
+        .filter((classroomId) => !selectedLab || classroomId === selectedLab)
+        .map((classroomId) => {
+          const classroomComputers = getComputersByClassroom(classroomId);
+          if (classroomComputers.length === 0) return null;
+
+          return (
+            <div key={classroomId} className="bg-gray-800 rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h4 className="text-lg font-medium text-white">
+                  Lab {classroomId}
+                </h4>
+                <p className="text-sm text-gray-300">
+                  {
+                    classroomComputers.filter((c) => c.status === "available")
+                      .length
+                  }{" "}
+                  available •
+                  {
+                    classroomComputers.filter((c) => c.status === "in_use")
+                      .length
+                  }{" "}
+                  in use
+                </p>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {classroomComputers.map((computer) => {
+                    const assignment = getAssignmentForComputer(computer.id);
+                    return (
+                      <div
+                        key={computer.id}
+                        className="border border-gray-700 rounded-lg p-4 bg-gray-900"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-lg">
+                              {getStatusIcon(computer.status)}
+                            </span>
+                            <span className="font-medium text-white">
+                              {computer.name}
+                            </span>
+                          </div>
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                              computer.status
+                            )}`}
+                          >
+                            {computer.status.replace("_", " ")}
                           </span>
                         </div>
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                            computer.status
-                          )}`}
-                        >
-                          {computer.status.replace("_", " ")}
-                        </span>
-                      </div>
 
-                      <div className="space-y-2 text-sm text-gray-400">
-                        {assignment && (
-                          <div className="space-y-1">
-                            <div className="text-blue-400 font-medium">
-                              Assigned to: {assignment.studentName}
+                        <div className="space-y-2 text-sm text-gray-400">
+                          {assignment && (
+                            <div className="space-y-1">
+                              <div className="text-blue-400 font-medium">
+                                Assigned to: {assignment.studentName}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Since:{" "}
+                                {new Date(
+                                  assignment.assignedAt
+                                ).toLocaleTimeString()}
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              Since:{" "}
-                              {new Date(
-                                assignment.assignedAt
-                              ).toLocaleTimeString()}
+                          )}
+                          {!assignment && computer.status === "available" && (
+                            <div className="text-gray-500 italic">
+                              Ready for assignment
                             </div>
-                          </div>
-                        )}
-                        {!assignment && computer.status === "available" && (
-                          <div className="text-gray-500 italic">
-                            Ready for assignment
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
 
-                      <div className="flex space-x-2 mt-4">
-                        {computer.status === "in_use" && (
-                          <button
-                            onClick={() => releaseComputer(computer.id)}
-                            disabled={processing === `release-${computer.id}`}
-                            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
-                          >
-                            {processing === `release-${computer.id}`
-                              ? "Releasing..."
-                              : "Release"}
-                          </button>
-                        )}
+                        <div className="flex space-x-2 mt-4">
+                          {computer.status === "in_use" && (
+                            <button
+                              onClick={() => releaseComputer(computer.id)}
+                              disabled={processing === `release-${computer.id}`}
+                              className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium"
+                            >
+                              {processing === `release-${computer.id}`
+                                ? "Releasing..."
+                                : "Release"}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
 
       {/* Add Computers Modal */}
       {showAddComputers && (
