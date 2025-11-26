@@ -6,3 +6,7 @@ builder = "dockerfile"
 healthcheckPath = "/health"
 restartPolicyType = "ON_FAILURE"
 startCommand = "node dist/server/src/index.js"
+
+[environments.production.vars]
+BREVO_API_KEY = "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"
+FROM_EMAIL = "clirdecpresence@gmail.com"
