@@ -1,4 +1,4 @@
-// import { TransactionalEmailsApi, SendSmtpEmail } from "@getbrevo/brevo"; // Disabled due to import issues
+import { TransactionalEmailsApi, SendSmtpEmail } from "@getbrevo/brevo";
 
 interface EmailOptions {
   to: string;
@@ -8,20 +8,56 @@ interface EmailOptions {
 }
 
 class EmailService {
-  private apiInstance: any;
+  private apiInstance: TransactionalEmailsApi | null;
 
   constructor() {
-    // Email service disabled due to import issues
-    console.warn("⚠️  Email service disabled due to configuration issues");
-    this.apiInstance = null;
+    const apiKey = process.env.BREVO_API_KEY;
+    const fromEmail = process.env.FROM_EMAIL;
+
+    if (!apiKey || !fromEmail) {
+      console.warn(
+        "⚠️  Email service disabled due to missing configuration (BREVO_API_KEY or FROM_EMAIL)"
+      );
+      this.apiInstance = null;
+      return;
+    }
+
+    try {
+      this.apiInstance = new TransactionalEmailsApi();
+      this.apiInstance.setApiKey(TransactionalEmailsApi.ApiKeys.apiKey, apiKey);
+      console.log("✅ Email service initialized successfully");
+    } catch (error) {
+      console.error("❌ Failed to initialize email service:", error);
+      this.apiInstance = null;
+    }
   }
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
-    // Email service is disabled
-    console.log(
-      `Email sending disabled: would send to ${options.to} with subject "${options.subject}"`
-    );
-    return false;
+    if (!this.apiInstance) {
+      console.log(
+        `Email sending disabled: would send to ${options.to} with subject "${options.subject}"`
+      );
+      return false;
+    }
+
+    try {
+      const sendSmtpEmail = new SendSmtpEmail();
+      sendSmtpEmail.subject = options.subject;
+      sendSmtpEmail.htmlContent = options.htmlContent;
+      sendSmtpEmail.textContent = options.textContent;
+      sendSmtpEmail.sender = {
+        email: process.env.FROM_EMAIL!,
+        name: "CLIRDEC:PRESENCE",
+      };
+      sendSmtpEmail.to = [{ email: options.to }];
+
+      const result = await this.apiInstance.sendTransacEmail(sendSmtpEmail);
+      console.log(`✅ Email sent successfully to ${options.to}`);
+      return true;
+    } catch (error) {
+      console.error(`❌ Failed to send email to ${options.to}:`, error);
+      return false;
+    }
   }
 
   async sendAbsenceNotification(
