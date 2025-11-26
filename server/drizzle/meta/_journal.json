@@ -8,6 +8,20 @@
       "when": 1761190725109,
       "tag": "0000_ambitious_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1764149450761,
+      "tag": "0001_free_crystal",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1764149740370,
+      "tag": "0002_condemned_old_lace",
+      "breakpoints": true
     }
   ]
 }

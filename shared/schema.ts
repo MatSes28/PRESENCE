@@ -173,6 +173,9 @@ export const iotDevices = pgTable("iot_devices", {
   lastSeen: timestamp("last_seen"),
   config: jsonb("config"),
   isActive: boolean("is_active").default(true).notNull(),
+  failedLoginAttempts: integer("failed_login_attempts").default(0).notNull(),
+  lockedUntil: timestamp("locked_until"),
+  lastFailedLogin: timestamp("last_failed_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -192,6 +195,29 @@ export const enrollments = pgTable("enrollments", {
   isActive: boolean("is_active").default(true).notNull(),
 });
 
+// Password Reset Tokens table
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .references(() => users.id)
+    .notNull(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Security Events table for monitoring
+export const securityEvents = pgTable("security_events", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  eventType: varchar("event_type", { length: 50 }).notNull(), // login_success, login_failed, password_reset, account_locked, etc.
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  details: jsonb("details"), // Additional event-specific data
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Email Notifications table
 export const emailNotifications = pgTable("email_notifications", {
   id: serial("id").primaryKey(),
@@ -209,6 +235,23 @@ export const emailNotifications = pgTable("email_notifications", {
 });
 
 // Relations
+export const passwordResetTokensRelations = relations(
+  passwordResetTokens,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [passwordResetTokens.userId],
+      references: [users.id],
+    }),
+  })
+);
+
+export const securityEventsRelations = relations(securityEvents, ({ one }) => ({
+  user: one(users, {
+    fields: [securityEvents.userId],
+    references: [users.id],
+  }),
+}));
+
 export const usersRelations = relations(users, ({ many }) => ({
   schedules: many(schedules),
 }));
@@ -333,6 +376,12 @@ export const emailNotificationsRelations = relations(
 );
 
 // Types
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type NewPasswordResetToken = typeof passwordResetTokens.$inferInsert;
+
+export type SecurityEvent = typeof securityEvents.$inferSelect;
+export type NewSecurityEvent = typeof securityEvents.$inferInsert;
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
