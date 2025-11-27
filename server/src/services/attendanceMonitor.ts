@@ -32,11 +32,13 @@ interface AttendanceRecord {
 
 class AttendanceMonitor {
   private activeSessions = new Map<number, AttendanceRecord>();
-  private validationWindow = 7000; // 7 seconds in milliseconds
+  private validationWindow = 30000; // 30 seconds in milliseconds (increased for better validation)
+  private attendanceCooldown = 60000; // 1 minute cooldown between attendance records for same student/session
   private recentRFIDScans = new Map<
     string,
     { rfidUid: string; timestamp: Date; deviceId: string }[]
   >();
+  private recentAttendance = new Map<string, Date>(); // Track recent attendance to prevent duplicates
 
   async processRFIDScan(scan: RFIDScan) {
     try {
@@ -63,7 +65,32 @@ class AttendanceMonitor {
 
       if (!currentSession) {
         console.log(`No active class session for student ${studentData.id}`);
+        // Create discrepancy record for RFID scan outside class time
+        await this.createGeneralDiscrepancyRecord({
+          type: "out_of_class_time",
+          studentId: studentData.id,
+          rfidUid: scan.rfidUid,
+          deviceId: scan.deviceId,
+          timestamp: now,
+          message: `RFID scan outside class hours: ${scan.rfidUid}`,
+        });
         return { success: false, message: "No active class session" };
+      }
+
+      // Check for duplicate attendance within cooldown period
+      const attendanceKey = `${studentData.id}-${currentSession.id}`;
+      const lastAttendance = this.recentAttendance.get(attendanceKey);
+      if (
+        lastAttendance &&
+        now.getTime() - lastAttendance.getTime() < this.attendanceCooldown
+      ) {
+        console.log(
+          `Duplicate attendance attempt within cooldown period for student ${studentData.id}`
+        );
+        return {
+          success: false,
+          message: "Attendance already recorded recently",
+        };
       }
 
       // Check if student already has a record for this session
@@ -90,6 +117,9 @@ class AttendanceMonitor {
           sensorDetected: false,
         });
       }
+
+      // Update recent attendance tracking
+      this.recentAttendance.set(attendanceKey, now);
 
       return {
         success: true,
@@ -337,6 +367,37 @@ class AttendanceMonitor {
     console.log(`Created discrepancy record for sensor trigger`);
   }
 
+  private async createGeneralDiscrepancyRecord(discrepancy: {
+    type: string;
+    studentId?: number;
+    rfidUid?: string;
+    deviceId: string;
+    timestamp: Date;
+    message: string;
+    sessionId?: number;
+  }) {
+    // Find session if not provided
+    let sessionId = discrepancy.sessionId;
+    if (!sessionId) {
+      const now = new Date();
+      const currentSession = await this.findActiveClassSession(now);
+      sessionId = currentSession?.id || 0;
+    }
+
+    // Create a record flagged as discrepancy
+    await db.insert(attendanceRecords).values({
+      studentId: discrepancy.studentId || 0,
+      classSessionId: sessionId,
+      sensorDetected: false,
+      rfidDetected: !!discrepancy.rfidUid,
+      isValid: false,
+      discrepancyFlag: true,
+      notes: `${discrepancy.type}: ${discrepancy.message}`,
+    });
+
+    console.log(`Created general discrepancy record: ${discrepancy.type}`);
+  }
+
   async validateAttendanceRecord(recordId: number) {
     // Manual validation of suspicious records
     await db
@@ -368,13 +429,19 @@ class AttendanceMonitor {
     return stats;
   }
 
-  // Clean up old RFID scans periodically
-  cleanupOldRFIDScans() {
+  // Clean up old RFID scans and attendance records periodically
+  cleanupOldData() {
     const now = new Date();
-    const cutoffTime = new Date(now.getTime() - this.validationWindow * 2); // Keep 2x validation window
+    const rfidCutoffTime = new Date(now.getTime() - this.validationWindow * 2); // Keep 2x validation window
+    const attendanceCutoffTime = new Date(
+      now.getTime() - this.attendanceCooldown * 2
+    ); // Keep 2x cooldown window
 
+    // Clean up old RFID scans
     for (const [deviceId, scans] of this.recentRFIDScans) {
-      const recentScans = scans.filter((scan) => scan.timestamp > cutoffTime);
+      const recentScans = scans.filter(
+        (scan) => scan.timestamp > rfidCutoffTime
+      );
       if (recentScans.length === 0) {
         this.recentRFIDScans.delete(deviceId);
       } else {
@@ -382,7 +449,16 @@ class AttendanceMonitor {
       }
     }
 
-    console.log("Cleaned up old RFID scans");
+    // Clean up old attendance tracking
+    for (const [key, timestamp] of this.recentAttendance) {
+      if (timestamp < attendanceCutoffTime) {
+        this.recentAttendance.delete(key);
+      }
+    }
+
+    console.log(
+      `Cleaned up old data: ${this.recentRFIDScans.size} RFID devices, ${this.recentAttendance.size} attendance records`
+    );
   }
 
   // Get RFID scan statistics
@@ -398,6 +474,27 @@ class AttendanceMonitor {
           deviceId,
           scanCount: scans.length,
           latestScan: scans[scans.length - 1]?.timestamp,
+        })
+      ),
+    };
+
+    return stats;
+  }
+
+  // Get attendance validation statistics
+  getAttendanceValidationStats() {
+    const stats = {
+      validationWindowSeconds: this.validationWindow / 1000,
+      attendanceCooldownMinutes: this.attendanceCooldown / (1000 * 60),
+      activeAttendanceTracking: this.recentAttendance.size,
+      activeRFIDTracking: this.recentRFIDScans.size,
+      recentAttendanceRecords: Array.from(this.recentAttendance.entries()).map(
+        ([key, timestamp]) => ({
+          key,
+          lastAttendance: timestamp,
+          minutesAgo: Math.round(
+            (Date.now() - timestamp.getTime()) / (1000 * 60)
+          ),
         })
       ),
     };

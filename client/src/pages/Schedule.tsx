@@ -163,6 +163,82 @@ export const Schedule = () => {
     }
   };
 
+  // Helper function to check if two time ranges overlap
+  const doTimesOverlap = (
+    start1: string,
+    end1: string,
+    start2: string,
+    end2: string
+  ): boolean => {
+    const start1Minutes =
+      parseInt(start1.split(":")[0]) * 60 + parseInt(start1.split(":")[1]);
+    const end1Minutes =
+      parseInt(end1.split(":")[0]) * 60 + parseInt(end1.split(":")[1]);
+    const start2Minutes =
+      parseInt(start2.split(":")[0]) * 60 + parseInt(start2.split(":")[1]);
+    const end2Minutes =
+      parseInt(end2.split(":")[0]) * 60 + parseInt(end2.split(":")[1]);
+
+    return start1Minutes < end2Minutes && end1Minutes > start2Minutes;
+  };
+
+  // Client-side conflict detection
+  const checkScheduleConflicts = (
+    newSchedule: any,
+    excludeId?: number
+  ): any[] => {
+    const conflicts: any[] = [];
+
+    schedules.forEach((schedule) => {
+      if (excludeId && schedule.id === excludeId) return;
+
+      // Check for same day and semester/academic year
+      if (
+        schedule.dayOfWeek === newSchedule.dayOfWeek &&
+        schedule.semester === newSchedule.semester &&
+        schedule.academicYear === newSchedule.academicYear
+      ) {
+        // Check for time overlap
+        if (
+          doTimesOverlap(
+            schedule.startTime,
+            schedule.endTime,
+            newSchedule.startTime,
+            newSchedule.endTime
+          )
+        ) {
+          // Check classroom conflict
+          if (schedule.classroomId === newSchedule.classroomId) {
+            conflicts.push({
+              type: "classroom",
+              message: `Classroom ${
+                schedule.classroomName
+              } is already booked for ${schedule.subjectName} (${formatTime(
+                schedule.startTime
+              )} - ${formatTime(schedule.endTime)})`,
+              existingSchedule: schedule,
+            });
+          }
+
+          // Check faculty conflict
+          if (schedule.facultyId === newSchedule.facultyId) {
+            conflicts.push({
+              type: "faculty",
+              message: `Faculty member ${
+                schedule.facultyName
+              } is already scheduled for ${schedule.subjectName} (${formatTime(
+                schedule.startTime
+              )} - ${formatTime(schedule.endTime)})`,
+              existingSchedule: schedule,
+            });
+          }
+        }
+      }
+    });
+
+    return conflicts;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -176,18 +252,47 @@ export const Schedule = () => {
       return;
     }
 
-    // Check for conflicts first
+    // Validate time range
+    if (formData.startTime >= formData.endTime) {
+      addNotification({
+        type: "error",
+        title: "Invalid Time Range",
+        message: "End time must be after start time",
+      });
+      return;
+    }
+
+    // Client-side conflict detection first
+    const newScheduleData = {
+      subjectId: parseInt(formData.subjectId),
+      classroomId: parseInt(formData.classroomId),
+      facultyId: parseInt(formData.facultyId),
+      dayOfWeek: parseInt(formData.dayOfWeek),
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      semester: formData.semester,
+      academicYear: formData.academicYear,
+    };
+
+    const clientConflicts = checkScheduleConflicts(
+      newScheduleData,
+      editingSchedule?.id
+    );
+    if (clientConflicts.length > 0) {
+      setConflicts(clientConflicts);
+      addNotification({
+        type: "warning",
+        title: "Schedule Conflicts Detected",
+        message: "Please review the conflicts below before proceeding.",
+      });
+      return;
+    }
+
+    // Check for conflicts via API as well
     setCheckingConflicts(true);
     try {
       const conflictCheck = await api.checkScheduleConflicts({
-        subjectId: parseInt(formData.subjectId),
-        classroomId: parseInt(formData.classroomId),
-        facultyId: parseInt(formData.facultyId),
-        dayOfWeek: parseInt(formData.dayOfWeek),
-        startTime: formData.startTime,
-        endTime: formData.endTime,
-        semester: formData.semester,
-        academicYear: formData.academicYear,
+        ...newScheduleData,
         excludeId: editingSchedule?.id,
       });
 
@@ -205,13 +310,13 @@ export const Schedule = () => {
       setConflicts([]);
     } catch (error) {
       console.error("Failed to check conflicts:", error);
+      // Continue with submission even if API check fails, since we did client-side validation
       addNotification({
-        type: "error",
-        title: "Conflict Check Failed",
-        message: "Unable to check for schedule conflicts. Please try again.",
+        type: "warning",
+        title: "Conflict Check Unavailable",
+        message:
+          "Unable to verify conflicts with server. Proceeding with client-side validation only.",
       });
-      setCheckingConflicts(false);
-      return;
     }
     setCheckingConflicts(false);
 
@@ -219,21 +324,13 @@ export const Schedule = () => {
     setSubmitting(true);
     try {
       let response;
-      const scheduleData = {
-        subjectId: parseInt(formData.subjectId),
-        classroomId: parseInt(formData.classroomId),
-        facultyId: parseInt(formData.facultyId),
-        dayOfWeek: parseInt(formData.dayOfWeek),
-        startTime: formData.startTime,
-        endTime: formData.endTime,
-        semester: formData.semester,
-        academicYear: formData.academicYear,
-      };
-
       if (editingSchedule) {
-        response = await api.updateSchedule(editingSchedule.id, scheduleData);
+        response = await api.updateSchedule(
+          editingSchedule.id,
+          newScheduleData
+        );
       } else {
-        response = await api.createSchedule(scheduleData);
+        response = await api.createSchedule(newScheduleData);
       }
 
       if (response.success) {

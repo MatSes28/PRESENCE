@@ -131,6 +131,28 @@ export const Students = () => {
     }
   };
 
+  // RFID uniqueness validation
+  const validateRfidUniqueness = async (
+    rfidUid: string,
+    excludeStudentId?: number
+  ): Promise<boolean> => {
+    if (!rfidUid.trim()) return true; // Empty RFID is allowed
+
+    try {
+      // Check if any existing student has this RFID UID
+      const existingStudent = students.find(
+        (student) =>
+          student.rfidUid === rfidUid.trim() && student.id !== excludeStudentId
+      );
+
+      return !existingStudent;
+    } catch (error) {
+      console.error("Failed to validate RFID uniqueness:", error);
+      // If we can't validate, allow it but show a warning
+      return true;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -141,6 +163,23 @@ export const Students = () => {
         message: "Please fix the errors in the form",
       });
       return;
+    }
+
+    // Additional RFID uniqueness validation
+    if (formData.rfidUid.trim()) {
+      const isRfidUnique = await validateRfidUniqueness(
+        formData.rfidUid,
+        editingStudent?.id
+      );
+      if (!isRfidUnique) {
+        addNotification({
+          type: "error",
+          title: "RFID Validation Error",
+          message:
+            "This RFID card is already assigned to another student. Please use a different card.",
+        });
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -536,9 +575,30 @@ export const Students = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, rfidUid: e.target.value })
                   }
+                  onBlur={async (e) => {
+                    if (e.target.value.trim()) {
+                      const isUnique = await validateRfidUniqueness(
+                        e.target.value,
+                        editingStudent?.id
+                      );
+                      if (!isUnique) {
+                        addNotification({
+                          type: "warning",
+                          title: "RFID Already Assigned",
+                          message:
+                            "This RFID card is already assigned to another student.",
+                        });
+                      }
+                    }
+                  }}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="RFID card UID"
                 />
+                {formData.rfidUid && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    RFID cards must be unique across all students
+                  </p>
+                )}
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-300 mb-1">
