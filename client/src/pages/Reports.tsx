@@ -38,38 +38,47 @@ export const Reports = () => {
   const loadPreviewData = async () => {
     try {
       setLoading(true);
-      // For preview, we'll use mock data
-      setPreviewData([
-        {
-          record: {
-            entryTime: "2024-01-15T08:30:00Z",
-            exitTime: "2024-01-15T10:15:00Z",
-            status: "present",
-          },
-          student: {
-            name: "John Doe",
-            studentId: "2021001",
-          },
-        },
-        {
-          record: {
-            entryTime: "2024-01-15T08:45:00Z",
-            status: "late",
-          },
-          student: {
-            name: "Jane Smith",
-            studentId: "2021002",
-          },
-        },
-      ]);
-      setStatistics({
-        totalRecords: 1247,
-        present: 1089,
-        late: 98,
-        absent: 60,
+
+      // Try to fetch real attendance data for preview
+      const response = await api.getAttendanceRecords({
+        limit: 10,
+        offset: 0,
       });
+
+      if (response.success && response.data && Array.isArray(response.data)) {
+        setPreviewData(response.data);
+        calculateStatistics(response.data);
+      } else {
+        console.error("Failed to load preview data:", response.message);
+        addNotification({
+          type: "warning",
+          title: "Preview Unavailable",
+          message:
+            "Unable to load report preview data. Report generation may still work.",
+        });
+        // Set empty data instead of mock data
+        setPreviewData([]);
+        setStatistics({
+          totalRecords: 0,
+          present: 0,
+          late: 0,
+          absent: 0,
+        });
+      }
     } catch (error) {
       console.error("Failed to load preview data:", error);
+      addNotification({
+        type: "error",
+        title: "Preview Error",
+        message: "Failed to load report preview. Please check your connection.",
+      });
+      setPreviewData([]);
+      setStatistics({
+        totalRecords: 0,
+        present: 0,
+        late: 0,
+        absent: 0,
+      });
     } finally {
       setLoading(false);
     }
@@ -108,32 +117,38 @@ export const Reports = () => {
 
     setGenerating(true);
     try {
-      // For now, simulate download since the API might return JSON
-      // In production, the server should return CSV content directly
-      const mockCSV = `Student ID,Name,Date,Status\n2021001,John Doe,${today},Present\n2021002,Jane Smith,${today},Late\n`;
-      const blob = new Blob([mockCSV], { type: "text/csv" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${type}-report-${today}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      addNotification({
-        type: "success",
-        title: "Report Downloaded",
-        message: `${
-          type.charAt(0).toUpperCase() + type.slice(1)
-        } report has been downloaded.`,
+      // Try to generate report using the API
+      const response = await api.generateReport({
+        type: "attendance",
+        format: "csv",
+        startDate,
+        endDate,
       });
+
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Report Generated",
+          message: `${
+            type.charAt(0).toUpperCase() + type.slice(1)
+          } report has been generated successfully.`,
+        });
+      } else {
+        addNotification({
+          type: "error",
+          title: "Report Generation Failed",
+          message:
+            response.message ||
+            "Failed to generate report. Report generation requires backend implementation.",
+        });
+      }
     } catch (error) {
       console.error("Failed to generate quick report:", error);
       addNotification({
         type: "error",
-        title: "Download Failed",
-        message: "Failed to generate and download the report.",
+        title: "Report Generation Unavailable",
+        message:
+          "Report generation requires backend implementation. Please contact administrator.",
       });
     } finally {
       setGenerating(false);
@@ -183,6 +198,24 @@ export const Reports = () => {
 
   return (
     <div className="space-y-6">
+      {/* Warning Banner */}
+      <div className="bg-yellow-900 border border-yellow-600 rounded-lg p-4">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <span className="text-yellow-400 text-lg">⚠️</span>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-yellow-400">
+              Report Generation Not Available
+            </h3>
+            <p className="text-sm text-yellow-200 mt-1">
+              Report generation and download functionality requires backend
+              implementation. Currently showing preview data only.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
       <div>
         <h3 className="text-lg font-medium text-white">Attendance Reports</h3>

@@ -78,33 +78,43 @@ export const Dashboard = () => {
               .length,
           }));
         } else {
-          // Fallback to mock data if API fails
-          setDashboardStats({
-            todayClasses: 5,
-            presentStudents: 120,
-            absentStudents: 10,
-            attendanceRate: 92.3,
-            totalEvents: 150,
+          console.error(
+            "Dashboard stats API returned unsuccessful response:",
+            response
+          );
+          // Show error state instead of fallback data
+          addNotification({
+            type: "error",
+            title: "Dashboard Error",
+            message: response.message || "Failed to load dashboard statistics",
+          });
+          setDashboardStats((prev) => ({
+            ...prev,
             activeDevices: deviceStatus.filter((d) => d.status === "online")
               .length,
-            systemUptime: "7d 12h 30m",
-            errorRate: 0.5,
-          });
+          }));
         }
       } catch (error) {
         console.error("Failed to fetch dashboard stats:", error);
-        // Fallback to mock data
-        setDashboardStats({
-          todayClasses: 5,
-          presentStudents: 120,
-          absentStudents: 10,
-          attendanceRate: 92.3,
-          totalEvents: 150,
+        addNotification({
+          type: "error",
+          title: "Connection Error",
+          message:
+            "Unable to connect to server. Please check your internet connection.",
+        });
+        // Set minimal default values
+        setDashboardStats((prev) => ({
+          ...prev,
+          todayClasses: 0,
+          presentStudents: 0,
+          absentStudents: 0,
+          attendanceRate: 0,
+          totalEvents: 0,
+          systemUptime: "0d 0h 0m",
+          errorRate: 0,
           activeDevices: deviceStatus.filter((d) => d.status === "online")
             .length,
-          systemUptime: "7d 12h 30m",
-          errorRate: 0.5,
-        });
+        }));
       } finally {
         setLoading(false);
       }
@@ -753,38 +763,55 @@ export const Dashboard = () => {
   // Security Tab Content
   const securityContent = (
     <div className="space-y-6">
+      <div className="bg-yellow-900 border border-yellow-600 rounded-lg p-4 mb-6">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <span className="text-yellow-400 text-lg">⚠️</span>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-yellow-400">
+              Security Monitoring Not Available
+            </h3>
+            <p className="text-sm text-yellow-200 mt-1">
+              Real-time security metrics require backend implementation.
+              Currently showing placeholder data.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Active Sessions"
-          value={Math.floor(Math.random() * 10) + 15}
+          value="N/A"
           icon="🔐"
           trend="neutral"
-          trendValue="Stable"
-          color="green"
+          trendValue="Pending"
+          color="gray"
         />
         <StatCard
           title="Failed Logins"
-          value={Math.floor(Math.random() * 5)}
+          value="N/A"
           icon="🚫"
-          trend="down"
-          trendValue={`-${Math.floor(Math.random() * 3)}`}
-          color="red"
+          trend="neutral"
+          trendValue="Pending"
+          color="gray"
         />
         <StatCard
           title="Security Alerts"
-          value={Math.floor(Math.random() * 3)}
+          value="N/A"
           icon="⚠️"
           trend="neutral"
-          trendValue={Math.floor(Math.random() * 3) === 0 ? "None" : "Low"}
-          color="yellow"
+          trendValue="Pending"
+          color="gray"
         />
         <StatCard
           title="System Integrity"
-          value="100%"
+          value="N/A"
           icon="🛡️"
-          trend="up"
-          trendValue="+0.1%"
-          color="blue"
+          trend="neutral"
+          trendValue="Pending"
+          color="gray"
         />
       </div>
 
@@ -886,21 +913,15 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">Suspicious IPs</span>
-              <span className="text-red-400">
-                {Math.floor(Math.random() * 3)}
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Brute Force Attempts</span>
-              <span className="text-yellow-400">
-                {Math.floor(Math.random() * 5)}
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Anomaly Detections</span>
-              <span className="text-blue-400">
-                {Math.floor(Math.random() * 2)}
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
           </div>
         </div>
@@ -912,15 +933,15 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">Encrypted Fields</span>
-              <span className="text-green-400">98%</span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Backup Frequency</span>
-              <span className="text-white">Daily</span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Last Backup</span>
-              <span className="text-white">2h ago</span>
+              <span className="text-gray-400">N/A</span>
             </div>
           </div>
         </div>
@@ -932,15 +953,15 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">GDPR Compliance</span>
-              <span className="text-green-400">✓</span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Data Retention</span>
-              <span className="text-green-400">✓</span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Audit Logging</span>
-              <span className="text-green-400">✓</span>
+              <span className="text-gray-400">N/A</span>
             </div>
           </div>
         </div>
@@ -951,42 +972,55 @@ export const Dashboard = () => {
   // Performance Tab Content
   const performanceContent = (
     <div className="space-y-6">
+      <div className="bg-yellow-900 border border-yellow-600 rounded-lg p-4 mb-6">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <span className="text-yellow-400 text-lg">⚠️</span>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-yellow-400">
+              Performance Monitoring Not Available
+            </h3>
+            <p className="text-sm text-yellow-200 mt-1">
+              Real-time performance metrics require backend implementation.
+              Currently showing placeholder data.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Response Time"
-          value={`${Math.floor(200 + Math.random() * 100)}ms`}
+          value="N/A"
           icon="⚡"
-          trend={Math.random() > 0.5 ? "down" : "up"}
-          trendValue={`${Math.random() > 0.5 ? "-" : "+"}${Math.floor(
-            Math.random() * 20
-          )}ms`}
-          color="green"
+          trend="neutral"
+          trendValue="Pending"
+          color="gray"
         />
         <StatCard
           title="Uptime"
-          value="99.9%"
+          value="N/A"
           icon="📈"
-          trend="up"
-          trendValue="+0.1%"
-          color="blue"
+          trend="neutral"
+          trendValue="Pending"
+          color="gray"
         />
         <StatCard
           title="CPU Usage"
-          value={`${Math.floor(20 + Math.random() * 40)}%`}
+          value="N/A"
           icon="💻"
           trend="neutral"
-          trendValue="±2%"
-          color="purple"
+          trendValue="Pending"
+          color="gray"
         />
         <StatCard
           title="Memory Usage"
-          value={`${Math.floor(40 + Math.random() * 40)}%`}
+          value="N/A"
           icon="🧠"
-          trend={Math.random() > 0.5 ? "up" : "down"}
-          trendValue={`${Math.random() > 0.5 ? "+" : "-"}${Math.floor(
-            Math.random() * 10
-          )}%`}
-          color="yellow"
+          trend="neutral"
+          trendValue="Pending"
+          color="gray"
         />
       </div>
 
@@ -999,29 +1033,29 @@ export const Dashboard = () => {
             {[
               {
                 name: "CPU",
-                value: Math.floor(20 + Math.random() * 40),
-                color: "blue",
+                value: 0,
+                color: "gray",
               },
               {
                 name: "Memory",
-                value: Math.floor(40 + Math.random() * 40),
-                color: "green",
+                value: 0,
+                color: "gray",
               },
               {
                 name: "Storage",
-                value: Math.floor(30 + Math.random() * 40),
-                color: "purple",
+                value: 0,
+                color: "gray",
               },
               {
                 name: "Network",
-                value: Math.floor(10 + Math.random() * 30),
-                color: "yellow",
+                value: 0,
+                color: "gray",
               },
             ].map((resource) => (
               <div key={resource.name}>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-gray-300">{resource.name}</span>
-                  <span className="text-white">{resource.value}%</span>
+                  <span className="text-gray-400">N/A</span>
                 </div>
                 <div className="w-full bg-gray-700 rounded-full h-2">
                   <div
@@ -1041,39 +1075,27 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">Average Response</span>
-              <span className="text-white">
-                {Math.floor(200 + Math.random() * 100)}ms
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Requests/min</span>
-              <span className="text-white">
-                {Math.floor(1000 + Math.random() * 1000).toLocaleString()}
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Error Rate</span>
-              <span className="text-green-400">
-                {(Math.random() * 0.5).toFixed(1)}%
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Cache Hit Rate</span>
-              <span className="text-green-400">
-                {(90 + Math.random() * 8).toFixed(1)}%
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Active Connections</span>
-              <span className="text-white">
-                {Math.floor(50 + Math.random() * 100)}
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Database Queries/sec</span>
-              <span className="text-white">
-                {Math.floor(100 + Math.random() * 200)}
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
           </div>
         </div>
@@ -1087,27 +1109,19 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">Query Execution Time</span>
-              <span className="text-white">
-                {Math.floor(10 + Math.random() * 50)}ms
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Connection Pool Usage</span>
-              <span className="text-white">
-                {Math.floor(60 + Math.random() * 30)}%
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Cache Efficiency</span>
-              <span className="text-green-400">
-                {(85 + Math.random() * 10).toFixed(1)}%
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Index Usage</span>
-              <span className="text-green-400">
-                {(90 + Math.random() * 8).toFixed(1)}%
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
           </div>
         </div>
@@ -1119,25 +1133,19 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">Active Users</span>
-              <span className="text-white">
-                {Math.floor(10 + Math.random() * 50)}
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Page Load Time</span>
-              <span className="text-white">
-                {Math.floor(500 + Math.random() * 1000)}ms
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">JavaScript Errors</span>
-              <span className="text-green-400">
-                {Math.floor(Math.random() * 5)}
-              </span>
+              <span className="text-gray-400">N/A</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Memory Leaks</span>
-              <span className="text-green-400">None</span>
+              <span className="text-gray-400">N/A</span>
             </div>
           </div>
         </div>
@@ -1147,37 +1155,25 @@ export const Dashboard = () => {
         <h4 className="text-lg font-medium text-cyan-400 mb-4">
           Performance Trends (Last 24 Hours)
         </h4>
-        <div className="h-48 flex items-end justify-between space-x-1">
-          {Array.from({ length: 24 }, (_, i) => {
-            const cpuUsage = Math.floor(20 + Math.random() * 60);
-            const memoryUsage = Math.floor(30 + Math.random() * 50);
-            return (
-              <div key={i} className="flex-1 flex flex-col items-center">
-                <div className="w-full flex flex-col space-y-1">
-                  <div
-                    className="bg-blue-600 rounded-t-sm opacity-80"
-                    style={{ height: `${cpuUsage}px` }}
-                    title={`CPU: ${cpuUsage}%`}
-                  ></div>
-                  <div
-                    className="bg-green-600 rounded-t-sm"
-                    style={{ height: `${memoryUsage}px` }}
-                    title={`Memory: ${memoryUsage}%`}
-                  ></div>
-                </div>
-                <span className="text-xs text-gray-400 mt-1">{i}:00</span>
-              </div>
-            );
-          })}
+        <div className="h-48 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-4xl mb-4">📊</div>
+            <p className="text-gray-400">
+              Performance monitoring data not available
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              Real-time performance trends require backend implementation
+            </p>
+          </div>
         </div>
         <div className="flex justify-center space-x-4 mt-4">
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-blue-600 rounded"></div>
-            <span className="text-xs text-gray-300">CPU Usage</span>
+            <div className="w-3 h-3 bg-gray-600 rounded"></div>
+            <span className="text-xs text-gray-400">CPU Usage</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-green-600 rounded"></div>
-            <span className="text-xs text-gray-300">Memory Usage</span>
+            <div className="w-3 h-3 bg-gray-600 rounded"></div>
+            <span className="text-xs text-gray-400">Memory Usage</span>
           </div>
         </div>
       </div>

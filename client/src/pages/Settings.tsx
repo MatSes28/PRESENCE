@@ -69,30 +69,13 @@ export const Settings = () => {
       return;
     }
 
-    try {
-      const response = await api.put("/settings/profile", profileData);
-      if (response.success) {
-        addNotification({
-          type: "success",
-          title: "Profile Updated",
-          message: "Your profile has been updated successfully!",
-        });
-      } else {
-        addNotification({
-          type: "error",
-          title: "Update Failed",
-          message: response.message || "Failed to update profile",
-        });
-      }
-    } catch (err: any) {
-      addNotification({
-        type: "error",
-        title: "Error",
-        message:
-          err.response?.data?.message ||
-          "An error occurred while updating profile",
-      });
-    }
+    // Simulate successful update since backend persistence is not implemented
+    addNotification({
+      type: "warning",
+      title: "Profile Update Simulated",
+      message:
+        "Profile changes are not persisted. Backend implementation required for actual updates.",
+    });
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -107,116 +90,49 @@ export const Settings = () => {
       return;
     }
 
-    try {
-      const response = await api.put("/settings/password", {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword,
-      });
-      if (response.success) {
-        addNotification({
-          type: "success",
-          title: "Password Changed",
-          message: "Your password has been changed successfully!",
-        });
-        setPasswordData({
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-        });
-        passwordValidation.clearErrors();
-      } else {
-        addNotification({
-          type: "error",
-          title: "Password Change Failed",
-          message: response.message || "Failed to change password",
-        });
-      }
-    } catch (err: any) {
-      addNotification({
-        type: "error",
-        title: "Error",
-        message:
-          err.response?.data?.message ||
-          "An error occurred while changing password",
-      });
-    }
+    // Simulate successful password change since backend persistence is not implemented
+    addNotification({
+      type: "warning",
+      title: "Password Change Simulated",
+      message:
+        "Password changes are not persisted. Backend implementation required for actual updates.",
+    });
+    setPasswordData({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    });
+    passwordValidation.clearErrors();
   };
 
   const handleSystemSettingsSave = async () => {
-    try {
-      const response = await api.put("/settings/system", systemSettings);
-      if (response.success) {
-        addNotification({
-          type: "success",
-          title: "Settings Saved",
-          message: "System settings have been updated successfully!",
-        });
-      } else {
-        addNotification({
-          type: "error",
-          title: "Save Failed",
-          message: response.message || "Failed to save system settings",
-        });
-      }
-    } catch (err: any) {
-      addNotification({
-        type: "error",
-        title: "Error",
-        message:
-          err.response?.data?.message || "Failed to save system settings",
-      });
-    }
+    // Simulate successful save since backend persistence is not implemented
+    addNotification({
+      type: "warning",
+      title: "Settings Save Simulated",
+      message:
+        "System settings are not persisted. Backend implementation required for actual saves.",
+    });
   };
 
   const handleHardwareSettingsSave = async () => {
-    try {
-      const response = await api.put("/settings/hardware", hardwareSettings);
-      if (response.success) {
-        addNotification({
-          type: "success",
-          title: "Settings Saved",
-          message: "Hardware settings have been updated successfully!",
-        });
-      } else {
-        addNotification({
-          type: "error",
-          title: "Save Failed",
-          message: response.message || "Failed to save hardware settings",
-        });
-      }
-    } catch (err: any) {
-      addNotification({
-        type: "error",
-        title: "Error",
-        message:
-          err.response?.data?.message || "Failed to save hardware settings",
-      });
-    }
+    // Simulate successful save since backend persistence is not implemented
+    addNotification({
+      type: "warning",
+      title: "Hardware Settings Save Simulated",
+      message:
+        "Hardware settings are not persisted. Backend implementation required for actual saves.",
+    });
   };
 
   const handleEmailSettingsSave = async () => {
-    try {
-      const response = await api.put("/settings/email", emailSettings);
-      if (response.success) {
-        addNotification({
-          type: "success",
-          title: "Settings Saved",
-          message: "Email settings have been updated successfully!",
-        });
-      } else {
-        addNotification({
-          type: "error",
-          title: "Save Failed",
-          message: response.message || "Failed to save email settings",
-        });
-      }
-    } catch (err: any) {
-      addNotification({
-        type: "error",
-        title: "Error",
-        message: err.response?.data?.message || "Failed to save email settings",
-      });
-    }
+    // Simulate successful save since backend persistence is not implemented
+    addNotification({
+      type: "warning",
+      title: "Email Settings Save Simulated",
+      message:
+        "Email settings are not persisted. Backend implementation required for actual saves.",
+    });
   };
 
   const tabs = [
@@ -229,6 +145,24 @@ export const Settings = () => {
 
   return (
     <div className="space-y-6">
+      {/* Warning Banner */}
+      <div className="bg-yellow-900 border border-yellow-600 rounded-lg p-4">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <span className="text-yellow-400 text-lg">⚠️</span>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-yellow-400">
+              Settings Persistence Not Available
+            </h3>
+            <p className="text-sm text-yellow-200 mt-1">
+              Settings are currently stored locally and will not persist.
+              Database persistence requires backend implementation.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
       <div>
         <h3 className="text-lg font-medium text-white">Settings</h3>

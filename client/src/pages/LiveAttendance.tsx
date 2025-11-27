@@ -66,68 +66,144 @@ export const LiveAttendance = () => {
   }, []);
 
   useEffect(() => {
-    const wsClient = getWebSocketClient(user?.id);
+    if (!user?.id) {
+      console.warn("No user ID available for WebSocket connection");
+      return;
+    }
 
-    // Connection status
-    wsClient.on("connect", () => setIsConnected(true));
-    wsClient.on("disconnect", () => setIsConnected(false));
+    let wsClient: any;
+    let reconnectTimeout: NodeJS.Timeout;
 
-    // Real-time attendance events
-    wsClient.on("rfidScan", (data) => {
-      addEvent({
-        id: Date.now().toString(),
-        type: "rfid_scan",
-        rfidUid: data.rfidUid,
-        timestamp: data.timestamp,
-        deviceId: data.deviceId,
-        status: "valid",
-      });
-    });
+    const connectWebSocket = () => {
+      try {
+        wsClient = getWebSocketClient(user.id);
 
-    wsClient.on("sensorTrigger", (data) => {
-      addEvent({
-        id: Date.now().toString(),
-        type: "sensor_trigger",
-        sensorType: data.sensorType,
-        distance: data.distance,
-        timestamp: data.timestamp,
-        deviceId: data.deviceId,
-        status: data.distance <= 100 ? "valid" : "invalid",
-      });
-    });
+        // Connection status
+        wsClient.on("connect", () => {
+          console.log("WebSocket connected");
+          setIsConnected(true);
+          addNotification({
+            type: "success",
+            title: "Connected",
+            message: "Real-time attendance monitoring active",
+          });
+        });
 
-    wsClient.on("attendanceRecord", (data) => {
-      addEvent({
-        id: Date.now().toString(),
-        type: "attendance_record",
-        studentId: data.studentId,
-        studentName: data.studentName,
-        timestamp: data.timestamp,
-        deviceId: data.deviceId,
-        status: data.isValid ? "valid" : "discrepancy",
-      });
-      updateStats(data);
-      // Update attendance data
-      setAttendanceData((prev) => [data, ...prev.slice(0, 99)]);
-    });
+        wsClient.on("disconnect", () => {
+          console.log("WebSocket disconnected");
+          setIsConnected(false);
+          addNotification({
+            type: "warning",
+            title: "Disconnected",
+            message:
+              "Real-time updates unavailable. Attempting to reconnect...",
+          });
 
-    wsClient.on("deviceStatus", (data) => {
-      setStats((prev) => ({
-        ...prev,
-        activeDevices: data.filter((d: any) => d.status === "online").length,
-      }));
-    });
+          // Attempt to reconnect after 5 seconds
+          reconnectTimeout = setTimeout(() => {
+            console.log("Attempting to reconnect WebSocket...");
+            connectWebSocket();
+          }, 5000);
+        });
 
-    // Get initial device status
-    wsClient.getDeviceStatus();
+        wsClient.on("error", (error: any) => {
+          console.error("WebSocket error:", error);
+          addNotification({
+            type: "error",
+            title: "Connection Error",
+            message:
+              "WebSocket connection failed. Real-time updates unavailable.",
+          });
+        });
+
+        // Real-time attendance events
+        wsClient.on("rfidScan", (data: any) => {
+          console.log("RFID scan received:", data);
+          addEvent({
+            id: Date.now().toString(),
+            type: "rfid_scan",
+            rfidUid: data.rfidUid,
+            timestamp: data.timestamp || new Date().toISOString(),
+            deviceId: data.deviceId || "unknown",
+            status: "valid",
+          });
+        });
+
+        wsClient.on("sensorTrigger", (data: any) => {
+          console.log("Sensor trigger received:", data);
+          addEvent({
+            id: Date.now().toString(),
+            type: "sensor_trigger",
+            sensorType: data.sensorType,
+            distance: data.distance,
+            timestamp: data.timestamp || new Date().toISOString(),
+            deviceId: data.deviceId || "unknown",
+            status: data.distance <= 100 ? "valid" : "invalid",
+          });
+        });
+
+        wsClient.on("attendanceRecord", (data: any) => {
+          console.log("Attendance record received:", data);
+          addEvent({
+            id: Date.now().toString(),
+            type: "attendance_record",
+            studentId: data.studentId,
+            studentName: data.studentName,
+            timestamp: data.timestamp || new Date().toISOString(),
+            deviceId: data.deviceId || "unknown",
+            status: data.isValid ? "valid" : "discrepancy",
+          });
+          updateStats(data);
+          // Update attendance data safely
+          setAttendanceData((prev) => [data, ...prev.slice(0, 99)]);
+        });
+
+        wsClient.on("deviceStatus", (data: any) => {
+          console.log("Device status received:", data);
+          if (Array.isArray(data)) {
+            setStats((prev) => ({
+              ...prev,
+              activeDevices: data.filter((d: any) => d.status === "online")
+                .length,
+            }));
+          }
+        });
+
+        // Get initial device status
+        try {
+          wsClient.getDeviceStatus();
+        } catch (error) {
+          console.warn("Failed to get initial device status:", error);
+        }
+      } catch (error) {
+        console.error("Failed to initialize WebSocket:", error);
+        addNotification({
+          type: "error",
+          title: "WebSocket Error",
+          message: "Failed to initialize real-time connection",
+        });
+      }
+    };
+
+    connectWebSocket();
 
     return () => {
-      wsClient.off("connect");
-      wsClient.off("disconnect");
-      wsClient.off("rfidScan");
-      wsClient.off("sensorTrigger");
-      wsClient.off("attendanceRecord");
-      wsClient.off("deviceStatus");
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (wsClient) {
+        try {
+          wsClient.off("connect");
+          wsClient.off("disconnect");
+          wsClient.off("error");
+          wsClient.off("rfidScan");
+          wsClient.off("sensorTrigger");
+          wsClient.off("attendanceRecord");
+          wsClient.off("deviceStatus");
+        } catch (error) {
+          console.warn("Error cleaning up WebSocket listeners:", error);
+        }
+      }
     };
   }, [user?.id]);
 
@@ -147,19 +223,40 @@ export const LiveAttendance = () => {
   };
 
   const simulateRfidTap = async () => {
-    if (!rfidInput.trim()) return;
+    if (!rfidInput.trim()) {
+      addNotification({
+        type: "error",
+        title: "Validation Error",
+        message: "Please enter an RFID card ID",
+      });
+      return;
+    }
 
     try {
       const response = await api.simulateRFID(rfidInput.trim());
 
       if (response.success) {
         setRfidInput("");
+        addNotification({
+          type: "success",
+          title: "RFID Simulated",
+          message: `RFID scan simulated for card: ${rfidInput.trim()}`,
+        });
         // The WebSocket will handle updating the UI
       } else {
-        console.error("RFID simulation failed:", response.message);
+        addNotification({
+          type: "error",
+          title: "Simulation Failed",
+          message: response.message || "RFID simulation failed",
+        });
       }
     } catch (error) {
       console.error("Failed to simulate RFID tap:", error);
+      addNotification({
+        type: "error",
+        title: "Simulation Error",
+        message: "Failed to simulate RFID tap. Check your connection.",
+      });
     }
   };
 
@@ -168,12 +265,28 @@ export const LiveAttendance = () => {
       const response = await api.simulateSensor(sensorType, 50);
 
       if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Sensor Simulated",
+          message: `${
+            sensorType.charAt(0).toUpperCase() + sensorType.slice(1)
+          } sensor trigger simulated`,
+        });
         // The WebSocket will handle updating the UI
       } else {
-        console.error("Sensor simulation failed:", response.message);
+        addNotification({
+          type: "error",
+          title: "Simulation Failed",
+          message: response.message || "Sensor simulation failed",
+        });
       }
     } catch (error) {
       console.error("Failed to simulate sensor trigger:", error);
+      addNotification({
+        type: "error",
+        title: "Simulation Error",
+        message: "Failed to simulate sensor trigger. Check your connection.",
+      });
     }
   };
 
@@ -271,9 +384,10 @@ export const LiveAttendance = () => {
     setShowContactModal(true);
   };
 
-  // Add notification helper
+  // Add notification helper - using console for now since NotificationSystem is not imported
   const addNotification = (notification: any) => {
     console.log("Notification:", notification);
+    // TODO: Import and use proper notification system
   };
 
   // Load students and sessions for manual entry
@@ -306,6 +420,7 @@ export const LiveAttendance = () => {
     }
 
     try {
+      // Use the correct API method for manual attendance entry
       const response = await api.post("/attendance/manual", {
         studentId: parseInt(manualEntryData.studentId),
         classSessionId: parseInt(manualEntryData.classSessionId),
@@ -331,7 +446,9 @@ export const LiveAttendance = () => {
         addNotification({
           type: "error",
           title: "Entry Failed",
-          message: response.message || "Failed to record attendance",
+          message:
+            response.message ||
+            "Failed to record attendance. Manual entry may require backend implementation.",
         });
       }
     } catch (error) {
@@ -339,7 +456,8 @@ export const LiveAttendance = () => {
       addNotification({
         type: "error",
         title: "Network Error",
-        message: "Failed to record attendance. Please try again.",
+        message:
+          "Failed to record attendance. Manual entry functionality may not be fully implemented.",
       });
     }
   };
