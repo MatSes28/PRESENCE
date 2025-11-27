@@ -20,60 +20,38 @@ import { smartAssignmentService } from "../services/smartAssignment.js";
 
 const router = Router();
 
-// GET /api/computers - Get all computers (with role-based filtering)
+// GET /api/computers - TEMPORARILY BYPASSING ROLE-BASED FILTERING FOR DEBUGGING
 router.get("/", requireAuth, async (req, res) => {
   try {
+    console.log(`[COMPUTERS] TEMPORARY DEBUG: Bypassing role-based filtering`);
     console.log(
-      `[COMPUTERS] Fetching computers for user role: ${req.session?.userRole}, userId: ${req.session?.userId}`
+      `[COMPUTERS] Session info:`,
+      JSON.stringify(
+        {
+          userId: req.session?.userId,
+          userRole: req.session?.userRole,
+          hasSession: !!req.session,
+        },
+        null,
+        2
+      )
     );
 
-    const userRole = req.session?.userRole;
-    const userId = req.session?.userId;
-
-    if (userRole === "faculty") {
-      console.log(`[COMPUTERS] Faculty user detected, checking access...`);
-
-      // Faculty can only see computers they created (based on schedules they teach)
-      const facultyComputers = await db
-        .select({ id: computers.id })
-        .from(computers)
-        .innerJoin(schedules, eq(computers.classroomId, schedules.classroomId))
-        .where(eq(schedules.facultyId, userId));
-
-      console.log(
-        `[COMPUTERS] Faculty has access to ${facultyComputers.length} computers via schedules`
-      );
-
-      const computerIds = [...new Set(facultyComputers.map((c) => c.id))];
-
-      if (computerIds.length === 0) {
-        console.log(
-          `[COMPUTERS] No computers found for faculty, returning empty array`
-        );
-        return res.json({ success: true, data: [] });
-      }
-
-      const allComputers = await db
-        .select()
-        .from(computers)
-        .where(inArray(computers.id, computerIds));
-
-      console.log(
-        `[COMPUTERS] Returning ${allComputers.length} computers for faculty`
-      );
-      return res.json({ success: true, data: allComputers });
-    }
-
-    // Admin sees all computers
-    console.log(`[COMPUTERS] Admin user detected, fetching all computers`);
+    // TEMPORARY: Return all computers regardless of role
     const allComputers = await db.select().from(computers);
     console.log(`[COMPUTERS] Found ${allComputers.length} computers total`);
+    console.log(`[COMPUTERS] Sample computer:`, allComputers[0]);
+
     res.json({ success: true, data: allComputers });
   } catch (error) {
     console.error("Error fetching computers:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to fetch computers" });
+    console.error("Error details:", error.message);
+    console.error("Error stack:", error.stack);
+    res.status(500).json({
+      success: false,
+      message: `Failed to fetch computers: ${error.message}`,
+      stack: error.stack,
+    });
   }
 });
 
