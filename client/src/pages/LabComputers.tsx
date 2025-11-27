@@ -62,6 +62,16 @@ export const LabComputers = () => {
     useState<number | null>(null);
   const dragRef = useRef<HTMLDivElement>(null);
 
+  // Bulk operations state
+  const [selectedComputers, setSelectedComputers] = useState<Set<number>>(
+    new Set()
+  );
+  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [bulkOperation, setBulkOperation] = useState<string | null>(null);
+  const [simpleAssignMode, setSimpleAssignMode] = useState(false);
+  const [selectedStudentForSimpleAssign, setSelectedStudentForSimpleAssign] =
+    useState<any>(null);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -505,6 +515,187 @@ export const LabComputers = () => {
     }
   };
 
+  // Bulk operations
+  const handleSelectComputer = (computerId: number, selected: boolean) => {
+    setSelectedComputers((prev) => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(computerId);
+      } else {
+        newSet.delete(computerId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllComputers = (selected: boolean) => {
+    if (selected) {
+      const allComputerIds = getComputersByClassroom(selectedLab!).map(
+        (c) => c.id
+      );
+      setSelectedComputers(new Set(allComputerIds));
+    } else {
+      setSelectedComputers(new Set());
+    }
+  };
+
+  const handleBulkRelease = async () => {
+    if (selectedComputers.size === 0) return;
+
+    setBulkOperation("bulk-release");
+    setProcessing("bulk-release");
+
+    try {
+      const releasePromises = Array.from(selectedComputers).map(
+        async (computerId) => {
+          const assignment = assignments.find(
+            (a) => a.computerId === computerId && !a.releasedAt
+          );
+          if (assignment) {
+            return api.releaseComputer(assignment.id);
+          }
+          return null;
+        }
+      );
+
+      const results = await Promise.allSettled(releasePromises.filter(Boolean));
+      const successCount = results.filter(
+        (result) => result.status === "fulfilled" && result.value?.success
+      ).length;
+
+      addNotification({
+        type: "success",
+        title: "Bulk Release Completed",
+        message: `Successfully released ${successCount} out of ${selectedComputers.size} computers`,
+      });
+
+      setSelectedComputers(new Set());
+      fetchComputers();
+      fetchAssignments();
+    } catch (error) {
+      console.error("Bulk release error:", error);
+      addNotification({
+        type: "error",
+        title: "Bulk Operation Failed",
+        message: "Failed to complete bulk release operation",
+      });
+    } finally {
+      setProcessing(null);
+      setBulkOperation(null);
+    }
+  };
+
+  const handleBulkAssign = async () => {
+    if (selectedComputers.size === 0 || !selectedStudentForSimpleAssign) return;
+
+    setBulkOperation("bulk-assign");
+    setProcessing("bulk-assign");
+
+    try {
+      // Find the active class session for the selected subject
+      const sessionsResponse = await api.getClassSessions();
+      let sessionId = 1; // Default fallback
+
+      if (sessionsResponse.success && sessionsResponse.data) {
+        const activeSession = (sessionsResponse.data as any[]).find(
+          (session: any) =>
+            session.status === "active" && session.subjectId === selectedSubject
+        );
+        if (activeSession) {
+          sessionId = activeSession.id;
+        }
+      }
+
+      const assignPromises = Array.from(selectedComputers).map((computerId) =>
+        api.assignComputer({
+          computerId,
+          studentId: selectedStudentForSimpleAssign.id,
+          classSessionId: sessionId,
+        })
+      );
+
+      const results = await Promise.allSettled(assignPromises);
+      const successCount = results.filter(
+        (result) => result.status === "fulfilled" && result.value?.success
+      ).length;
+
+      addNotification({
+        type: "success",
+        title: "Bulk Assignment Completed",
+        message: `Successfully assigned ${selectedStudentForSimpleAssign.name} to ${successCount} computers`,
+      });
+
+      setSelectedComputers(new Set());
+      setSelectedStudentForSimpleAssign(null);
+      setSimpleAssignMode(false);
+      fetchComputers();
+      fetchAssignments();
+    } catch (error) {
+      console.error("Bulk assign error:", error);
+      addNotification({
+        type: "error",
+        title: "Bulk Operation Failed",
+        message: "Failed to complete bulk assignment operation",
+      });
+    } finally {
+      setProcessing(null);
+      setBulkOperation(null);
+    }
+  };
+
+  const handleSimpleAssign = async (computerId: number) => {
+    if (!selectedStudentForSimpleAssign) return;
+
+    setProcessing(`assign-${computerId}`);
+
+    try {
+      // Find the active class session for the selected subject
+      const sessionsResponse = await api.getClassSessions();
+      let sessionId = 1; // Default fallback
+
+      if (sessionsResponse.success && sessionsResponse.data) {
+        const activeSession = (sessionsResponse.data as any[]).find(
+          (session: any) =>
+            session.status === "active" && session.subjectId === selectedSubject
+        );
+        if (activeSession) {
+          sessionId = activeSession.id;
+        }
+      }
+
+      const response = await api.assignComputer({
+        computerId,
+        studentId: selectedStudentForSimpleAssign.id,
+        classSessionId: sessionId,
+      });
+
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Student Assigned",
+          message: `${selectedStudentForSimpleAssign.name} assigned to Computer ${computerId}`,
+        });
+        fetchComputers();
+        fetchAssignments();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Assignment Failed",
+          message: response.message || "Failed to assign student to computer",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to assign student:", error);
+      addNotification({
+        type: "error",
+        title: "Assignment Failed",
+        message: "Failed to assign student to computer",
+      });
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "available":
@@ -593,6 +784,23 @@ export const LabComputers = () => {
             className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto"
           >
             Refresh
+          </button>
+          <button
+            onClick={() => setSimpleAssignMode(!simpleAssignMode)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto ${
+              simpleAssignMode
+                ? "bg-green-600 hover:bg-green-700 text-white"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            }`}
+          >
+            {simpleAssignMode ? "Exit Simple Assign" : "Simple Assign"}
+          </button>
+          <button
+            onClick={() => setShowBulkActions(!showBulkActions)}
+            disabled={selectedComputers.size === 0}
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto"
+          >
+            Bulk Actions ({selectedComputers.size})
           </button>
           <button
             onClick={() => setShowSmartAssignModal(true)}
@@ -695,36 +903,124 @@ export const LabComputers = () => {
             </div>
           </div>
 
-          {/* Student Pool for Drag & Drop */}
+          {/* Bulk Actions Panel */}
+          {showBulkActions && selectedComputers.size > 0 && (
+            <div className="bg-indigo-900 border border-indigo-700 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h5 className="text-lg font-medium text-white">
+                  Bulk Actions ({selectedComputers.size} computers selected)
+                </h5>
+                <button
+                  onClick={() => setShowBulkActions(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleBulkRelease}
+                  disabled={processing === "bulk-release"}
+                  className="bg-red-600 hover:bg-red-700 disabled:bg-red-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium"
+                >
+                  {processing === "bulk-release"
+                    ? "Releasing..."
+                    : "Release All Selected"}
+                </button>
+                <button
+                  onClick={() => setSelectedComputers(new Set())}
+                  className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded text-sm font-medium"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Student Pool */}
           <div className="bg-gray-800 rounded-lg shadow p-4">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h4 className="text-lg font-medium text-white">
-                  Student Pool - Drag to Assign
+                  {simpleAssignMode ? "Simple Assignment Mode" : "Student Pool"}
                 </h4>
                 <p className="text-sm text-gray-400">
-                  Drag student names onto available computers in the lab layout
-                  below
+                  {simpleAssignMode
+                    ? "Select a student below, then click on computers to assign them"
+                    : "Drag student names onto available computers or use simple assign mode"}
                 </p>
               </div>
               <span className="text-sm text-gray-400">
                 {students.length} students available
               </span>
             </div>
+
+            {simpleAssignMode && (
+              <div className="mb-4 p-3 bg-blue-900 border border-blue-700 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <span className="text-blue-300">Selected Student:</span>
+                  {selectedStudentForSimpleAssign ? (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-white font-medium">
+                        {selectedStudentForSimpleAssign.name} (
+                        {selectedStudentForSimpleAssign.studentId})
+                      </span>
+                      <button
+                        onClick={() => setSelectedStudentForSimpleAssign(null)}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400">None selected</span>
+                  )}
+                </div>
+                {selectedComputers.size > 0 &&
+                  selectedStudentForSimpleAssign && (
+                    <div className="mt-2 flex items-center space-x-2">
+                      <button
+                        onClick={handleBulkAssign}
+                        disabled={processing === "bulk-assign"}
+                        className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-sm font-medium"
+                      >
+                        {processing === "bulk-assign"
+                          ? "Assigning..."
+                          : `Assign to ${selectedComputers.size} computers`}
+                      </button>
+                    </div>
+                  )}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 max-h-48 overflow-y-auto">
               {students.slice(0, 24).map((student) => (
                 <div
                   key={student.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, student)}
+                  draggable={!simpleAssignMode}
+                  onDragStart={(e) =>
+                    !simpleAssignMode && handleDragStart(e, student)
+                  }
                   onDragEnd={handleDragEnd}
-                  onTouchStart={(e) => handleTouchStart(e, student)}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
-                  className="bg-blue-900 hover:bg-blue-800 active:bg-blue-700 text-blue-100 px-3 py-2 rounded-lg text-sm font-medium cursor-move transition-colors border border-blue-700 hover:border-blue-600 touch-manipulation select-none"
+                  onTouchStart={(e) =>
+                    !simpleAssignMode && handleTouchStart(e, student)
+                  }
+                  onTouchMove={(e) => !simpleAssignMode && handleTouchMove(e)}
+                  onTouchEnd={(e) => !simpleAssignMode && handleTouchEnd(e)}
+                  onClick={() =>
+                    simpleAssignMode &&
+                    setSelectedStudentForSimpleAssign(student)
+                  }
+                  className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors border select-none ${
+                    simpleAssignMode
+                      ? selectedStudentForSimpleAssign?.id === student.id
+                        ? "bg-green-900 text-green-100 border-green-600"
+                        : "bg-blue-900 hover:bg-blue-800 text-blue-100 border-blue-700 hover:border-blue-600"
+                      : "bg-blue-900 hover:bg-blue-800 active:bg-blue-700 text-blue-100 border-blue-700 hover:border-blue-600 cursor-move touch-manipulation"
+                  }`}
                 >
                   <div className="truncate">{student.name}</div>
-                  <div className="text-xs text-blue-300 truncate">
+                  <div className="text-xs opacity-80 truncate">
                     {student.studentId}
                   </div>
                 </div>
@@ -857,12 +1153,33 @@ export const LabComputers = () => {
           </div>
 
           <div className="px-6 py-4 border-b border-gray-700 relative z-10">
-            <h4 className="text-lg font-medium text-white">
-              Lab {selectedLab} - Physical Layout
-            </h4>
-            <p className="text-sm text-gray-300">
-              Drag students from the pool above onto available computer seats
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-lg font-medium text-white">
+                  Lab {selectedLab} - Physical Layout
+                </h4>
+                <p className="text-sm text-gray-300">
+                  {simpleAssignMode
+                    ? "Select computers and assign students easily"
+                    : "Drag students from the pool above onto available computer seats"}
+                </p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <label className="flex items-center space-x-2 text-sm text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={
+                      selectedComputers.size ===
+                        getComputersByClassroom(selectedLab).length &&
+                      getComputersByClassroom(selectedLab).length > 0
+                    }
+                    onChange={(e) => handleSelectAllComputers(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-2"
+                  />
+                  <span>Select All</span>
+                </label>
+              </div>
+            </div>
           </div>
           <div className="p-6 relative">
             {/* Instructor Station */}
@@ -927,14 +1244,18 @@ export const LabComputers = () => {
                     .slice(0, 5)
                     .map((computer) => {
                       const assignment = getAssignmentForComputer(computer.id);
+                      const isSelected = selectedComputers.has(computer.id);
 
                       return (
                         <div
                           key={computer.id}
                           data-computer-id={computer.id}
                           data-drop-target="true"
-                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
-                            draggedStudent && computer.status === "available"
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 relative ${
+                            isSelected
+                              ? "border-indigo-500 bg-indigo-900/30 ring-2 ring-indigo-500"
+                              : draggedStudent &&
+                                computer.status === "available"
                               ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
                               : computer.status === "available"
                               ? "border-green-500 hover:border-green-400"
@@ -942,9 +1263,34 @@ export const LabComputers = () => {
                               ? "border-blue-500"
                               : "border-yellow-500"
                           }`}
-                          onDrop={(e) => handleDrop(e, computer.id)}
-                          onDragOver={handleDragOver}
+                          onDrop={(e) =>
+                            !simpleAssignMode && handleDrop(e, computer.id)
+                          }
+                          onDragOver={(e) =>
+                            !simpleAssignMode && handleDragOver(e)
+                          }
+                          onClick={() =>
+                            simpleAssignMode &&
+                            computer.status === "available" &&
+                            handleSimpleAssign(computer.id)
+                          }
                         >
+                          {/* Selection Checkbox */}
+                          <div className="absolute top-2 left-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleSelectComputer(
+                                  computer.id,
+                                  e.target.checked
+                                );
+                              }}
+                              className="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-2"
+                            />
+                          </div>
+
                           <div className="text-center space-y-2">
                             <div className="text-2xl">
                               {computer.status === "available"
@@ -976,7 +1322,10 @@ export const LabComputers = () => {
                             )}
                             {computer.status === "in_use" && (
                               <button
-                                onClick={() => releaseComputer(computer.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  releaseComputer(computer.id);
+                                }}
                                 disabled={
                                   processing === `release-${computer.id}`
                                 }
@@ -1008,14 +1357,18 @@ export const LabComputers = () => {
                     .slice(5, 10)
                     .map((computer) => {
                       const assignment = getAssignmentForComputer(computer.id);
+                      const isSelected = selectedComputers.has(computer.id);
 
                       return (
                         <div
                           key={computer.id}
                           data-computer-id={computer.id}
                           data-drop-target="true"
-                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
-                            draggedStudent && computer.status === "available"
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 relative ${
+                            isSelected
+                              ? "border-indigo-500 bg-indigo-900/30 ring-2 ring-indigo-500"
+                              : draggedStudent &&
+                                computer.status === "available"
                               ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
                               : computer.status === "available"
                               ? "border-green-500 hover:border-green-400"
@@ -1023,9 +1376,34 @@ export const LabComputers = () => {
                               ? "border-blue-500"
                               : "border-yellow-500"
                           }`}
-                          onDrop={(e) => handleDrop(e, computer.id)}
-                          onDragOver={handleDragOver}
+                          onDrop={(e) =>
+                            !simpleAssignMode && handleDrop(e, computer.id)
+                          }
+                          onDragOver={(e) =>
+                            !simpleAssignMode && handleDragOver(e)
+                          }
+                          onClick={() =>
+                            simpleAssignMode &&
+                            computer.status === "available" &&
+                            handleSimpleAssign(computer.id)
+                          }
                         >
+                          {/* Selection Checkbox */}
+                          <div className="absolute top-2 left-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleSelectComputer(
+                                  computer.id,
+                                  e.target.checked
+                                );
+                              }}
+                              className="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-2"
+                            />
+                          </div>
+
                           <div className="text-center space-y-2">
                             <div className="text-2xl">
                               {computer.status === "available"
@@ -1057,7 +1435,10 @@ export const LabComputers = () => {
                             )}
                             {computer.status === "in_use" && (
                               <button
-                                onClick={() => releaseComputer(computer.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  releaseComputer(computer.id);
+                                }}
                                 disabled={
                                   processing === `release-${computer.id}`
                                 }
@@ -1089,14 +1470,18 @@ export const LabComputers = () => {
                     .slice(10, 15)
                     .map((computer) => {
                       const assignment = getAssignmentForComputer(computer.id);
+                      const isSelected = selectedComputers.has(computer.id);
 
                       return (
                         <div
                           key={computer.id}
                           data-computer-id={computer.id}
                           data-drop-target="true"
-                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
-                            draggedStudent && computer.status === "available"
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 relative ${
+                            isSelected
+                              ? "border-indigo-500 bg-indigo-900/30 ring-2 ring-indigo-500"
+                              : draggedStudent &&
+                                computer.status === "available"
                               ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
                               : computer.status === "available"
                               ? "border-green-500 hover:border-green-400"
@@ -1104,9 +1489,34 @@ export const LabComputers = () => {
                               ? "border-blue-500"
                               : "border-yellow-500"
                           }`}
-                          onDrop={(e) => handleDrop(e, computer.id)}
-                          onDragOver={handleDragOver}
+                          onDrop={(e) =>
+                            !simpleAssignMode && handleDrop(e, computer.id)
+                          }
+                          onDragOver={(e) =>
+                            !simpleAssignMode && handleDragOver(e)
+                          }
+                          onClick={() =>
+                            simpleAssignMode &&
+                            computer.status === "available" &&
+                            handleSimpleAssign(computer.id)
+                          }
                         >
+                          {/* Selection Checkbox */}
+                          <div className="absolute top-2 left-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleSelectComputer(
+                                  computer.id,
+                                  e.target.checked
+                                );
+                              }}
+                              className="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-2"
+                            />
+                          </div>
+
                           <div className="text-center space-y-2">
                             <div className="text-2xl">
                               {computer.status === "available"
@@ -1138,7 +1548,10 @@ export const LabComputers = () => {
                             )}
                             {computer.status === "in_use" && (
                               <button
-                                onClick={() => releaseComputer(computer.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  releaseComputer(computer.id);
+                                }}
                                 disabled={
                                   processing === `release-${computer.id}`
                                 }

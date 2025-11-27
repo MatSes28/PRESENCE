@@ -30,10 +30,34 @@ export const Reports = () => {
       .split("T")[0], // 30 days ago
     endDate: new Date().toISOString().split("T")[0], // Today
   });
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [realTimeStats, setRealTimeStats] = useState({
+    todayPresent: 0,
+    todayAbsent: 0,
+    todayLate: 0,
+    activeSessions: 0,
+  });
 
   useEffect(() => {
     loadPreviewData();
+    loadRealTimeStats();
   }, []);
+
+  // Auto-refresh effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        loadPreviewData();
+        loadRealTimeStats();
+        setLastUpdated(new Date());
+      }, 30000); // Refresh every 30 seconds
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh]);
 
   const loadPreviewData = async () => {
     try {
@@ -92,6 +116,48 @@ export const Reports = () => {
       absent: records.filter((r) => r.record.status === "absent").length,
     };
     setStatistics(stats);
+  };
+
+  const loadRealTimeStats = async () => {
+    try {
+      // Get today's attendance stats
+      const today = new Date().toISOString().split("T")[0];
+      const todayResponse = await api.getAttendanceRecords({
+        date: today,
+        limit: 1000, // Get more records for accurate stats
+      });
+
+      if (todayResponse.success && todayResponse.data) {
+        const todayRecords = todayResponse.data as any[];
+        const todayStats = {
+          todayPresent: todayRecords.filter(
+            (r: any) => r.record.status === "present"
+          ).length,
+          todayAbsent: todayRecords.filter(
+            (r: any) => r.record.status === "absent"
+          ).length,
+          todayLate: todayRecords.filter((r: any) => r.record.status === "late")
+            .length,
+          activeSessions: 0, // This would come from sessions API
+        };
+        setRealTimeStats(todayStats);
+      }
+
+      // Try to get active sessions count
+      try {
+        const sessionsResponse = await api.get("/attendance/sessions/active");
+        if (sessionsResponse.success && sessionsResponse.data) {
+          setRealTimeStats((prev) => ({
+            ...prev,
+            activeSessions: (sessionsResponse.data as any[]).length,
+          }));
+        }
+      } catch (sessionError) {
+        // Ignore session error, keep activeSessions as 0
+      }
+    } catch (error) {
+      console.error("Failed to load real-time stats:", error);
+    }
   };
 
   const handleQuickReport = async (type: "daily" | "weekly" | "analytics") => {
@@ -217,11 +283,84 @@ export const Reports = () => {
       </div>
 
       {/* Header */}
-      <div>
-        <h3 className="text-lg font-medium text-white">Attendance Reports</h3>
-        <p className="text-sm text-gray-300">
-          Generate and download comprehensive attendance reports
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+        <div>
+          <h3 className="text-lg font-medium text-white">Attendance Reports</h3>
+          <p className="text-sm text-gray-300">
+            Generate and download comprehensive attendance reports
+          </p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="auto-refresh"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+              className="w-4 h-4 text-cyan-600 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500 focus:ring-2"
+            />
+            <label htmlFor="auto-refresh" className="text-sm text-gray-300">
+              Auto-refresh (30s)
+            </label>
+          </div>
+          <div className="text-xs text-gray-400">
+            Last updated: {lastUpdated.toLocaleTimeString()}
+          </div>
+        </div>
+      </div>
+
+      {/* Real-time Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center">
+            <div className="text-2xl mr-3">📊</div>
+            <div>
+              <p className="text-sm font-medium text-gray-300">
+                Today's Present
+              </p>
+              <p className="text-2xl font-bold text-green-400">
+                {realTimeStats.todayPresent.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center">
+            <div className="text-2xl mr-3">⏰</div>
+            <div>
+              <p className="text-sm font-medium text-gray-300">Today's Late</p>
+              <p className="text-2xl font-bold text-yellow-400">
+                {realTimeStats.todayLate.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center">
+            <div className="text-2xl mr-3">❌</div>
+            <div>
+              <p className="text-sm font-medium text-gray-300">
+                Today's Absent
+              </p>
+              <p className="text-2xl font-bold text-red-400">
+                {realTimeStats.todayAbsent.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center">
+            <div className="text-2xl mr-3">🏫</div>
+            <div>
+              <p className="text-sm font-medium text-gray-300">
+                Active Sessions
+              </p>
+              <p className="text-2xl font-bold text-cyan-400">
+                {realTimeStats.activeSessions.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Quick Report Cards */}
@@ -488,10 +627,30 @@ export const Reports = () => {
       {/* Report Preview Table */}
       <div className="bg-gray-800 rounded-lg shadow border border-gray-700">
         <div className="px-6 py-4 border-b border-gray-700">
-          <h4 className="text-lg font-medium text-white">Report Preview</h4>
-          <p className="text-sm text-gray-300">
-            Sample data from the last 24 hours
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-lg font-medium text-white">
+                Live Report Preview
+              </h4>
+              <p className="text-sm text-gray-300">
+                Real-time attendance data with {statistics.totalRecords} records
+                {autoRefresh && (
+                  <span className="ml-2 text-cyan-400">• Auto-refreshing</span>
+                )}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                loadPreviewData();
+                loadRealTimeStats();
+                setLastUpdated(new Date());
+              }}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium flex items-center space-x-1"
+            >
+              <span>🔄</span>
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-700">
@@ -587,13 +746,14 @@ export const Reports = () => {
       </div>
 
       {/* Summary Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="text-center">
             <div className="text-2xl font-bold text-white">
               {statistics.totalRecords.toLocaleString()}
             </div>
             <div className="text-sm text-gray-400">Total Records</div>
+            <div className="text-xs text-gray-500 mt-1">Preview Data</div>
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
@@ -602,6 +762,14 @@ export const Reports = () => {
               {statistics.present.toLocaleString()}
             </div>
             <div className="text-sm text-gray-400">Present</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {statistics.totalRecords > 0
+                ? `${(
+                    (statistics.present / statistics.totalRecords) *
+                    100
+                  ).toFixed(1)}%`
+                : "0%"}
+            </div>
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
@@ -610,6 +778,14 @@ export const Reports = () => {
               {statistics.late.toLocaleString()}
             </div>
             <div className="text-sm text-gray-400">Late</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {statistics.totalRecords > 0
+                ? `${(
+                    (statistics.late / statistics.totalRecords) *
+                    100
+                  ).toFixed(1)}%`
+                : "0%"}
+            </div>
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
@@ -618,6 +794,54 @@ export const Reports = () => {
               {statistics.absent.toLocaleString()}
             </div>
             <div className="text-sm text-gray-400">Absent</div>
+            <div className="text-xs text-gray-500 mt-1">
+              {statistics.totalRecords > 0
+                ? `${(
+                    (statistics.absent / statistics.totalRecords) *
+                    100
+                  ).toFixed(1)}%`
+                : "0%"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Attendance Rate Trend */}
+      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <h4 className="text-lg font-medium text-white mb-4">
+          Attendance Overview
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center">
+            <div className="text-3xl font-bold text-cyan-400 mb-2">
+              {statistics.totalRecords > 0
+                ? `${(
+                    ((statistics.present + statistics.late) /
+                      statistics.totalRecords) *
+                    100
+                  ).toFixed(1)}%`
+                : "0%"}
+            </div>
+            <div className="text-sm text-gray-400">Overall Attendance Rate</div>
+            <div className="text-xs text-gray-500 mt-1">
+              Present + Late / Total
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-green-400 mb-2">
+              {realTimeStats.todayPresent + realTimeStats.todayLate}
+            </div>
+            <div className="text-sm text-gray-400">Today's Active Students</div>
+            <div className="text-xs text-gray-500 mt-1">
+              Present + Late Today
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-3xl font-bold text-blue-400 mb-2">
+              {realTimeStats.activeSessions}
+            </div>
+            <div className="text-sm text-gray-400">Active Sessions</div>
+            <div className="text-xs text-gray-500 mt-1">Currently Running</div>
           </div>
         </div>
       </div>

@@ -56,6 +56,11 @@ export const Schedule = () => {
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [checkingConflicts, setCheckingConflicts] = useState(false);
 
+  // Calendar view state
+  const [viewMode, setViewMode] = useState<"grid" | "calendar">("grid");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
   useEffect(() => {
     fetchSchedules();
     fetchSessions();
@@ -495,6 +500,51 @@ export const Schedule = () => {
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
+  // Calendar utility functions
+  const getSchedulesForDate = (date: Date) => {
+    const dayOfWeek = date.getDay();
+    return schedules.filter((schedule) => schedule.dayOfWeek === dayOfWeek);
+  };
+
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    const days = [];
+
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+
+    // Add days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(new Date(year, month, day));
+    }
+
+    return days;
+  };
+
+  const navigateMonth = (direction: "prev" | "next") => {
+    setCurrentDate((prev) => {
+      const newDate = new Date(prev);
+      if (direction === "prev") {
+        newDate.setMonth(newDate.getMonth() - 1);
+      } else {
+        newDate.setMonth(newDate.getMonth() + 1);
+      }
+      return newDate;
+    });
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -516,6 +566,30 @@ export const Schedule = () => {
           </p>
         </div>
         <div className="flex space-x-3">
+          {/* View Toggle */}
+          <div className="flex bg-gray-700 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`px-3 py-1 text-sm font-medium rounded ${
+                viewMode === "grid"
+                  ? "bg-cyan-600 text-white"
+                  : "text-gray-300 hover:text-white"
+              }`}
+            >
+              Grid View
+            </button>
+            <button
+              onClick={() => setViewMode("calendar")}
+              className={`px-3 py-1 text-sm font-medium rounded ${
+                viewMode === "calendar"
+                  ? "bg-cyan-600 text-white"
+                  : "text-gray-300 hover:text-white"
+              }`}
+            >
+              Calendar View
+            </button>
+          </div>
+
           <label
             className={`bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium cursor-pointer ${
               uploadingCsv ? "opacity-50 cursor-not-allowed" : ""
@@ -735,89 +809,270 @@ export const Schedule = () => {
         </div>
       )}
 
-      {/* Current Week Schedule */}
-      <div className="bg-gray-800 rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-700">
-          <h4 className="text-lg font-medium text-white">
-            Current Week Schedule
-          </h4>
-          <p className="text-sm text-gray-300">
-            Weekly class timetable with auto-start indicators
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <div className="grid grid-cols-8 gap-px bg-gray-700">
-            {/* Time column header */}
-            <div className="bg-gray-900 px-4 py-3 text-sm font-medium text-gray-300">
-              Time
-            </div>
-            {/* Day headers */}
-            {DAYS_OF_WEEK.map((day) => (
-              <div
-                key={day}
-                className="bg-gray-900 px-4 py-3 text-sm font-medium text-gray-300 text-center"
-              >
-                {day}
+      {/* Schedule Views */}
+      {viewMode === "grid" ? (
+        /* Grid View - Current Week Schedule */
+        <div className="bg-gray-800 rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-700">
+            <h4 className="text-lg font-medium text-white">
+              Current Week Schedule
+            </h4>
+            <p className="text-sm text-gray-300">
+              Weekly class timetable with auto-start indicators
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <div className="grid grid-cols-8 gap-px bg-gray-700">
+              {/* Time column header */}
+              <div className="bg-gray-900 px-4 py-3 text-sm font-medium text-gray-300">
+                Time
               </div>
-            ))}
-
-            {/* Time slots */}
-            {Array.from({ length: 12 }, (_, i) => {
-              const hour = 8 + i; // Start from 8 AM
-              const timeLabel = `${hour > 12 ? hour - 12 : hour}:00 ${
-                hour >= 12 ? "PM" : "AM"
-              }`;
-
-              return (
-                <div key={hour} className="contents">
-                  <div className="bg-gray-800 px-4 py-8 text-sm text-gray-400 border-r border-gray-700">
-                    {timeLabel}
-                  </div>
-                  {DAYS_OF_WEEK.map((day, dayIndex) => {
-                    const daySchedules = getSchedulesForDay(dayIndex);
-                    const hourSchedules = daySchedules.filter((schedule) => {
-                      const startHour = parseInt(
-                        schedule.startTime.split(":")[0]
-                      );
-                      return startHour === hour;
-                    });
-
-                    return (
-                      <div
-                        key={`${day}-${hour}`}
-                        className="bg-gray-800 px-2 py-2 min-h-16 border-r border-gray-700"
-                      >
-                        {hourSchedules.map((schedule) => (
-                          <div
-                            key={schedule.id}
-                            className="bg-cyan-900 border border-cyan-700 rounded p-2 mb-1 text-xs relative"
-                          >
-                            <div className="font-medium text-cyan-300">
-                              {schedule.subjectName}
-                            </div>
-                            <div className="text-cyan-400">
-                              {schedule.classroomName}
-                            </div>
-                            <div className="text-cyan-400">
-                              {formatTime(schedule.startTime)} -{" "}
-                              {formatTime(schedule.endTime)}
-                            </div>
-                            <div className="absolute top-1 right-1">
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-600 text-white">
-                                Auto
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
+              {/* Day headers */}
+              {DAYS_OF_WEEK.map((day) => (
+                <div
+                  key={day}
+                  className="bg-gray-900 px-4 py-3 text-sm font-medium text-gray-300 text-center"
+                >
+                  {day}
                 </div>
-              );
-            })}
+              ))}
+
+              {/* Time slots */}
+              {Array.from({ length: 12 }, (_, i) => {
+                const hour = 8 + i; // Start from 8 AM
+                const timeLabel = `${hour > 12 ? hour - 12 : hour}:00 ${
+                  hour >= 12 ? "PM" : "AM"
+                }`;
+
+                return (
+                  <div key={hour} className="contents">
+                    <div className="bg-gray-800 px-4 py-8 text-sm text-gray-400 border-r border-gray-700">
+                      {timeLabel}
+                    </div>
+                    {DAYS_OF_WEEK.map((day, dayIndex) => {
+                      const daySchedules = getSchedulesForDay(dayIndex);
+                      const hourSchedules = daySchedules.filter((schedule) => {
+                        const startHour = parseInt(
+                          schedule.startTime.split(":")[0]
+                        );
+                        return startHour === hour;
+                      });
+
+                      return (
+                        <div
+                          key={`${day}-${hour}`}
+                          className="bg-gray-800 px-2 py-2 min-h-16 border-r border-gray-700"
+                        >
+                          {hourSchedules.map((schedule) => (
+                            <div
+                              key={schedule.id}
+                              className="bg-cyan-900 border border-cyan-700 rounded p-2 mb-1 text-xs relative"
+                            >
+                              <div className="font-medium text-cyan-300">
+                                {schedule.subjectName}
+                              </div>
+                              <div className="text-cyan-400">
+                                {schedule.classroomName}
+                              </div>
+                              <div className="text-cyan-400">
+                                {formatTime(schedule.startTime)} -{" "}
+                                {formatTime(schedule.endTime)}
+                              </div>
+                              <div className="absolute top-1 right-1">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-600 text-white">
+                                  Auto
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        /* Calendar View */
+        <div className="bg-gray-800 rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-700">
+            <div className="flex justify-between items-center">
+              <div>
+                <h4 className="text-lg font-medium text-white">
+                  Monthly Calendar View
+                </h4>
+                <p className="text-sm text-gray-300">
+                  Click on a date to view schedules for that day
+                </p>
+              </div>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => navigateMonth("prev")}
+                  className="text-gray-400 hover:text-white p-1"
+                >
+                  ‹
+                </button>
+                <span className="text-white font-medium">
+                  {currentDate.toLocaleDateString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
+                <button
+                  onClick={() => navigateMonth("next")}
+                  className="text-gray-400 hover:text-white p-1"
+                >
+                  ›
+                </button>
+                <button
+                  onClick={goToToday}
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1 rounded text-sm"
+                >
+                  Today
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="p-6">
+            {/* Day headers */}
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                <div
+                  key={day}
+                  className="p-2 text-center text-sm font-medium text-gray-400"
+                >
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Calendar days */}
+            <div className="grid grid-cols-7 gap-1">
+              {getDaysInMonth(currentDate).map((date, index) => {
+                if (!date) {
+                  return <div key={index} className="p-2"></div>;
+                }
+
+                const daySchedules = getSchedulesForDate(date);
+                const isToday =
+                  date.toDateString() === new Date().toDateString();
+                const isSelected =
+                  selectedDate?.toDateString() === date.toDateString();
+
+                return (
+                  <div
+                    key={index}
+                    onClick={() => setSelectedDate(date)}
+                    className={`min-h-24 p-2 border rounded cursor-pointer transition-colors ${
+                      isSelected
+                        ? "bg-cyan-900 border-cyan-600"
+                        : isToday
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-gray-800 border-gray-700 hover:bg-gray-700"
+                    }`}
+                  >
+                    <div
+                      className={`text-sm font-medium mb-1 ${
+                        isToday ? "text-cyan-400" : "text-white"
+                      }`}
+                    >
+                      {date.getDate()}
+                    </div>
+                    <div className="space-y-1">
+                      {daySchedules.slice(0, 3).map((schedule) => (
+                        <div
+                          key={schedule.id}
+                          className="bg-cyan-800 border border-cyan-700 rounded px-1 py-0.5 text-xs text-cyan-200 truncate"
+                          title={`${schedule.subjectName} - ${
+                            schedule.classroomName
+                          } (${formatTime(schedule.startTime)})`}
+                        >
+                          {schedule.subjectName}
+                        </div>
+                      ))}
+                      {daySchedules.length > 3 && (
+                        <div className="text-xs text-gray-400">
+                          +{daySchedules.length - 3} more
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Selected Date Details */}
+          {selectedDate && (
+            <div className="px-6 pb-6 border-t border-gray-700">
+              <h5 className="text-lg font-medium text-white mb-4">
+                Schedules for{" "}
+                {selectedDate.toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </h5>
+              <div className="space-y-3">
+                {getSchedulesForDate(selectedDate).map((schedule) => (
+                  <div
+                    key={schedule.id}
+                    className="bg-gray-700 border border-gray-600 rounded-lg p-4"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h6 className="text-lg font-medium text-cyan-400">
+                          {schedule.subjectName}
+                        </h6>
+                        <p className="text-gray-300">
+                          {schedule.classroomName}
+                        </p>
+                        <p className="text-gray-300">{schedule.facultyName}</p>
+                        <p className="text-sm text-gray-400">
+                          {formatTime(schedule.startTime)} -{" "}
+                          {formatTime(schedule.endTime)}
+                        </p>
+                        <p className="text-sm text-gray-400">
+                          {schedule.semester} {schedule.academicYear}
+                        </p>
+                      </div>
+                      {user?.role === "admin" && (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => startEdit(schedule)}
+                            className="text-cyan-400 hover:text-cyan-300 text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(schedule.id)}
+                            disabled={deletingId === schedule.id}
+                            className="text-red-400 hover:text-red-300 disabled:text-red-600 disabled:cursor-not-allowed text-sm"
+                          >
+                            {deletingId === schedule.id
+                              ? "Deleting..."
+                              : "Delete"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {getSchedulesForDate(selectedDate).length === 0 && (
+                  <p className="text-gray-400 text-center py-8">
+                    No schedules for this date
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
