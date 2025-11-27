@@ -173,6 +173,32 @@ export const emailNotifications = pgTable("email_notifications", {
     message: text("message"),
     isActive: boolean("is_active").default(true).notNull(),
 });
+export const pushNotifications = pgTable("push_notifications", {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+        .references(() => users.id)
+        .notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    message: text("message").notNull(),
+    type: varchar("type", { length: 50 }).notNull(),
+    data: jsonb("data"),
+    read: boolean("read").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+});
+export const pushSubscriptions = pgTable("push_subscriptions", {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+        .references(() => users.id)
+        .notNull(),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+});
 export const subjectSessions = pgTable("subject_sessions", {
     id: serial("id").primaryKey(),
     subjectId: integer("subject_id")

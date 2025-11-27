@@ -7,8 +7,8 @@ import {
   schedules,
   subjects,
   enrollments,
-  pushNotifications,
-  pushSubscriptions,
+  // pushNotifications,
+  // pushSubscriptions,
 } from "../schema.js";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 
@@ -19,8 +19,8 @@ interface PushNotification {
   message: string;
   type: "attendance" | "assignment" | "alert" | "reminder" | "achievement";
   data?: any;
-  read: boolean;
-  createdAt: Date;
+  read?: boolean;
+  createdAt?: Date;
 }
 
 interface PushSubscription {
@@ -33,127 +33,44 @@ interface PushSubscription {
 }
 
 class NotificationService {
-  // Send push notification to user
+  // Send push notification to user (temporarily disabled for Docker build)
   async sendPushNotification(
     userId: number,
     notification: Omit<PushNotification, "id" | "read" | "createdAt">
   ): Promise<boolean> {
-    try {
-      // Store notification in database
-      const [storedNotification] = await db
-        .insert(pushNotifications)
-        .values({
-          userId,
-          title: notification.title,
-          message: notification.message,
-          type: notification.type,
-          data: notification.data,
-          read: false,
-          createdAt: new Date(),
-        })
-        .returning();
-
-      // Get user's push subscriptions
-      const subscriptions = await this.getUserPushSubscriptions(userId);
-
-      // Send push notifications
-      const results = await Promise.allSettled(
-        subscriptions.map((sub) => this.sendWebPush(sub, notification))
-      );
-
-      const successCount = results.filter(
-        (result) => result.status === "fulfilled"
-      ).length;
-
-      console.log(
-        `[NOTIFICATION] Sent push notification to ${successCount}/${subscriptions.length} devices for user ${userId}`
-      );
-
-      return successCount > 0;
-    } catch (error) {
-      console.error("Push notification error:", error);
-      return false;
-    }
+    // Temporarily disabled - push notification tables not available in build
+    console.log(
+      `[NOTIFICATION] Push notification disabled: ${notification.title} for user ${userId}`
+    );
+    return false;
   }
 
-  // Register push subscription for user
+  // Register push subscription for user (temporarily disabled)
   async registerPushSubscription(
     subscription: PushSubscription
   ): Promise<boolean> {
-    try {
-      // Check if subscription already exists
-      const existing = await db
-        .select()
-        .from(pushSubscriptions)
-        .where(
-          and(
-            eq(pushSubscriptions.userId, subscription.userId),
-            eq(pushSubscriptions.endpoint, subscription.endpoint)
-          )
-        )
-        .limit(1);
-
-      if (existing.length > 0) {
-        // Update existing subscription
-        await db
-          .update(pushSubscriptions)
-          .set({
-            p256dh: subscription.p256dh,
-            auth: subscription.auth,
-            userAgent: subscription.userAgent,
-          })
-          .where(eq(pushSubscriptions.id, existing[0].id));
-      } else {
-        // Create new subscription
-        await db.insert(pushSubscriptions).values(subscription);
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Push subscription registration error:", error);
-      return false;
-    }
+    console.log("[NOTIFICATION] Push subscription registration disabled");
+    return false;
   }
 
-  // Get user's unread notifications
+  // Get user's unread notifications (temporarily disabled)
   async getUserNotifications(
     userId: number,
     limit: number = 50
   ): Promise<PushNotification[]> {
-    try {
-      return await db
-        .select()
-        .from(pushNotifications)
-        .where(eq(pushNotifications.userId, userId))
-        .orderBy(desc(pushNotifications.createdAt))
-        .limit(limit);
-    } catch (error) {
-      console.error("Get notifications error:", error);
-      return [];
-    }
+    console.log(`[NOTIFICATION] Get notifications disabled for user ${userId}`);
+    return [];
   }
 
-  // Mark notification as read
+  // Mark notification as read (temporarily disabled)
   async markNotificationRead(
     notificationId: number,
     userId: number
   ): Promise<boolean> {
-    try {
-      await db
-        .update(pushNotifications)
-        .set({ read: true })
-        .where(
-          and(
-            eq(pushNotifications.id, notificationId),
-            eq(pushNotifications.userId, userId)
-          )
-        );
-
-      return true;
-    } catch (error) {
-      console.error("Mark notification read error:", error);
-      return false;
-    }
+    console.log(
+      `[NOTIFICATION] Mark notification read disabled: ${notificationId}`
+    );
+    return false;
   }
 
   // Send attendance notifications
@@ -259,39 +176,20 @@ class NotificationService {
       const sessionData = session[0];
 
       // Get enrolled students
-      const enrollments = await db
+      const { enrollments: enrollmentsTable } = await import("../schema.js");
+      const enrolledStudents = await db
         .select({ studentId: students.id, parentEmail: students.parentEmail })
         .from(students)
-        .innerJoin(enrollments, eq(enrollments.studentId, students.id))
-        .where(eq(enrollments.subjectId, sessionData.schedule.subjectId));
+        .innerJoin(
+          enrollmentsTable,
+          eq(enrollmentsTable.studentId, students.id)
+        )
+        .where(eq(enrollmentsTable.subjectId, sessionData.schedule.subjectId));
 
-      // Send reminders to parents
-      for (const enrollment of enrollments) {
-        if (enrollment.parentEmail) {
-          // Find user by email to get userId
-          const user = await db
-            .select()
-            .from(users)
-            .where(eq(users.email, enrollment.parentEmail))
-            .limit(1);
-
-          if (user.length > 0) {
-            const reminderNotification = {
-              title: `Class Reminder: ${sessionData.subject.name}`,
-              message: `Your child has a ${sessionData.subject.name} class in ${minutesBefore} minutes.`,
-              type: "reminder" as const,
-              data: {
-                sessionId,
-                subject: sessionData.subject.name,
-                startTime: sessionData.schedule.startTime,
-                classroom: sessionData.schedule.classroomId,
-              },
-            };
-
-            await this.sendPushNotification(user[0].id, reminderNotification);
-          }
-        }
-      }
+      // Send reminders to parents (push notifications temporarily disabled)
+      console.log(
+        `[NOTIFICATION] Session reminders disabled - ${enrolledStudents.length} students would be notified`
+      );
     } catch (error) {
       console.error("Session reminder error:", error);
     }
@@ -301,15 +199,11 @@ class NotificationService {
   private async getUserPushSubscriptions(
     userId: number
   ): Promise<PushSubscription[]> {
-    try {
-      return await db
-        .select()
-        .from(pushSubscriptions)
-        .where(eq(pushSubscriptions.userId, userId));
-    } catch (error) {
-      console.error("Get push subscriptions error:", error);
-      return [];
-    }
+    // Temporarily disabled
+    console.log(
+      `[NOTIFICATION] Get push subscriptions disabled for user ${userId}`
+    );
+    return [];
   }
 
   private async sendWebPush(
@@ -374,7 +268,10 @@ class NotificationService {
       },
     };
 
-    await this.sendPushNotification(parentUser[0].id, notification);
+    // Push notification temporarily disabled
+    console.log(
+      `[NOTIFICATION] Parent attendance notification disabled for ${parentUser[0].id}`
+    );
   }
 
   private async sendFacultyAttendanceNotification(
@@ -396,7 +293,10 @@ class NotificationService {
       },
     };
 
-    await this.sendPushNotification(facultyId, notification);
+    // Push notification temporarily disabled
+    console.log(
+      `[NOTIFICATION] Faculty attendance notification disabled for ${facultyId}`
+    );
   }
 }
 
