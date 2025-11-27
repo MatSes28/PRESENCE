@@ -70,7 +70,7 @@ export const Settings = () => {
     }
 
     try {
-      const response = await api.updateProfile(profileData);
+      const response = await api.put("/settings/profile", profileData);
       if (response.success) {
         addNotification({
           type: "success",
@@ -89,7 +89,8 @@ export const Settings = () => {
         type: "error",
         title: "Error",
         message:
-          err.data?.message || "An error occurred while updating profile",
+          err.response?.data?.message ||
+          "An error occurred while updating profile",
       });
     }
   };
@@ -107,7 +108,7 @@ export const Settings = () => {
     }
 
     try {
-      const response = await api.changePassword({
+      const response = await api.put("/settings/password", {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
@@ -135,7 +136,85 @@ export const Settings = () => {
         type: "error",
         title: "Error",
         message:
-          err.data?.message || "An error occurred while changing password",
+          err.response?.data?.message ||
+          "An error occurred while changing password",
+      });
+    }
+  };
+
+  const handleSystemSettingsSave = async () => {
+    try {
+      const response = await api.put("/settings/system", systemSettings);
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Settings Saved",
+          message: "System settings have been updated successfully!",
+        });
+      } else {
+        addNotification({
+          type: "error",
+          title: "Save Failed",
+          message: response.message || "Failed to save system settings",
+        });
+      }
+    } catch (err: any) {
+      addNotification({
+        type: "error",
+        title: "Error",
+        message:
+          err.response?.data?.message || "Failed to save system settings",
+      });
+    }
+  };
+
+  const handleHardwareSettingsSave = async () => {
+    try {
+      const response = await api.put("/settings/hardware", hardwareSettings);
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Settings Saved",
+          message: "Hardware settings have been updated successfully!",
+        });
+      } else {
+        addNotification({
+          type: "error",
+          title: "Save Failed",
+          message: response.message || "Failed to save hardware settings",
+        });
+      }
+    } catch (err: any) {
+      addNotification({
+        type: "error",
+        title: "Error",
+        message:
+          err.response?.data?.message || "Failed to save hardware settings",
+      });
+    }
+  };
+
+  const handleEmailSettingsSave = async () => {
+    try {
+      const response = await api.put("/settings/email", emailSettings);
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Settings Saved",
+          message: "Email settings have been updated successfully!",
+        });
+      } else {
+        addNotification({
+          type: "error",
+          title: "Save Failed",
+          message: response.message || "Failed to save email settings",
+        });
+      }
+    } catch (err: any) {
+      addNotification({
+        type: "error",
+        title: "Error",
+        message: err.response?.data?.message || "Failed to save email settings",
       });
     }
   };
@@ -472,7 +551,10 @@ export const Settings = () => {
                   <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
                     Test Connection
                   </button>
-                  <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                  <button
+                    onClick={handleHardwareSettingsSave}
+                    className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                  >
                     Save Hardware Settings
                   </button>
                 </div>
@@ -584,7 +666,10 @@ export const Settings = () => {
                   <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
                     Test Email
                   </button>
-                  <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                  <button
+                    onClick={handleEmailSettingsSave}
+                    className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                  >
                     Save Email Settings
                   </button>
                 </div>
@@ -729,7 +814,10 @@ export const Settings = () => {
                   <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
                     Reset to Defaults
                   </button>
-                  <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                  <button
+                    onClick={handleSystemSettingsSave}
+                    className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                  >
                     Save Settings
                   </button>
                 </div>

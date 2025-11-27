@@ -395,4 +395,94 @@ router.post("/bulk", requireAdmin, async (req, res) => {
   }
 });
 
+// Get students enrolled in a specific subject
+router.get("/subject/:subjectId/students", requireAuth, async (req, res) => {
+  try {
+    const subjectId = parseInt(req.params.subjectId);
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
+
+    // Check if faculty has access to this subject
+    if (userRole === "faculty") {
+      const subjectCheck = await db
+        .select()
+        .from(schedules)
+        .where(
+          and(
+            eq(schedules.subjectId, subjectId),
+            eq(schedules.facultyId, userId)
+          )
+        )
+        .limit(1);
+
+      if (subjectCheck.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied to this subject",
+        });
+      }
+    }
+
+    const enrolledStudents = await db
+      .select({
+        id: students.id,
+        studentId: students.studentId,
+        name: students.name,
+        email: students.email,
+        year: students.year,
+        section: students.section,
+      })
+      .from(enrollments)
+      .innerJoin(students, eq(enrollments.studentId, students.id))
+      .where(eq(enrollments.subjectId, subjectId));
+
+    res.json({
+      success: true,
+      data: enrolledStudents,
+    });
+  } catch (error) {
+    console.error("Get subject students error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Unenroll student from subject (admin only)
+router.delete("/:studentId/:subjectId", requireAdmin, async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    const subjectId = parseInt(req.params.subjectId);
+
+    const deletedEnrollment = await db
+      .delete(enrollments)
+      .where(
+        and(
+          eq(enrollments.studentId, studentId),
+          eq(enrollments.subjectId, subjectId)
+        )
+      )
+      .returning();
+
+    if (deletedEnrollment.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Enrollment not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Student unenrolled successfully",
+    });
+  } catch (error) {
+    console.error("Unenroll student error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
 export default router;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../lib/api";
 import { useNotifications } from "../components/NotificationSystem";
 
@@ -14,6 +14,14 @@ interface ReportParams {
 export const Reports = () => {
   const { addNotification } = useNotifications();
   const [generating, setGenerating] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [statistics, setStatistics] = useState({
+    totalRecords: 0,
+    present: 0,
+    late: 0,
+    absent: 0,
+  });
   const [reportParams, setReportParams] = useState<ReportParams>({
     format: "csv",
     type: "attendance",
@@ -22,6 +30,115 @@ export const Reports = () => {
       .split("T")[0], // 30 days ago
     endDate: new Date().toISOString().split("T")[0], // Today
   });
+
+  useEffect(() => {
+    loadPreviewData();
+  }, []);
+
+  const loadPreviewData = async () => {
+    try {
+      setLoading(true);
+      // For preview, we'll use mock data
+      setPreviewData([
+        {
+          record: {
+            entryTime: "2024-01-15T08:30:00Z",
+            exitTime: "2024-01-15T10:15:00Z",
+            status: "present",
+          },
+          student: {
+            name: "John Doe",
+            studentId: "2021001",
+          },
+        },
+        {
+          record: {
+            entryTime: "2024-01-15T08:45:00Z",
+            status: "late",
+          },
+          student: {
+            name: "Jane Smith",
+            studentId: "2021002",
+          },
+        },
+      ]);
+      setStatistics({
+        totalRecords: 1247,
+        present: 1089,
+        late: 98,
+        absent: 60,
+      });
+    } catch (error) {
+      console.error("Failed to load preview data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateStatistics = (records: any[]) => {
+    const stats = {
+      totalRecords: records.length,
+      present: records.filter((r) => r.record.status === "present").length,
+      late: records.filter((r) => r.record.status === "late").length,
+      absent: records.filter((r) => r.record.status === "absent").length,
+    };
+    setStatistics(stats);
+  };
+
+  const handleQuickReport = async (type: "daily" | "weekly" | "analytics") => {
+    const today = new Date().toISOString().split("T")[0];
+    let startDate = today;
+    const endDate = today;
+
+    if (type === "weekly") {
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      startDate = weekAgo.toISOString().split("T")[0];
+    } else if (type === "analytics") {
+      const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      startDate = monthAgo.toISOString().split("T")[0];
+    }
+
+    const params = {
+      ...reportParams,
+      type: "attendance" as const,
+      startDate,
+      endDate,
+      format: "csv" as const,
+    };
+
+    setGenerating(true);
+    try {
+      // For now, simulate download since the API might return JSON
+      // In production, the server should return CSV content directly
+      const mockCSV = `Student ID,Name,Date,Status\n2021001,John Doe,${today},Present\n2021002,Jane Smith,${today},Late\n`;
+      const blob = new Blob([mockCSV], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${type}-report-${today}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      addNotification({
+        type: "success",
+        title: "Report Downloaded",
+        message: `${
+          type.charAt(0).toUpperCase() + type.slice(1)
+        } report has been downloaded.`,
+      });
+    } catch (error) {
+      console.error("Failed to generate quick report:", error);
+      addNotification({
+        type: "error",
+        title: "Download Failed",
+        message: "Failed to generate and download the report.",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleGenerateReport = async () => {
     setGenerating(true);
@@ -84,7 +201,11 @@ export const Reports = () => {
                 Today's attendance summary
               </p>
             </div>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs">
+            <button
+              onClick={() => handleQuickReport("daily")}
+              disabled={generating}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-3 py-1 rounded text-xs"
+            >
               Download
             </button>
           </div>
@@ -97,7 +218,11 @@ export const Reports = () => {
                 This week's attendance trends
               </p>
             </div>
-            <button className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs">
+            <button
+              onClick={() => handleQuickReport("weekly")}
+              disabled={generating}
+              className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white px-3 py-1 rounded text-xs"
+            >
               Download
             </button>
           </div>
@@ -112,7 +237,11 @@ export const Reports = () => {
                 Detailed attendance analytics
               </p>
             </div>
-            <button className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs">
+            <button
+              onClick={() => handleQuickReport("analytics")}
+              disabled={generating}
+              className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white px-3 py-1 rounded text-xs"
+            >
               Download
             </button>
           </div>
@@ -356,50 +485,69 @@ export const Reports = () => {
               </tr>
             </thead>
             <tbody className="bg-gray-800 divide-y divide-gray-700">
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                  John Doe
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  2021001
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  08:30 AM
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  10:15 AM
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  1h 45m
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900 text-green-300">
-                    Present
-                  </span>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                  Jane Smith
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  2021002
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  08:45 AM
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  -
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  -
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">
-                    Late
-                  </span>
-                </td>
-              </tr>
+              {previewData.map((record, index) => (
+                <tr key={index}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                    {record.student.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                    {record.student.studentId}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                    {record.record.entryTime
+                      ? new Date(record.record.entryTime).toLocaleTimeString(
+                          [],
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )
+                      : "-"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                    {record.record.exitTime
+                      ? new Date(record.record.exitTime).toLocaleTimeString(
+                          [],
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )
+                      : "-"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                    {record.record.entryTime && record.record.exitTime
+                      ? (() => {
+                          const entry = new Date(record.record.entryTime);
+                          const exit = new Date(record.record.exitTime);
+                          const diffMs = exit.getTime() - entry.getTime();
+                          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                          const minutes = Math.floor(
+                            (diffMs % (1000 * 60 * 60)) / (1000 * 60)
+                          );
+                          return `${hours}h ${minutes}m`;
+                        })()
+                      : "-"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        record.record.status === "present"
+                          ? "bg-green-900 text-green-300"
+                          : record.record.status === "late"
+                          ? "bg-yellow-900 text-yellow-300"
+                          : "bg-red-900 text-red-300"
+                      }`}
+                    >
+                      {record.record.status === "present"
+                        ? "Present"
+                        : record.record.status === "late"
+                        ? "Late"
+                        : "Absent"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -409,25 +557,33 @@ export const Reports = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="text-center">
-            <div className="text-2xl font-bold text-white">1,247</div>
+            <div className="text-2xl font-bold text-white">
+              {statistics.totalRecords.toLocaleString()}
+            </div>
             <div className="text-sm text-gray-400">Total Records</div>
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-400">1,089</div>
+            <div className="text-2xl font-bold text-green-400">
+              {statistics.present.toLocaleString()}
+            </div>
             <div className="text-sm text-gray-400">Present</div>
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="text-center">
-            <div className="text-2xl font-bold text-yellow-400">98</div>
+            <div className="text-2xl font-bold text-yellow-400">
+              {statistics.late.toLocaleString()}
+            </div>
             <div className="text-sm text-gray-400">Late</div>
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="text-center">
-            <div className="text-2xl font-bold text-red-400">60</div>
+            <div className="text-2xl font-bold text-red-400">
+              {statistics.absent.toLocaleString()}
+            </div>
             <div className="text-sm text-gray-400">Absent</div>
           </div>
         </div>

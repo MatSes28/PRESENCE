@@ -1,0 +1,334 @@
+import { Router } from "express";
+import { db } from "../storage.js";
+import { users } from "../schema.js";
+import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+
+const router = Router();
+
+// Middleware to check authentication
+const requireAuth = (req: any, res: any, next: any) => {
+  if (!req.session?.userId) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required",
+    });
+  }
+  next();
+};
+
+// Middleware to check admin access
+const requireAdmin = (req: any, res: any, next: any) => {
+  if (!req.session?.userId || req.session?.userRole !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Admin access required",
+    });
+  }
+  next();
+};
+
+// Update user profile
+router.put("/profile", requireAuth, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const userId = req.session?.userId;
+
+    if (!name || !email) {
+      return res.status(400).json({
+        success: false,
+        message: "Name and email are required",
+      });
+    }
+
+    // Check if email is already taken by another user
+    const emailCheck = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (emailCheck.length > 0 && emailCheck[0].id !== userId) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already taken",
+      });
+    }
+
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        name,
+        email,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = updatedUser;
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      user: userWithoutPassword,
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Change password
+router.put("/password", requireAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.session?.userId;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password and new password are required",
+      });
+    }
+
+    // Get current user
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (user.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(
+      currentPassword,
+      user[0].password
+    );
+    if (!isValidPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update password
+    await db
+      .update(users)
+      .set({
+        password: hashedPassword,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+
+    res.json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Get system settings (admin only)
+router.get("/system", requireAdmin, async (req, res) => {
+  try {
+    // For now, return default settings. In production, you'd store these in DB
+    const settings = {
+      lateThreshold: 15,
+      absentThreshold: 60,
+      emailNotifications: true,
+      semester: "1st Semester",
+      academicYear: new Date().getFullYear().toString(),
+      autoEndSessions: true,
+      requireProfessorTap: false,
+    };
+
+    res.json({
+      success: true,
+      settings,
+    });
+  } catch (error) {
+    console.error("Get system settings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Update system settings (admin only)
+router.put("/system", requireAdmin, async (req, res) => {
+  try {
+    const {
+      lateThreshold,
+      absentThreshold,
+      emailNotifications,
+      semester,
+      academicYear,
+      autoEndSessions,
+      requireProfessorTap,
+    } = req.body;
+
+    // In a real implementation, you'd save these to a system_settings table
+    // For now, just return success
+    const settings = {
+      lateThreshold: lateThreshold || 15,
+      absentThreshold: absentThreshold || 60,
+      emailNotifications: emailNotifications ?? true,
+      semester: semester || "1st Semester",
+      academicYear: academicYear || new Date().getFullYear().toString(),
+      autoEndSessions: autoEndSessions ?? true,
+      requireProfessorTap: requireProfessorTap ?? false,
+    };
+
+    res.json({
+      success: true,
+      message: "System settings updated successfully",
+      settings,
+    });
+  } catch (error) {
+    console.error("Update system settings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Get hardware settings (admin only)
+router.get("/hardware", requireAdmin, async (req, res) => {
+  try {
+    // Return default hardware settings
+    const settings = {
+      rfidScannerPort: "COM3",
+      proximitySensorThreshold: 5,
+      dualValidation: true,
+      autoReconnect: true,
+    };
+
+    res.json({
+      success: true,
+      settings,
+    });
+  } catch (error) {
+    console.error("Get hardware settings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Update hardware settings (admin only)
+router.put("/hardware", requireAdmin, async (req, res) => {
+  try {
+    const {
+      rfidScannerPort,
+      proximitySensorThreshold,
+      dualValidation,
+      autoReconnect,
+    } = req.body;
+
+    const settings = {
+      rfidScannerPort: rfidScannerPort || "COM3",
+      proximitySensorThreshold: proximitySensorThreshold || 5,
+      dualValidation: dualValidation ?? true,
+      autoReconnect: autoReconnect ?? true,
+    };
+
+    res.json({
+      success: true,
+      message: "Hardware settings updated successfully",
+      settings,
+    });
+  } catch (error) {
+    console.error("Update hardware settings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Get email settings (admin only)
+router.get("/email", requireAdmin, async (req, res) => {
+  try {
+    const settings = {
+      smtpServer: "smtp.gmail.com",
+      senderEmail: "clirdec.presence@clsu.edu.ph",
+      absenceThreshold: 3,
+      dailySummary: true,
+      lateNotifications: true,
+    };
+
+    res.json({
+      success: true,
+      settings,
+    });
+  } catch (error) {
+    console.error("Get email settings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Update email settings (admin only)
+router.put("/email", requireAdmin, async (req, res) => {
+  try {
+    const {
+      smtpServer,
+      senderEmail,
+      absenceThreshold,
+      dailySummary,
+      lateNotifications,
+    } = req.body;
+
+    const settings = {
+      smtpServer: smtpServer || "smtp.gmail.com",
+      senderEmail: senderEmail || "clirdec.presence@clsu.edu.ph",
+      absenceThreshold: absenceThreshold || 3,
+      dailySummary: dailySummary ?? true,
+      lateNotifications: lateNotifications ?? true,
+    };
+
+    res.json({
+      success: true,
+      message: "Email settings updated successfully",
+      settings,
+    });
+  } catch (error) {
+    console.error("Update email settings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+export default router;

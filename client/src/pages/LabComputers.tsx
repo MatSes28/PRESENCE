@@ -51,16 +51,7 @@ export const LabComputers = () => {
   const [processing, setProcessing] = useState<string | null>(null);
   const [draggedStudent, setDraggedStudent] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
-  const [computerStatus, setComputerStatus] = useState<
-    Record<
-      number,
-      {
-        isOnline: boolean;
-        lastActivity: Date;
-        status: "idle" | "active";
-      }
-    >
-  >({});
+  // Assignment-only system - no computer status monitoring
   const [showSmartAssignModal, setShowSmartAssignModal] = useState(false);
   const [smartAssignSessionId, setSmartAssignSessionId] = useState<
     number | null
@@ -73,7 +64,6 @@ export const LabComputers = () => {
 
   useEffect(() => {
     loadData();
-    fetchComputerStatus();
   }, []);
 
   // Load maintenance records when modal opens
@@ -83,91 +73,9 @@ export const LabComputers = () => {
     }
   }, [showMaintenanceModal]);
 
-  // Fetch real computer status
-  const fetchComputerStatus = async () => {
-    try {
-      const response = await api.getComputerStatus();
-      if (response.success && response.data) {
-        const statusMap: Record<
-          number,
-          {
-            isOnline: boolean;
-            lastActivity: Date;
-            status: "idle" | "active";
-            cpuUsage?: number;
-            memoryUsage?: number;
-          }
-        > = {};
+  // Assignment-only system - no computer status monitoring
 
-        (response.data as any[]).forEach((status: any) => {
-          statusMap[status.computerId] = {
-            isOnline: status.isOnline,
-            lastActivity: new Date(status.lastActivity),
-            status: status.status,
-            cpuUsage: status.cpuUsage,
-            memoryUsage: status.memoryUsage,
-          };
-        });
-
-        setComputerStatus(statusMap);
-      }
-    } catch (error) {
-      console.error("Failed to fetch computer status:", error);
-      // Fallback to mock data if API fails
-      initializeMockStatus();
-    }
-  };
-
-  // Initialize mock status as fallback
-  const initializeMockStatus = () => {
-    const status: Record<
-      number,
-      { isOnline: boolean; lastActivity: Date; status: "idle" | "active" }
-    > = {};
-    computers.forEach((computer) => {
-      status[computer.id] = {
-        isOnline: Math.random() > 0.2, // 80% online
-        lastActivity: new Date(Date.now() - Math.random() * 3600000), // Within last hour
-        status: Math.random() > 0.7 ? "active" : "idle",
-      };
-    });
-    setComputerStatus(status);
-  };
-
-  // WebSocket connection for real-time updates
-  useEffect(() => {
-    const wsClient = getWebSocketClient(user?.id);
-
-    // Listen for computer status updates
-    wsClient.on("computerStatusUpdate", (data) => {
-      setComputerStatus((prev) => ({
-        ...prev,
-        [data.computerId]: {
-          isOnline: data.isOnline,
-          lastActivity: new Date(data.lastActivity),
-          status: data.status,
-          cpuUsage: data.cpuUsage,
-          memoryUsage: data.memoryUsage,
-        },
-      }));
-    });
-
-    // Get initial device status
-    wsClient.getDeviceStatus();
-
-    return () => {
-      wsClient.off("computerStatusUpdate");
-    };
-  }, [user?.id]);
-
-  // Update computer status periodically (fallback for when WebSocket isn't available)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchComputerStatus();
-    }, 60000); // Update every minute
-
-    return () => clearInterval(interval);
-  }, []);
+  // Assignment-only system - no monitoring features
 
   const loadData = async () => {
     try {
@@ -1019,18 +927,13 @@ export const LabComputers = () => {
                     .slice(0, 5)
                     .map((computer) => {
                       const assignment = getAssignmentForComputer(computer.id);
-                      const compStatus = computerStatus[computer.id] || {
-                        isOnline: true,
-                        lastActivity: new Date(),
-                        status: "idle" as const,
-                      };
 
                       return (
                         <div
                           key={computer.id}
                           data-computer-id={computer.id}
                           data-drop-target="true"
-                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 relative ${
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
                             draggedStudent && computer.status === "available"
                               ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
                               : computer.status === "available"
@@ -1038,24 +941,10 @@ export const LabComputers = () => {
                               : computer.status === "in_use"
                               ? "border-blue-500"
                               : "border-yellow-500"
-                          } ${
-                            compStatus.isOnline
-                              ? "animate-pulse"
-                              : "grayscale opacity-75"
                           }`}
                           onDrop={(e) => handleDrop(e, computer.id)}
                           onDragOver={handleDragOver}
                         >
-                          {/* Connection Status Indicator */}
-                          <div
-                            className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border border-gray-800 ${
-                              compStatus.isOnline
-                                ? "bg-green-400 shadow-lg shadow-green-400/50"
-                                : "bg-red-400"
-                            }`}
-                            title={compStatus.isOnline ? "Online" : "Offline"}
-                          />
-
                           <div className="text-center space-y-2">
                             <div className="text-2xl">
                               {computer.status === "available"
@@ -1098,21 +987,6 @@ export const LabComputers = () => {
                                   : "Release"}
                               </button>
                             )}
-
-                            {/* Activity Status */}
-                            <div className="text-xs text-gray-500 mt-1">
-                              <div
-                                className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                                  compStatus.status === "active"
-                                    ? "bg-blue-400 animate-pulse"
-                                    : "bg-gray-500"
-                                }`}
-                              />
-                              {compStatus.status === "active"
-                                ? "Active"
-                                : "Idle"}{" "}
-                              • {compStatus.lastActivity.toLocaleTimeString()}
-                            </div>
                           </div>
                         </div>
                       );
@@ -1134,18 +1008,13 @@ export const LabComputers = () => {
                     .slice(5, 10)
                     .map((computer) => {
                       const assignment = getAssignmentForComputer(computer.id);
-                      const compStatus = computerStatus[computer.id] || {
-                        isOnline: true,
-                        lastActivity: new Date(),
-                        status: "idle" as const,
-                      };
 
                       return (
                         <div
                           key={computer.id}
                           data-computer-id={computer.id}
                           data-drop-target="true"
-                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 relative ${
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
                             draggedStudent && computer.status === "available"
                               ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
                               : computer.status === "available"
@@ -1153,24 +1022,10 @@ export const LabComputers = () => {
                               : computer.status === "in_use"
                               ? "border-blue-500"
                               : "border-yellow-500"
-                          } ${
-                            compStatus.isOnline
-                              ? "animate-pulse"
-                              : "grayscale opacity-75"
                           }`}
                           onDrop={(e) => handleDrop(e, computer.id)}
                           onDragOver={handleDragOver}
                         >
-                          {/* Connection Status Indicator */}
-                          <div
-                            className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border border-gray-800 ${
-                              compStatus.isOnline
-                                ? "bg-green-400 shadow-lg shadow-green-400/50"
-                                : "bg-red-400"
-                            }`}
-                            title={compStatus.isOnline ? "Online" : "Offline"}
-                          />
-
                           <div className="text-center space-y-2">
                             <div className="text-2xl">
                               {computer.status === "available"
@@ -1213,21 +1068,6 @@ export const LabComputers = () => {
                                   : "Release"}
                               </button>
                             )}
-
-                            {/* Activity Status */}
-                            <div className="text-xs text-gray-500 mt-1">
-                              <div
-                                className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                                  compStatus.status === "active"
-                                    ? "bg-blue-400 animate-pulse"
-                                    : "bg-gray-500"
-                                }`}
-                              />
-                              {compStatus.status === "active"
-                                ? "Active"
-                                : "Idle"}{" "}
-                              • {compStatus.lastActivity.toLocaleTimeString()}
-                            </div>
                           </div>
                         </div>
                       );
@@ -1249,18 +1089,13 @@ export const LabComputers = () => {
                     .slice(10, 15)
                     .map((computer) => {
                       const assignment = getAssignmentForComputer(computer.id);
-                      const compStatus = computerStatus[computer.id] || {
-                        isOnline: true,
-                        lastActivity: new Date(),
-                        status: "idle" as const,
-                      };
 
                       return (
                         <div
                           key={computer.id}
                           data-computer-id={computer.id}
                           data-drop-target="true"
-                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 relative ${
+                          className={`border-2 rounded-lg p-4 bg-gray-900 transition-all duration-200 ${
                             draggedStudent && computer.status === "available"
                               ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
                               : computer.status === "available"
@@ -1268,24 +1103,10 @@ export const LabComputers = () => {
                               : computer.status === "in_use"
                               ? "border-blue-500"
                               : "border-yellow-500"
-                          } ${
-                            compStatus.isOnline
-                              ? "animate-pulse"
-                              : "grayscale opacity-75"
                           }`}
                           onDrop={(e) => handleDrop(e, computer.id)}
                           onDragOver={handleDragOver}
                         >
-                          {/* Connection Status Indicator */}
-                          <div
-                            className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border border-gray-800 ${
-                              compStatus.isOnline
-                                ? "bg-green-400 shadow-lg shadow-green-400/50"
-                                : "bg-red-400"
-                            }`}
-                            title={compStatus.isOnline ? "Online" : "Offline"}
-                          />
-
                           <div className="text-center space-y-2">
                             <div className="text-2xl">
                               {computer.status === "available"
@@ -1328,21 +1149,6 @@ export const LabComputers = () => {
                                   : "Release"}
                               </button>
                             )}
-
-                            {/* Activity Status */}
-                            <div className="text-xs text-gray-500 mt-1">
-                              <div
-                                className={`inline-block w-2 h-2 rounded-full mr-1 ${
-                                  compStatus.status === "active"
-                                    ? "bg-blue-400 animate-pulse"
-                                    : "bg-gray-500"
-                                }`}
-                              />
-                              {compStatus.status === "active"
-                                ? "Active"
-                                : "Idle"}{" "}
-                              • {compStatus.lastActivity.toLocaleTimeString()}
-                            </div>
                           </div>
                         </div>
                       );

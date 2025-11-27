@@ -15,8 +15,14 @@ import {
   requireAdmin,
   requireAdminOrFaculty,
 } from "../middleware/auth.js";
+import multer from "multer";
+import csv from "csv-parser";
+import { Readable } from "stream";
 
 const router = Router();
+
+// Configure multer for file uploads
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Get all students (with role-based filtering)
 router.get("/", requireAuth, async (req, res) => {
@@ -392,5 +398,113 @@ router.post("/:id/assign-rfid", requireAdmin, async (req, res) => {
     });
   }
 });
+
+// CSV Upload endpoint (admin only)
+router.post(
+  "/upload-csv",
+  requireAdmin,
+  upload.single("csv"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "No CSV file provided",
+        });
+      }
+
+      const results: any[] = [];
+      const stream = Readable.from(req.file.buffer.toString());
+
+      stream
+        .pipe(csv())
+        .on("data", (data) => results.push(data))
+        .on("end", async () => {
+          try {
+            let imported = 0;
+            let errors = 0;
+
+            for (const row of results) {
+              try {
+                // Validate required fields
+                if (!row.studentId || !row.name || !row.parentEmail) {
+                  errors++;
+                  continue;
+                }
+
+                // Check if student ID already exists
+                const existingStudent = await db
+                  .select()
+                  .from(students)
+                  .where(eq(students.studentId, row.studentId))
+                  .limit(1);
+
+                if (existingStudent.length > 0) {
+                  errors++;
+                  continue;
+                }
+
+                // Check if RFID UID already exists (if provided)
+                if (row.rfidUid) {
+                  const existingRFID = await db
+                    .select()
+                    .from(students)
+                    .where(eq(students.rfidUid, row.rfidUid))
+                    .limit(1);
+
+                  if (existingRFID.length > 0) {
+                    errors++;
+                    continue;
+                  }
+                }
+
+                await db.insert(students).values({
+                  studentId: row.studentId,
+                  name: row.name,
+                  email: row.email || null,
+                  year: row.year || null,
+                  section: row.section || null,
+                  rfidUid: row.rfidUid || null,
+                  parentEmail: row.parentEmail,
+                  parentName: row.parentName || null,
+                });
+
+                imported++;
+              } catch (error) {
+                console.error("Error importing row:", error, row);
+                errors++;
+              }
+            }
+
+            res.json({
+              success: true,
+              message: `Imported ${imported} students, ${errors} errors`,
+              imported,
+              errors,
+            });
+          } catch (error) {
+            console.error("CSV processing error:", error);
+            res.status(500).json({
+              success: false,
+              message: "Failed to process CSV data",
+            });
+          }
+        })
+        .on("error", (error) => {
+          console.error("CSV parsing error:", error);
+          res.status(500).json({
+            success: false,
+            message: "Failed to parse CSV file",
+          });
+        });
+    } catch (error) {
+      console.error("CSV upload error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+);
 
 export default router;

@@ -343,6 +343,41 @@ class ApiClient {
     });
   }
 
+  // Enrollments endpoints
+  async createEnrollment(enrollment: {
+    studentId: number;
+    subjectId: number;
+    semester: string;
+    academicYear: string;
+  }) {
+    return this.request("/enrollments", {
+      method: "POST",
+      body: JSON.stringify(enrollment),
+    });
+  }
+
+  async bulkEnrollStudents(enrollments: {
+    studentIds: number[];
+    subjectId: number;
+    semester: string;
+    academicYear: string;
+  }) {
+    return this.request("/enrollments/bulk", {
+      method: "POST",
+      body: JSON.stringify(enrollments),
+    });
+  }
+
+  async unenrollStudent(studentId: number, subjectId: number) {
+    return this.request(`/enrollments/${studentId}/${subjectId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getSubjectStudents(subjectId: number) {
+    return this.request(`/enrollments/subject/${subjectId}/students`);
+  }
+
   async simulateRFID(rfidUid: string) {
     return this.request("/attendance/simulate-rfid", {
       method: "POST",

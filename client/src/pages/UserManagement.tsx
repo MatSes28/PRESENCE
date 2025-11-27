@@ -25,6 +25,7 @@ export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
@@ -43,16 +44,20 @@ export const UserManagement: React.FC = () => {
   const userValidation = useFormValidation({
     name: commonValidationRules.name,
     email: commonValidationRules.email,
-    password: commonValidationRules.password,
-    confirmPassword: {
-      ...commonValidationRules.password,
-      custom: (value) => {
-        if (value !== formData.password) {
-          return "Passwords do not match";
-        }
-        return "";
-      },
-    },
+    password: editingUser
+      ? { required: false }
+      : commonValidationRules.password,
+    confirmPassword: editingUser
+      ? { required: false }
+      : {
+          ...commonValidationRules.password,
+          custom: (value) => {
+            if (value !== formData.password) {
+              return "Passwords do not match";
+            }
+            return "";
+          },
+        },
     facultyId: {
       required: formData.role === "faculty",
       minLength: 3,
@@ -110,20 +115,24 @@ export const UserManagement: React.FC = () => {
       const userData = {
         email: formData.email,
         name: formData.name,
-        password: formData.password,
+        password: editingUser ? undefined : formData.password, // Don't send password when editing
         role: formData.role,
         facultyId: formData.facultyId || undefined,
         department: formData.department || undefined,
         gender: formData.gender || undefined,
       };
 
-      const response = await api.createUser(userData);
+      const response = editingUser
+        ? await api.updateUser(parseInt(editingUser.id), userData)
+        : await api.createUser(userData);
 
       if (response.success) {
         addNotification({
           type: "success",
-          title: "User Created",
-          message: "User has been successfully created!",
+          title: editingUser ? "User Updated" : "User Created",
+          message: `User has been successfully ${
+            editingUser ? "updated" : "created"
+          }!`,
         });
         loadUsers();
         resetForm();
@@ -131,16 +140,22 @@ export const UserManagement: React.FC = () => {
         addNotification({
           type: "error",
           title: "Save Failed",
-          message: response.message || "Failed to create user",
+          message:
+            response.message ||
+            `Failed to ${editingUser ? "update" : "create"} user`,
         });
       }
     } catch (error) {
-      console.error("Failed to create user:", error);
+      console.error(
+        `Failed to ${editingUser ? "update" : "create"} user:`,
+        error
+      );
       addNotification({
         type: "error",
         title: "Network Error",
-        message:
-          "Failed to create user. Please check your connection and try again.",
+        message: `Failed to ${
+          editingUser ? "update" : "create"
+        } user. Please check your connection and try again.`,
       });
     } finally {
       setSubmitting(false);
@@ -197,7 +212,24 @@ export const UserManagement: React.FC = () => {
       department: "Information Technology",
       gender: "",
     });
+    setEditingUser(null);
     setShowCreateForm(false);
+    userValidation.clearErrors();
+  };
+
+  const startEdit = (user: User) => {
+    setFormData({
+      name: user.name,
+      email: user.email,
+      password: "",
+      confirmPassword: "",
+      role: user.role,
+      facultyId: user.facultyId || "",
+      department: user.department || "Information Technology",
+      gender: (user as any).gender || "",
+    });
+    setEditingUser(user);
+    setShowCreateForm(true);
     userValidation.clearErrors();
   };
 
@@ -294,6 +326,12 @@ export const UserManagement: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 space-x-2">
                   <button
+                    onClick={() => startEdit(user)}
+                    className="text-cyan-400 hover:text-cyan-300"
+                  >
+                    Edit
+                  </button>
+                  <button
                     onClick={() => handleDelete(user.id)}
                     disabled={deleting === user.id}
                     className="text-red-400 hover:text-red-300 disabled:text-red-600 disabled:cursor-not-allowed"
@@ -312,7 +350,7 @@ export const UserManagement: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-lg border border-gray-700 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-medium text-cyan-400 mb-6">
-              Create New User
+              {editingUser ? "Edit User" : "Create New User"}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -357,51 +395,53 @@ export const UserManagement: React.FC = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Password *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    placeholder="Enter password"
-                  />
-                  {userValidation.errors.password && (
-                    <p className="text-red-400 text-xs mt-1">
-                      {userValidation.errors.password}
-                    </p>
-                  )}
+              {!editingUser && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Password *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={formData.password}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      placeholder="Enter password"
+                    />
+                    {userValidation.errors.password && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {userValidation.errors.password}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Confirm Password *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={formData.confirmPassword}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      placeholder="Confirm password"
+                    />
+                    {userValidation.errors.confirmPassword && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {userValidation.errors.confirmPassword}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Confirm Password *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={formData.confirmPassword}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        confirmPassword: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    placeholder="Confirm password"
-                  />
-                  {userValidation.errors.confirmPassword && (
-                    <p className="text-red-400 text-xs mt-1">
-                      {userValidation.errors.confirmPassword}
-                    </p>
-                  )}
-                </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -491,10 +531,10 @@ export const UserManagement: React.FC = () => {
                 <LoadingButton
                   type="submit"
                   loading={submitting}
-                  loadingText="Creating..."
+                  loadingText={editingUser ? "Updating..." : "Creating..."}
                   className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-4 py-2 rounded-md text-sm font-medium"
                 >
-                  Create User
+                  {editingUser ? "Update User" : "Create User"}
                 </LoadingButton>
               </div>
             </form>

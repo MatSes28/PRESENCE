@@ -35,6 +35,7 @@ export const Students = () => {
   const [attendanceRates, setAttendanceRates] = useState<{
     [key: number]: number;
   }>({});
+  const [uploadingCsv, setUploadingCsv] = useState(false);
 
   const [formData, setFormData] = useState({
     studentId: "",
@@ -250,6 +251,55 @@ export const Students = () => {
     studentValidation.clearErrors();
   };
 
+  const handleCsvUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingCsv(true);
+    try {
+      const formData = new FormData();
+      formData.append("csv", file);
+
+      const response = await fetch("/api/students/upload-csv", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        addNotification({
+          type: "success",
+          title: "CSV Upload Successful",
+          message: `Successfully imported ${result.imported} students${
+            result.errors > 0 ? `, ${result.errors} errors` : ""
+          }`,
+        });
+        fetchStudents();
+      } else {
+        addNotification({
+          type: "error",
+          title: "CSV Upload Failed",
+          message: result.message || "Failed to import students from CSV",
+        });
+      }
+    } catch (error) {
+      console.error("CSV upload error:", error);
+      addNotification({
+        type: "error",
+        title: "Upload Error",
+        message: "Failed to upload CSV file. Please try again.",
+      });
+    } finally {
+      setUploadingCsv(false);
+      // Reset file input
+      event.target.value = "";
+    }
+  };
+
   // Filter students based on search and filter criteria
   const filteredStudents = students.filter((student) => {
     // Search filter
@@ -298,9 +348,20 @@ export const Students = () => {
           </p>
         </div>
         <div className="flex space-x-3">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-            Import CSV
-          </button>
+          <label
+            className={`bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium cursor-pointer ${
+              uploadingCsv ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+          >
+            {uploadingCsv ? "Uploading..." : "Import CSV"}
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCsvUpload}
+              disabled={uploadingCsv}
+              className="hidden"
+            />
+          </label>
           {user?.role === "admin" && (
             <button
               onClick={() => setShowAddForm(true)}
