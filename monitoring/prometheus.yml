@@ -1,0 +1,168 @@
+# Prometheus Configuration for CLIRDEC:PRESENCE System Monitoring
+# Comprehensive monitoring setup for microservices architecture
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  # API Gateway
+  - job_name: "api-gateway"
+    static_configs:
+      - targets: ["api-gateway:80"]
+    metrics_path: "/metrics"
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # Authentication Service
+  - job_name: "auth-service"
+    static_configs:
+      - targets: ["auth-service:3000"]
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    http_config:
+      basic_auth:
+        username: "prometheus"
+        password: "secure_password"
+
+  # Attendance Service
+  - job_name: "attendance-service"
+    static_configs:
+      - targets: ["attendance-service:3000"]
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Student Service
+  - job_name: "student-service"
+    static_configs:
+      - targets: ["student-service:3000"]
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Reporting Service
+  - job_name: "reporting-service"
+    static_configs:
+      - targets: ["reporting-service:3000"]
+    metrics_path: "/metrics"
+    scrape_interval: 30s # Less frequent for reporting
+    scrape_timeout: 15s
+
+  # Notification Service
+  - job_name: "notification-service"
+    static_configs:
+      - targets: ["notification-service:3000"]
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # IoT Service
+  - job_name: "iot-service"
+    static_configs:
+      - targets: ["iot-service:3000"]
+    metrics_path: "/metrics"
+    scrape_interval: 10s # More frequent for IoT
+    scrape_timeout: 5s
+
+  # WebSocket Service
+  - job_name: "websocket-service"
+    static_configs:
+      - targets: ["websocket-service:3000"]
+    metrics_path: "/metrics"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Web Application
+  - job_name: "web-app"
+    static_configs:
+      - targets: ["web-app:3000"]
+    metrics_path: "/metrics"
+    scrape_interval: 30s
+    scrape_timeout: 15s
+
+  # Load Balancer (HAProxy)
+  - job_name: "haproxy"
+    static_configs:
+      - targets: ["load-balancer:8404"]
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Database (PostgreSQL)
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["database:5432"]
+    scrape_interval: 30s
+    scrape_timeout: 15s
+
+  # Redis Cache
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis:6379"]
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # MQTT Broker
+  - job_name: "mqtt"
+    static_configs:
+      - targets: ["mqtt:1883"]
+    scrape_interval: 30s
+    scrape_timeout: 15s
+
+  # Service Registry (Consul)
+  - job_name: "consul"
+    static_configs:
+      - targets: ["service-registry:8500"]
+    metrics_path: "/v1/agent/metrics"
+    params:
+      format: ["prometheus"]
+    scrape_interval: 30s
+    scrape_timeout: 15s
+
+  # Node Exporters (for system metrics)
+  - job_name: "node-exporters"
+    static_configs:
+      - targets:
+          - "presence-app-1:9100"
+          - "presence-app-2:9100"
+          - "presence-app-3:9100"
+          - "database:9100"
+          - "redis:9100"
+    scrape_interval: 30s
+    scrape_timeout: 15s
+
+  # CDN Metrics (if using external CDN)
+  - job_name: "cdn-metrics"
+    static_configs:
+      - targets: ["cdn-monitor:8080"]
+    scrape_interval: 60s # Less frequent for CDN
+    scrape_timeout: 30s
+
+# Remote write configuration (for long-term storage)
+remote_write:
+  - url: "http://victoriametrics:8428/api/v1/write"
+    remote_timeout: 30s
+    queue_config:
+      capacity: 10000
+      max_shards: 30
+      min_shards: 1
+      max_samples_per_send: 1000
+      batch_send_deadline: 5s
+      min_backoff: 30ms
+      max_backoff: 5s
+
+# Remote read configuration
+remote_read:
+  - url: "http://victoriametrics:8428/api/v1/read"
+    remote_timeout: 30s

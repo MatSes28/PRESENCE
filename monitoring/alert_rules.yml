@@ -1,0 +1,251 @@
+# Prometheus Alert Rules for CLIRDEC:PRESENCE System
+# Critical alerts for system health and performance monitoring
+
+groups:
+  # Service Health Alerts
+  - name: service_health
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 5 minutes."
+          runbook_url: "https://docs.presence.clirdec.edu/runbooks/service-down"
+
+      - alert: ServiceFlapping
+        expr: changes(up[10m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: stability
+        annotations:
+          summary: "Service {{ $labels.job }} is flapping"
+          description: "Service {{ $labels.job }} has restarted more than 5 times in the last 10 minutes."
+
+  # API Performance Alerts
+  - name: api_performance
+    rules:
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High API response time on {{ $labels.job }}"
+          description: "95th percentile response time is {{ $value }}s for {{ $labels.job }}"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: errors
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "Error rate is {{ $value | humanizePercentage }} for {{ $labels.job }}"
+
+      - alert: HighRequestRate
+        expr: rate(http_requests_total[5m]) > 1000
+        for: 10m
+        labels:
+          severity: info
+          category: traffic
+        annotations:
+          summary: "High request rate on {{ $labels.job }}"
+          description: "Request rate is {{ $value | humanize }} req/s for {{ $labels.job }}"
+
+  # Database Alerts
+  - name: database_alerts
+    rules:
+      - alert: DatabaseDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "PostgreSQL database has been unreachable for more than 1 minute."
+
+      - alert: HighDatabaseConnections
+        expr: pg_stat_activity_count > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "High database connection count"
+          description: "Database has {{ $value }} active connections, which is above the threshold."
+
+      - alert: SlowQuery
+        expr: rate(pg_stat_statements_total_time[5m]) / rate(pg_stat_statements_calls[5m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Average query execution time is above 1 second."
+
+  # Cache Alerts
+  - name: cache_alerts
+    rules:
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: cache
+        annotations:
+          summary: "Redis cache is down"
+          description: "Redis cache has been unreachable for more than 1 minute."
+
+      - alert: HighCacheMissRate
+        expr: rate(redis_keyspace_misses_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) > 0.3
+        for: 10m
+        labels:
+          severity: warning
+          category: cache
+        annotations:
+          summary: "High Redis cache miss rate"
+          description: "Cache miss rate is {{ $value | humanizePercentage }}, which may impact performance."
+
+  # IoT Device Alerts
+  - name: iot_alerts
+    rules:
+      - alert: IoTDeviceOffline
+        expr: iot_device_status == 0
+        for: 10m
+        labels:
+          severity: warning
+          category: iot
+        annotations:
+          summary: "IoT device {{ $labels.device_id }} is offline"
+          description: "IoT device {{ $labels.device_id }} has been offline for more than 10 minutes."
+
+      - alert: RFIDReaderFailure
+        expr: rfid_read_success_rate < 0.95
+        for: 5m
+        labels:
+          severity: critical
+          category: hardware
+        annotations:
+          summary: "RFID reader failure detected"
+          description: "RFID read success rate is below 95% on {{ $labels.reader_id }}"
+
+  # Load Balancer Alerts
+  - name: load_balancer_alerts
+    rules:
+      - alert: HAProxyBackendDown
+        expr: haproxy_backend_status == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: load_balancer
+        annotations:
+          summary: "HAProxy backend {{ $labels.backend }} is down"
+          description: "Load balancer backend {{ $labels.backend }} is not responding."
+
+      - alert: HighLoadBalancerQueue
+        expr: haproxy_backend_queue_current > 50
+        for: 5m
+        labels:
+          severity: warning
+          category: load_balancer
+        annotations:
+          summary: "High queue on load balancer backend"
+          description: "Backend {{ $labels.backend }} has {{ $value }} requests in queue."
+
+  # System Resource Alerts
+  - name: system_resources
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: HighMemoryUsage
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+          category: system
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+          category: system
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Available disk space is below 10% on {{ $labels.instance }}"
+
+  # CDN Alerts (if applicable)
+  - name: cdn_alerts
+    rules:
+      - alert: LowCDNCacheHitRate
+        expr: cdn_cache_hit_ratio < 0.8
+        for: 15m
+        labels:
+          severity: info
+          category: cdn
+        annotations:
+          summary: "Low CDN cache hit rate"
+          description: "CDN cache hit rate is {{ $value | humanizePercentage }}, consider optimizing cache strategy."
+
+      - alert: CDNOriginError
+        expr: rate(cdn_origin_errors_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: cdn
+        annotations:
+          summary: "High CDN origin errors"
+          description: "CDN is experiencing {{ $value }} origin errors per second."
+
+  # Business Logic Alerts
+  - name: business_logic
+    rules:
+      - alert: LowAttendanceRate
+        expr: attendance_success_rate < 0.8
+        for: 15m
+        labels:
+          severity: info
+          category: business
+        annotations:
+          summary: "Low attendance success rate"
+          description: "Attendance recording success rate is {{ $value | humanizePercentage }}"
+
+      - alert: HighAbsenteeism
+        expr: absent_students_total / (present_students_total + absent_students_total) > 0.3
+        for: 1h
+        labels:
+          severity: info
+          category: business
+        annotations:
+          summary: "High absenteeism rate detected"
+          description: "Absenteeism rate is {{ $value | humanizePercentage }} across all classes"
+
+      - alert: IoTDeviceDrift
+        expr: abs(iot_sensor_calibration_drift) > 10
+        for: 30m
+        labels:
+          severity: warning
+          category: iot
+        annotations:
+          summary: "IoT sensor calibration drift detected"
+          description: "Sensor {{ $labels.device_id }} has calibration drift of {{ $value }} units"

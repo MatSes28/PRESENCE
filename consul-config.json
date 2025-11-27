@@ -1,0 +1,196 @@
+{
+  "datacenter": "clirdec-dc1",
+  "data_dir": "/consul/data",
+  "log_level": "INFO",
+  "node_name": "presence-registry",
+  "server": true,
+  "bootstrap_expect": 1,
+  "bind_addr": "0.0.0.0",
+  "client_addr": "0.0.0.0",
+  "advertise_addr": "{{ GetInterfaceIP \"eth0\" }}",
+  "ports": {
+    "http": 8500,
+    "https": -1,
+    "grpc": 8502,
+    "dns": 8600,
+    "serf_lan": 8301,
+    "serf_wan": 8302,
+    "server": 8300
+  },
+  "ui_config": {
+    "enabled": true
+  },
+  "connect": {
+    "enabled": true
+  },
+  "services": [
+    {
+      "name": "api-gateway",
+      "tags": ["gateway", "nginx", "api"],
+      "port": 80,
+      "checks": [
+        {
+          "name": "HTTP Health Check",
+          "http": "http://localhost/health",
+          "interval": "10s",
+          "timeout": "5s"
+        }
+      ]
+    },
+    {
+      "name": "auth-service",
+      "tags": ["auth", "security", "microservice"],
+      "port": 3000,
+      "checks": [
+        {
+          "name": "Auth Service Health",
+          "http": "http://localhost:3000/health",
+          "interval": "15s",
+          "timeout": "10s"
+        }
+      ]
+    },
+    {
+      "name": "attendance-service",
+      "tags": ["attendance", "core", "microservice"],
+      "port": 3000,
+      "checks": [
+        {
+          "name": "Attendance Service Health",
+          "http": "http://localhost:3000/health",
+          "interval": "15s",
+          "timeout": "10s"
+        }
+      ]
+    },
+    {
+      "name": "student-service",
+      "tags": ["student", "management", "microservice"],
+      "port": 3000,
+      "checks": [
+        {
+          "name": "Student Service Health",
+          "http": "http://localhost:3000/health",
+          "interval": "15s",
+          "timeout": "10s"
+        }
+      ]
+    },
+    {
+      "name": "reporting-service",
+      "tags": ["reporting", "analytics", "microservice"],
+      "port": 3000,
+      "checks": [
+        {
+          "name": "Reporting Service Health",
+          "http": "http://localhost:3000/health",
+          "interval": "30s",
+          "timeout": "15s"
+        }
+      ]
+    },
+    {
+      "name": "notification-service",
+      "tags": ["notification", "email", "sms", "microservice"],
+      "port": 3000,
+      "checks": [
+        {
+          "name": "Notification Service Health",
+          "http": "http://localhost:3000/health",
+          "interval": "15s",
+          "timeout": "10s"
+        }
+      ]
+    },
+    {
+      "name": "iot-service",
+      "tags": ["iot", "devices", "sensors", "microservice"],
+      "port": 3000,
+      "checks": [
+        {
+          "name": "IoT Service Health",
+          "http": "http://localhost:3000/health",
+          "interval": "10s",
+          "timeout": "5s"
+        }
+      ]
+    },
+    {
+      "name": "websocket-service",
+      "tags": ["websocket", "realtime", "microservice"],
+      "port": 3000,
+      "checks": [
+        {
+          "name": "WebSocket Service Health",
+          "http": "http://localhost:3000/health",
+          "interval": "15s",
+          "timeout": "10s"
+        }
+      ]
+    },
+    {
+      "name": "web-app",
+      "tags": ["frontend", "react", "spa"],
+      "port": 3000,
+      "checks": [
+        {
+          "name": "Web App Health",
+          "http": "http://localhost:3000/health",
+          "interval": "30s",
+          "timeout": "15s"
+        }
+      ]
+    },
+    {
+      "name": "database",
+      "tags": ["postgres", "database", "persistence"],
+      "port": 5432,
+      "checks": [
+        {
+          "name": "PostgreSQL Health",
+          "tcp": "localhost:5432",
+          "interval": "30s",
+          "timeout": "10s"
+        }
+      ]
+    },
+    {
+      "name": "redis",
+      "tags": ["redis", "cache", "session"],
+      "port": 6379,
+      "checks": [
+        {
+          "name": "Redis Health",
+          "tcp": "localhost:6379",
+          "interval": "15s",
+          "timeout": "5s"
+        }
+      ]
+    },
+    {
+      "name": "mqtt-broker",
+      "tags": ["mqtt", "iot", "messaging"],
+      "port": 1883,
+      "checks": [
+        {
+          "name": "MQTT Health",
+          "tcp": "localhost:1883",
+          "interval": "30s",
+          "timeout": "10s"
+        }
+      ]
+    }
+  ],
+  "watches": [
+    {
+      "type": "services",
+      "handler_type": "script",
+      "args": ["/usr/local/bin/service-update.sh"]
+    }
+  ],
+  "telemetry": {
+    "prometheus_retention_time": "24h",
+    "disable_hostname": false,
+    "metrics_prefix": "consul"
+  }
+}
