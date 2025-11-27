@@ -13,6 +13,7 @@ import notificationRoutes from "./routes/notifications.js";
 import iotRoutes from "./routes/iot.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import enrollmentRoutes from "./routes/enrollments.js";
+import aiAnalyticsRoutes from "./routes/aiAnalytics.js";
 // Removed audit routes - not in paper scope
 
 const router = Router();
@@ -44,5 +45,6 @@ router.use("/iot", iotRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/subjects", subjectRoutes);
 router.use("/enrollments", enrollmentRoutes);
+router.use("/ai-analytics", aiAnalyticsRoutes);
 
 export default router;

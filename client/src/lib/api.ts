@@ -409,6 +409,74 @@ class ApiClient {
       body: JSON.stringify(criteria),
     });
   }
+
+  // AI Analytics endpoints
+  async optimizeSeating(sessionId: number) {
+    return this.request(`/ai-analytics/optimize-seating/${sessionId}`, {
+      method: "POST",
+    });
+  }
+
+  async predictPerformance(
+    studentId: number,
+    computerId: number,
+    sessionId: number
+  ) {
+    return this.request(
+      `/ai-analytics/predict-performance/${studentId}/${computerId}/${sessionId}`
+    );
+  }
+
+  async detectConflicts(sessionId: number) {
+    return this.request(`/ai-analytics/detect-conflicts/${sessionId}`, {
+      method: "POST",
+    });
+  }
+
+  async getLearningAnalytics(params?: {
+    facultyId?: number;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : "";
+    return this.request(`/ai-analytics/learning-analytics${query}`);
+  }
+
+  async getAIInsights(params?: {
+    facultyId?: number;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : "";
+    return this.request(`/ai-analytics/insights${query}`);
+  }
+
+  async getPerformanceTrends(params?: {
+    facultyId?: number;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : "";
+    return this.request(`/ai-analytics/performance-trends${query}`);
+  }
+
+  async getAttendancePatterns(params?: {
+    facultyId?: number;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : "";
+    return this.request(`/ai-analytics/attendance-patterns${query}`);
+  }
+
+  async getSeatingEffectiveness(params?: {
+    facultyId?: number;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : "";
+    return this.request(`/ai-analytics/seating-effectiveness${query}`);
+  }
 }
 
 export const api = new ApiClient();
