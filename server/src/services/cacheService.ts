@@ -30,25 +30,28 @@ class CacheService {
   }
 
   private setupEventHandlers(): void {
-    let lastErrorTime = 0;
-    const ERROR_THROTTLE_MS = 30000; // Only log Redis errors once every 30 seconds
+    // Only log Redis connection events in development, completely silent in production
+    const isDevelopment = process.env.NODE_ENV !== "production";
 
     this.client.on("error", (err) => {
-      const now = Date.now();
-      if (now - lastErrorTime > ERROR_THROTTLE_MS) {
-        console.warn("Redis Client Error (throttled logging):", err.message);
-        lastErrorTime = now;
+      // Only log Redis errors in development environment
+      if (isDevelopment) {
+        console.warn("Redis Client Error:", err.message);
       }
       this.isConnected = false;
     });
 
     this.client.on("connect", () => {
-      console.log("Connected to Redis");
+      if (isDevelopment) {
+        console.log("Connected to Redis");
+      }
       this.isConnected = true;
     });
 
     this.client.on("disconnect", () => {
-      console.log("Disconnected from Redis");
+      if (isDevelopment) {
+        console.log("Disconnected from Redis");
+      }
       this.isConnected = false;
     });
   }
