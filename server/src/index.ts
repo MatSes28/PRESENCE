@@ -5,7 +5,6 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
-import rateLimit from "express-rate-limit";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
@@ -14,6 +13,20 @@ import { db } from "./storage.js";
 import routes from "./routes.js";
 import { setupWebSocket } from "./services/websocket.js";
 import { sql } from "drizzle-orm";
+import {
+  generalRateLimit,
+  authRateLimit,
+  attendanceRateLimit,
+  reportRateLimit,
+  iotRateLimit,
+  apiOptimization,
+  requestCache,
+  requestDeduplication,
+  requestLogging,
+  corsOptimization,
+  dbConnectionOptimization,
+} from "./middleware/rateLimit.js";
+import { cacheService } from "./services/cacheService.js";
 import {
   users,
   students,
@@ -74,20 +87,28 @@ app.get("/", (req, res) => {
 
 // Security middleware
 app.use(helmet());
-app.use(
-  cors({
-    origin: true, // Allow all origins in development
-    credentials: true,
-  })
-);
+app.use(corsOptimization);
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: "Too many requests from this IP, please try again later.",
-});
-app.use(limiter);
+// Performance and optimization middleware
+app.use(requestLogging);
+app.use(apiOptimization);
+app.use(dbConnectionOptimization);
+
+// Rate limiting with different limits for different endpoints
+app.use("/api/auth", authRateLimit);
+app.use("/api/attendance", attendanceRateLimit);
+app.use("/api/reports", reportRateLimit);
+app.use("/api/iot", iotRateLimit);
+app.use("/api", generalRateLimit);
+
+// Request deduplication for critical operations
+app.use("/api/attendance", requestDeduplication(3000)); // 3 seconds
+app.use("/api/auth", requestDeduplication(5000)); // 5 seconds
+
+// API response caching for read operations
+app.use("/api/dashboard", requestCache(60)); // 1 minute cache
+app.use("/api/schedules", requestCache(300)); // 5 minutes cache
+app.use("/api/students", requestCache(600)); // 10 minutes cache
 
 // Body parsing middleware
 app.use(express.json({ limit: "10mb" }));
