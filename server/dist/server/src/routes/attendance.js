@@ -3,6 +3,7 @@ import { db } from "../storage.js";
 import { attendanceRecords, students, classSessions, schedules, classrooms, subjects, users, } from "../schema.js";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { attendanceMonitor } from "../services/attendanceMonitor.js";
+import { requireAdmin } from "../middleware/auth.js";
 const router = Router();
 const requireAuth = (req, res, next) => {
     if (!req.session?.userId) {
@@ -248,6 +249,178 @@ router.post("/:id/validate", requireAuth, async (req, res) => {
     }
     catch (error) {
         console.error("Validate attendance record error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+});
+router.post("/simulate-rfid", requireAuth, async (req, res) => {
+    try {
+        const { rfidUid } = req.body;
+        if (!rfidUid) {
+            return res.status(400).json({
+                success: false,
+                message: "RFID UID is required",
+            });
+        }
+        const result = await attendanceMonitor.processRFIDScan({
+            deviceId: "simulator",
+            rfidUid,
+            timestamp: new Date().toISOString(),
+        });
+        if (result.success) {
+            res.json({
+                success: true,
+                message: "RFID simulation successful",
+                data: result,
+            });
+        }
+        else {
+            res.status(400).json({
+                success: false,
+                message: result.message || "RFID simulation failed",
+            });
+        }
+    }
+    catch (error) {
+        console.error("RFID simulation error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+});
+router.post("/simulate-rfid", requireAdmin, async (req, res) => {
+    try {
+        const { rfidUid } = req.body;
+        if (!rfidUid) {
+            return res.status(400).json({
+                success: false,
+                message: "RFID UID is required",
+            });
+        }
+        const result = await attendanceMonitor.processRFIDScan({
+            deviceId: "simulator",
+            rfidUid,
+            timestamp: new Date().toISOString(),
+        });
+        if (result.success) {
+            res.json({
+                success: true,
+                message: "RFID simulation successful",
+                data: result,
+            });
+        }
+        else {
+            res.status(400).json({
+                success: false,
+                message: result.message || "RFID simulation failed",
+            });
+        }
+    }
+    catch (error) {
+        console.error("Simulate RFID error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+});
+router.post("/simulate-sensor", requireAdmin, async (req, res) => {
+    try {
+        const { sensorType, distance = 50 } = req.body;
+        if (!sensorType || !["entry", "exit"].includes(sensorType)) {
+            return res.status(400).json({
+                success: false,
+                message: "Valid sensor type (entry/exit) is required",
+            });
+        }
+        const result = await attendanceMonitor.processSensorTrigger({
+            deviceId: "simulator",
+            sensorType,
+            distance,
+            timestamp: new Date().toISOString(),
+        });
+        if (result.success) {
+            res.json({
+                success: true,
+                message: "Sensor simulation successful",
+                data: result,
+            });
+        }
+        else {
+            res.status(400).json({
+                success: false,
+                message: result.message || "Sensor simulation failed",
+            });
+        }
+    }
+    catch (error) {
+        console.error("Simulate sensor error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+});
+router.post("/:id/excuse", requireAdmin, async (req, res) => {
+    try {
+        const recordId = parseInt(req.params.id);
+        const { reason } = req.body;
+        const [updatedRecord] = await db
+            .update(attendanceRecords)
+            .set({
+            status: "excused",
+            notes: reason ? `Excused: ${reason}` : "Excused by administrator",
+            updatedAt: new Date(),
+        })
+            .where(eq(attendanceRecords.id, recordId))
+            .returning();
+        if (!updatedRecord) {
+            return res.status(404).json({
+                success: false,
+                message: "Attendance record not found",
+            });
+        }
+        res.json({
+            success: true,
+            message: "Attendance record excused successfully",
+            record: updatedRecord,
+        });
+    }
+    catch (error) {
+        console.error("Excuse attendance error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+});
+router.post("/:studentId/contact", requireAdmin, async (req, res) => {
+    try {
+        const studentId = parseInt(req.params.studentId);
+        const { message } = req.body;
+        const student = await db
+            .select()
+            .from(students)
+            .where(eq(students.id, studentId))
+            .limit(1);
+        if (!student.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Student not found",
+            });
+        }
+        const studentData = student[0];
+        console.log(`Contacting parent of ${studentData.name}: ${message}`);
+        res.json({
+            success: true,
+            message: "Parent contacted successfully",
+        });
+    }
+    catch (error) {
+        console.error("Contact parent error:", error);
         res.status(500).json({
             success: false,
             message: "Internal server error",

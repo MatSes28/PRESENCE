@@ -109,6 +109,29 @@ export const computers = pgTable("computers", {
     ipAddress: varchar("ip_address", { length: 45 }),
     macAddress: varchar("mac_address", { length: 17 }),
     status: varchar("status", { length: 20 }).default("available").notNull(),
+    lastMaintenance: timestamp("last_maintenance"),
+    nextMaintenance: timestamp("next_maintenance"),
+    maintenanceNotes: text("maintenance_notes"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export const computerMaintenance = pgTable("computer_maintenance", {
+    id: serial("id").primaryKey(),
+    computerId: integer("computer_id")
+        .references(() => computers.id)
+        .notNull(),
+    maintenanceType: varchar("maintenance_type", { length: 50 }).notNull(),
+    description: text("description").notNull(),
+    performedBy: integer("performed_by")
+        .references(() => users.id)
+        .notNull(),
+    scheduledDate: timestamp("scheduled_date"),
+    completedDate: timestamp("completed_date"),
+    status: varchar("status", { length: 20 }).default("scheduled").notNull(),
+    cost: integer("cost"),
+    parts: jsonb("parts"),
+    notes: text("notes"),
     isActive: boolean("is_active").default(true).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -291,6 +314,7 @@ export const computersRelations = relations(computers, ({ one, many }) => ({
         references: [classrooms.id],
     }),
     assignments: many(computerAssignments),
+    maintenanceRecords: many(computerMaintenance),
 }));
 export const computerAssignmentsRelations = relations(computerAssignments, ({ one }) => ({
     computer: one(computers, {
@@ -359,5 +383,15 @@ export const sessionAssignmentsRelations = relations(sessionAssignments, ({ one 
     student: one(students, {
         fields: [sessionAssignments.studentId],
         references: [students.id],
+    }),
+}));
+export const computerMaintenanceRelations = relations(computerMaintenance, ({ one }) => ({
+    computer: one(computers, {
+        fields: [computerMaintenance.computerId],
+        references: [computers.id],
+    }),
+    performedBy: one(users, {
+        fields: [computerMaintenance.performedBy],
+        references: [users.id],
     }),
 }));

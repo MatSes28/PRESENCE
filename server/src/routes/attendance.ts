@@ -11,7 +11,7 @@ import {
 } from "../schema.js";
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { attendanceMonitor } from "../services/attendanceMonitor.js";
-import { requireAdmin } from "../middleware/auth";
+import { requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
