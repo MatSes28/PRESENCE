@@ -46,6 +46,35 @@ export const LiveAttendance = () => {
   const [students, setStudents] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
 
+  // Advanced filtering state
+  const [filters, setFilters] = useState({
+    dateRange: {
+      start: new Date().toISOString().split("T")[0],
+      end: new Date().toISOString().split("T")[0],
+    },
+    status: "all", // all, present, absent, late
+    studentId: "",
+    sessionId: "",
+    deviceId: "",
+    searchTerm: "",
+  });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Bulk operations state
+  const [selectedRecords, setSelectedRecords] = useState<Set<string>>(
+    new Set()
+  );
+  const [bulkOperation, setBulkOperation] = useState<
+    "excuse" | "contact" | "export" | null
+  >(null);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  }>({ key: "entryTime", direction: "desc" });
+
   // Fetch initial attendance data
   useEffect(() => {
     const fetchAttendanceData = async () => {
@@ -299,6 +328,248 @@ export const LiveAttendance = () => {
     } catch (error) {
       console.error("Failed to refresh attendance data:", error);
     }
+  };
+
+  // Advanced filtering function
+  const filteredAttendanceData = attendanceData.filter((record) => {
+    // Date range filter
+    const recordDate = new Date(record.entryTime || record.createdAt)
+      .toISOString()
+      .split("T")[0];
+    if (
+      recordDate < filters.dateRange.start ||
+      recordDate > filters.dateRange.end
+    ) {
+      return false;
+    }
+
+    // Status filter
+    if (filters.status !== "all") {
+      if (filters.status === "present" && record.status !== "present")
+        return false;
+      if (filters.status === "absent" && record.status !== "absent")
+        return false;
+      if (filters.status === "late" && record.status !== "late") return false;
+    }
+
+    // Student filter
+    if (
+      filters.studentId &&
+      record.student?.id !== parseInt(filters.studentId)
+    ) {
+      return false;
+    }
+
+    // Session filter
+    if (
+      filters.sessionId &&
+      record.classSessionId !== parseInt(filters.sessionId)
+    ) {
+      return false;
+    }
+
+    // Device filter
+    if (filters.deviceId && record.deviceId !== filters.deviceId) {
+      return false;
+    }
+
+    // Search term filter
+    if (filters.searchTerm) {
+      const searchLower = filters.searchTerm.toLowerCase();
+      const matchesSearch =
+        record.student?.name?.toLowerCase().includes(searchLower) ||
+        record.student?.studentId?.toLowerCase().includes(searchLower) ||
+        record.student?.email?.toLowerCase().includes(searchLower);
+      if (!matchesSearch) return false;
+    }
+
+    return true;
+  });
+
+  // Sorting function
+  const sortedAttendanceData = [...filteredAttendanceData].sort((a, b) => {
+    const aValue = a[sortConfig.key as keyof typeof a];
+    const bValue = b[sortConfig.key as keyof typeof b];
+
+    if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+    if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  // Handle sorting
+  const handleSort = (key: string) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  // Bulk operations
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRecords(
+        new Set(sortedAttendanceData.map((record) => record.id.toString()))
+      );
+    } else {
+      setSelectedRecords(new Set());
+    }
+  };
+
+  const handleSelectRecord = (recordId: string, checked: boolean) => {
+    setSelectedRecords((prev) => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(recordId);
+      } else {
+        newSet.delete(recordId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleBulkExcuse = async () => {
+    if (selectedRecords.size === 0) return;
+
+    setBulkProcessing(true);
+    try {
+      const selectedData = sortedAttendanceData.filter((record) =>
+        selectedRecords.has(record.id.toString())
+      );
+
+      const results = await Promise.allSettled(
+        selectedData.map((record) =>
+          api.excuseAttendance(record.id, "Bulk excused by administrator")
+        )
+      );
+
+      const successCount = results.filter(
+        (result) => result.status === "fulfilled"
+      ).length;
+      const failureCount = results.filter(
+        (result) => result.status === "rejected"
+      ).length;
+
+      addNotification({
+        type: "success",
+        title: "Bulk Operation Completed",
+        message: `Successfully excused ${successCount} students${
+          failureCount > 0 ? `, ${failureCount} failed` : ""
+        }`,
+      });
+
+      setSelectedRecords(new Set());
+      refreshAttendanceData();
+    } catch (error) {
+      console.error("Bulk excuse error:", error);
+      addNotification({
+        type: "error",
+        title: "Bulk Operation Failed",
+        message: "Failed to complete bulk excuse operation",
+      });
+    } finally {
+      setBulkProcessing(false);
+      setBulkOperation(null);
+    }
+  };
+
+  const handleBulkContact = async () => {
+    if (selectedRecords.size === 0) return;
+
+    setBulkProcessing(true);
+    try {
+      const selectedData = sortedAttendanceData.filter((record) =>
+        selectedRecords.has(record.id.toString())
+      );
+
+      const message =
+        "This is a bulk notification regarding your child's attendance.";
+
+      const results = await Promise.allSettled(
+        selectedData.map((record) =>
+          api.contactParent(record.student?.id, message)
+        )
+      );
+
+      const successCount = results.filter(
+        (result) => result.status === "fulfilled"
+      ).length;
+      const failureCount = results.filter(
+        (result) => result.status === "rejected"
+      ).length;
+
+      addNotification({
+        type: "success",
+        title: "Bulk Contact Completed",
+        message: `Successfully contacted ${successCount} parents${
+          failureCount > 0 ? `, ${failureCount} failed` : ""
+        }`,
+      });
+
+      setSelectedRecords(new Set());
+    } catch (error) {
+      console.error("Bulk contact error:", error);
+      addNotification({
+        type: "error",
+        title: "Bulk Operation Failed",
+        message: "Failed to complete bulk contact operation",
+      });
+    } finally {
+      setBulkProcessing(false);
+      setBulkOperation(null);
+    }
+  };
+
+  const handleBulkExport = () => {
+    if (selectedRecords.size === 0) return;
+
+    const selectedData = sortedAttendanceData.filter((record) =>
+      selectedRecords.has(record.id.toString())
+    );
+
+    // Convert to CSV
+    const csvHeaders = [
+      "Student ID",
+      "Name",
+      "Status",
+      "Entry Time",
+      "Device",
+      "Session",
+    ];
+    const csvData = selectedData.map((record) => [
+      record.student?.studentId || "N/A",
+      record.student?.name || "N/A",
+      record.status || "N/A",
+      record.entryTime ? new Date(record.entryTime).toLocaleString() : "N/A",
+      record.deviceId || "N/A",
+      record.classSessionId || "N/A",
+    ]);
+
+    const csvContent = [csvHeaders, ...csvData]
+      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
+
+    // Download CSV
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `attendance_export_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    addNotification({
+      type: "success",
+      title: "Export Completed",
+      message: `Successfully exported ${selectedRecords.size} records`,
+    });
+
+    setSelectedRecords(new Set());
+    setBulkOperation(null);
   };
 
   const handleExcuseAttendance = async () => {
@@ -586,15 +857,227 @@ export const LiveAttendance = () => {
         </div>
       </div>
 
+      {/* Advanced Filters */}
+      <div className="bg-gray-800 rounded-lg shadow p-4 border border-gray-700">
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="text-lg font-medium text-cyan-400">Filters</h4>
+          <button
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className="text-cyan-400 hover:text-cyan-300 text-sm"
+          >
+            {showAdvancedFilters ? "Hide Filters" : "Show Advanced Filters"}
+          </button>
+        </div>
+
+        {/* Basic Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Search
+            </label>
+            <input
+              type="text"
+              value={filters.searchTerm}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, searchTerm: e.target.value }))
+              }
+              placeholder="Search by name, ID, or email"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Status
+            </label>
+            <select
+              value={filters.status}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, status: e.target.value }))
+              }
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+            >
+              <option value="all">All Status</option>
+              <option value="present">Present</option>
+              <option value="absent">Absent</option>
+              <option value="late">Late</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Date Range
+            </label>
+            <div className="flex space-x-2">
+              <input
+                type="date"
+                value={filters.dateRange.start}
+                onChange={(e) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    dateRange: { ...prev.dateRange, start: e.target.value },
+                  }))
+                }
+                className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              />
+              <input
+                type="date"
+                value={filters.dateRange.end}
+                onChange={(e) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    dateRange: { ...prev.dateRange, end: e.target.value },
+                  }))
+                }
+                className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Advanced Filters */}
+        {showAdvancedFilters && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-600">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Student
+              </label>
+              <select
+                value={filters.studentId}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, studentId: e.target.value }))
+                }
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              >
+                <option value="">All Students</option>
+                {students.map((student: any) => (
+                  <option key={student.id} value={student.id}>
+                    {student.name} ({student.studentId})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Session
+              </label>
+              <select
+                value={filters.sessionId}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, sessionId: e.target.value }))
+                }
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              >
+                <option value="">All Sessions</option>
+                {sessions.map((session: any) => (
+                  <option key={session.session.id} value={session.session.id}>
+                    {session.schedule?.subject?.name} -{" "}
+                    {session.schedule?.classroom?.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Device
+              </label>
+              <input
+                type="text"
+                value={filters.deviceId}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, deviceId: e.target.value }))
+                }
+                placeholder="Device ID"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Clear Filters */}
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={() =>
+              setFilters({
+                dateRange: {
+                  start: new Date().toISOString().split("T")[0],
+                  end: new Date().toISOString().split("T")[0],
+                },
+                status: "all",
+                studentId: "",
+                sessionId: "",
+                deviceId: "",
+                searchTerm: "",
+              })
+            }
+            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium rounded"
+          >
+            Clear Filters
+          </button>
+        </div>
+      </div>
+
+      {/* Bulk Operations */}
+      {selectedRecords.size > 0 && (
+        <div className="bg-blue-900 border border-blue-600 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <span className="text-blue-400 font-medium">
+                {selectedRecords.size} record
+                {selectedRecords.size !== 1 ? "s" : ""} selected
+              </span>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setBulkOperation("excuse")}
+                disabled={bulkProcessing}
+                className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
+              >
+                Bulk Excuse
+              </button>
+              <button
+                onClick={() => setBulkOperation("contact")}
+                disabled={bulkProcessing}
+                className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
+              >
+                Bulk Contact
+              </button>
+              <button
+                onClick={() => setBulkOperation("export")}
+                disabled={bulkProcessing}
+                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
+              >
+                Export Selected
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Live Attendance Table */}
       <div className="bg-gray-800 rounded-lg shadow border border-gray-700">
         <div className="px-6 py-4 border-b border-gray-700">
-          <h4 className="text-lg font-medium text-cyan-400">
-            Live Attendance Table
-          </h4>
-          <p className="text-sm text-gray-300">
-            Current session attendance records
-          </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h4 className="text-lg font-medium text-cyan-400">
+                Live Attendance Table
+              </h4>
+              <p className="text-sm text-gray-300">
+                {sortedAttendanceData.length} record
+                {sortedAttendanceData.length !== 1 ? "s" : ""} found
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={
+                  selectedRecords.size === sortedAttendanceData.length &&
+                  sortedAttendanceData.length > 0
+                }
+                onChange={(e) => handleSelectAll(e.target.checked)}
+                className="w-4 h-4 text-cyan-600 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500"
+              />
+              <span className="text-sm text-gray-300">Select All</span>
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto">
           {loading ? (
@@ -606,16 +1089,47 @@ export const LiveAttendance = () => {
               <thead className="bg-gray-900">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Student
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedRecords.size === sortedAttendanceData.length &&
+                        sortedAttendanceData.length > 0
+                      }
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="w-4 h-4 text-cyan-600 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500"
+                    />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Student ID
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:text-cyan-400"
+                    onClick={() => handleSort("student.name")}
+                  >
+                    Student{" "}
+                    {sortConfig.key === "student.name" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Status
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:text-cyan-400"
+                    onClick={() => handleSort("student.studentId")}
+                  >
+                    Student ID{" "}
+                    {sortConfig.key === "student.studentId" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Check-in Time
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:text-cyan-400"
+                    onClick={() => handleSort("status")}
+                  >
+                    Status{" "}
+                    {sortConfig.key === "status" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider cursor-pointer hover:text-cyan-400"
+                    onClick={() => handleSort("entryTime")}
+                  >
+                    Check-in Time{" "}
+                    {sortConfig.key === "entryTime" &&
+                      (sortConfig.direction === "asc" ? "↑" : "↓")}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     Computer
@@ -636,8 +1150,21 @@ export const LiveAttendance = () => {
                     </td>
                   </tr>
                 ) : (
-                  attendanceData.slice(0, 10).map((record: any) => (
+                  sortedAttendanceData.map((record: any) => (
                     <tr key={record.id} className="hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={selectedRecords.has(record.id.toString())}
+                          onChange={(e) =>
+                            handleSelectRecord(
+                              record.id.toString(),
+                              e.target.checked
+                            )
+                          }
+                          className="w-4 h-4 text-cyan-600 bg-gray-700 border-gray-600 rounded focus:ring-cyan-500"
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
@@ -1106,6 +1633,95 @@ export const LiveAttendance = () => {
                 className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:cursor-not-allowed"
               >
                 Send Message
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Operation Confirmation Modals */}
+      {bulkOperation === "excuse" && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+            <h3 className="text-lg font-medium text-cyan-400 mb-4">
+              Confirm Bulk Excuse
+            </h3>
+            <p className="text-sm text-gray-300 mb-4">
+              Are you sure you want to excuse {selectedRecords.size} absent
+              student{selectedRecords.size !== 1 ? "s" : ""}? This will mark all
+              selected records as excused.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setBulkOperation(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkExcuse}
+                disabled={bulkProcessing}
+                className="bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:cursor-not-allowed"
+              >
+                {bulkProcessing ? "Processing..." : "Confirm Bulk Excuse"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkOperation === "contact" && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+            <h3 className="text-lg font-medium text-cyan-400 mb-4">
+              Confirm Bulk Contact
+            </h3>
+            <p className="text-sm text-gray-300 mb-4">
+              Are you sure you want to contact {selectedRecords.size} parent
+              {selectedRecords.size !== 1 ? "s" : ""}? This will send a
+              notification to all selected students' parents.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setBulkOperation(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkContact}
+                disabled={bulkProcessing}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:cursor-not-allowed"
+              >
+                {bulkProcessing ? "Processing..." : "Confirm Bulk Contact"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkOperation === "export" && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+            <h3 className="text-lg font-medium text-cyan-400 mb-4">
+              Confirm Export
+            </h3>
+            <p className="text-sm text-gray-300 mb-4">
+              Export {selectedRecords.size} record
+              {selectedRecords.size !== 1 ? "s" : ""} to CSV file?
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setBulkOperation(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkExport}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+              >
+                Export to CSV
               </button>
             </div>
           </div>

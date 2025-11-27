@@ -1,5 +1,5 @@
 import { useAuth } from "../hooks/useAuth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getWebSocketClient } from "../lib/websocket";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
@@ -54,6 +54,8 @@ export const Dashboard = () => {
     errorRate: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [analyticsPeriod, setAnalyticsPeriod] = useState("7d");
@@ -64,11 +66,79 @@ export const Dashboard = () => {
     action: "create", // create or activate
   });
 
-  // Fetch dashboard statistics
+  // Data persistence keys
+  const STORAGE_KEYS = {
+    DASHBOARD_STATS: "dashboard_stats",
+    REAL_TIME_DATA: "real_time_data",
+    ANALYTICS_DATA: "analytics_data",
+    LAST_UPDATED: "dashboard_last_updated",
+  };
+
+  // Load persisted data on mount
   useEffect(() => {
-    const fetchDashboardStats = async () => {
+    const loadPersistedData = () => {
       try {
-        setLoading(true);
+        const persistedStats = localStorage.getItem(
+          STORAGE_KEYS.DASHBOARD_STATS
+        );
+        const persistedRealTimeData = localStorage.getItem(
+          STORAGE_KEYS.REAL_TIME_DATA
+        );
+        const lastUpdated = localStorage.getItem(STORAGE_KEYS.LAST_UPDATED);
+
+        if (persistedStats) {
+          const stats = JSON.parse(persistedStats);
+          // Only use persisted data if it's less than 5 minutes old
+          if (
+            lastUpdated &&
+            Date.now() - parseInt(lastUpdated) < 5 * 60 * 1000
+          ) {
+            setDashboardStats(stats);
+            setLoading(false); // Show persisted data immediately
+          }
+        }
+
+        if (persistedRealTimeData) {
+          const realTimeData = JSON.parse(persistedRealTimeData);
+          setRealTimeData(realTimeData);
+        }
+      } catch (error) {
+        console.warn("Failed to load persisted dashboard data:", error);
+      }
+    };
+
+    loadPersistedData();
+  }, []);
+
+  // Persist data when it changes
+  const persistData = useCallback((key: string, data: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+      localStorage.setItem(STORAGE_KEYS.LAST_UPDATED, Date.now().toString());
+    } catch (error) {
+      console.warn("Failed to persist dashboard data:", error);
+    }
+  }, []);
+
+  // Update persisted data when stats change
+  useEffect(() => {
+    if (!loading) {
+      persistData(STORAGE_KEYS.DASHBOARD_STATS, dashboardStats);
+    }
+  }, [dashboardStats, loading, persistData]);
+
+  // Update persisted data when real-time data changes
+  useEffect(() => {
+    persistData(STORAGE_KEYS.REAL_TIME_DATA, realTimeData);
+  }, [realTimeData, persistData]);
+
+  // Fetch dashboard statistics with retry logic
+  const fetchDashboardStats = useCallback(
+    async (isRetry = false) => {
+      try {
+        if (!isRetry) setLoading(true);
+        setError(null);
+
         const response = await api.get("/dashboard/stats");
         if (response.success && response.data) {
           setDashboardStats((prev) => ({
@@ -77,51 +147,43 @@ export const Dashboard = () => {
             activeDevices: deviceStatus.filter((d) => d.status === "online")
               .length,
           }));
+          setRetryCount(0); // Reset retry count on success
         } else {
-          console.error(
-            "Dashboard stats API returned unsuccessful response:",
-            response
+          throw new Error(
+            response.message || "Failed to load dashboard statistics"
           );
-          // Show error state instead of fallback data
-          addNotification({
-            type: "error",
-            title: "Dashboard Error",
-            message: response.message || "Failed to load dashboard statistics",
-          });
-          setDashboardStats((prev) => ({
-            ...prev,
-            activeDevices: deviceStatus.filter((d) => d.status === "online")
-              .length,
-          }));
         }
       } catch (error) {
         console.error("Failed to fetch dashboard stats:", error);
-        addNotification({
-          type: "error",
-          title: "Connection Error",
-          message:
-            "Unable to connect to server. Please check your internet connection.",
-        });
-        // Set minimal default values
-        setDashboardStats((prev) => ({
-          ...prev,
-          todayClasses: 0,
-          presentStudents: 0,
-          absentStudents: 0,
-          attendanceRate: 0,
-          totalEvents: 0,
-          systemUptime: "0d 0h 0m",
-          errorRate: 0,
-          activeDevices: deviceStatus.filter((d) => d.status === "online")
-            .length,
-        }));
-      } finally {
-        setLoading(false);
-      }
-    };
+        setError(
+          error instanceof Error ? error.message : "Unknown error occurred"
+        );
 
+        // Retry logic (max 3 retries with exponential backoff)
+        if (retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+          setTimeout(() => {
+            setRetryCount((prev) => prev + 1);
+            fetchDashboardStats(true);
+          }, delay);
+        } else {
+          addNotification({
+            type: "error",
+            title: "Dashboard Error",
+            message:
+              "Failed to load dashboard data after multiple attempts. Using cached data if available.",
+          });
+        }
+      } finally {
+        if (!isRetry) setLoading(false);
+      }
+    },
+    [deviceStatus, retryCount, addNotification]
+  );
+
+  useEffect(() => {
     fetchDashboardStats();
-  }, [deviceStatus]);
+  }, [fetchDashboardStats]);
 
   // Fetch analytics data
   const fetchAnalytics = async (period: string = "7d") => {
@@ -244,6 +306,47 @@ export const Dashboard = () => {
     };
   }, [user?.id]);
 
+  // Loading Skeleton Component
+  const StatCardSkeleton = () => (
+    <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700 animate-pulse">
+      <div className="flex items-center">
+        <div className="w-12 h-12 bg-gray-700 rounded-full"></div>
+        <div className="ml-4 flex-1">
+          <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
+          <div className="h-8 bg-gray-700 rounded w-1/2 mb-2"></div>
+          <div className="h-3 bg-gray-700 rounded w-1/4"></div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Error State Component
+  const ErrorState = ({
+    message,
+    onRetry,
+  }: {
+    message: string;
+    onRetry: () => void;
+  }) => (
+    <div className="bg-red-900 border border-red-600 rounded-lg p-6">
+      <div className="flex items-center">
+        <div className="flex-shrink-0">
+          <span className="text-red-400 text-2xl">⚠️</span>
+        </div>
+        <div className="ml-3 flex-1">
+          <h3 className="text-sm font-medium text-red-400">Dashboard Error</h3>
+          <p className="text-sm text-red-200 mt-1">{message}</p>
+          <button
+            onClick={onRetry}
+            className="mt-3 bg-red-700 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-medium"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // Statistics Card Component
   const StatCard = ({
     title,
@@ -252,6 +355,7 @@ export const Dashboard = () => {
     trend,
     trendValue,
     color = "blue",
+    loading = false,
   }: {
     title: string;
     value: string | number;
@@ -259,37 +363,44 @@ export const Dashboard = () => {
     trend?: "up" | "down" | "neutral";
     trendValue?: string;
     color?: string;
-  }) => (
-    <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-      <div className="flex items-center">
-        <div
-          className={`w-12 h-12 bg-${color}-500 rounded-full flex items-center justify-center`}
-        >
-          <span className="text-white text-lg">{icon}</span>
-        </div>
-        <div className="ml-4">
-          <dt className="text-sm font-medium text-gray-300 truncate">
-            {title}
-          </dt>
-          <dd className="text-2xl font-semibold text-white">{value}</dd>
-          {trend && trendValue && (
-            <div
-              className={`flex items-center text-sm ${
-                trend === "up"
-                  ? "text-green-400"
-                  : trend === "down"
-                  ? "text-red-400"
-                  : "text-gray-400"
-              }`}
-            >
-              <span>{trend === "up" ? "↗" : trend === "down" ? "↘" : "→"}</span>
-              <span className="ml-1">{trendValue}</span>
-            </div>
-          )}
+    loading?: boolean;
+  }) => {
+    if (loading) return <StatCardSkeleton />;
+
+    return (
+      <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+        <div className="flex items-center">
+          <div
+            className={`w-12 h-12 bg-${color}-500 rounded-full flex items-center justify-center`}
+          >
+            <span className="text-white text-lg">{icon}</span>
+          </div>
+          <div className="ml-4">
+            <dt className="text-sm font-medium text-gray-300 truncate">
+              {title}
+            </dt>
+            <dd className="text-2xl font-semibold text-white">{value}</dd>
+            {trend && trendValue && (
+              <div
+                className={`flex items-center text-sm ${
+                  trend === "up"
+                    ? "text-green-400"
+                    : trend === "down"
+                    ? "text-red-400"
+                    : "text-gray-400"
+                }`}
+              >
+                <span>
+                  {trend === "up" ? "↗" : trend === "down" ? "↘" : "→"}
+                </span>
+                <span className="ml-1">{trendValue}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Handle session creation
   const handleStartSession = async () => {
@@ -432,6 +543,11 @@ export const Dashboard = () => {
 
   const overviewContent = (
     <div className="space-y-6">
+      {/* Error State */}
+      {error && !loading && (
+        <ErrorState message={error} onRetry={() => fetchDashboardStats()} />
+      )}
+
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
@@ -441,6 +557,7 @@ export const Dashboard = () => {
           trend="up"
           trendValue="+2"
           color="blue"
+          loading={loading}
         />
         <StatCard
           title="Present Students"
@@ -449,6 +566,7 @@ export const Dashboard = () => {
           trend="up"
           trendValue="+15"
           color="green"
+          loading={loading}
         />
         <StatCard
           title="Absent Students"
@@ -457,6 +575,7 @@ export const Dashboard = () => {
           trend="down"
           trendValue="-3"
           color="red"
+          loading={loading}
         />
         <StatCard
           title="Attendance Rate"
@@ -465,6 +584,7 @@ export const Dashboard = () => {
           trend="up"
           trendValue="+1.2%"
           color="purple"
+          loading={loading}
         />
       </div>
 
@@ -1414,6 +1534,31 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header with Refresh */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-medium text-cyan-400">
+            Dashboard Overview
+          </h3>
+          <p className="text-sm text-gray-300">
+            Real-time attendance monitoring and analytics
+          </p>
+        </div>
+        <div className="flex items-center space-x-3">
+          {error && (
+            <span className="text-red-400 text-sm">⚠️ Offline Mode</span>
+          )}
+          <button
+            onClick={() => fetchDashboardStats()}
+            disabled={loading}
+            className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed flex items-center space-x-1"
+          >
+            <span>🔄</span>
+            <span>{loading ? "Refreshing..." : "Refresh"}</span>
+          </button>
+        </div>
+      </div>
+
       {/* Tab Navigation */}
       <div className="border-b border-gray-700">
         <nav className="-mb-px flex space-x-8">
@@ -1470,13 +1615,7 @@ export const Dashboard = () => {
         </nav>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-white">Loading...</div>
-        </div>
-      ) : (
-        renderTabContent()
-      )}
+      {renderTabContent()}
 
       {/* Modals */}
       <StartSessionModal

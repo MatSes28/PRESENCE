@@ -37,6 +37,17 @@ export const Students = () => {
   }>({});
   const [uploadingCsv, setUploadingCsv] = useState(false);
 
+  // Advanced filtering state
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [rfidStatusFilter, setRfidStatusFilter] = useState("all"); // all, assigned, unassigned
+  const [attendanceRateRange, setAttendanceRateRange] = useState({
+    min: 0,
+    max: 100,
+  });
+  const [enrollmentStatusFilter, setEnrollmentStatusFilter] = useState("all"); // all, active, inactive
+  const [sortBy, setSortBy] = useState("name"); // name, studentId, attendanceRate, rfidStatus
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
   const [formData, setFormData] = useState({
     studentId: "",
     name: "",
@@ -339,34 +350,93 @@ export const Students = () => {
     }
   };
 
-  // Filter students based on search and filter criteria
-  const filteredStudents = students.filter((student) => {
-    // Search filter
-    const matchesSearch =
-      searchTerm === "" ||
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (student.email &&
-        student.email.toLowerCase().includes(searchTerm.toLowerCase()));
+  // Advanced filtering and sorting function
+  const filteredAndSortedStudents = students
+    .filter((student) => {
+      // Search filter
+      const matchesSearch =
+        searchTerm === "" ||
+        student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (student.email &&
+          student.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (student.parentEmail &&
+          student.parentEmail.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    // Year filter
-    const matchesYear =
-      yearFilter === "All Years" ||
-      (student as any).year ===
-        yearFilter
-          .replace("st", "")
-          .replace("nd", "")
-          .replace("rd", "")
-          .replace("th", "")
-          .replace(" Year", "");
+      // Year filter
+      const matchesYear =
+        yearFilter === "All Years" ||
+        (student as any).year ===
+          yearFilter
+            .replace("st", "")
+            .replace("nd", "")
+            .replace("rd", "")
+            .replace("th", "")
+            .replace(" Year", "");
 
-    // Section filter
-    const matchesSection =
-      sectionFilter === "All Sections" ||
-      (student as any).section === sectionFilter.replace("Section ", "");
+      // Section filter
+      const matchesSection =
+        sectionFilter === "All Sections" ||
+        (student as any).section === sectionFilter.replace("Section ", "");
 
-    return matchesSearch && matchesYear && matchesSection;
-  });
+      // RFID status filter
+      const matchesRfidStatus =
+        rfidStatusFilter === "all" ||
+        (rfidStatusFilter === "assigned" && student.rfidUid) ||
+        (rfidStatusFilter === "unassigned" && !student.rfidUid);
+
+      // Attendance rate filter
+      const studentAttendanceRate = attendanceRates[student.id] || 0;
+      const matchesAttendanceRate =
+        studentAttendanceRate >= attendanceRateRange.min &&
+        studentAttendanceRate <= attendanceRateRange.max;
+
+      // Enrollment status filter (assuming isActive field exists)
+      const matchesEnrollmentStatus =
+        enrollmentStatusFilter === "all" ||
+        (enrollmentStatusFilter === "active" &&
+          (student as any).isActive !== false) ||
+        (enrollmentStatusFilter === "inactive" &&
+          (student as any).isActive === false);
+
+      return (
+        matchesSearch &&
+        matchesYear &&
+        matchesSection &&
+        matchesRfidStatus &&
+        matchesAttendanceRate &&
+        matchesEnrollmentStatus
+      );
+    })
+    .sort((a, b) => {
+      let aValue: any, bValue: any;
+
+      switch (sortBy) {
+        case "name":
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case "studentId":
+          aValue = a.studentId.toLowerCase();
+          bValue = b.studentId.toLowerCase();
+          break;
+        case "attendanceRate":
+          aValue = attendanceRates[a.id] || 0;
+          bValue = attendanceRates[b.id] || 0;
+          break;
+        case "rfidStatus":
+          aValue = a.rfidUid ? 1 : 0; // Assigned = 1, Unassigned = 0
+          bValue = b.rfidUid ? 1 : 0;
+          break;
+        default:
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+      }
+
+      if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
 
   if (loading) {
     return (
@@ -414,7 +484,20 @@ export const Students = () => {
 
       {/* Search & Filters */}
       <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="text-lg font-medium text-cyan-400">
+            Filters & Search
+          </h4>
+          <button
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className="text-cyan-400 hover:text-cyan-300 text-sm"
+          >
+            {showAdvancedFilters ? "Hide Advanced" : "Show Advanced"}
+          </button>
+        </div>
+
+        {/* Basic Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
               Search
@@ -423,7 +506,7 @@ export const Students = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by name or ID"
+              placeholder="Name, ID, email, or parent email"
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
             />
           </div>
@@ -458,18 +541,122 @@ export const Students = () => {
               <option>Section C</option>
             </select>
           </div>
-          <div className="flex items-end">
-            <button
-              onClick={() => {
-                setSearchTerm("");
-                setYearFilter("All Years");
-                setSectionFilter("All Sections");
-              }}
-              className="w-full px-3 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-md text-sm font-medium"
-            >
-              Clear Filters
-            </button>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Sort By
+            </label>
+            <div className="flex space-x-2">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              >
+                <option value="name">Name</option>
+                <option value="studentId">Student ID</option>
+                <option value="attendanceRate">Attendance Rate</option>
+                <option value="rfidStatus">RFID Status</option>
+              </select>
+              <button
+                onClick={() =>
+                  setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+                }
+                className="px-3 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-md"
+                title={`Sort ${
+                  sortOrder === "asc" ? "Descending" : "Ascending"
+                }`}
+              >
+                {sortOrder === "asc" ? "↑" : "↓"}
+              </button>
+            </div>
           </div>
+        </div>
+
+        {/* Advanced Filters */}
+        {showAdvancedFilters && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-600">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                RFID Status
+              </label>
+              <select
+                value={rfidStatusFilter}
+                onChange={(e) => setRfidStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              >
+                <option value="all">All Students</option>
+                <option value="assigned">RFID Assigned</option>
+                <option value="unassigned">RFID Unassigned</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Attendance Rate Range
+              </label>
+              <div className="flex space-x-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={attendanceRateRange.min}
+                  onChange={(e) =>
+                    setAttendanceRateRange((prev) => ({
+                      ...prev,
+                      min: parseInt(e.target.value) || 0,
+                    }))
+                  }
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  placeholder="Min %"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={attendanceRateRange.max}
+                  onChange={(e) =>
+                    setAttendanceRateRange((prev) => ({
+                      ...prev,
+                      max: parseInt(e.target.value) || 100,
+                    }))
+                  }
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  placeholder="Max %"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Enrollment Status
+              </label>
+              <select
+                value={enrollmentStatusFilter}
+                onChange={(e) => setEnrollmentStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              >
+                <option value="all">All Students</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Clear Filters */}
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={() => {
+              setSearchTerm("");
+              setYearFilter("All Years");
+              setSectionFilter("All Sections");
+              setRfidStatusFilter("all");
+              setAttendanceRateRange({ min: 0, max: 100 });
+              setEnrollmentStatusFilter("all");
+              setSortBy("name");
+              setSortOrder("asc");
+            }}
+            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium rounded"
+          >
+            Clear All Filters
+          </button>
         </div>
       </div>
 
@@ -655,8 +842,8 @@ export const Students = () => {
       <div className="hidden md:block bg-gray-800 shadow rounded-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-700">
           <h4 className="text-lg font-medium text-white">
-            Students ({filteredStudents.length}
-            {filteredStudents.length !== students.length
+            Students ({filteredAndSortedStudents.length}
+            {filteredAndSortedStudents.length !== students.length
               ? ` of ${students.length}`
               : ""}
             )
@@ -687,7 +874,7 @@ export const Students = () => {
               </tr>
             </thead>
             <tbody className="bg-gray-800 divide-y divide-gray-700">
-              {filteredStudents.map((student) => (
+              {filteredAndSortedStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-gray-700">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -768,7 +955,7 @@ export const Students = () => {
             </tbody>
           </table>
         </div>
-        {filteredStudents.length === 0 && (
+        {filteredAndSortedStudents.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-400">
               {students.length === 0
@@ -781,7 +968,7 @@ export const Students = () => {
 
       {/* Students Cards (Mobile) */}
       <div className="md:hidden space-y-4">
-        {filteredStudents.map((student) => (
+        {filteredAndSortedStudents.map((student) => (
           <div
             key={student.id}
             className="bg-gray-800 rounded-lg p-4 border border-gray-700"
