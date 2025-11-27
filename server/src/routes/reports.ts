@@ -2,14 +2,15 @@ import { Router } from "express";
 import { db } from "../storage.js";
 import {
   attendanceRecords,
-  students,
   classSessions,
+  students,
+  users,
   schedules,
   subjects,
-  classrooms,
-  users,
+  enrollments,
 } from "../schema.js";
-import { eq, and, gte, lte, desc, count, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { reportSchedulerService } from "../services/reportScheduler.js";
 
 const router = Router();
 
@@ -24,73 +25,221 @@ const requireAuth = (req: any, res: any, next: any) => {
   next();
 };
 
-// Generate comprehensive attendance report
-router.post("/generate", requireAuth, async (req, res) => {
+// Middleware to check admin access
+const requireAdmin = async (req: any, res: any, next: any) => {
   try {
-    console.log("[REPORTS] Generate request:", req.body);
-    const { type, format, startDate, endDate, classroomId, subjectId } =
-      req.body;
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, req.session.userId))
+      .limit(1);
 
-    if (!type || !format) {
-      console.log("[REPORTS] Missing type or format");
+    if (!user.length || user[0].role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Authorization check failed",
+    });
+  }
+};
+
+// Get all report schedules
+router.get("/schedules", requireAuth, async (req, res) => {
+  try {
+    const schedules = reportSchedulerService.getAllSchedules();
+
+    res.json({
+      success: true,
+      data: schedules,
+    });
+  } catch (error) {
+    console.error("Get report schedules error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch report schedules",
+    });
+  }
+});
+
+// Create a new report schedule
+router.post("/schedules", requireAdmin, async (req, res) => {
+  try {
+    const {
+      name,
+      type,
+      recipients,
+      reportType,
+      filters,
+      scheduleTime,
+      isActive = true,
+    } = req.body;
+
+    if (!name || !type || !recipients || !reportType || !scheduleTime) {
       return res.status(400).json({
         success: false,
-        message: "Report type and format are required",
+        message: "Missing required fields",
       });
     }
 
-    let data;
-    let filename;
+    const scheduleId = await reportSchedulerService.createSchedule({
+      name,
+      type,
+      recipients,
+      reportType,
+      filters: filters || {},
+      scheduleTime,
+      isActive,
+    });
 
-    switch (type) {
-      case "attendance":
-        console.log("[REPORTS] Generating attendance report");
-        data = await generateAttendanceReport(
-          startDate,
-          endDate,
-          classroomId,
-          subjectId
-        );
-        filename = `attendance-report-${
-          new Date().toISOString().split("T")[0]
-        }`;
-        break;
-      case "students":
-        console.log("[REPORTS] Generating student report");
-        data = await generateStudentReport(startDate, endDate);
-        filename = `student-report-${new Date().toISOString().split("T")[0]}`;
-        break;
-      case "classroom":
-        console.log("[REPORTS] Generating classroom report");
-        data = await generateClassroomReport(startDate, endDate, classroomId);
-        filename = `classroom-report-${new Date().toISOString().split("T")[0]}`;
-        break;
-      default:
-        console.log("[REPORTS] Invalid report type:", type);
-        return res.status(400).json({
-          success: false,
-          message: "Invalid report type",
-        });
-    }
-
-    if (format === "csv") {
-      const csvContent = convertToCSV(data);
-      res.setHeader("Content-Type", "text/csv");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${filename}.csv"`
-      );
-      res.send(csvContent);
-    } else {
-      // For now, return JSON. In production, you'd generate PDF
-      res.json({
-        success: true,
-        data,
-        message: "Report generated successfully",
-      });
-    }
+    res.status(201).json({
+      success: true,
+      message: "Report schedule created successfully",
+      data: { scheduleId },
+    });
   } catch (error) {
-    console.error("Error generating report:", error);
+    console.error("Create report schedule error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create report schedule",
+    });
+  }
+});
+
+// Update a report schedule
+router.put("/schedules/:id", requireAdmin, async (req, res) => {
+  try {
+    const scheduleId = req.params.id;
+    const updates = req.body;
+
+    const success = await reportSchedulerService.updateSchedule(
+      scheduleId,
+      updates
+    );
+
+    if (!success) {
+      return res.status(404).json({
+        success: false,
+        message: "Report schedule not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Report schedule updated successfully",
+    });
+  } catch (error) {
+    console.error("Update report schedule error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update report schedule",
+    });
+  }
+});
+
+// Delete a report schedule
+router.delete("/schedules/:id", requireAdmin, async (req, res) => {
+  try {
+    const scheduleId = req.params.id;
+
+    const success = await reportSchedulerService.deleteSchedule(scheduleId);
+
+    if (!success) {
+      return res.status(404).json({
+        success: false,
+        message: "Report schedule not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Report schedule deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete report schedule error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete report schedule",
+    });
+  }
+});
+
+// Manually trigger a report
+router.post("/schedules/:id/trigger", requireAdmin, async (req, res) => {
+  try {
+    const scheduleId = req.params.id;
+
+    const success = await reportSchedulerService.triggerReport(scheduleId);
+
+    if (!success) {
+      return res.status(400).json({
+        success: false,
+        message: "Failed to trigger report",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Report triggered successfully",
+    });
+  } catch (error) {
+    console.error("Trigger report error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to trigger report",
+    });
+  }
+});
+
+// Generate on-demand report
+router.post("/generate", requireAuth, async (req, res) => {
+  try {
+    const { reportType, filters = {}, dateRange } = req.body;
+
+    if (!reportType) {
+      return res.status(400).json({
+        success: false,
+        message: "Report type is required",
+      });
+    }
+
+    // Create a temporary schedule for on-demand report
+    const tempScheduleId = await reportSchedulerService.createSchedule({
+      name: "On-Demand Report",
+      type: "daily", // Doesn't matter for on-demand
+      recipients: [], // Not used for on-demand
+      reportType,
+      filters,
+      scheduleTime: "00:00",
+      isActive: false,
+    });
+
+    // Generate the report (this is a bit of a hack, but works)
+    // In a real implementation, you'd have a separate method for on-demand reports
+    const success = await reportSchedulerService.triggerReport(tempScheduleId);
+
+    // Clean up the temporary schedule
+    reportSchedulerService.deleteSchedule(tempScheduleId);
+
+    if (!success) {
+      return res.status(400).json({
+        success: false,
+        message: "Failed to generate report",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Report generated successfully",
+      note: "Report has been sent to configured recipients",
+    });
+  } catch (error) {
+    console.error("Generate report error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to generate report",
@@ -98,219 +247,89 @@ router.post("/generate", requireAuth, async (req, res) => {
   }
 });
 
-// Get attendance report for a class session
-router.get("/attendance/:sessionId", requireAuth, async (req, res) => {
+// Get report templates
+router.get("/templates", requireAuth, async (req, res) => {
   try {
-    const { sessionId } = req.params;
-    const records = await db
-      .select({
-        record: attendanceRecords,
-        student: students,
-      })
-      .from(attendanceRecords)
-      .innerJoin(students, eq(attendanceRecords.studentId, students.id))
-      .where(eq(attendanceRecords.classSessionId, parseInt(sessionId)))
-      .orderBy(attendanceRecords.createdAt);
+    const templates = [
+      {
+        id: "attendance_summary",
+        name: "Attendance Summary Report",
+        description: "Comprehensive attendance statistics and trends",
+        type: "attendance",
+        defaultFilters: {},
+      },
+      {
+        id: "student_performance",
+        name: "Student Performance Report",
+        description: "Individual student attendance and performance metrics",
+        type: "performance",
+        defaultFilters: {},
+      },
+      {
+        id: "faculty_analytics",
+        name: "Faculty Analytics Report",
+        description: "Faculty performance and class analytics",
+        type: "analytics",
+        defaultFilters: {},
+      },
+      {
+        id: "system_summary",
+        name: "System Summary Report",
+        description: "Overall system health and statistics",
+        type: "summary",
+        defaultFilters: {},
+      },
+    ];
 
     res.json({
       success: true,
-      data: records,
+      data: templates,
     });
   } catch (error) {
-    console.error("Error fetching attendance report:", error);
+    console.error("Get report templates error:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch attendance report",
+      message: "Failed to fetch report templates",
     });
   }
 });
 
-// Get student attendance summary
-router.get("/student/:studentId", async (req, res) => {
+// Get report history (mock implementation)
+router.get("/history", requireAuth, async (req, res) => {
   try {
-    const { studentId } = req.params;
-    const { startDate, endDate } = req.query;
+    // In a real implementation, you'd store report history in the database
+    const history = [
+      {
+        id: "report_001",
+        name: "Daily Attendance Summary",
+        type: "attendance",
+        generatedAt: new Date(Date.now() - 86400000), // Yesterday
+        status: "completed",
+        recipients: ["admin@clsu.edu.ph"],
+        downloadUrl: "/reports/download/report_001.pdf",
+      },
+      {
+        id: "report_002",
+        name: "Weekly Performance Report",
+        type: "performance",
+        generatedAt: new Date(Date.now() - 604800000), // Last week
+        status: "completed",
+        recipients: ["admin@clsu.edu.ph"],
+        downloadUrl: "/reports/download/report_002.pdf",
+      },
+    ];
 
-    let records;
-    if (startDate && endDate) {
-      records = await db
-        .select()
-        .from(attendanceRecords)
-        .where(
-          and(
-            eq(attendanceRecords.studentId, parseInt(studentId)),
-            gte(attendanceRecords.createdAt, new Date(startDate as string)),
-            lte(attendanceRecords.createdAt, new Date(endDate as string))
-          )
-        );
-    } else {
-      records = await db
-        .select()
-        .from(attendanceRecords)
-        .where(eq(attendanceRecords.studentId, parseInt(studentId)));
-    }
-    res.json(records);
+    res.json({
+      success: true,
+      data: history,
+    });
   } catch (error) {
-    console.error("Error fetching student report:", error);
-    res.status(500).json({ error: "Failed to fetch student report" });
+    console.error("Get report history error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch report history",
+    });
   }
 });
-
-// Get classroom utilization report
-router.get("/classroom/:classroomId", async (req, res) => {
-  try {
-    const { classroomId } = req.params;
-    const { startDate, endDate } = req.query;
-
-    let sessions;
-    if (startDate && endDate) {
-      sessions = await db
-        .select()
-        .from(classSessions)
-        .where(
-          and(
-            eq(classSessions.scheduleId, parseInt(classroomId)),
-            gte(classSessions.date, new Date(startDate as string)),
-            lte(classSessions.date, new Date(endDate as string))
-          )
-        );
-    } else {
-      sessions = await db
-        .select()
-        .from(classSessions)
-        .where(eq(classSessions.scheduleId, parseInt(classroomId)));
-    }
-    res.json(sessions);
-  } catch (error) {
-    console.error("Error fetching classroom report:", error);
-    res.status(500).json({ error: "Failed to fetch classroom report" });
-  }
-});
-
-// Helper functions for report generation
-async function generateAttendanceReport(
-  startDate?: string,
-  endDate?: string,
-  classroomId?: number,
-  subjectId?: number
-) {
-  let whereConditions = [];
-
-  if (startDate) {
-    whereConditions.push(gte(attendanceRecords.createdAt, new Date(startDate)));
-  }
-  if (endDate) {
-    whereConditions.push(lte(attendanceRecords.createdAt, new Date(endDate)));
-  }
-
-  const records = await db
-    .select({
-      record: attendanceRecords,
-      student: students,
-      session: classSessions,
-      schedule: schedules,
-      subject: subjects,
-      classroom: classrooms,
-      faculty: users,
-    })
-    .from(attendanceRecords)
-    .innerJoin(students, eq(attendanceRecords.studentId, students.id))
-    .innerJoin(
-      classSessions,
-      eq(attendanceRecords.classSessionId, classSessions.id)
-    )
-    .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
-    .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
-    .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
-    .innerJoin(users, eq(schedules.facultyId, users.id))
-    .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-    .orderBy(desc(attendanceRecords.createdAt));
-
-  return records;
-}
-
-async function generateStudentReport(startDate?: string, endDate?: string) {
-  let whereConditions = [];
-
-  if (startDate) {
-    whereConditions.push(gte(attendanceRecords.createdAt, new Date(startDate)));
-  }
-  if (endDate) {
-    whereConditions.push(lte(attendanceRecords.createdAt, new Date(endDate)));
-  }
-
-  const studentStats = await db
-    .select({
-      student: students,
-      totalSessions: count(attendanceRecords.id),
-      presentCount: sql<number>`count(case when ${attendanceRecords.isValid} = true then 1 end)`,
-      lateCount: sql<number>`count(case when ${attendanceRecords.isValid} = false and ${attendanceRecords.rfidDetected} = true then 1 end)`,
-      absentCount: sql<number>`count(case when ${attendanceRecords.isValid} = false and ${attendanceRecords.rfidDetected} = false then 1 end)`,
-    })
-    .from(students)
-    .leftJoin(attendanceRecords, eq(students.id, attendanceRecords.studentId))
-    .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-    .groupBy(students.id)
-    .orderBy(desc(count(attendanceRecords.id)));
-
-  return studentStats;
-}
-
-async function generateClassroomReport(
-  startDate?: string,
-  endDate?: string,
-  classroomId?: number
-) {
-  let whereConditions = [];
-
-  if (startDate) {
-    whereConditions.push(gte(classSessions.date, new Date(startDate)));
-  }
-  if (endDate) {
-    whereConditions.push(lte(classSessions.date, new Date(endDate)));
-  }
-  if (classroomId) {
-    whereConditions.push(eq(schedules.classroomId, classroomId));
-  }
-
-  const classroomStats = await db
-    .select({
-      classroom: classrooms,
-      subject: subjects,
-      faculty: users,
-      session: classSessions,
-      attendanceCount: count(attendanceRecords.id),
-      presentCount: sql<number>`count(case when ${attendanceRecords.isValid} = true then 1 end)`,
-    })
-    .from(classSessions)
-    .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
-    .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
-    .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
-    .innerJoin(users, eq(schedules.facultyId, users.id))
-    .leftJoin(
-      attendanceRecords,
-      eq(classSessions.id, attendanceRecords.classSessionId)
-    )
-    .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
-    .groupBy(classSessions.id, classrooms.id, subjects.id, users.id)
-    .orderBy(desc(classSessions.date));
-
-  return classroomStats;
-}
-
-function convertToCSV(data: any[]): string {
-  if (data.length === 0) return "";
-
-  const headers = Object.keys(data[0]).join(",");
-  const rows = data.map((row) =>
-    Object.values(row)
-      .map((value) =>
-        typeof value === "object" ? JSON.stringify(value) : String(value)
-      )
-      .join(",")
-  );
-
-  return [headers, ...rows].join("\n");
-}
 
 export default router;

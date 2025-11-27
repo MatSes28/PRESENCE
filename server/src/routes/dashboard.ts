@@ -11,6 +11,7 @@ import {
   computerAssignments,
 } from "../schema.js";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { notificationService } from "../services/notificationService.js";
 
 const router = Router();
 
@@ -433,6 +434,153 @@ router.get("/analytics", requireAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch analytics data",
+    });
+  }
+});
+
+// Get real-time alerts and notifications
+router.get("/alerts", requireAuth, async (req, res) => {
+  try {
+    const alerts = await notificationService.generateDashboardAlerts();
+
+    res.json({
+      success: true,
+      data: alerts,
+    });
+  } catch (error) {
+    console.error("Alerts error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch alerts",
+    });
+  }
+});
+
+// Send automated attendance alerts (admin only)
+router.post("/alerts/attendance/send", requireAuth, async (req, res) => {
+  try {
+    // Check if user is admin
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, req.session.userId))
+      .limit(1);
+
+    if (!user.length || user[0].role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
+
+    await notificationService.sendAutomatedAttendanceAlerts();
+
+    res.json({
+      success: true,
+      message: "Automated attendance alerts sent successfully",
+    });
+  } catch (error) {
+    console.error("Send attendance alerts error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send attendance alerts",
+    });
+  }
+});
+
+// Send parent notification (admin only)
+router.post("/notifications/parent", requireAuth, async (req, res) => {
+  try {
+    const { studentId, notificationType, message, additionalData } = req.body;
+
+    if (!studentId || !notificationType || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "Student ID, notification type, and message are required",
+      });
+    }
+
+    // Check if user is admin
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, req.session.userId))
+      .limit(1);
+
+    if (!user.length || user[0].role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
+
+    const success = await notificationService.sendParentNotification(
+      studentId,
+      notificationType,
+      message,
+      additionalData
+    );
+
+    if (success) {
+      res.json({
+        success: true,
+        message: "Parent notification sent successfully",
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Failed to send parent notification",
+      });
+    }
+  } catch (error) {
+    console.error("Parent notification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Bulk parent notifications (admin only)
+router.post("/notifications/parent/bulk", requireAuth, async (req, res) => {
+  try {
+    const { notifications } = req.body;
+
+    if (!Array.isArray(notifications) || notifications.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Notifications array is required",
+      });
+    }
+
+    // Check if user is admin
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, req.session.userId))
+      .limit(1);
+
+    if (!user.length || user[0].role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
+
+    const result = await notificationService.sendBulkParentNotifications(
+      notifications
+    );
+
+    res.json({
+      success: true,
+      message: `Bulk notifications sent: ${result.success} successful, ${result.failed} failed`,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Bulk parent notifications error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
 });
