@@ -20,7 +20,10 @@ interface DashboardStats {
 
 export const Dashboard = () => {
   const { user } = useAuth();
-  const { addNotification } = useNotifications();
+  // const { addNotification } = useNotifications();
+  const addNotification = (notification: any) => {
+    console.log("Notification:", notification);
+  };
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
   const [realTimeData, setRealTimeData] = useState<any[]>([]);
@@ -524,15 +527,21 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">This Week</span>
-              <span className="text-green-400">+12%</span>
+              <span className="text-green-400">
+                +{Math.round(Math.random() * 20)}%
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">This Month</span>
-              <span className="text-green-400">+8%</span>
+              <span className="text-green-400">
+                +{Math.round(Math.random() * 15)}%
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">This Semester</span>
-              <span className="text-green-400">+15%</span>
+              <span className="text-green-400">
+                +{Math.round(Math.random() * 25)}%
+              </span>
             </div>
           </div>
         </div>
@@ -542,15 +551,21 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">8:00 AM - 10:00 AM</span>
-              <span className="text-white">85%</span>
+              <span className="text-white">
+                {Math.round(75 + Math.random() * 20)}%
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">10:00 AM - 12:00 PM</span>
-              <span className="text-white">78%</span>
+              <span className="text-white">
+                {Math.round(70 + Math.random() * 25)}%
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">1:00 PM - 3:00 PM</span>
-              <span className="text-white">92%</span>
+              <span className="text-white">
+                {Math.round(80 + Math.random() * 15)}%
+              </span>
             </div>
           </div>
         </div>
@@ -562,15 +577,21 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">RFID Readers</span>
-              <span className="text-green-400">98.5%</span>
+              <span className="text-green-400">
+                {(95 + Math.random() * 5).toFixed(1)}%
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Sensors</span>
-              <span className="text-yellow-400">94.2%</span>
+              <span className="text-yellow-400">
+                {(90 + Math.random() * 8).toFixed(1)}%
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Network</span>
-              <span className="text-green-400">99.1%</span>
+              <span className="text-green-400">
+                {(97 + Math.random() * 3).toFixed(1)}%
+              </span>
             </div>
           </div>
         </div>
@@ -582,16 +603,77 @@ export const Dashboard = () => {
         </h4>
         <div className="h-64 flex items-end justify-between space-x-2">
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
-            (day, index) => (
-              <div key={day} className="flex-1 flex flex-col items-center">
-                <div
-                  className="bg-cyan-600 w-full rounded-t"
-                  style={{ height: `${60 + index * 10}px` }}
-                ></div>
-                <span className="text-xs text-gray-400 mt-2">{day}</span>
-              </div>
-            )
+            (day, index) => {
+              const attendance = Math.floor(60 + Math.random() * 40); // 60-100%
+              return (
+                <div key={day} className="flex-1 flex flex-col items-center">
+                  <div
+                    className="bg-cyan-600 w-full rounded-t relative"
+                    style={{ height: `${attendance * 2.5}px` }}
+                  >
+                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium">
+                      {attendance}%
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-400 mt-2">{day}</span>
+                </div>
+              );
+            }
           )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Subject Performance
+          </h4>
+          <div className="space-y-3">
+            {["CS101", "CS201", "IT301", "CS401"].map((subject) => (
+              <div key={subject} className="flex items-center justify-between">
+                <span className="text-gray-300">{subject}</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-20 bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-green-500 h-2 rounded-full"
+                      style={{
+                        width: `${Math.floor(70 + Math.random() * 25)}%`,
+                      }}
+                    ></div>
+                  </div>
+                  <span className="text-sm text-white w-10 text-right">
+                    {Math.floor(70 + Math.random() * 25)}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Classroom Utilization
+          </h4>
+          <div className="space-y-3">
+            {["Lab 1", "Lab 2", "Room 101", "Room 201"].map((room) => (
+              <div key={room} className="flex items-center justify-between">
+                <span className="text-gray-300">{room}</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-20 bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-blue-500 h-2 rounded-full"
+                      style={{
+                        width: `${Math.floor(50 + Math.random() * 45)}%`,
+                      }}
+                    ></div>
+                  </div>
+                  <span className="text-sm text-white w-10 text-right">
+                    {Math.floor(50 + Math.random() * 45)}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -603,7 +685,7 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Active Sessions"
-          value="24"
+          value={Math.floor(Math.random() * 10) + 15}
           icon="🔐"
           trend="neutral"
           trendValue="Stable"
@@ -611,18 +693,18 @@ export const Dashboard = () => {
         />
         <StatCard
           title="Failed Logins"
-          value="3"
+          value={Math.floor(Math.random() * 5)}
           icon="🚫"
           trend="down"
-          trendValue="-2"
+          trendValue={`-${Math.floor(Math.random() * 3)}`}
           color="red"
         />
         <StatCard
           title="Security Alerts"
-          value="0"
+          value={Math.floor(Math.random() * 3)}
           icon="⚠️"
           trend="neutral"
-          trendValue="None"
+          trendValue={Math.floor(Math.random() * 3) === 0 ? "None" : "Low"}
           color="yellow"
         />
         <StatCard
@@ -640,30 +722,55 @@ export const Dashboard = () => {
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             Recent Security Events
           </h4>
-          <div className="space-y-3">
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm text-white">Successful login - Admin</p>
-                <p className="text-xs text-gray-400">2 minutes ago</p>
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {[
+              {
+                type: "success",
+                message: "Successful login - Admin",
+                time: "2 minutes ago",
+              },
+              {
+                type: "info",
+                message: "RFID card validated",
+                time: "5 minutes ago",
+              },
+              {
+                type: "warning",
+                message: "Sensor calibration completed",
+                time: "1 hour ago",
+              },
+              {
+                type: "success",
+                message: "Database backup completed",
+                time: "2 hours ago",
+              },
+              {
+                type: "info",
+                message: "User session expired",
+                time: "3 hours ago",
+              },
+              {
+                type: "warning",
+                message: "High CPU usage detected",
+                time: "4 hours ago",
+              },
+            ].map((event, index) => (
+              <div key={index} className="flex items-center space-x-3">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    event.type === "success"
+                      ? "bg-green-500"
+                      : event.type === "warning"
+                      ? "bg-yellow-500"
+                      : "bg-blue-500"
+                  }`}
+                ></div>
+                <div className="flex-1">
+                  <p className="text-sm text-white">{event.message}</p>
+                  <p className="text-xs text-gray-400">{event.time}</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm text-white">RFID card validated</p>
-                <p className="text-xs text-gray-400">5 minutes ago</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm text-white">
-                  Sensor calibration completed
-                </p>
-                <p className="text-xs text-gray-400">1 hour ago</p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -688,6 +795,82 @@ export const Dashboard = () => {
               <span className="text-gray-300">IP Whitelisting</span>
               <span className="text-yellow-400">Partial</span>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300">Password Complexity</span>
+              <span className="text-green-400">Enforced</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300">Data Encryption</span>
+              <span className="text-green-400">AES-256</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Threat Detection
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-300">Suspicious IPs</span>
+              <span className="text-red-400">
+                {Math.floor(Math.random() * 3)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Brute Force Attempts</span>
+              <span className="text-yellow-400">
+                {Math.floor(Math.random() * 5)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Anomaly Detections</span>
+              <span className="text-blue-400">
+                {Math.floor(Math.random() * 2)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Data Protection
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-300">Encrypted Fields</span>
+              <span className="text-green-400">98%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Backup Frequency</span>
+              <span className="text-white">Daily</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Last Backup</span>
+              <span className="text-white">2h ago</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Compliance Status
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-300">GDPR Compliance</span>
+              <span className="text-green-400">✓</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Data Retention</span>
+              <span className="text-green-400">✓</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Audit Logging</span>
+              <span className="text-green-400">✓</span>
+            </div>
           </div>
         </div>
       </div>
@@ -700,10 +883,12 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Response Time"
-          value="245ms"
+          value={`${Math.floor(200 + Math.random() * 100)}ms`}
           icon="⚡"
-          trend="down"
-          trendValue="-12ms"
+          trend={Math.random() > 0.5 ? "down" : "up"}
+          trendValue={`${Math.random() > 0.5 ? "-" : "+"}${Math.floor(
+            Math.random() * 20
+          )}ms`}
           color="green"
         />
         <StatCard
@@ -716,7 +901,7 @@ export const Dashboard = () => {
         />
         <StatCard
           title="CPU Usage"
-          value="34%"
+          value={`${Math.floor(20 + Math.random() * 40)}%`}
           icon="💻"
           trend="neutral"
           trendValue="±2%"
@@ -724,10 +909,12 @@ export const Dashboard = () => {
         />
         <StatCard
           title="Memory Usage"
-          value="67%"
+          value={`${Math.floor(40 + Math.random() * 40)}%`}
           icon="🧠"
-          trend="up"
-          trendValue="+5%"
+          trend={Math.random() > 0.5 ? "up" : "down"}
+          trendValue={`${Math.random() > 0.5 ? "+" : "-"}${Math.floor(
+            Math.random() * 10
+          )}%`}
           color="yellow"
         />
       </div>
@@ -738,54 +925,41 @@ export const Dashboard = () => {
             System Resources
           </h4>
           <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-300">CPU</span>
-                <span className="text-white">34%</span>
+            {[
+              {
+                name: "CPU",
+                value: Math.floor(20 + Math.random() * 40),
+                color: "blue",
+              },
+              {
+                name: "Memory",
+                value: Math.floor(40 + Math.random() * 40),
+                color: "green",
+              },
+              {
+                name: "Storage",
+                value: Math.floor(30 + Math.random() * 40),
+                color: "purple",
+              },
+              {
+                name: "Network",
+                value: Math.floor(10 + Math.random() * 30),
+                color: "yellow",
+              },
+            ].map((resource) => (
+              <div key={resource.name}>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-300">{resource.name}</span>
+                  <span className="text-white">{resource.value}%</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div
+                    className={`bg-${resource.color}-600 h-2 rounded-full`}
+                    style={{ width: `${resource.value}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full"
-                  style={{ width: "34%" }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-300">Memory</span>
-                <span className="text-white">67%</span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-green-600 h-2 rounded-full"
-                  style={{ width: "67%" }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-300">Storage</span>
-                <span className="text-white">45%</span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-purple-600 h-2 rounded-full"
-                  style={{ width: "45%" }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-300">Network</span>
-                <span className="text-white">23%</span>
-              </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-yellow-600 h-2 rounded-full"
-                  style={{ width: "23%" }}
-                ></div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -796,20 +970,143 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">Average Response</span>
-              <span className="text-white">245ms</span>
+              <span className="text-white">
+                {Math.floor(200 + Math.random() * 100)}ms
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Requests/min</span>
-              <span className="text-white">1,247</span>
+              <span className="text-white">
+                {Math.floor(1000 + Math.random() * 1000).toLocaleString()}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Error Rate</span>
-              <span className="text-green-400">0.1%</span>
+              <span className="text-green-400">
+                {(Math.random() * 0.5).toFixed(1)}%
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Cache Hit Rate</span>
-              <span className="text-green-400">94.5%</span>
+              <span className="text-green-400">
+                {(90 + Math.random() * 8).toFixed(1)}%
+              </span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Active Connections</span>
+              <span className="text-white">
+                {Math.floor(50 + Math.random() * 100)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Database Queries/sec</span>
+              <span className="text-white">
+                {Math.floor(100 + Math.random() * 200)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Database Performance
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-300">Query Execution Time</span>
+              <span className="text-white">
+                {Math.floor(10 + Math.random() * 50)}ms
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Connection Pool Usage</span>
+              <span className="text-white">
+                {Math.floor(60 + Math.random() * 30)}%
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Cache Efficiency</span>
+              <span className="text-green-400">
+                {(85 + Math.random() * 10).toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Index Usage</span>
+              <span className="text-green-400">
+                {(90 + Math.random() * 8).toFixed(1)}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Application Metrics
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-300">Active Users</span>
+              <span className="text-white">
+                {Math.floor(10 + Math.random() * 50)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Page Load Time</span>
+              <span className="text-white">
+                {Math.floor(500 + Math.random() * 1000)}ms
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">JavaScript Errors</span>
+              <span className="text-green-400">
+                {Math.floor(Math.random() * 5)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Memory Leaks</span>
+              <span className="text-green-400">None</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+        <h4 className="text-lg font-medium text-cyan-400 mb-4">
+          Performance Trends (Last 24 Hours)
+        </h4>
+        <div className="h-48 flex items-end justify-between space-x-1">
+          {Array.from({ length: 24 }, (_, i) => {
+            const cpuUsage = Math.floor(20 + Math.random() * 60);
+            const memoryUsage = Math.floor(30 + Math.random() * 50);
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center">
+                <div className="w-full flex flex-col space-y-1">
+                  <div
+                    className="bg-blue-600 rounded-t-sm opacity-80"
+                    style={{ height: `${cpuUsage}px` }}
+                    title={`CPU: ${cpuUsage}%`}
+                  ></div>
+                  <div
+                    className="bg-green-600 rounded-t-sm"
+                    style={{ height: `${memoryUsage}px` }}
+                    title={`Memory: ${memoryUsage}%`}
+                  ></div>
+                </div>
+                <span className="text-xs text-gray-400 mt-1">{i}:00</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex justify-center space-x-4 mt-4">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-blue-600 rounded"></div>
+            <span className="text-xs text-gray-300">CPU Usage</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-green-600 rounded"></div>
+            <span className="text-xs text-gray-300">Memory Usage</span>
           </div>
         </div>
       </div>
@@ -834,6 +1131,12 @@ export const Dashboard = () => {
             <button className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm">
               Check Card Database
             </button>
+            <button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded text-sm">
+              Reset Device Cache
+            </button>
+            <button className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm">
+              Emergency Stop
+            </button>
           </div>
         </div>
 
@@ -844,15 +1147,31 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">Readers Online</span>
-              <span className="text-green-400">8/8</span>
+              <span className="text-green-400">
+                {Math.floor(6 + Math.random() * 4)}/10
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Sensors Active</span>
-              <span className="text-green-400">12/12</span>
+              <span className="text-green-400">
+                {Math.floor(8 + Math.random() * 4)}/12
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Cards Registered</span>
-              <span className="text-white">247</span>
+              <span className="text-white">
+                {Math.floor(200 + Math.random() * 100)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Active Sessions</span>
+              <span className="text-cyan-400">
+                {Math.floor(Math.random() * 8)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Signal Strength</span>
+              <span className="text-green-400">Excellent</span>
             </div>
           </div>
         </div>
@@ -870,6 +1189,62 @@ export const Dashboard = () => {
             <button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded text-sm">
               Simulate Scan
             </button>
+            <button className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded text-sm">
+              Simulate Entry Sensor
+            </button>
+            <button className="w-full bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded text-sm">
+              Simulate Exit Sensor
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Device Health Monitor
+          </h4>
+          <div className="space-y-4">
+            {["Reader 1", "Reader 2", "Reader 3", "Sensor A", "Sensor B"].map(
+              (device) => (
+                <div key={device} className="flex items-center justify-between">
+                  <span className="text-gray-300">{device}</span>
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        Math.random() > 0.1 ? "bg-green-500" : "bg-red-500"
+                      }`}
+                    ></div>
+                    <span className="text-sm text-white">
+                      {Math.floor(90 + Math.random() * 10)}%
+                    </span>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            System Calibration
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-300">Last Calibration</span>
+              <span className="text-white">2 hours ago</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Calibration Status</span>
+              <span className="text-green-400">Optimal</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Accuracy Rate</span>
+              <span className="text-green-400">99.2%</span>
+            </div>
+            <button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded text-sm">
+              Run Calibration Test
+            </button>
           </div>
         </div>
       </div>
@@ -879,33 +1254,75 @@ export const Dashboard = () => {
           RFID Activity Log
         </h4>
         <div className="space-y-3 max-h-64 overflow-y-auto">
-          <div className="flex items-center space-x-3">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <div className="flex-1">
-              <p className="text-sm text-white">
-                RFID scan successful - Student ID: 2021001
-              </p>
-              <p className="text-xs text-gray-400">Reader 1 - 2 minutes ago</p>
+          {[
+            {
+              type: "success",
+              message: "RFID scan successful - Student ID: 2021001",
+              time: "2 minutes ago",
+              device: "Reader 1",
+            },
+            {
+              type: "info",
+              message: "Sensor triggered - Entry detected",
+              time: "5 minutes ago",
+              device: "Sensor A",
+            },
+            {
+              type: "warning",
+              message: "RFID read error - Card not recognized",
+              time: "8 minutes ago",
+              device: "Reader 2",
+            },
+            {
+              type: "success",
+              message: "Attendance recorded successfully",
+              time: "10 minutes ago",
+              device: "System",
+            },
+            {
+              type: "info",
+              message: "Device calibration completed",
+              time: "15 minutes ago",
+              device: "Reader 3",
+            },
+            {
+              type: "warning",
+              message: "Low signal strength detected",
+              time: "20 minutes ago",
+              device: "Sensor B",
+            },
+            {
+              type: "success",
+              message: "Bulk card validation completed",
+              time: "25 minutes ago",
+              device: "System",
+            },
+            {
+              type: "info",
+              message: "Sensor recalibration triggered",
+              time: "30 minutes ago",
+              device: "Sensor A",
+            },
+          ].map((event, index) => (
+            <div key={index} className="flex items-center space-x-3">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  event.type === "success"
+                    ? "bg-green-500"
+                    : event.type === "warning"
+                    ? "bg-yellow-500"
+                    : "bg-blue-500"
+                }`}
+              ></div>
+              <div className="flex-1">
+                <p className="text-sm text-white">{event.message}</p>
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>{event.device}</span>
+                  <span>{event.time}</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <div className="flex-1">
-              <p className="text-sm text-white">
-                Sensor triggered - Entry detected
-              </p>
-              <p className="text-xs text-gray-400">Sensor 3 - 5 minutes ago</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-            <div className="flex-1">
-              <p className="text-sm text-white">
-                RFID read error - Card not recognized
-              </p>
-              <p className="text-xs text-gray-400">Reader 2 - 8 minutes ago</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

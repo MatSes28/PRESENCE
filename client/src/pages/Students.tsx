@@ -32,6 +32,9 @@ export const Students = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [yearFilter, setYearFilter] = useState("All Years");
   const [sectionFilter, setSectionFilter] = useState("All Sections");
+  const [attendanceRates, setAttendanceRates] = useState<{
+    [key: number]: number;
+  }>({});
 
   const [formData, setFormData] = useState({
     studentId: "",
@@ -54,6 +57,12 @@ export const Students = () => {
   useEffect(() => {
     fetchStudents();
   }, []);
+
+  useEffect(() => {
+    if (students.length > 0) {
+      fetchAttendanceRates();
+    }
+  }, [students]);
 
   const fetchStudents = async () => {
     try {
@@ -79,6 +88,45 @@ export const Students = () => {
       setStudents([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAttendanceRates = async () => {
+    if (students.length === 0) return;
+
+    try {
+      const rates: { [key: number]: number } = {};
+
+      // Fetch attendance data for each student (in a real app, you'd optimize this with a batch API)
+      for (const student of students) {
+        try {
+          const response = await api.getStudentAttendance(student.id, {
+            limit: 100,
+          });
+          if (response.success && (response.data as any)?.attendance) {
+            const attendanceRecords = (response.data as any).attendance;
+            const totalRecords = attendanceRecords.length;
+            const presentRecords = attendanceRecords.filter(
+              (record: any) => record.record?.status === "present"
+            ).length;
+            const attendanceRate =
+              totalRecords > 0
+                ? Math.round((presentRecords / totalRecords) * 100)
+                : 0;
+            rates[student.id] = attendanceRate;
+          }
+        } catch (error) {
+          console.error(
+            `Failed to fetch attendance for student ${student.id}:`,
+            error
+          );
+          rates[student.id] = 0; // Default to 0 if fetch fails
+        }
+      }
+
+      setAttendanceRates(rates);
+    } catch (error) {
+      console.error("Failed to fetch attendance rates:", error);
     }
   };
 
@@ -201,6 +249,35 @@ export const Students = () => {
     setShowAddForm(true);
     studentValidation.clearErrors();
   };
+
+  // Filter students based on search and filter criteria
+  const filteredStudents = students.filter((student) => {
+    // Search filter
+    const matchesSearch =
+      searchTerm === "" ||
+      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (student.email &&
+        student.email.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // Year filter
+    const matchesYear =
+      yearFilter === "All Years" ||
+      (student as any).year ===
+        yearFilter
+          .replace("st", "")
+          .replace("nd", "")
+          .replace("rd", "")
+          .replace("th", "")
+          .replace(" Year", "");
+
+    // Section filter
+    const matchesSection =
+      sectionFilter === "All Sections" ||
+      (student as any).section === sectionFilter.replace("Section ", "");
+
+    return matchesSearch && matchesYear && matchesSection;
+  });
 
   if (loading) {
     return (
@@ -457,7 +534,11 @@ export const Students = () => {
       <div className="hidden md:block bg-gray-800 shadow rounded-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-700">
           <h4 className="text-lg font-medium text-white">
-            Students ({students.length})
+            Students ({filteredStudents.length}
+            {filteredStudents.length !== students.length
+              ? ` of ${students.length}`
+              : ""}
+            )
           </h4>
         </div>
         <div className="overflow-x-auto">
@@ -485,7 +566,7 @@ export const Students = () => {
               </tr>
             </thead>
             <tbody className="bg-gray-800 divide-y divide-gray-700">
-              {students.map((student) => (
+              {filteredStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-gray-700">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -523,10 +604,14 @@ export const Students = () => {
                       <div className="w-16 bg-gray-700 rounded-full h-2 mr-2">
                         <div
                           className="bg-green-500 h-2 rounded-full"
-                          style={{ width: "85%" }}
+                          style={{
+                            width: `${attendanceRates[student.id] || 0}%`,
+                          }}
                         ></div>
                       </div>
-                      <span className="text-sm text-gray-300">85%</span>
+                      <span className="text-sm text-gray-300">
+                        {attendanceRates[student.id] || 0}%
+                      </span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
@@ -562,10 +647,12 @@ export const Students = () => {
             </tbody>
           </table>
         </div>
-        {students.length === 0 && (
+        {filteredStudents.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-400">
-              No students found. Add your first student to get started.
+              {students.length === 0
+                ? "No students found. Add your first student to get started."
+                : "No students match your search criteria. Try adjusting your filters."}
             </p>
           </div>
         )}
@@ -573,7 +660,7 @@ export const Students = () => {
 
       {/* Students Cards (Mobile) */}
       <div className="md:hidden space-y-4">
-        {students.map((student) => (
+        {filteredStudents.map((student) => (
           <div
             key={student.id}
             className="bg-gray-800 rounded-lg p-4 border border-gray-700"
@@ -608,10 +695,12 @@ export const Students = () => {
                   <div className="w-12 bg-gray-700 rounded-full h-1.5 mr-2">
                     <div
                       className="bg-green-500 h-1.5 rounded-full"
-                      style={{ width: "85%" }}
+                      style={{ width: `${attendanceRates[student.id] || 0}%` }}
                     ></div>
                   </div>
-                  <span className="text-xs text-gray-300">85%</span>
+                  <span className="text-xs text-gray-300">
+                    {attendanceRates[student.id] || 0}%
+                  </span>
                 </div>
               </div>
             </div>

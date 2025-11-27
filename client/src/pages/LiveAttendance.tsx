@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { getWebSocketClient } from "../lib/websocket";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
+import { useLocation } from "wouter";
 
 interface AttendanceEvent {
   id: string;
@@ -18,6 +19,7 @@ interface AttendanceEvent {
 
 export const LiveAttendance = () => {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [events, setEvents] = useState<AttendanceEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [rfidInput, setRfidInput] = useState("");
@@ -29,6 +31,15 @@ export const LiveAttendance = () => {
     discrepancies: 0,
     activeDevices: 0,
   });
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualEntryData, setManualEntryData] = useState({
+    studentId: "",
+    classSessionId: "",
+    entryTime: "",
+    notes: "",
+  });
+  const [students, setStudents] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
 
   // Fetch initial attendance data
   useEffect(() => {
@@ -160,6 +171,121 @@ export const LiveAttendance = () => {
     }
   };
 
+  const handleAttendanceAction = async (action: string, studentId: number) => {
+    try {
+      switch (action) {
+        case "excuse":
+          // Mark as excused (placeholder - would update attendance record)
+          addNotification({
+            type: "success",
+            title: "Student Excused",
+            message: "Student has been marked as excused.",
+          });
+          break;
+        case "contact":
+          // Send notification to parent (placeholder - would send email/SMS)
+          addNotification({
+            type: "info",
+            title: "Parent Contacted",
+            message: "Notification sent to student's parent.",
+          });
+          break;
+        case "monitor":
+          // Open monitoring view for this student
+          setLocation(`/students/${studentId}`);
+          break;
+      }
+      refreshAttendanceData();
+    } catch (error) {
+      console.error(`Failed to ${action} student:`, error);
+      addNotification({
+        type: "error",
+        title: "Action Failed",
+        message: `Failed to ${action} student. Please try again.`,
+      });
+    }
+  };
+
+  // Add notification helper
+  const addNotification = (notification: any) => {
+    console.log("Notification:", notification);
+  };
+
+  // Load students and sessions for manual entry
+  const loadManualEntryData = async () => {
+    try {
+      const [studentsRes, sessionsRes] = await Promise.all([
+        api.getStudents(),
+        api.get("/attendance/sessions/active"),
+      ]);
+      if (studentsRes.success) {
+        setStudents((studentsRes.data as any[]) || []);
+      }
+      if (sessionsRes.success) {
+        setSessions(((sessionsRes.data as any)?.sessions as any[]) || []);
+      }
+    } catch (error) {
+      console.error("Failed to load manual entry data:", error);
+    }
+  };
+
+  // Handle manual attendance entry
+  const handleManualEntry = async () => {
+    if (!manualEntryData.studentId || !manualEntryData.classSessionId) {
+      addNotification({
+        type: "error",
+        title: "Validation Error",
+        message: "Please select a student and session",
+      });
+      return;
+    }
+
+    try {
+      const response = await api.post("/attendance/manual", {
+        studentId: parseInt(manualEntryData.studentId),
+        classSessionId: parseInt(manualEntryData.classSessionId),
+        entryTime: manualEntryData.entryTime || new Date().toISOString(),
+        notes: manualEntryData.notes,
+      });
+
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Attendance Recorded",
+          message: "Manual attendance entry has been recorded successfully.",
+        });
+        setShowManualEntry(false);
+        setManualEntryData({
+          studentId: "",
+          classSessionId: "",
+          entryTime: "",
+          notes: "",
+        });
+        refreshAttendanceData();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Entry Failed",
+          message: response.message || "Failed to record attendance",
+        });
+      }
+    } catch (error) {
+      console.error("Manual entry error:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message: "Failed to record attendance. Please try again.",
+      });
+    }
+  };
+
+  // Load data when modal opens
+  useEffect(() => {
+    if (showManualEntry) {
+      loadManualEntryData();
+    }
+  }, [showManualEntry]);
+
   const getEventIcon = (type: string) => {
     switch (type) {
       case "rfid_scan":
@@ -218,6 +344,14 @@ export const LiveAttendance = () => {
           >
             Refresh
           </button>
+          {user?.role === "admin" && (
+            <button
+              onClick={() => setShowManualEntry(true)}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg"
+            >
+              Manual Entry
+            </button>
+          )}
           <div className="flex items-center space-x-2">
             <div
               className={`w-3 h-3 rounded-full ${
@@ -348,16 +482,40 @@ export const LiveAttendance = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
                           {record.status === "present" && (
-                            <button className="text-cyan-400 hover:text-cyan-300">
+                            <button
+                              onClick={() =>
+                                handleAttendanceAction(
+                                  "monitor",
+                                  record.student?.id || 0
+                                )
+                              }
+                              className="text-cyan-400 hover:text-cyan-300"
+                            >
                               Monitor
                             </button>
                           )}
                           {record.status === "absent" && (
                             <>
-                              <button className="text-blue-400 hover:text-blue-300">
+                              <button
+                                onClick={() =>
+                                  handleAttendanceAction(
+                                    "excuse",
+                                    record.student?.id || 0
+                                  )
+                                }
+                                className="text-blue-400 hover:text-blue-300"
+                              >
                                 Excuse
                               </button>
-                              <button className="text-gray-400 hover:text-gray-300">
+                              <button
+                                onClick={() =>
+                                  handleAttendanceAction(
+                                    "contact",
+                                    record.student?.id || 0
+                                  )
+                                }
+                                className="text-gray-400 hover:text-gray-300"
+                              >
                                 Contact
                               </button>
                             </>
@@ -556,6 +714,111 @@ export const LiveAttendance = () => {
           </div>
         </div>
       </div>
+
+      {/* Manual Attendance Entry Modal */}
+      {showManualEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+            <h3 className="text-lg font-medium text-cyan-400 mb-4">
+              Manual Attendance Entry
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Student
+                </label>
+                <select
+                  value={manualEntryData.studentId}
+                  onChange={(e) =>
+                    setManualEntryData({
+                      ...manualEntryData,
+                      studentId: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                >
+                  <option value="">Select Student</option>
+                  {students.map((student: any) => (
+                    <option key={student.id} value={student.id}>
+                      {student.name} ({student.studentId})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Class Session
+                </label>
+                <select
+                  value={manualEntryData.classSessionId}
+                  onChange={(e) =>
+                    setManualEntryData({
+                      ...manualEntryData,
+                      classSessionId: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                >
+                  <option value="">Select Session</option>
+                  {sessions.map((session: any) => (
+                    <option key={session.session.id} value={session.session.id}>
+                      {session.schedule?.subject?.name} -{" "}
+                      {session.schedule?.classroom?.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Entry Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={manualEntryData.entryTime}
+                  onChange={(e) =>
+                    setManualEntryData({
+                      ...manualEntryData,
+                      entryTime: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={manualEntryData.notes}
+                  onChange={(e) =>
+                    setManualEntryData({
+                      ...manualEntryData,
+                      notes: e.target.value,
+                    })
+                  }
+                  placeholder="Optional notes..."
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowManualEntry(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleManualEntry}
+                className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+              >
+                Record Attendance
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

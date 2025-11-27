@@ -335,4 +335,44 @@ router.post("/:id/validate", requireAuth, async (req, res) => {
   }
 });
 
+// Simulate RFID tap for testing
+router.post("/simulate-rfid", requireAuth, async (req, res) => {
+  try {
+    const { rfidUid } = req.body;
+
+    if (!rfidUid) {
+      return res.status(400).json({
+        success: false,
+        message: "RFID UID is required",
+      });
+    }
+
+    // Process the simulated RFID scan
+    const result = await attendanceMonitor.processRFIDScan({
+      deviceId: "simulator",
+      rfidUid,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: "RFID simulation successful",
+        data: result,
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: result.message || "RFID simulation failed",
+      });
+    }
+  } catch (error) {
+    console.error("RFID simulation error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
 export default router;
