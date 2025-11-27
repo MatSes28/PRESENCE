@@ -347,6 +347,41 @@ class ApiClient {
     });
   }
 
+  // Class Sessions endpoints
+  async getClassSessions() {
+    return this.request("/class-sessions");
+  }
+
+  async getClassSession(id: number) {
+    return this.request(`/class-sessions/${id}`);
+  }
+
+  async createClassSessionsForDate(date: string) {
+    return this.request("/class-sessions/auto-create", {
+      method: "POST",
+      body: JSON.stringify({ date }),
+    });
+  }
+
+  async activateSessions() {
+    return this.request("/class-sessions/auto-activate", {
+      method: "POST",
+    });
+  }
+
+  async endSessions() {
+    return this.request("/class-sessions/auto-end", {
+      method: "POST",
+    });
+  }
+
+  async updateSessionStatus(id: number, status: string) {
+    return this.request(`/class-sessions/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    });
+  }
+
   // Reports endpoints
   async generateReport(params: {
     type: "attendance" | "students" | "classroom";

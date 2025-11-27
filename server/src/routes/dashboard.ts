@@ -8,6 +8,7 @@ import {
   schedules,
   classrooms,
   subjects,
+  computerAssignments,
 } from "../schema.js";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 
@@ -99,16 +100,82 @@ router.get("/stats", requireAuth, async (req, res) => {
     const attendanceRate =
       totalRecorded > 0 ? (presentCount / totalRecorded) * 100 : 0;
 
-    // Mock additional stats for now
+    // Calculate total events (attendance records today)
+    const totalEventsResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(attendanceRecords)
+      .innerJoin(
+        classSessions,
+        eq(attendanceRecords.classSessionId, classSessions.id)
+      )
+      .where(
+        and(
+          gte(classSessions.date, startOfDay),
+          lte(classSessions.date, endOfDay)
+        )
+      );
+
+    // Calculate active devices (computers that have active assignments today)
+    const activeDevicesResult = await db
+      .select({
+        count: sql<number>`count(distinct ${computerAssignments.computerId})`,
+      })
+      .from(computerAssignments)
+      .innerJoin(
+        classSessions,
+        eq(computerAssignments.classSessionId, classSessions.id)
+      )
+      .where(
+        and(
+          gte(classSessions.date, startOfDay),
+          lte(classSessions.date, endOfDay),
+          eq(computerAssignments.status, "active")
+        )
+      );
+
+    // Calculate system uptime (simplified - days since system start)
+    // In a real system, this would be tracked in a system status table
+    const systemStartDate = new Date("2024-01-01"); // Mock system start date
+    const uptimeMs = today.getTime() - systemStartDate.getTime();
+    const uptimeDays = Math.floor(uptimeMs / (1000 * 60 * 60 * 24));
+    const uptimeHours = Math.floor(
+      (uptimeMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+    );
+    const uptimeMinutes = Math.floor(
+      (uptimeMs % (1000 * 60 * 60)) / (1000 * 60)
+    );
+    const systemUptime = `${uptimeDays}d ${uptimeHours}h ${uptimeMinutes}m`;
+
+    // Calculate error rate (discrepancies vs total records)
+    const discrepancyResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(attendanceRecords)
+      .innerJoin(
+        classSessions,
+        eq(attendanceRecords.classSessionId, classSessions.id)
+      )
+      .where(
+        and(
+          gte(classSessions.date, startOfDay),
+          lte(classSessions.date, endOfDay),
+          eq(attendanceRecords.discrepancyFlag, true)
+        )
+      );
+
+    const totalEvents = totalEventsResult[0]?.count || 0;
+    const discrepancyCount = discrepancyResult[0]?.count || 0;
+    const errorRate =
+      totalEvents > 0 ? (discrepancyCount / totalEvents) * 100 : 0;
+
     const stats = {
       todayClasses: todayClassesResult[0]?.count || 0,
       presentStudents: presentCount,
       absentStudents: absentCount,
       attendanceRate: Math.round(attendanceRate * 100) / 100,
-      totalEvents: 150, // Mock
-      activeDevices: 2, // Mock
-      systemUptime: "7d 12h 30m", // Mock
-      errorRate: 0.5, // Mock
+      totalEvents: totalEvents,
+      activeDevices: activeDevicesResult[0]?.count || 0,
+      systemUptime: systemUptime,
+      errorRate: Math.round(errorRate * 100) / 100,
     };
 
     res.json({

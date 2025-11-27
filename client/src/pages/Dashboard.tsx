@@ -20,7 +20,9 @@ interface DashboardStats {
 
 export const Dashboard = () => {
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
   const [, setLocation] = useLocation();
+  const [activeTab, setActiveTab] = useState("overview");
   const [realTimeData, setRealTimeData] = useState<any[]>([]);
   const [deviceStatus, setDeviceStatus] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
@@ -35,6 +37,11 @@ export const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [showSessionModal, setShowSessionModal] = useState(false);
+  const [availableSchedules, setAvailableSchedules] = useState<any[]>([]);
+  const [sessionFormData, setSessionFormData] = useState({
+    scheduleId: "",
+    action: "create", // create or activate
+  });
 
   // Fetch dashboard statistics
   useEffect(() => {
@@ -84,6 +91,44 @@ export const Dashboard = () => {
 
     fetchDashboardStats();
   }, [deviceStatus]);
+
+  // Fetch available schedules for session management
+  const fetchAvailableSchedules = async () => {
+    try {
+      const response = await api.getSchedules();
+      if (response.success && Array.isArray(response.data)) {
+        // Filter schedules for today
+        const today = new Date().getDay();
+        const todaySchedules = response.data.filter(
+          (schedule: any) => schedule.dayOfWeek === today
+        );
+        setAvailableSchedules(todaySchedules);
+      }
+    } catch (error) {
+      console.error("Failed to fetch schedules:", error);
+    }
+  };
+
+  // Handle sending notifications
+  const handleSendNotifications = async () => {
+    try {
+      // This would typically send notifications to absent students
+      // For now, we'll show a placeholder
+      addNotification({
+        type: "info",
+        title: "Notifications Sent",
+        message:
+          "Attendance notifications have been sent to parents of absent students.",
+      });
+    } catch (error) {
+      console.error("Failed to send notifications:", error);
+      addNotification({
+        type: "error",
+        title: "Notification Failed",
+        message: "Failed to send notifications. Please try again.",
+      });
+    }
+  };
 
   useEffect(() => {
     const wsClient = getWebSocketClient(user?.id);
@@ -193,6 +238,64 @@ export const Dashboard = () => {
     </div>
   );
 
+  // Handle session creation
+  const handleStartSession = async () => {
+    if (!sessionFormData.scheduleId) {
+      addNotification({
+        type: "error",
+        title: "Validation Error",
+        message: "Please select a schedule",
+      });
+      return;
+    }
+
+    try {
+      let response;
+      if (sessionFormData.action === "create") {
+        // Create sessions for today
+        response = await api.createClassSessionsForDate(
+          new Date().toISOString().split("T")[0]
+        );
+      } else {
+        // Activate existing sessions
+        response = await api.activateSessions();
+      }
+
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Session Started",
+          message: `Session ${
+            sessionFormData.action === "create" ? "created" : "activated"
+          } successfully`,
+        });
+        setShowSessionModal(false);
+        // Refresh dashboard stats
+        // You could trigger a refresh here
+      } else {
+        addNotification({
+          type: "error",
+          title: "Session Start Failed",
+          message: response.message || "Failed to start session",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to start session:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message: "Failed to start session. Please try again.",
+      });
+    }
+  };
+
+  // Fetch schedules when modal opens
+  useEffect(() => {
+    if (showSessionModal) {
+      fetchAvailableSchedules();
+    }
+  }, [showSessionModal]);
+
   // Modal Component for Session Management
   const StartSessionModal = ({
     isOpen,
@@ -212,31 +315,60 @@ export const Dashboard = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Class
+                Schedule
               </label>
-              <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
-                <option>Select a class...</option>
+              <select
+                value={sessionFormData.scheduleId}
+                onChange={(e) =>
+                  setSessionFormData({
+                    ...sessionFormData,
+                    scheduleId: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              >
+                <option value="">Select a schedule...</option>
+                {availableSchedules.map((schedule: any) => (
+                  <option key={schedule.id} value={schedule.id}>
+                    {schedule.subjectName} - {schedule.classroomName} (
+                    {schedule.startTime}-{schedule.endTime})
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Session Type
+                Action
               </label>
-              <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
-                <option>Lecture</option>
-                <option>Lab</option>
-                <option>Exam</option>
+              <select
+                value={sessionFormData.action}
+                onChange={(e) =>
+                  setSessionFormData({
+                    ...sessionFormData,
+                    action: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              >
+                <option value="create">Create New Session</option>
+                <option value="activate">Activate Existing Session</option>
               </select>
             </div>
           </div>
           <div className="flex justify-end space-x-3 mt-6">
             <button
-              onClick={onClose}
+              onClick={() => {
+                onClose();
+                setSessionFormData({ scheduleId: "", action: "create" });
+              }}
               className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
             >
               Cancel
             </button>
-            <button className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+            <button
+              onClick={handleStartSession}
+              className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            >
               Start Session
             </button>
           </div>
@@ -324,7 +456,10 @@ export const Dashboard = () => {
             >
               📊 View Reports
             </button>
-            <button className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded">
+            <button
+              onClick={handleSendNotifications}
+              className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded"
+            >
               📢 Send Notifications
             </button>
           </div>
@@ -378,24 +513,474 @@ export const Dashboard = () => {
     </div>
   );
 
+  // Analytics Tab Content
+  const analyticsContent = (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Attendance Trends
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-300">This Week</span>
+              <span className="text-green-400">+12%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">This Month</span>
+              <span className="text-green-400">+8%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">This Semester</span>
+              <span className="text-green-400">+15%</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">Peak Hours</h4>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-300">8:00 AM - 10:00 AM</span>
+              <span className="text-white">85%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">10:00 AM - 12:00 PM</span>
+              <span className="text-white">78%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">1:00 PM - 3:00 PM</span>
+              <span className="text-white">92%</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Device Performance
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-300">RFID Readers</span>
+              <span className="text-green-400">98.5%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Sensors</span>
+              <span className="text-yellow-400">94.2%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Network</span>
+              <span className="text-green-400">99.1%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+        <h4 className="text-lg font-medium text-cyan-400 mb-4">
+          Weekly Attendance Chart
+        </h4>
+        <div className="h-64 flex items-end justify-between space-x-2">
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
+            (day, index) => (
+              <div key={day} className="flex-1 flex flex-col items-center">
+                <div
+                  className="bg-cyan-600 w-full rounded-t"
+                  style={{ height: `${60 + index * 10}px` }}
+                ></div>
+                <span className="text-xs text-gray-400 mt-2">{day}</span>
+              </div>
+            )
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Security Tab Content
+  const securityContent = (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard
+          title="Active Sessions"
+          value="24"
+          icon="🔐"
+          trend="neutral"
+          trendValue="Stable"
+          color="green"
+        />
+        <StatCard
+          title="Failed Logins"
+          value="3"
+          icon="🚫"
+          trend="down"
+          trendValue="-2"
+          color="red"
+        />
+        <StatCard
+          title="Security Alerts"
+          value="0"
+          icon="⚠️"
+          trend="neutral"
+          trendValue="None"
+          color="yellow"
+        />
+        <StatCard
+          title="System Integrity"
+          value="100%"
+          icon="🛡️"
+          trend="up"
+          trendValue="+0.1%"
+          color="blue"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Recent Security Events
+          </h4>
+          <div className="space-y-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="flex-1">
+                <p className="text-sm text-white">Successful login - Admin</p>
+                <p className="text-xs text-gray-400">2 minutes ago</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <div className="flex-1">
+                <p className="text-sm text-white">RFID card validated</p>
+                <p className="text-xs text-gray-400">5 minutes ago</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+              <div className="flex-1">
+                <p className="text-sm text-white">
+                  Sensor calibration completed
+                </p>
+                <p className="text-xs text-gray-400">1 hour ago</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Access Control
+          </h4>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300">Multi-factor Authentication</span>
+              <span className="text-green-400">Enabled</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300">Session Timeout</span>
+              <span className="text-white">30 min</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300">Failed Login Lockout</span>
+              <span className="text-green-400">5 attempts</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300">IP Whitelisting</span>
+              <span className="text-yellow-400">Partial</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Performance Tab Content
+  const performanceContent = (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard
+          title="Response Time"
+          value="245ms"
+          icon="⚡"
+          trend="down"
+          trendValue="-12ms"
+          color="green"
+        />
+        <StatCard
+          title="Uptime"
+          value="99.9%"
+          icon="📈"
+          trend="up"
+          trendValue="+0.1%"
+          color="blue"
+        />
+        <StatCard
+          title="CPU Usage"
+          value="34%"
+          icon="💻"
+          trend="neutral"
+          trendValue="±2%"
+          color="purple"
+        />
+        <StatCard
+          title="Memory Usage"
+          value="67%"
+          icon="🧠"
+          trend="up"
+          trendValue="+5%"
+          color="yellow"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            System Resources
+          </h4>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-300">CPU</span>
+                <span className="text-white">34%</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full"
+                  style={{ width: "34%" }}
+                ></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-300">Memory</span>
+                <span className="text-white">67%</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-green-600 h-2 rounded-full"
+                  style={{ width: "67%" }}
+                ></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-300">Storage</span>
+                <span className="text-white">45%</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-purple-600 h-2 rounded-full"
+                  style={{ width: "45%" }}
+                ></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-gray-300">Network</span>
+                <span className="text-white">23%</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-yellow-600 h-2 rounded-full"
+                  style={{ width: "23%" }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            API Performance
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-300">Average Response</span>
+              <span className="text-white">245ms</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Requests/min</span>
+              <span className="text-white">1,247</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Error Rate</span>
+              <span className="text-green-400">0.1%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Cache Hit Rate</span>
+              <span className="text-green-400">94.5%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // RFID Tools Tab Content
+  const rfidToolsContent = (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            RFID Diagnostics
+          </h4>
+          <div className="space-y-3">
+            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+              Test RFID Reader
+            </button>
+            <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm">
+              Calibrate Sensors
+            </button>
+            <button className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm">
+              Check Card Database
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            Device Status
+          </h4>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-300">Readers Online</span>
+              <span className="text-green-400">8/8</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Sensors Active</span>
+              <span className="text-green-400">12/12</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Cards Registered</span>
+              <span className="text-white">247</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-cyan-400 mb-4">
+            RFID Simulation
+          </h4>
+          <div className="space-y-3">
+            <input
+              type="text"
+              placeholder="Enter RFID UID"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+            />
+            <button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded text-sm">
+              Simulate Scan
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+        <h4 className="text-lg font-medium text-cyan-400 mb-4">
+          RFID Activity Log
+        </h4>
+        <div className="space-y-3 max-h-64 overflow-y-auto">
+          <div className="flex items-center space-x-3">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <div className="flex-1">
+              <p className="text-sm text-white">
+                RFID scan successful - Student ID: 2021001
+              </p>
+              <p className="text-xs text-gray-400">Reader 1 - 2 minutes ago</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            <div className="flex-1">
+              <p className="text-sm text-white">
+                Sensor triggered - Entry detected
+              </p>
+              <p className="text-xs text-gray-400">Sensor 3 - 5 minutes ago</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+            <div className="flex-1">
+              <p className="text-sm text-white">
+                RFID read error - Card not recognized
+              </p>
+              <p className="text-xs text-gray-400">Reader 2 - 8 minutes ago</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "overview":
+        return overviewContent;
+      case "analytics":
+        return analyticsContent;
+      case "security":
+        return securityContent;
+      case "performance":
+        return performanceContent;
+      case "rfid-tools":
+        return rfidToolsContent;
+      default:
+        return overviewContent;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
       <div className="border-b border-gray-700">
         <nav className="-mb-px flex space-x-8">
-          <button className="border-cyan-400 text-cyan-400 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`${
+              activeTab === "overview"
+                ? "border-cyan-400 text-cyan-400"
+                : "border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300"
+            } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm`}
+          >
             Overview
           </button>
-          <button className="border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+          <button
+            onClick={() => setActiveTab("analytics")}
+            className={`${
+              activeTab === "analytics"
+                ? "border-cyan-400 text-cyan-400"
+                : "border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300"
+            } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm`}
+          >
             Analytics
           </button>
-          <button className="border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+          <button
+            onClick={() => setActiveTab("security")}
+            className={`${
+              activeTab === "security"
+                ? "border-cyan-400 text-cyan-400"
+                : "border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300"
+            } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm`}
+          >
             Security
           </button>
-          <button className="border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+          <button
+            onClick={() => setActiveTab("performance")}
+            className={`${
+              activeTab === "performance"
+                ? "border-cyan-400 text-cyan-400"
+                : "border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300"
+            } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm`}
+          >
             Performance
           </button>
-          <button className="border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+          <button
+            onClick={() => setActiveTab("rfid-tools")}
+            className={`${
+              activeTab === "rfid-tools"
+                ? "border-cyan-400 text-cyan-400"
+                : "border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300"
+            } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm`}
+          >
             RFID Tools
           </button>
         </nav>
@@ -406,7 +991,7 @@ export const Dashboard = () => {
           <div className="text-white">Loading...</div>
         </div>
       ) : (
-        overviewContent
+        renderTabContent()
       )}
 
       {/* Modals */}
