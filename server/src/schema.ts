@@ -1,5 +1,5 @@
 // Re-export all schema definitions from shared (CommonJS to ES modules)
-import * as sharedSchema from "../../shared/schema.js";
+import * as sharedSchema from "../../shared/schema";
 
 export const users = sharedSchema.users;
 export const students = sharedSchema.students;
