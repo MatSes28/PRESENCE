@@ -2,21 +2,6 @@ import rateLimit from "express-rate-limit";
 import { Request, Response } from "express";
 import { cacheService } from "../services/cacheService.js";
 
-// General API rate limiting
-export const generalRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: {
-    success: false,
-    message: "Too many requests from this IP, please try again later.",
-    retryAfter: 15 * 60, // seconds
-  },
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  // Skip rate limiting for health checks
-  skip: (req) => req.path === "/health",
-});
-
 // Stricter rate limiting for authentication endpoints
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -74,6 +59,7 @@ export const createUserRateLimit = (options: {
   message?: string;
   skipSuccessfulRequests?: boolean;
   skipFailedRequests?: boolean;
+  skip?: (req: Request) => boolean;
 }) => {
   return rateLimit({
     ...options,
@@ -85,6 +71,15 @@ export const createUserRateLimit = (options: {
     legacyHeaders: false,
   });
 };
+
+// General API rate limiting (user-based for authenticated users, IP-based for anonymous)
+export const generalRateLimit = createUserRateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each user/IP to 100 requests per windowMs
+  message: "Too many requests, please try again later.",
+  // Skip rate limiting for health checks
+  skip: (req) => req.path === "/health",
+});
 
 // API optimization middleware
 export const apiOptimization = (req: Request, res: Response, next: any) => {

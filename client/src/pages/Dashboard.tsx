@@ -135,6 +135,12 @@ export const Dashboard = () => {
   // Fetch dashboard statistics with retry logic
   const fetchDashboardStats = useCallback(
     async (isRetry = false) => {
+      // Only fetch if user is authenticated
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
       try {
         if (!isRetry) setLoading(true);
         setError(null);
@@ -178,12 +184,16 @@ export const Dashboard = () => {
         if (!isRetry) setLoading(false);
       }
     },
-    [deviceStatus, retryCount, addNotification]
+    [user, deviceStatus, retryCount, addNotification]
   );
 
   useEffect(() => {
-    fetchDashboardStats();
-  }, [fetchDashboardStats]);
+    if (user) {
+      fetchDashboardStats();
+    } else {
+      setLoading(false);
+    }
+  }, [user, fetchDashboardStats]);
 
   // Fetch analytics data
   const fetchAnalytics = async (period: string = "7d") => {
