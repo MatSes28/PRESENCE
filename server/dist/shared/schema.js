@@ -173,6 +173,40 @@ export const emailNotifications = pgTable("email_notifications", {
     message: text("message"),
     isActive: boolean("is_active").default(true).notNull(),
 });
+export const subjectSessions = pgTable("subject_sessions", {
+    id: serial("id").primaryKey(),
+    subjectId: integer("subject_id")
+        .references(() => subjects.id)
+        .notNull(),
+    classroomId: integer("classroom_id")
+        .references(() => classrooms.id)
+        .notNull(),
+    facultyId: integer("faculty_id")
+        .references(() => users.id)
+        .notNull(),
+    sessionDate: timestamp("session_date").notNull(),
+    layoutConfig: jsonb("layout_config"),
+    status: varchar("status", { length: 20 }).default("active").notNull(),
+    notes: text("notes"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export const sessionAssignments = pgTable("session_assignments", {
+    id: serial("id").primaryKey(),
+    sessionId: integer("session_id")
+        .references(() => subjectSessions.id)
+        .notNull(),
+    computerId: integer("computer_id")
+        .references(() => computers.id)
+        .notNull(),
+    studentId: integer("student_id").references(() => students.id),
+    assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+    releasedAt: timestamp("released_at"),
+    status: varchar("status", { length: 20 }).default("assigned").notNull(),
+    notes: text("notes"),
+    isActive: boolean("is_active").default(true).notNull(),
+});
 export const usersRelations = relations(users, ({ many }) => ({
     schedules: many(schedules),
 }));
@@ -270,5 +304,34 @@ export const emailNotificationsRelations = relations(emailNotifications, ({ one 
     classSession: one(classSessions, {
         fields: [emailNotifications.classSessionId],
         references: [classSessions.id],
+    }),
+}));
+export const subjectSessionsRelations = relations(subjectSessions, ({ one, many }) => ({
+    subject: one(subjects, {
+        fields: [subjectSessions.subjectId],
+        references: [subjects.id],
+    }),
+    classroom: one(classrooms, {
+        fields: [subjectSessions.classroomId],
+        references: [classrooms.id],
+    }),
+    faculty: one(users, {
+        fields: [subjectSessions.facultyId],
+        references: [users.id],
+    }),
+    assignments: many(sessionAssignments),
+}));
+export const sessionAssignmentsRelations = relations(sessionAssignments, ({ one }) => ({
+    session: one(subjectSessions, {
+        fields: [sessionAssignments.sessionId],
+        references: [subjectSessions.id],
+    }),
+    computer: one(computers, {
+        fields: [sessionAssignments.computerId],
+        references: [computers.id],
+    }),
+    student: one(students, {
+        fields: [sessionAssignments.studentId],
+        references: [students.id],
     }),
 }));

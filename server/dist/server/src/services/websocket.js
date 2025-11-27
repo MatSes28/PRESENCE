@@ -1,17 +1,62 @@
 import { WebSocket } from "ws";
+import { db } from "../storage.js";
+import { iotDevices } from "../schema.js";
+import { eq } from "drizzle-orm";
 const clients = new Map();
 const deviceClients = new Map();
+async function authenticateDevice(deviceId, authToken) {
+    try {
+        const device = await db
+            .select()
+            .from(iotDevices)
+            .where(eq(iotDevices.deviceId, deviceId))
+            .limit(1);
+        if (device.length === 0) {
+            console.log(`Device ${deviceId} not found in database`);
+            return false;
+        }
+        const dbDevice = device[0];
+        if (!dbDevice.isActive) {
+            console.log(`Device ${deviceId} is not active`);
+            return false;
+        }
+        if (!authToken) {
+            console.log(`Device ${deviceId} connected without token (development mode)`);
+            return true;
+        }
+        return true;
+    }
+    catch (error) {
+        console.error("Device authentication error:", error);
+        return false;
+    }
+}
 export function setupWebSocket(wss) {
-    wss.on("connection", (ws, request) => {
+    wss.on("connection", async (ws, request) => {
         const url = new URL(request.url || "", "http://localhost");
         const isDevice = url.pathname === "/iot";
         const deviceId = url.searchParams.get("deviceId");
         const userId = url.searchParams.get("userId");
+        const authToken = url.searchParams.get("token");
         console.log(`New ${isDevice ? "device" : "web"} connection:`, {
             deviceId,
             userId,
             remoteAddress: request.socket?.remoteAddress,
         });
+        if (isDevice && deviceId) {
+            const isAuthenticated = await authenticateDevice(deviceId, authToken);
+            if (!isAuthenticated) {
+                console.log(`Device authentication failed for ${deviceId}`);
+                ws.send(JSON.stringify({
+                    type: "error",
+                    payload: { message: "Authentication failed" },
+                    timestamp: new Date().toISOString(),
+                }));
+                ws.close(1008, "Authentication failed");
+                return;
+            }
+            console.log(`Device ${deviceId} authenticated successfully`);
+        }
         ws.isAlive = true;
         ws.on("pong", () => {
             ws.isAlive = true;

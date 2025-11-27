@@ -221,7 +221,7 @@ class SmartAssignmentService {
           student,
           computer,
           criteria,
-          assignedComputers
+          assignedStudents
         );
 
         if (score.score > bestScore) {

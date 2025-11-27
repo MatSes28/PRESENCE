@@ -214,16 +214,6 @@ class SessionManager {
     startDate?: Date,
     endDate?: Date
   ): Promise<any> {
-    let query = db
-      .select({
-        session: classSessions,
-        schedule: schedules,
-        subject: subjects,
-      })
-      .from(classSessions)
-      .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
-      .innerJoin(subjects, eq(schedules.subjectId, subjects.id));
-
     const conditions = [];
 
     if (facultyId) {
@@ -238,11 +228,16 @@ class SessionManager {
       conditions.push(lte(classSessions.date, endDate));
     }
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    const sessions = await query;
+    const sessions = await db
+      .select({
+        session: classSessions,
+        schedule: schedules,
+        subject: subjects,
+      })
+      .from(classSessions)
+      .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+      .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined);
 
     return {
       totalSessions: sessions.length,
