@@ -1,0 +1,153 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    # Warm-up phase
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm-up"
+
+    # Normal load
+    - duration: 300
+      arrivalRate: 20
+      name: "Normal Load"
+
+    # Peak load
+    - duration: 120
+      arrivalRate: 50
+      name: "Peak Load"
+
+    # Stress test
+    - duration: 60
+      arrivalRate: 100
+      name: "Stress Test"
+
+    # Recovery
+    - duration: 60
+      arrivalRate: 10
+      name: "Recovery"
+
+  defaults:
+    headers:
+      Authorization: "Bearer test-token"
+      Content-Type: "application/json"
+
+scenarios:
+  # Authentication scenarios
+  - name: "User Login"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "test@example.com"
+            password: "password123"
+          expect:
+            - statusCode: 200
+            - hasProperty: "token"
+
+  # Dashboard access
+  - name: "Dashboard Access"
+    weight: 25
+    flow:
+      - get:
+          url: "/api/dashboard/stats"
+          expect:
+            - statusCode: 200
+            - hasProperty: "data"
+
+  # Attendance operations
+  - name: "Get Attendance Records"
+    weight: 20
+    flow:
+      - get:
+          url: "/api/attendance?limit=10"
+          expect:
+            - statusCode: 200
+            - hasProperty: "records"
+
+  - name: "Manual Attendance Entry"
+    weight: 15
+    flow:
+      - post:
+          url: "/api/attendance/manual"
+          json:
+            studentId: 1
+            classSessionId: 1
+            entryTime: "{{ $isoTimestamp }}"
+            notes: "Load test entry"
+          expect:
+            - statusCode: 201
+
+  # RFID Simulation
+  - name: "RFID Scan Simulation"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/attendance/simulate-rfid"
+          json:
+            rfidUid: "LOAD{{ $randomInt }}{{ $randomInt }}"
+          expect:
+            - statusCode: 200
+
+  # Student management
+  - name: "Get Students"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/students?limit=20"
+          expect:
+            - statusCode: 200
+            - hasProperty: "students"
+
+  # Schedule management
+  - name: "Get Schedules"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/schedules"
+          expect:
+            - statusCode: 200
+            - hasProperty: "schedules"
+
+  # Health check
+  - name: "Health Check"
+    weight: 5
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+            - hasProperty: "status"
+
+# Environment variables for different test environments
+environments:
+  local:
+    target: "http://localhost:3000"
+    variables:
+      testUser: "test@example.com"
+
+  staging:
+    target: "https://api-staging.clirdec.edu"
+    variables:
+      testUser: "staging@example.com"
+
+  production:
+    target: "https://api.clirdec.edu"
+    variables:
+      testUser: "prod@example.com"
+
+# Plugins for enhanced reporting
+plugins:
+  ensure:
+    - selector: "count>0"
+      value: 1
+  metrics-by-endpoint: {}
+  apdex:
+    threshold: 500
+  hls:
+    buckets: 10
+  response-times:
+    percentiles:
+      - 50
+      - 95
+      - 99
