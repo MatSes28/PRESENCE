@@ -129,13 +129,6 @@ export const errorHandler = (
     case "warn":
       monitoringService.logWarning(error.message, errorContext, errorMetadata);
       break;
-    case "info":
-      monitoringService.logInfo(
-        `Info: ${error.message}`,
-        errorContext,
-        errorMetadata
-      );
-      break;
   }
 
   // Send error response
