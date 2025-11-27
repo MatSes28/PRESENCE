@@ -87,6 +87,19 @@ export const schedules = pgTable("schedules", {
   endTime: varchar("end_time", { length: 10 }).notNull(),
   semester: varchar("semester", { length: 50 }).notNull(),
   academicYear: varchar("academic_year", { length: 20 }).notNull(),
+  // Recurring schedule fields
+  isRecurring: boolean("is_recurring").default(false).notNull(),
+  recurrencePattern: varchar("recurrence_pattern", { length: 20 }), // weekly, biweekly, monthly
+  recurrenceEndDate: timestamp("recurrence_end_date"),
+  recurrenceExceptions: jsonb("recurrence_exceptions"), // Dates to skip
+  // Conflict resolution
+  conflictResolutionPriority: integer("conflict_resolution_priority")
+    .default(1)
+    .notNull(), // 1-10, higher = more important
+  allowRoomChange: boolean("allow_room_change").default(false).notNull(),
+  allowTimeAdjustment: boolean("allow_time_adjustment")
+    .default(false)
+    .notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

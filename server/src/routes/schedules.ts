@@ -5,6 +5,7 @@ import { eq, desc, and, sql } from "drizzle-orm";
 import multer from "multer";
 import csv from "csv-parser";
 import { Readable } from "stream";
+import { scheduleManagerService } from "../services/scheduleManager.js";
 
 const router = Router();
 
@@ -90,10 +91,17 @@ router.post("/", async (req, res) => {
       endTime,
       semester,
       academicYear,
+      isRecurring,
+      recurrencePattern,
+      recurrenceEndDate,
+      conflictResolutionPriority,
+      allowRoomChange,
+      allowTimeAdjustment,
     } = req.body;
-    const newSchedule = await db
-      .insert(schedules)
-      .values({
+
+    if (isRecurring) {
+      // Create recurring schedule with automatic conflict resolution
+      const scheduleId = await scheduleManagerService.createRecurringSchedule({
         subjectId,
         classroomId,
         facultyId,
@@ -102,9 +110,41 @@ router.post("/", async (req, res) => {
         endTime,
         semester,
         academicYear,
-      })
-      .returning();
-    res.status(201).json(newSchedule[0]);
+        recurrencePattern,
+        recurrenceEndDate: new Date(recurrenceEndDate),
+        conflictResolutionPriority,
+        allowRoomChange,
+        allowTimeAdjustment,
+      });
+
+      const createdSchedule = await db
+        .select()
+        .from(schedules)
+        .where(eq(schedules.id, scheduleId))
+        .limit(1);
+
+      res.status(201).json(createdSchedule[0]);
+    } else {
+      // Create regular schedule
+      const newSchedule = await db
+        .insert(schedules)
+        .values({
+          subjectId,
+          classroomId,
+          facultyId,
+          dayOfWeek,
+          startTime,
+          endTime,
+          semester,
+          academicYear,
+          isRecurring: false,
+          conflictResolutionPriority: conflictResolutionPriority || 1,
+          allowRoomChange: allowRoomChange || false,
+          allowTimeAdjustment: allowTimeAdjustment || false,
+        })
+        .returning();
+      res.status(201).json(newSchedule[0]);
+    }
   } catch (error) {
     console.error("Error creating schedule:", error);
     res.status(500).json({ error: "Failed to create schedule" });
