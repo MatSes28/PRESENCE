@@ -3,6 +3,21 @@ import { useState, useEffect } from "react";
 import { getWebSocketClient } from "../lib/websocket";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 // Enhanced Dashboard with Statistics Cards and Tabs
 // Main Dashboard interface with comprehensive management features
@@ -40,6 +55,9 @@ export const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [showSessionModal, setShowSessionModal] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState("7d");
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [availableSchedules, setAvailableSchedules] = useState<any[]>([]);
   const [sessionFormData, setSessionFormData] = useState({
     scheduleId: "",
@@ -94,6 +112,28 @@ export const Dashboard = () => {
 
     fetchDashboardStats();
   }, [deviceStatus]);
+
+  // Fetch analytics data
+  const fetchAnalytics = async (period: string = "7d") => {
+    try {
+      setAnalyticsLoading(true);
+      const response = await api.getAnalytics(period);
+      if (response.success && response.data) {
+        setAnalyticsData(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch analytics:", error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  // Load analytics when Analytics tab is selected
+  useEffect(() => {
+    if (activeTab === "analytics" && !analyticsData) {
+      fetchAnalytics(analyticsPeriod);
+    }
+  }, [activeTab, analyticsData, analyticsPeriod]);
 
   // Fetch available schedules for session management
   const fetchAvailableSchedules = async () => {
@@ -519,163 +559,194 @@ export const Dashboard = () => {
   // Analytics Tab Content
   const analyticsContent = (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-          <h4 className="text-lg font-medium text-cyan-400 mb-4">
-            Attendance Trends
-          </h4>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-300">This Week</span>
-              <span className="text-green-400">
-                +{Math.round(Math.random() * 20)}%
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">This Month</span>
-              <span className="text-green-400">
-                +{Math.round(Math.random() * 15)}%
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">This Semester</span>
-              <span className="text-green-400">
-                +{Math.round(Math.random() * 25)}%
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-          <h4 className="text-lg font-medium text-cyan-400 mb-4">Peak Hours</h4>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-300">8:00 AM - 10:00 AM</span>
-              <span className="text-white">
-                {Math.round(75 + Math.random() * 20)}%
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">10:00 AM - 12:00 PM</span>
-              <span className="text-white">
-                {Math.round(70 + Math.random() * 25)}%
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">1:00 PM - 3:00 PM</span>
-              <span className="text-white">
-                {Math.round(80 + Math.random() * 15)}%
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-          <h4 className="text-lg font-medium text-cyan-400 mb-4">
-            Device Performance
-          </h4>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-300">RFID Readers</span>
-              <span className="text-green-400">
-                {(95 + Math.random() * 5).toFixed(1)}%
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Sensors</span>
-              <span className="text-yellow-400">
-                {(90 + Math.random() * 8).toFixed(1)}%
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Network</span>
-              <span className="text-green-400">
-                {(97 + Math.random() * 3).toFixed(1)}%
-              </span>
-            </div>
-          </div>
+      {/* Period Selector */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium text-white">Analytics Dashboard</h3>
+        <div className="flex space-x-2">
+          {["7d", "30d", "90d"].map((period) => (
+            <button
+              key={period}
+              onClick={() => {
+                setAnalyticsPeriod(period);
+                fetchAnalytics(period);
+              }}
+              className={`px-3 py-1 text-sm rounded ${
+                analyticsPeriod === period
+                  ? "bg-cyan-600 text-white"
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              }`}
+            >
+              {period === "7d"
+                ? "7 Days"
+                : period === "30d"
+                ? "30 Days"
+                : "90 Days"}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-        <h4 className="text-lg font-medium text-cyan-400 mb-4">
-          Weekly Attendance Chart
-        </h4>
-        <div className="h-64 flex items-end justify-between space-x-2">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
-            (day, index) => {
-              const attendance = Math.floor(60 + Math.random() * 40); // 60-100%
-              return (
-                <div key={day} className="flex-1 flex flex-col items-center">
-                  <div
-                    className="bg-cyan-600 w-full rounded-t relative"
-                    style={{ height: `${attendance * 2.5}px` }}
-                  >
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs text-white font-medium">
-                      {attendance}%
+      {analyticsLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
+        </div>
+      ) : analyticsData ? (
+        <>
+          {/* Daily Attendance Trends Chart */}
+          <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+            <h4 className="text-lg font-medium text-cyan-400 mb-4">
+              Daily Attendance Trends
+            </h4>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={analyticsData.dailyTrends}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis
+                  dataKey="date"
+                  stroke="#9CA3AF"
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) =>
+                    new Date(value).toLocaleDateString()
+                  }
+                />
+                <YAxis stroke="#9CA3AF" tick={{ fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1F2937",
+                    border: "1px solid #374151",
+                    borderRadius: "0.5rem",
+                  }}
+                  labelFormatter={(value) =>
+                    new Date(value).toLocaleDateString()
+                  }
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="present"
+                  stroke="#10B981"
+                  strokeWidth={2}
+                  name="Present"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="absent"
+                  stroke="#EF4444"
+                  strokeWidth={2}
+                  name="Absent"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="rate"
+                  stroke="#06B6D4"
+                  strokeWidth={2}
+                  name="Attendance Rate (%)"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Hourly Patterns and Subject Performance */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+              <h4 className="text-lg font-medium text-cyan-400 mb-4">
+                Hourly Attendance Patterns
+              </h4>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={analyticsData.hourlyPatterns}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis
+                    dataKey="hour"
+                    stroke="#9CA3AF"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => `${value}:00`}
+                  />
+                  <YAxis stroke="#9CA3AF" tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#1F2937",
+                      border: "1px solid #374151",
+                      borderRadius: "0.5rem",
+                    }}
+                    labelFormatter={(value) => `${value}:00`}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill="#06B6D4"
+                    name="Attendance Events"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+              <h4 className="text-lg font-medium text-cyan-400 mb-4">
+                Subject Performance
+              </h4>
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {analyticsData.subjectPerformance.map(
+                  (subject: any, index: number) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-gray-300 text-sm">
+                        {subject.subject}
+                      </span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-20 bg-gray-700 rounded-full h-2">
+                          <div
+                            className="bg-green-500 h-2 rounded-full"
+                            style={{ width: `${subject.rate}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm text-white w-10 text-right">
+                          {subject.rate}%
+                        </span>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Faculty Performance */}
+          <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+            <h4 className="text-lg font-medium text-cyan-400 mb-4">
+              Faculty Performance
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {analyticsData.facultyPerformance.map(
+                (faculty: any, index: number) => (
+                  <div key={index} className="bg-gray-700 rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-gray-300 text-sm font-medium">
+                        {faculty.faculty}
+                      </span>
+                      <span className="text-cyan-400 text-sm">
+                        {faculty.rate}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-600 rounded-full h-2">
+                      <div
+                        className="bg-cyan-500 h-2 rounded-full"
+                        style={{ width: `${faculty.rate}%` }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {faculty.total} sessions
                     </div>
                   </div>
-                  <span className="text-xs text-gray-400 mt-2">{day}</span>
-                </div>
-              );
-            }
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-          <h4 className="text-lg font-medium text-cyan-400 mb-4">
-            Subject Performance
-          </h4>
-          <div className="space-y-3">
-            {["CS101", "CS201", "IT301", "CS401"].map((subject) => (
-              <div key={subject} className="flex items-center justify-between">
-                <span className="text-gray-300">{subject}</span>
-                <div className="flex items-center space-x-2">
-                  <div className="w-20 bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-green-500 h-2 rounded-full"
-                      style={{
-                        width: `${Math.floor(70 + Math.random() * 25)}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <span className="text-sm text-white w-10 text-right">
-                    {Math.floor(70 + Math.random() * 25)}%
-                  </span>
-                </div>
-              </div>
-            ))}
+                )
+              )}
+            </div>
           </div>
+        </>
+      ) : (
+        <div className="text-center py-12">
+          <p className="text-gray-400">No analytics data available</p>
         </div>
-
-        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-          <h4 className="text-lg font-medium text-cyan-400 mb-4">
-            Classroom Utilization
-          </h4>
-          <div className="space-y-3">
-            {["Lab 1", "Lab 2", "Room 101", "Room 201"].map((room) => (
-              <div key={room} className="flex items-center justify-between">
-                <span className="text-gray-300">{room}</span>
-                <div className="flex items-center space-x-2">
-                  <div className="w-20 bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-blue-500 h-2 rounded-full"
-                      style={{
-                        width: `${Math.floor(50 + Math.random() * 45)}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <span className="text-sm text-white w-10 text-right">
-                    {Math.floor(50 + Math.random() * 45)}%
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 

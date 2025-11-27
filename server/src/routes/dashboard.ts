@@ -288,4 +288,153 @@ router.get("/sessions/active", requireAuth, async (req, res) => {
   }
 });
 
+// Get analytics data for charts and trends
+router.get("/analytics", requireAuth, async (req, res) => {
+  try {
+    const { period = "7d" } = req.query;
+
+    // Calculate date range
+    const endDate = new Date();
+    const startDate = new Date();
+
+    switch (period) {
+      case "7d":
+        startDate.setDate(endDate.getDate() - 7);
+        break;
+      case "30d":
+        startDate.setDate(endDate.getDate() - 30);
+        break;
+      case "90d":
+        startDate.setDate(endDate.getDate() - 90);
+        break;
+      default:
+        startDate.setDate(endDate.getDate() - 7);
+    }
+
+    // Daily attendance trends
+    const dailyAttendance = await db
+      .select({
+        date: sql<string>`DATE(${attendanceRecords.createdAt})`,
+        present: sql<number>`COUNT(CASE WHEN ${attendanceRecords.isValid} = true THEN 1 END)`,
+        absent: sql<number>`COUNT(CASE WHEN ${attendanceRecords.isValid} = false THEN 1 END)`,
+        total: sql<number>`COUNT(*)`,
+      })
+      .from(attendanceRecords)
+      .where(
+        and(
+          gte(attendanceRecords.createdAt, startDate),
+          lte(attendanceRecords.createdAt, endDate)
+        )
+      )
+      .groupBy(sql`DATE(${attendanceRecords.createdAt})`)
+      .orderBy(sql`DATE(${attendanceRecords.createdAt})`);
+
+    // Hourly attendance patterns
+    const hourlyPatterns = await db
+      .select({
+        hour: sql<number>`EXTRACT(HOUR FROM ${attendanceRecords.createdAt})`,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(attendanceRecords)
+      .where(
+        and(
+          gte(attendanceRecords.createdAt, startDate),
+          lte(attendanceRecords.createdAt, endDate)
+        )
+      )
+      .groupBy(sql`EXTRACT(HOUR FROM ${attendanceRecords.createdAt})`)
+      .orderBy(sql`EXTRACT(HOUR FROM ${attendanceRecords.createdAt})`);
+
+    // Subject-wise attendance
+    const subjectAttendance = await db
+      .select({
+        subjectName: subjects.name,
+        present: sql<number>`COUNT(CASE WHEN ${attendanceRecords.isValid} = true THEN 1 END)`,
+        total: sql<number>`COUNT(*)`,
+      })
+      .from(attendanceRecords)
+      .innerJoin(
+        classSessions,
+        eq(attendanceRecords.classSessionId, classSessions.id)
+      )
+      .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+      .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
+      .where(
+        and(
+          gte(attendanceRecords.createdAt, startDate),
+          lte(attendanceRecords.createdAt, endDate)
+        )
+      )
+      .groupBy(subjects.name)
+      .orderBy(desc(sql<number>`COUNT(*)`))
+      .limit(10);
+
+    // Faculty performance
+    const facultyPerformance = await db
+      .select({
+        facultyName: users.name,
+        present: sql<number>`COUNT(CASE WHEN ${attendanceRecords.isValid} = true THEN 1 END)`,
+        total: sql<number>`COUNT(*)`,
+      })
+      .from(attendanceRecords)
+      .innerJoin(
+        classSessions,
+        eq(attendanceRecords.classSessionId, classSessions.id)
+      )
+      .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+      .innerJoin(users, eq(schedules.facultyId, users.id))
+      .where(
+        and(
+          gte(attendanceRecords.createdAt, startDate),
+          lte(attendanceRecords.createdAt, endDate)
+        )
+      )
+      .groupBy(users.name)
+      .orderBy(desc(sql<number>`COUNT(*)`))
+      .limit(10);
+
+    // Calculate attendance rates
+    const analytics = {
+      dailyTrends: dailyAttendance.map((day) => ({
+        date: day.date,
+        present: day.present,
+        absent: day.absent,
+        rate: day.total > 0 ? Math.round((day.present / day.total) * 100) : 0,
+      })),
+      hourlyPatterns: hourlyPatterns.map((hour) => ({
+        hour: hour.hour,
+        count: hour.count,
+      })),
+      subjectPerformance: subjectAttendance.map((subject) => ({
+        subject: subject.subjectName,
+        rate:
+          subject.total > 0
+            ? Math.round((subject.present / subject.total) * 100)
+            : 0,
+        total: subject.total,
+      })),
+      facultyPerformance: facultyPerformance.map((faculty) => ({
+        faculty: faculty.facultyName,
+        rate:
+          faculty.total > 0
+            ? Math.round((faculty.present / faculty.total) * 100)
+            : 0,
+        total: faculty.total,
+      })),
+      period,
+    };
+
+    res.json({
+      success: true,
+      data: analytics,
+    });
+  } catch (error) {
+    console.error("Analytics error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch analytics data",
+    });
+  }
+});
+
 export default router;

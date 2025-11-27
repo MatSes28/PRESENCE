@@ -31,6 +31,11 @@ export const LiveAttendance = () => {
     discrepancies: 0,
     activeDevices: 0,
   });
+  const [showExcuseModal, setShowExcuseModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
+  const [excuseReason, setExcuseReason] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualEntryData, setManualEntryData] = useState({
     studentId: "",
@@ -145,9 +150,7 @@ export const LiveAttendance = () => {
     if (!rfidInput.trim()) return;
 
     try {
-      const response = await api.post("/attendance/simulate-rfid", {
-        rfidUid: rfidInput.trim(),
-      });
+      const response = await api.simulateRFID(rfidInput.trim());
 
       if (response.success) {
         setRfidInput("");
@@ -157,6 +160,20 @@ export const LiveAttendance = () => {
       }
     } catch (error) {
       console.error("Failed to simulate RFID tap:", error);
+    }
+  };
+
+  const simulateSensorTrigger = async (sensorType: "entry" | "exit") => {
+    try {
+      const response = await api.simulateSensor(sensorType, 50);
+
+      if (response.success) {
+        // The WebSocket will handle updating the UI
+      } else {
+        console.error("Sensor simulation failed:", response.message);
+      }
+    } catch (error) {
+      console.error("Failed to simulate sensor trigger:", error);
     }
   };
 
@@ -171,39 +188,87 @@ export const LiveAttendance = () => {
     }
   };
 
-  const handleAttendanceAction = async (action: string, studentId: number) => {
+  const handleExcuseAttendance = async () => {
+    if (!selectedRecord || !excuseReason.trim()) return;
+
     try {
-      switch (action) {
-        case "excuse":
-          // Mark as excused (placeholder - would update attendance record)
-          addNotification({
-            type: "success",
-            title: "Student Excused",
-            message: "Student has been marked as excused.",
-          });
-          break;
-        case "contact":
-          // Send notification to parent (placeholder - would send email/SMS)
-          addNotification({
-            type: "info",
-            title: "Parent Contacted",
-            message: "Notification sent to student's parent.",
-          });
-          break;
-        case "monitor":
-          // Open monitoring view for this student
-          setLocation(`/students/${studentId}`);
-          break;
+      const response = await api.excuseAttendance(
+        selectedRecord.id,
+        excuseReason
+      );
+      if (response.success) {
+        setShowExcuseModal(false);
+        setExcuseReason("");
+        setSelectedRecord(null);
+        refreshAttendanceData();
+        addNotification({
+          type: "success",
+          title: "Student Excused",
+          message: "Student has been marked as excused.",
+        });
+      } else {
+        console.error("Failed to excuse attendance:", response.message);
+        addNotification({
+          type: "error",
+          title: "Excuse Failed",
+          message: response.message || "Failed to excuse student",
+        });
       }
-      refreshAttendanceData();
     } catch (error) {
-      console.error(`Failed to ${action} student:`, error);
+      console.error("Failed to excuse attendance:", error);
       addNotification({
         type: "error",
-        title: "Action Failed",
-        message: `Failed to ${action} student. Please try again.`,
+        title: "Network Error",
+        message: "Failed to excuse student. Please try again.",
       });
     }
+  };
+
+  const handleContactParent = async () => {
+    if (!selectedRecord || !contactMessage.trim()) return;
+
+    try {
+      const response = await api.contactParent(
+        selectedRecord.student?.id,
+        contactMessage
+      );
+      if (response.success) {
+        setShowContactModal(false);
+        setContactMessage("");
+        setSelectedRecord(null);
+        addNotification({
+          type: "success",
+          title: "Parent Contacted",
+          message: "Notification sent to student's parent.",
+        });
+      } else {
+        console.error("Failed to contact parent:", response.message);
+        addNotification({
+          type: "error",
+          title: "Contact Failed",
+          message: response.message || "Failed to contact parent",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to contact parent:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message: "Failed to contact parent. Please try again.",
+      });
+    }
+  };
+
+  const openExcuseModal = (record: any) => {
+    setSelectedRecord(record);
+    setExcuseReason("");
+    setShowExcuseModal(true);
+  };
+
+  const openContactModal = (record: any) => {
+    setSelectedRecord(record);
+    setContactMessage("");
+    setShowContactModal(true);
   };
 
   // Add notification helper
@@ -370,20 +435,36 @@ export const LiveAttendance = () => {
         <h4 className="text-lg font-medium text-cyan-400 mb-4">
           RFID Scanner Simulation
         </h4>
-        <div className="flex space-x-4">
-          <input
-            type="text"
-            value={rfidInput}
-            onChange={(e) => setRfidInput(e.target.value)}
-            placeholder="Enter RFID card ID"
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
-          />
-          <button
-            onClick={simulateRfidTap}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg"
-          >
-            Simulate Tap
-          </button>
+        <div className="space-y-4">
+          <div className="flex space-x-4">
+            <input
+              type="text"
+              value={rfidInput}
+              onChange={(e) => setRfidInput(e.target.value)}
+              placeholder="Enter RFID card ID"
+              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+            />
+            <button
+              onClick={simulateRfidTap}
+              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg"
+            >
+              Simulate RFID Tap
+            </button>
+          </div>
+          <div className="flex space-x-4">
+            <button
+              onClick={() => simulateSensorTrigger("entry")}
+              className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg"
+            >
+              Simulate Entry Sensor
+            </button>
+            <button
+              onClick={() => simulateSensorTrigger("exit")}
+              className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg"
+            >
+              Simulate Exit Sensor
+            </button>
+          </div>
         </div>
       </div>
 
@@ -484,10 +565,7 @@ export const LiveAttendance = () => {
                           {record.status === "present" && (
                             <button
                               onClick={() =>
-                                handleAttendanceAction(
-                                  "monitor",
-                                  record.student?.id || 0
-                                )
+                                setLocation(`/students/${record.student?.id}`)
                               }
                               className="text-cyan-400 hover:text-cyan-300"
                             >
@@ -497,23 +575,13 @@ export const LiveAttendance = () => {
                           {record.status === "absent" && (
                             <>
                               <button
-                                onClick={() =>
-                                  handleAttendanceAction(
-                                    "excuse",
-                                    record.student?.id || 0
-                                  )
-                                }
+                                onClick={() => openExcuseModal(record)}
                                 className="text-blue-400 hover:text-blue-300"
                               >
                                 Excuse
                               </button>
                               <button
-                                onClick={() =>
-                                  handleAttendanceAction(
-                                    "contact",
-                                    record.student?.id || 0
-                                  )
-                                }
+                                onClick={() => openContactModal(record)}
                                 className="text-gray-400 hover:text-gray-300"
                               >
                                 Contact
@@ -814,6 +882,112 @@ export const LiveAttendance = () => {
                 className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
               >
                 Record Attendance
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Excuse Modal */}
+      {showExcuseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+            <h3 className="text-lg font-medium text-cyan-400 mb-4">
+              Excuse Student Absence
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-300 mb-2">
+                  Student:{" "}
+                  <span className="text-white">
+                    {selectedRecord?.student?.name}
+                  </span>
+                </p>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Reason for Excuse *
+                </label>
+                <textarea
+                  value={excuseReason}
+                  onChange={(e) => setExcuseReason(e.target.value)}
+                  placeholder="Enter reason for excusing the absence..."
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowExcuseModal(false);
+                  setExcuseReason("");
+                  setSelectedRecord(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExcuseAttendance}
+                disabled={!excuseReason.trim()}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:cursor-not-allowed"
+              >
+                Excuse Student
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Modal */}
+      {showContactModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+            <h3 className="text-lg font-medium text-cyan-400 mb-4">
+              Contact Parent
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-300 mb-2">
+                  Student:{" "}
+                  <span className="text-white">
+                    {selectedRecord?.student?.name}
+                  </span>
+                </p>
+                <p className="text-sm text-gray-300 mb-2">
+                  Parent Email:{" "}
+                  <span className="text-white">
+                    {selectedRecord?.student?.parentEmail}
+                  </span>
+                </p>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Message *
+                </label>
+                <textarea
+                  value={contactMessage}
+                  onChange={(e) => setContactMessage(e.target.value)}
+                  placeholder="Enter message to send to parent..."
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  rows={4}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowContactModal(false);
+                  setContactMessage("");
+                  setSelectedRecord(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleContactParent}
+                disabled={!contactMessage.trim()}
+                className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:cursor-not-allowed"
+              >
+                Send Message
               </button>
             </div>
           </div>

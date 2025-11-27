@@ -343,6 +343,34 @@ class ApiClient {
     });
   }
 
+  async simulateRFID(rfidUid: string) {
+    return this.request("/attendance/simulate-rfid", {
+      method: "POST",
+      body: JSON.stringify({ rfidUid }),
+    });
+  }
+
+  async simulateSensor(sensorType: "entry" | "exit", distance?: number) {
+    return this.request("/attendance/simulate-sensor", {
+      method: "POST",
+      body: JSON.stringify({ sensorType, distance }),
+    });
+  }
+
+  async excuseAttendance(recordId: number, reason: string) {
+    return this.request(`/attendance/${recordId}/excuse`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async contactParent(studentId: number, message: string) {
+    return this.request(`/students/${studentId}/contact`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    });
+  }
+
   // Attendance endpoints
   async getAttendanceRecords(params?: {
     studentId?: number;
@@ -560,6 +588,11 @@ class ApiClient {
   }) {
     const query = params ? `?${new URLSearchParams(params as any)}` : "";
     return this.request(`/ai-analytics/seating-effectiveness${query}`);
+  }
+
+  // Dashboard analytics
+  async getAnalytics(period: string = "7d") {
+    return this.request(`/dashboard/analytics?period=${period}`);
   }
 }
 
