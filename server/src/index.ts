@@ -28,6 +28,12 @@ import {
 } from "./middleware/rateLimit.js";
 import { cacheService } from "./services/cacheService.js";
 import {
+  errorHandler,
+  requestIdMiddleware,
+  notFoundHandler,
+  asyncHandler,
+} from "./middleware/errorHandler.js";
+import {
   users,
   students,
   classrooms,
@@ -84,6 +90,9 @@ app.get("/", (req, res) => {
     `);
   }
 });
+
+// Request ID middleware (must be first)
+app.use(requestIdMiddleware);
 
 // Security middleware
 app.use(helmet());
@@ -169,6 +178,10 @@ app.use(express.static(publicPath));
 
 // Routes
 app.use("/api", routes);
+
+// Error handling middleware (must be last)
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // Removed specific routes for client-side navigation - let React handle routing
 

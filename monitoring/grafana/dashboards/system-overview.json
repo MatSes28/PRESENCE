@@ -1,0 +1,316 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "CLIRDEC Presence System - Overview",
+    "tags": ["presence", "system", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "System Health Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "presence_system_status",
+            "legendFormat": "System Status"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "text": "HEALTHY",
+                    "color": "green"
+                  },
+                  "1": {
+                    "text": "DEGRADED",
+                    "color": "orange"
+                  },
+                  "2": {
+                    "text": "UNHEALTHY",
+                    "color": "red"
+                  }
+                },
+                "type": "value"
+              }
+            ]
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "CPU Usage",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "presence_system_cpu_usage",
+            "legendFormat": "CPU Usage %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 70
+                },
+                {
+                  "color": "red",
+                  "value": 90
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 6,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "Memory Usage",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "presence_system_memory_usage",
+            "legendFormat": "Memory Usage %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 80
+                },
+                {
+                  "color": "red",
+                  "value": 90
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 12,
+          "y": 0
+        }
+      },
+      {
+        "id": 4,
+        "title": "Application Uptime",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "presence_uptime_seconds / 3600",
+            "legendFormat": "Uptime (hours)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "h",
+            "decimals": 1
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 18,
+          "y": 0
+        }
+      },
+      {
+        "id": 5,
+        "title": "System Resources Over Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "presence_system_cpu_usage",
+            "legendFormat": "CPU Usage %"
+          },
+          {
+            "expr": "presence_system_memory_usage",
+            "legendFormat": "Memory Usage %"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 4
+        }
+      },
+      {
+        "id": 6,
+        "title": "HTTP Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 4
+        }
+      },
+      {
+        "id": 7,
+        "title": "Database Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pg_stat_activity_count",
+            "legendFormat": "Active Connections"
+          }
+        ],
+        "gridPos": {
+          "h": 6,
+          "w": 8,
+          "x": 0,
+          "y": 12
+        }
+      },
+      {
+        "id": 8,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"5..\"}[5m]) / rate(http_requests_total[5m]) * 100",
+            "legendFormat": "Error Rate %"
+          }
+        ],
+        "gridPos": {
+          "h": 6,
+          "w": 8,
+          "x": 8,
+          "y": 12
+        }
+      },
+      {
+        "id": 9,
+        "title": "Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "50th percentile"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        },
+        "gridPos": {
+          "h": 6,
+          "w": 8,
+          "x": 16,
+          "y": 12
+        }
+      },
+      {
+        "id": 10,
+        "title": "Business Metrics",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "attendance_records_created_total",
+            "legendFormat": "Attendance Records"
+          },
+          {
+            "expr": "rfid_scans_processed_total",
+            "legendFormat": "RFID Scans"
+          },
+          {
+            "expr": "active_users_current",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "gridPos": {
+          "h": 6,
+          "w": 12,
+          "x": 0,
+          "y": 18
+        }
+      },
+      {
+        "id": 11,
+        "title": "System Load Average",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "node_load1",
+            "legendFormat": "1m load"
+          },
+          {
+            "expr": "node_load5",
+            "legendFormat": "5m load"
+          },
+          {
+            "expr": "node_load15",
+            "legendFormat": "15m load"
+          }
+        ],
+        "gridPos": {
+          "h": 6,
+          "w": 12,
+          "x": 12,
+          "y": 18
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {},
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": []
+    },
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 0,
+    "links": []
+  }
+}

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { monitoringService } from "./services/monitoringService.js";
 import authRoutes from "./routes/auth.js";
 import studentRoutes from "./routes/students.js";
 import attendanceRoutes from "./routes/attendance.js";
@@ -17,21 +18,16 @@ import aiAnalyticsRoutes from "./routes/aiAnalytics.js";
 import mobileRoutes from "./routes/mobile.js";
 import integrationRoutes from "./routes/integrations.js";
 import settingsRoutes from "./routes/settings.js";
+import healthRoutes from "./routes/health.js";
 // Removed audit routes - not in paper scope
 
 const router = Router();
 
-// Health check route
-router.get("/health", async (req, res) => {
-  const healthStatus: any = {
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    database: "unknown", // Database status checked by main health endpoint
-    emailService: process.env.BREVO_API_KEY ? "configured" : "not_configured",
-  };
+// Apply monitoring middleware to all routes
+router.use(monitoringService.createRequestMiddleware());
 
-  res.json(healthStatus);
-});
+// Health and monitoring routes
+router.use("/", healthRoutes);
 
 // Mount route modules
 router.use("/auth", authRoutes);

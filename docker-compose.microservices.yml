@@ -316,6 +316,19 @@ services:
       - "--storage.tsdb.retention.time=200h"
       - "--web.enable-lifecycle"
 
+  alertmanager:
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    networks:
+      - presence-network
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+
   grafana:
     image: grafana/grafana:latest
     ports:
@@ -326,6 +339,7 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     networks:
       - presence-network
     depends_on:
@@ -358,6 +372,7 @@ volumes:
   mqtt-logs:
   prometheus-data:
   grafana-data:
+  alertmanager-data:
 
 networks:
   presence-network:
