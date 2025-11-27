@@ -30,8 +30,15 @@ class CacheService {
   }
 
   private setupEventHandlers(): void {
+    let lastErrorTime = 0;
+    const ERROR_THROTTLE_MS = 30000; // Only log Redis errors once every 30 seconds
+
     this.client.on("error", (err) => {
-      console.error("Redis Client Error:", err);
+      const now = Date.now();
+      if (now - lastErrorTime > ERROR_THROTTLE_MS) {
+        console.warn("Redis Client Error (throttled logging):", err.message);
+        lastErrorTime = now;
+      }
       this.isConnected = false;
     });
 

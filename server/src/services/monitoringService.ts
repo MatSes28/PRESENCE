@@ -364,57 +364,75 @@ class MonitoringService {
   // Collect database performance metrics
   private async collectDatabaseMetrics(): Promise<DatabaseMetrics> {
     try {
-      // Get connection statistics
-      const connectionStats = await db.execute(sql`
-        SELECT
-          count(*) as total_connections,
-          count(case when state = 'active' then 1 end) as active_connections,
-          count(case when state = 'idle' then 1 end) as idle_connections,
-          count(case when waiting = true then 1 end) as waiting_connections
-        FROM pg_stat_activity
-      `);
+      let connStats = {
+        active_connections: 0,
+        idle_connections: 0,
+        total_connections: 0,
+        waiting_connections: 0,
+      };
+      let sizeStats = { database_size: 0, index_size: 0, table_size: 0 };
+      let performance = { cache_hit_ratio: 0, avg_query_time: 0 };
 
-      const connStats = connectionStats[0] as any;
+      // Get connection statistics (may fail if pg_stat_activity is not accessible)
+      try {
+        const connectionStats = await db.execute(sql`
+          SELECT
+            count(*) as total_connections,
+            count(case when state = 'active' then 1 end) as active_connections,
+            count(case when state = 'idle' then 1 end) as idle_connections,
+            count(case when waiting = true then 1 end) as waiting_connections
+          FROM pg_stat_activity
+        `);
+        connStats = connectionStats[0] as any;
+      } catch (error) {
+        // Silently fail if pg_stat_activity is not accessible
+      }
 
       // Get database size information
-      const dbSizeResult = await db.execute(sql`
-        SELECT
-          pg_database_size(current_database()) as database_size,
-          pg_indexes_size(current_database()) as index_size,
-          pg_database_size(current_database()) - pg_indexes_size(current_database()) as table_size
-      `);
+      try {
+        const dbSizeResult = await db.execute(sql`
+          SELECT
+            pg_database_size(current_database()) as database_size,
+            pg_indexes_size(current_database()) as index_size,
+            pg_database_size(current_database()) - pg_indexes_size(current_database()) as table_size
+        `);
+        sizeStats = dbSizeResult[0] as any;
+      } catch (error) {
+        // Silently fail if database size functions are not available
+      }
 
-      const sizeStats = dbSizeResult[0] as any;
-
-      // Get performance statistics
-      const perfStats = await db.execute(sql`
-        SELECT
-          sum(blks_hit) * 100.0 / (sum(blks_hit) + sum(blks_read)) as cache_hit_ratio,
-          avg(total_time / calls) as avg_query_time
-        FROM pg_stat_statements
-        WHERE calls > 0
-      `);
-
-      const performance = perfStats[0] as any;
+      // Get performance statistics (may fail if pg_stat_statements extension is not installed)
+      try {
+        const perfStats = await db.execute(sql`
+          SELECT
+            sum(blks_hit) * 100.0 / (sum(blks_hit) + sum(blks_read)) as cache_hit_ratio,
+            avg(total_time / calls) as avg_query_time
+          FROM pg_stat_statements
+          WHERE calls > 0
+        `);
+        performance = perfStats[0] as any;
+      } catch (error) {
+        // Silently fail if pg_stat_statements is not available
+      }
 
       return {
         timestamp: new Date(),
         connections: {
-          active: parseInt(connStats.active_connections) || 0,
-          idle: parseInt(connStats.idle_connections) || 0,
-          total: parseInt(connStats.total_connections) || 0,
-          waiting: parseInt(connStats.waiting_connections) || 0,
+          active: Number(connStats.active_connections) || 0,
+          idle: Number(connStats.idle_connections) || 0,
+          total: Number(connStats.total_connections) || 0,
+          waiting: Number(connStats.waiting_connections) || 0,
         },
         performance: {
-          cacheHitRatio: parseFloat(performance.cache_hit_ratio) || 0,
-          avgQueryTime: parseFloat(performance.avg_query_time) || 0,
+          cacheHitRatio: Number(performance.cache_hit_ratio) || 0,
+          avgQueryTime: Number(performance.avg_query_time) || 0,
           slowQueries: 0, // Would need additional monitoring
           deadlocks: 0, // Would need additional monitoring
         },
         storage: {
-          databaseSize: parseInt(sizeStats.database_size) || 0,
-          indexSize: parseInt(sizeStats.index_size) || 0,
-          tableSize: parseInt(sizeStats.table_size) || 0,
+          databaseSize: Number(sizeStats.database_size) || 0,
+          indexSize: Number(sizeStats.index_size) || 0,
+          tableSize: Number(sizeStats.table_size) || 0,
         },
       };
     } catch (error) {
@@ -452,16 +470,23 @@ class MonitoringService {
         WHERE rfid_detected = true AND created_at >= NOW() - INTERVAL '1 hour'
       `);
 
-      // Get active users (users who logged in recently)
-      const activeUsersResult = await db.execute(sql`
-        SELECT COUNT(DISTINCT user_id) as count
-        FROM user_sessions
-        WHERE is_active = true AND expires_at > NOW()
-      `);
-
       const attendanceCount = parseInt((attendanceResult[0] as any).count) || 0;
       const rfidCount = parseInt((rfidResult[0] as any).count) || 0;
-      const activeUsers = parseInt((activeUsersResult[0] as any).count) || 0;
+
+      // Get active users (users who logged in recently)
+      // Note: This query may fail if user_sessions table doesn't exist or has different structure
+      let activeUsersCount = 0;
+      try {
+        const activeUsersResult = await db.execute(sql`
+          SELECT COUNT(DISTINCT user_id) as count
+          FROM user_sessions
+          WHERE is_active = true AND expires_at > NOW()
+        `);
+        activeUsersCount = parseInt((activeUsersResult[0] as any).count) || 0;
+      } catch (error) {
+        // Silently fail if table doesn't exist or query fails
+        activeUsersCount = 0;
+      }
 
       return {
         timestamp: new Date(),
@@ -482,7 +507,7 @@ class MonitoringService {
           attendanceRecordsCreated: attendanceCount,
           rfidScansProcessed: rfidCount,
           notificationsSent: 0, // Would be tracked separately
-          activeUsers: activeUsers,
+          activeUsers: activeUsersCount,
         },
       };
     } catch (error) {
