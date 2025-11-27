@@ -2,11 +2,12 @@ import { Router } from "express";
 import { db } from "../storage.js";
 import { classrooms } from "../schema.js";
 import { eq } from "drizzle-orm";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
 // Get all classrooms
-router.get("/", async (req, res) => {
+router.get("/", requireAuth, async (req, res) => {
   try {
     const allClassrooms = await db.select().from(classrooms);
     res.json(allClassrooms);
@@ -17,7 +18,7 @@ router.get("/", async (req, res) => {
 });
 
 // Get classroom by ID
-router.get("/:id", async (req, res) => {
+router.get("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const classroom = await db
@@ -35,7 +36,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // Create new classroom - Restricted to CLIRDEC Building only
-router.post("/", async (req, res) => {
+router.post("/", requireAdmin, async (req, res) => {
   try {
     const { name, type, capacity } = req.body;
 
@@ -95,7 +96,7 @@ router.post("/", async (req, res) => {
 });
 
 // Update classroom
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, location, capacity } = req.body;
@@ -115,7 +116,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // Delete classroom
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const deletedClassroom = await db

@@ -2,22 +2,12 @@ import { Router } from "express";
 import { db } from "../storage.js";
 import { subjects } from "../schema.js";
 import { eq, desc } from "drizzle-orm";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
-// Middleware to check authentication
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required",
-    });
-  }
-  next();
-};
-
 // Get all subjects
-router.get("/", async (req, res) => {
+router.get("/", requireAuth, async (req, res) => {
   try {
     const allSubjects = await db
       .select()
@@ -38,7 +28,7 @@ router.get("/", async (req, res) => {
 });
 
 // Get subject by ID
-router.get("/:id", async (req, res) => {
+router.get("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const subject = await db

@@ -93,6 +93,13 @@ app.use(limiter);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
+// Import validation middleware
+import { sanitizeInput, preventSQLInjection } from "./middleware/validation.js";
+
+// Global input sanitization and security
+app.use(sanitizeInput);
+app.use(preventSQLInjection);
+
 // Session configuration with PostgreSQL store
 const PgSession = connectPgSimple(session);
 
@@ -102,11 +109,15 @@ app.use(
       conString: process.env.DATABASE_URL,
       tableName: "user_sessions", // Will be created automatically
       createTableIfMissing: true,
+      // Clean up expired sessions every hour
+      pruneSessionInterval: 60 * 60 * 1000, // 1 hour
     }),
     secret:
       process.env.SESSION_SECRET || "fallback-secret-change-in-production",
+    name: "presence.sid", // Change default session name for security
     resave: false,
     saveUninitialized: false,
+    rolling: true, // Reset expiration on activity
     cookie: {
       secure:
         process.env.NODE_ENV === "production" ||
@@ -117,7 +128,8 @@ app.use(
         !!process.env.RAILWAY_ENVIRONMENT
           ? "none"
           : "lax",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 8 * 60 * 60 * 1000, // 8 hours (reduced for security)
+      path: "/",
     },
   })
 );

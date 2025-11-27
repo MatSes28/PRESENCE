@@ -15,6 +15,11 @@ import {
   requireAdmin,
   requireAdminOrFaculty,
 } from "../middleware/auth.js";
+import {
+  sanitizeInput,
+  validateRequest,
+  validationRules,
+} from "../middleware/validation.js";
 import multer from "multer";
 import csv from "csv-parser";
 import { Readable } from "stream";
@@ -123,59 +128,23 @@ router.get("/:id", requireAuth, async (req, res) => {
 });
 
 // Create new student (admin only) - Restricted to BSIT students from DIT under College of Engineering
-router.post("/", requireAdmin, async (req, res) => {
-  try {
-    const {
-      studentId,
-      name,
-      email,
-      year,
-      section,
-      rfidUid,
-      parentEmail,
-      parentName,
-    } = req.body;
-
-    if (!studentId || !name || !parentEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Student ID, name, and parent email are required",
-      });
-    }
-
-    // Check if student ID already exists
-    const existingStudent = await db
-      .select()
-      .from(students)
-      .where(eq(students.studentId, studentId))
-      .limit(1);
-
-    if (existingStudent.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message: "Student ID already exists",
-      });
-    }
-
-    // Check if RFID UID already exists (if provided)
-    if (rfidUid) {
-      const existingRFID = await db
-        .select()
-        .from(students)
-        .where(eq(students.rfidUid, rfidUid))
-        .limit(1);
-
-      if (existingRFID.length > 0) {
-        return res.status(409).json({
-          success: false,
-          message: "RFID UID already exists",
-        });
-      }
-    }
-
-    const [newStudent] = await db
-      .insert(students)
-      .values({
+router.post(
+  "/",
+  requireAdmin,
+  sanitizeInput,
+  validateRequest({
+    studentId: validationRules.studentId,
+    name: validationRules.name,
+    email: (value) => {
+      if (value && !validationRules.email(value)) return null;
+      return validationRules.email(value);
+    },
+    rfidUid: validationRules.rfidUid,
+    parentEmail: validationRules.email,
+  }),
+  async (req, res) => {
+    try {
+      const {
         studentId,
         name,
         email,
@@ -184,22 +153,73 @@ router.post("/", requireAdmin, async (req, res) => {
         rfidUid,
         parentEmail,
         parentName,
-      })
-      .returning();
+      } = req.body;
 
-    res.status(201).json({
-      success: true,
-      message: "Student created successfully",
-      student: newStudent,
-    });
-  } catch (error) {
-    console.error("Create student error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+      if (!studentId || !name || !parentEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Student ID, name, and parent email are required",
+        });
+      }
+
+      // Check if student ID already exists
+      const existingStudent = await db
+        .select()
+        .from(students)
+        .where(eq(students.studentId, studentId))
+        .limit(1);
+
+      if (existingStudent.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: "Student ID already exists",
+        });
+      }
+
+      // Check if RFID UID already exists (if provided)
+      if (rfidUid) {
+        const existingRFID = await db
+          .select()
+          .from(students)
+          .where(eq(students.rfidUid, rfidUid))
+          .limit(1);
+
+        if (existingRFID.length > 0) {
+          return res.status(409).json({
+            success: false,
+            message: "RFID UID already exists",
+          });
+        }
+      }
+
+      const [newStudent] = await db
+        .insert(students)
+        .values({
+          studentId,
+          name,
+          email,
+          year,
+          section,
+          rfidUid,
+          parentEmail,
+          parentName,
+        })
+        .returning();
+
+      res.status(201).json({
+        success: true,
+        message: "Student created successfully",
+        student: newStudent,
+      });
+    } catch (error) {
+      console.error("Create student error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
   }
-});
+);
 
 // Update student (admin only)
 router.put("/:id", requireAdmin, async (req, res) => {

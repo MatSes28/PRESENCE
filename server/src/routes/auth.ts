@@ -5,95 +5,110 @@ import { db } from "../storage.js";
 import { users } from "../schema.js";
 import { eq } from "drizzle-orm";
 import { emailService } from "../services/emailService.js";
+import {
+  sanitizeInput,
+  validateRequest,
+  validationRules,
+  rateLimit,
+} from "../middleware/validation.js";
 
 const router = Router();
 
 // Login route
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
+router.post(
+  "/login",
+  sanitizeInput,
+  validateRequest({
+    email: validationRules.email,
+    password: (value) => {
+      if (!value) return "Password is required";
+      return null; // Don't validate password complexity on login
+    },
+  }),
+  rateLimit(5, 15 * 60 * 1000),
+  async (req, res) => {
+    try {
+      const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required",
-      });
-    }
-
-    // Find user by email
-    const userResult = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-
-    if (userResult.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid credentials",
-      });
-    }
-
-    const user = userResult[0];
-
-    // Verify password
-    console.log(`[AUTH] Attempting login for ${email}`);
-    console.log(`[AUTH] Stored hash: ${user.password}`);
-    const isValidPassword =
-      password === "admin123" ||
-      (await bcrypt.compare(password, user.password));
-    console.log(`[AUTH] Password valid: ${isValidPassword}`);
-    if (!isValidPassword) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid credentials",
-      });
-    }
-
-    // Set session
-    if (req.session) {
-      req.session.userId = user.id;
-      req.session.userRole = user.role;
-
-      // Save session before sending response
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-          return res.status(500).json({
-            success: false,
-            message: "Session save failed",
-          });
-        }
-
-        // Return user info (without password)
-        const { password: _, ...userWithoutPassword } = user;
-
-        // Add name field for frontend compatibility
-        const userWithName = {
-          ...userWithoutPassword,
-          name: user.name,
-        };
-
-        res.json({
-          success: true,
-          message: "Login successful",
-          data: userWithName,
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: "Email and password are required",
         });
-      });
-    } else {
+      }
+
+      // Find user by email
+      const userResult = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      if (userResult.length === 0) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid credentials",
+        });
+      }
+
+      const user = userResult[0];
+
+      // Verify password
+      console.log(`[AUTH] Attempting login for ${email}`);
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      console.log(`[AUTH] Password valid: ${isValidPassword}`);
+      if (!isValidPassword) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid credentials",
+        });
+      }
+
+      // Set session
+      if (req.session) {
+        req.session.userId = user.id;
+        req.session.userRole = user.role;
+
+        // Save session before sending response
+        req.session.save((err) => {
+          if (err) {
+            console.error("Session save error:", err);
+            return res.status(500).json({
+              success: false,
+              message: "Session save failed",
+            });
+          }
+
+          // Return user info (without password)
+          const { password: _, ...userWithoutPassword } = user;
+
+          // Add name field for frontend compatibility
+          const userWithName = {
+            ...userWithoutPassword,
+            name: user.name,
+          };
+
+          res.json({
+            success: true,
+            message: "Login successful",
+            data: userWithName,
+          });
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: "Session not available",
+        });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
       res.status(500).json({
         success: false,
-        message: "Session not available",
+        message: "Internal server error",
       });
     }
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
   }
-});
+);
 
 // Logout route
 router.post("/logout", (req, res) => {
@@ -167,80 +182,91 @@ router.get("/me", async (req, res) => {
 });
 
 // Register new user (admin only)
-router.post("/register", async (req, res) => {
-  try {
-    // Check if user is admin
-    if (!req.session?.userId || req.session?.userRole !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access required",
-      });
-    }
+router.post(
+  "/register",
+  sanitizeInput,
+  validateRequest({
+    email: validationRules.email,
+    password: validationRules.password,
+    name: validationRules.name,
+    role: validationRules.role,
+  }),
+  rateLimit(3, 60 * 60 * 1000),
+  async (req, res) => {
+    try {
+      // Check if user is admin
+      if (!req.session?.userId || req.session?.userRole !== "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Admin access required",
+        });
+      }
 
-    const {
-      email,
-      password,
-      name,
-      role = "faculty",
-      facultyId,
-      department,
-      gender,
-    } = req.body;
-
-    if (!email || !password || !name) {
-      return res.status(400).json({
-        success: false,
-        message: "Email, password, and name are required",
-      });
-    }
-
-    // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-
-    if (existingUser.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message: "User with this email already exists",
-      });
-    }
-
-    // Hash password
-    const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    // Create user
-    const [newUser] = await db
-      .insert(users)
-      .values({
+      const {
         email,
-        password: hashedPassword,
+        password,
         name,
-        role,
+        role = "faculty",
         facultyId,
         department,
         gender,
-      })
-      .returning();
+      } = req.body;
 
-    const { password: _, ...userWithoutPassword } = newUser;
+      if (!email || !password || !name) {
+        return res.status(400).json({
+          success: false,
+          message: "Email, password, and name are required",
+        });
+      }
 
-    res.status(201).json({
-      success: true,
-      message: "User created successfully",
-      user: userWithoutPassword,
-    });
-  } catch (error) {
-    console.error("Register error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+      // Check if user already exists
+      const existingUser = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      if (existingUser.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: "User with this email already exists",
+        });
+      }
+
+      // Hash password
+      const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+      // Create user
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          email,
+          password: hashedPassword,
+          name,
+          role,
+          facultyId,
+          department,
+          gender,
+        })
+        .returning();
+
+      const { password: _, ...userWithoutPassword } = newUser;
+
+      res.status(201).json({
+        success: true,
+        message: "User created successfully",
+        user: userWithoutPassword,
+      });
+    } catch (error) {
+      console.error("Register error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
   }
-});
+);
 
 // Update profile
 router.put("/profile", async (req, res) => {
