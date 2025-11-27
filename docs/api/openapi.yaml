@@ -1,0 +1,1830 @@
+openapi: 3.0.3
+info:
+  title: CLIRDEC:PRESENCE API
+  description: |
+    Comprehensive attendance management system for CLIRDEC's Bachelor of Science in Information Technology (BSIT) program.
+
+    ## Overview
+    CLIRDEC:PRESENCE is a real-time attendance tracking system designed specifically for the College of Engineering's BSIT program at CLIRDEC. The system integrates RFID technology, IoT sensors, and web/mobile applications to provide accurate, automated attendance monitoring.
+
+    ## Key Features
+    - **Real-time RFID Tracking**: Automated attendance recording via RFID card scans
+    - **IoT Sensor Integration**: Entry/exit sensor validation for accuracy
+    - **Multi-platform Access**: Web dashboard, mobile app, and API access
+    - **Advanced Analytics**: Performance tracking and reporting
+    - **Smart Assignment**: AI-powered computer lab seat assignments
+    - **Notification System**: Automated parent/guardian notifications
+
+    ## Authentication
+    All API endpoints require authentication via JWT tokens in the Authorization header:
+    ```
+    Authorization: Bearer <jwt_token>
+    ```
+
+    ## Rate Limiting
+    - General endpoints: 1000 requests/hour per user
+    - Real-time endpoints: 100 requests/minute per user
+    - Administrative endpoints: 500 requests/hour per admin
+
+    ## Error Responses
+    All errors follow a consistent format:
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "ERROR_CODE",
+        "message": "Human-readable error message",
+        "details": {},
+        "requestId": "unique-request-id",
+        "timestamp": "2025-11-27T17:45:37.900Z"
+      }
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: CLIRDEC IT Department
+    email: it@clirdec.edu
+    url: https://www.clirdec.edu
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.clirdec.edu
+    description: Production server
+  - url: https://api-staging.clirdec.edu
+    description: Staging server
+  - url: http://localhost:3000
+    description: Local development server
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login endpoint
+
+  schemas:
+    # Common Schemas
+    Error:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - requestId
+            - timestamp
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid input data
+            details:
+              type: object
+              additionalProperties: true
+            requestId:
+              type: string
+              example: req_1234567890_abc123def
+            timestamp:
+              type: string
+              format: date-time
+              example: "2025-11-27T17:45:37.900Z"
+
+    Success:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          example: true
+
+    Pagination:
+      type: object
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+          example: 20
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+          example: 40
+        total:
+          type: integer
+          example: 150
+
+    # User Schemas
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - name
+        - role
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          format: email
+          example: faculty@clirdec.edu
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+          example: securePassword123
+        name:
+          type: string
+          example: "Dr. Maria Santos"
+        role:
+          type: string
+          enum: [admin, faculty]
+          example: faculty
+        facultyId:
+          type: string
+          example: FAC001
+        department:
+          type: string
+          example: "Computer Science"
+        gender:
+          type: string
+          enum: [male, female, other]
+          example: female
+        isActive:
+          type: boolean
+          default: true
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T08:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-11-27T17:45:37.900Z"
+
+    # Student Schemas
+    Student:
+      type: object
+      required:
+        - id
+        - studentId
+        - name
+        - email
+        - program
+        - department
+        - college
+        - parentEmail
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          example: 1
+        studentId:
+          type: string
+          example: "2021001"
+        name:
+          type: string
+          example: "Juan Dela Cruz"
+        email:
+          type: string
+          format: email
+          example: juan.delacruz@clirdec.edu
+        year:
+          type: integer
+          minimum: 1
+          maximum: 4
+          example: 2
+        section:
+          type: string
+          example: "A"
+        program:
+          type: string
+          enum: [BSIT]
+          default: BSIT
+          example: BSIT
+        department:
+          type: string
+          enum: [DIT]
+          default: DIT
+          example: DIT
+        college:
+          type: string
+          enum: ["College of Engineering"]
+          default: "College of Engineering"
+          example: "College of Engineering"
+        rfidUid:
+          type: string
+          example: "ABC123DEF456"
+        parentEmail:
+          type: string
+          format: email
+          example: parent@email.com
+        parentName:
+          type: string
+          example: "Maria Dela Cruz"
+        isActive:
+          type: boolean
+          default: true
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T08:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-11-27T17:45:37.900Z"
+
+    # Schedule Schemas
+    Schedule:
+      type: object
+      required:
+        - id
+        - subjectId
+        - subjectName
+        - classroomId
+        - classroomName
+        - facultyId
+        - facultyName
+        - dayOfWeek
+        - startTime
+        - endTime
+        - semester
+        - academicYear
+        - isActive
+        - createdAt
+      properties:
+        id:
+          type: integer
+          example: 1
+        subjectId:
+          type: integer
+          example: 1
+        subjectName:
+          type: string
+          example: "Data Structures and Algorithms"
+        classroomId:
+          type: integer
+          example: 1
+        classroomName:
+          type: string
+          example: "Computer Lab 1"
+        facultyId:
+          type: integer
+          example: 1
+        facultyName:
+          type: string
+          example: "Dr. Maria Santos"
+        dayOfWeek:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: "0=Sunday, 1=Monday, ..., 6=Saturday"
+          example: 1
+        startTime:
+          type: string
+          pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+          example: "08:00"
+        endTime:
+          type: string
+          pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+          example: "09:30"
+        semester:
+          type: string
+          enum: ["1st Semester", "2nd Semester", "Summer"]
+          example: "1st Semester"
+        academicYear:
+          type: string
+          pattern: "^\\d{4}$"
+          example: "2025"
+        isRecurring:
+          type: boolean
+          default: false
+          example: true
+        recurrencePattern:
+          type: string
+          enum: [weekly, biweekly, monthly]
+          example: weekly
+        recurrenceEndDate:
+          type: string
+          format: date
+          example: "2025-12-31"
+        recurrenceExceptions:
+          type: object
+          additionalProperties:
+            type: string
+          description: "Dates to skip in YYYY-MM-DD format"
+          example: { "2025-11-28": "Holiday" }
+        conflictResolutionPriority:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 1
+          example: 5
+        allowRoomChange:
+          type: boolean
+          default: false
+          example: true
+        allowTimeAdjustment:
+          type: boolean
+          default: false
+          example: false
+        isActive:
+          type: boolean
+          default: true
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T08:30:00.000Z"
+
+    # Attendance Schemas
+    AttendanceRecord:
+      type: object
+      required:
+        - id
+        - studentId
+        - classSessionId
+        - isValid
+        - discrepancyFlag
+        - rfidDetected
+        - sensorDetected
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          example: 1
+        studentId:
+          type: integer
+          example: 1
+        classSessionId:
+          type: integer
+          example: 1
+        entryTime:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-11-27T08:15:00.000Z"
+        exitTime:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-11-27T09:45:00.000Z"
+        status:
+          type: string
+          enum: [present, late, absent]
+          nullable: true
+          example: present
+        rfidDetected:
+          type: boolean
+          default: false
+          example: true
+        sensorDetected:
+          type: boolean
+          default: false
+          example: true
+        isValid:
+          type: boolean
+          default: false
+          example: true
+        discrepancyFlag:
+          type: boolean
+          default: false
+          example: false
+        notes:
+          type: string
+          nullable: true
+          example: "Late arrival due to traffic"
+        isActive:
+          type: boolean
+          default: true
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-11-27T08:15:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-11-27T08:15:00.000Z"
+        student:
+          $ref: "#/components/schemas/Student"
+        classSession:
+          $ref: "#/components/schemas/ClassSession"
+
+    # Class Session Schemas
+    ClassSession:
+      type: object
+      required:
+        - id
+        - scheduleId
+        - date
+        - status
+        - isActive
+        - createdAt
+      properties:
+        id:
+          type: integer
+          example: 1
+        scheduleId:
+          type: integer
+          example: 1
+        date:
+          type: string
+          format: date
+          example: "2025-11-27"
+        status:
+          type: string
+          enum: [scheduled, active, completed]
+          default: scheduled
+          example: active
+        isActive:
+          type: boolean
+          default: true
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-11-27T08:00:00.000Z"
+        schedule:
+          $ref: "#/components/schemas/Schedule"
+
+    # Computer Schemas
+    Computer:
+      type: object
+      required:
+        - id
+        - classroomId
+        - name
+        - status
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          example: 1
+        classroomId:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "PC-001"
+        ipAddress:
+          type: string
+          format: ipv4
+          nullable: true
+          example: "192.168.1.100"
+        macAddress:
+          type: string
+          pattern: "^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"
+          nullable: true
+          example: "00:1B:44:11:3A:B7"
+        status:
+          type: string
+          enum: [available, in_use, maintenance]
+          default: available
+          example: available
+        lastMaintenance:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-10-15T09:00:00.000Z"
+        nextMaintenance:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-01-15T09:00:00.000Z"
+        maintenanceNotes:
+          type: string
+          nullable: true
+          example: "Updated antivirus software"
+        isActive:
+          type: boolean
+          default: true
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T08:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-11-27T17:45:37.900Z"
+
+    # IoT Device Schemas
+    IoTDevice:
+      type: object
+      required:
+        - id
+        - deviceId
+        - classroomId
+        - deviceType
+        - status
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          example: 1
+        deviceId:
+          type: string
+          example: "ESP32_S3_001"
+        classroomId:
+          type: integer
+          example: 1
+        deviceType:
+          type: string
+          enum: [esp32_s3]
+          example: esp32_s3
+        status:
+          type: string
+          enum: [online, offline, maintenance]
+          default: offline
+          example: online
+        lastSeen:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-11-27T17:45:37.900Z"
+        config:
+          type: object
+          additionalProperties: true
+          example: { "rfid_timeout": 5000, "sensor_sensitivity": 0.8 }
+        isActive:
+          type: boolean
+          default: true
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T08:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-11-27T17:45:37.900Z"
+
+    # Dashboard Stats
+    DashboardStats:
+      type: object
+      required:
+        - todayClasses
+        - presentStudents
+        - absentStudents
+        - attendanceRate
+        - totalEvents
+        - activeDevices
+        - systemUptime
+        - errorRate
+      properties:
+        todayClasses:
+          type: integer
+          example: 5
+        presentStudents:
+          type: integer
+          example: 120
+        absentStudents:
+          type: integer
+          example: 10
+        attendanceRate:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 92.3
+        totalEvents:
+          type: integer
+          example: 150
+        activeDevices:
+          type: integer
+          example: 8
+        systemUptime:
+          type: string
+          example: "7d 12h 30m"
+        errorRate:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 0.5
+
+    # Analytics Data
+    AnalyticsData:
+      type: object
+      required:
+        - dailyTrends
+        - hourlyPatterns
+        - subjectPerformance
+        - facultyPerformance
+        - period
+      properties:
+        dailyTrends:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+                example: "2025-11-27"
+              present:
+                type: integer
+                example: 120
+              absent:
+                type: integer
+                example: 10
+              rate:
+                type: number
+                minimum: 0
+                maximum: 100
+                example: 92.3
+        hourlyPatterns:
+          type: array
+          items:
+            type: object
+            properties:
+              hour:
+                type: integer
+                minimum: 0
+                maximum: 23
+                example: 8
+              count:
+                type: integer
+                example: 45
+        subjectPerformance:
+          type: array
+          items:
+            type: object
+            properties:
+              subject:
+                type: string
+                example: "Data Structures and Algorithms"
+              rate:
+                type: number
+                minimum: 0
+                maximum: 100
+                example: 94.5
+              total:
+                type: integer
+                example: 150
+        facultyPerformance:
+          type: array
+          items:
+            type: object
+            properties:
+              faculty:
+                type: string
+                example: "Dr. Maria Santos"
+              rate:
+                type: number
+                minimum: 0
+                maximum: 100
+                example: 96.2
+              total:
+                type: integer
+                example: 200
+        period:
+          type: string
+          enum: ["7d", "30d", "90d"]
+          example: "7d"
+
+    # Request/Response Schemas
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@clirdec.edu
+        password:
+          type: string
+          minLength: 8
+          example: securePassword123
+
+    LoginResponse:
+      allOf:
+        - $ref: "#/components/schemas/Success"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - user
+                - token
+              properties:
+                user:
+                  $ref: "#/components/schemas/User"
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    AttendanceListResponse:
+      allOf:
+        - $ref: "#/components/schemas/Success"
+        - type: object
+          properties:
+            records:
+              type: array
+              items:
+                type: object
+                properties:
+                  record:
+                    $ref: "#/components/schemas/AttendanceRecord"
+                  student:
+                    $ref: "#/components/schemas/Student"
+                  session:
+                    $ref: "#/components/schemas/ClassSession"
+            pagination:
+              $ref: "#/components/schemas/Pagination"
+
+    DashboardStatsResponse:
+      allOf:
+        - $ref: "#/components/schemas/Success"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/DashboardStats"
+
+    AnalyticsResponse:
+      allOf:
+        - $ref: "#/components/schemas/Success"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/AnalyticsData"
+
+    SchedulesResponse:
+      allOf:
+        - $ref: "#/components/schemas/Success"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Schedule"
+
+    StudentsResponse:
+      allOf:
+        - $ref: "#/components/schemas/Success"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Student"
+            pagination:
+              $ref: "#/components/schemas/Pagination"
+
+    ComputersResponse:
+      allOf:
+        - $ref: "#/components/schemas/Success"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/Computer"
+
+    IoTDevicesResponse:
+      allOf:
+        - $ref: "#/components/schemas/Success"
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: "#/components/schemas/IoTDevice"
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          example: healthy
+        uptime:
+          type: number
+          example: 3600
+        system:
+          type: object
+          properties:
+            cpu:
+              type: object
+              properties:
+                usage:
+                  type: number
+                  example: 15.5
+                loadAverage:
+                  type: array
+                  items:
+                    type: number
+                  example: [1.2, 1.5, 1.8]
+            memory:
+              type: object
+              properties:
+                usagePercent:
+                  type: number
+                  example: 65.2
+            disk:
+              type: array
+              items:
+                type: object
+                properties:
+                  usagePercent:
+                    type: number
+                    example: 45.8
+        database:
+          type: object
+          properties:
+            connections:
+              type: object
+              properties:
+                active:
+                  type: integer
+                  example: 5
+                total:
+                  type: integer
+                  example: 20
+        application:
+          type: object
+          properties:
+            requests:
+              type: object
+              properties:
+                total:
+                  type: integer
+                  example: 1500
+                successful:
+                  type: integer
+                  example: 1485
+            errors:
+              type: object
+              properties:
+                total:
+                  type: integer
+                  example: 3
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-11-27T17:45:37.900Z"
+
+paths:
+  # Authentication
+  /auth/login:
+    post:
+      summary: User login
+      description: Authenticate user and return JWT token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Too many login attempts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/logout:
+    post:
+      summary: User logout
+      description: Invalidate user session
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Success"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # Dashboard
+  /dashboard/stats:
+    get:
+      summary: Get dashboard statistics
+      description: Retrieve comprehensive dashboard statistics for the current day
+      tags:
+        - Dashboard
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStatsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /dashboard/analytics:
+    get:
+      summary: Get analytics data
+      description: Retrieve attendance analytics and trends
+      tags:
+        - Dashboard
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, 90d]
+            default: 7d
+          description: Time period for analytics
+      responses:
+        "200":
+          description: Analytics data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # Attendance Management
+  /attendance:
+    get:
+      summary: Get attendance records
+      description: Retrieve attendance records with optional filtering
+      tags:
+        - Attendance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: studentId
+          in: query
+          schema:
+            type: integer
+          description: Filter by student ID
+        - name: classSessionId
+          in: query
+          schema:
+            type: integer
+          description: Filter by class session ID
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter by date (YYYY-MM-DD)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Number of records to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Number of records to skip
+      responses:
+        "200":
+          description: Attendance records retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceListResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Create manual attendance record
+      description: Manually create an attendance record (admin only)
+      tags:
+        - Attendance
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - studentId
+                - classSessionId
+              properties:
+                studentId:
+                  type: integer
+                  example: 1
+                classSessionId:
+                  type: integer
+                  example: 1
+                entryTime:
+                  type: string
+                  format: date-time
+                  example: "2025-11-27T08:15:00.000Z"
+                exitTime:
+                  type: string
+                  format: date-time
+                  example: "2025-11-27T09:45:00.000Z"
+                notes:
+                  type: string
+                  example: "Manual entry - student was ill"
+      responses:
+        "201":
+          description: Attendance record created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Attendance record created successfully"
+                      record:
+                        $ref: "#/components/schemas/AttendanceRecord"
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Attendance record already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance/simulate-rfid:
+    post:
+      summary: Simulate RFID scan
+      description: Simulate an RFID card scan for testing (admin only)
+      tags:
+        - Attendance
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rfidUid
+              properties:
+                rfidUid:
+                  type: string
+                  minLength: 1
+                  example: "ABC123DEF456"
+      responses:
+        "200":
+          description: RFID simulation successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "RFID simulation successful"
+                      data:
+                        type: object
+                        description: Processing result details
+        "400":
+          description: Invalid RFID UID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /attendance/simulate-sensor:
+    post:
+      summary: Simulate sensor trigger
+      description: Simulate entry/exit sensor trigger for testing (admin only)
+      tags:
+        - Attendance
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sensorType
+              properties:
+                sensorType:
+                  type: string
+                  enum: [entry, exit]
+                  example: entry
+                distance:
+                  type: number
+                  minimum: 0
+                  maximum: 500
+                  default: 50
+                  example: 25
+      responses:
+        "200":
+          description: Sensor simulation successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Sensor simulation successful"
+                      data:
+                        type: object
+                        description: Processing result details
+        "400":
+          description: Invalid sensor parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # Schedule Management
+  /schedules:
+    get:
+      summary: Get class schedules
+      description: Retrieve class schedules with optional filtering
+      tags:
+        - Schedules
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: facultyId
+          in: query
+          schema:
+            type: integer
+          description: Filter by faculty ID
+        - name: subjectId
+          in: query
+          schema:
+            type: integer
+          description: Filter by subject ID
+        - name: dayOfWeek
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 6
+          description: Filter by day of week (0-6)
+        - name: semester
+          in: query
+          schema:
+            type: string
+            enum: ["1st Semester", "2nd Semester", "Summer"]
+          description: Filter by semester
+        - name: academicYear
+          in: query
+          schema:
+            type: string
+            pattern: "^\\d{4}$"
+          description: Filter by academic year
+      responses:
+        "200":
+          description: Schedules retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchedulesResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Create class schedule
+      description: Create a new class schedule (admin only)
+      tags:
+        - Schedules
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - subjectId
+                - classroomId
+                - facultyId
+                - dayOfWeek
+                - startTime
+                - endTime
+                - semester
+                - academicYear
+              properties:
+                subjectId:
+                  type: integer
+                  example: 1
+                classroomId:
+                  type: integer
+                  example: 1
+                facultyId:
+                  type: integer
+                  example: 1
+                dayOfWeek:
+                  type: integer
+                  minimum: 0
+                  maximum: 6
+                  example: 1
+                startTime:
+                  type: string
+                  pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                  example: "08:00"
+                endTime:
+                  type: string
+                  pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                  example: "09:30"
+                semester:
+                  type: string
+                  enum: ["1st Semester", "2nd Semester", "Summer"]
+                  example: "1st Semester"
+                academicYear:
+                  type: string
+                  pattern: "^\\d{4}$"
+                  example: "2025"
+                isRecurring:
+                  type: boolean
+                  default: false
+                  example: true
+                recurrencePattern:
+                  type: string
+                  enum: [weekly, biweekly, monthly]
+                  example: weekly
+                recurrenceEndDate:
+                  type: string
+                  format: date
+                  example: "2025-12-31"
+                conflictResolutionPriority:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  default: 1
+                  example: 5
+      responses:
+        "201":
+          description: Schedule created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Schedule created successfully"
+                      schedule:
+                        $ref: "#/components/schemas/Schedule"
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Schedule conflict detected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /schedules/{id}:
+    put:
+      summary: Update class schedule
+      description: Update an existing class schedule (admin only)
+      tags:
+        - Schedules
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Schedule ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subjectId:
+                  type: integer
+                  example: 1
+                classroomId:
+                  type: integer
+                  example: 1
+                facultyId:
+                  type: integer
+                  example: 1
+                dayOfWeek:
+                  type: integer
+                  minimum: 0
+                  maximum: 6
+                  example: 1
+                startTime:
+                  type: string
+                  pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                  example: "08:00"
+                endTime:
+                  type: string
+                  pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+                  example: "09:30"
+                semester:
+                  type: string
+                  enum: ["1st Semester", "2nd Semester", "Summer"]
+                  example: "1st Semester"
+                academicYear:
+                  type: string
+                  pattern: "^\\d{4}$"
+                  example: "2025"
+                isRecurring:
+                  type: boolean
+                  example: true
+                recurrencePattern:
+                  type: string
+                  enum: [weekly, biweekly, monthly]
+                  example: weekly
+                recurrenceEndDate:
+                  type: string
+                  format: date
+                  example: "2025-12-31"
+                conflictResolutionPriority:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  example: 5
+      responses:
+        "200":
+          description: Schedule updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Schedule updated successfully"
+                      schedule:
+                        $ref: "#/components/schemas/Schedule"
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Delete class schedule
+      description: Delete a class schedule (admin only)
+      tags:
+        - Schedules
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Schedule ID
+      responses:
+        "200":
+          description: Schedule deleted successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Schedule deleted successfully"
+        "404":
+          description: Schedule not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # Student Management
+  /students:
+    get:
+      summary: Get students
+      description: Retrieve student records with optional filtering
+      tags:
+        - Students
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+          description: Filter by year level
+        - name: section
+          in: query
+          schema:
+            type: string
+          description: Filter by section
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Filter by active status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Number of records to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Number of records to skip
+      responses:
+        "200":
+          description: Students retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Create student record
+      description: Create a new student record (admin only)
+      tags:
+        - Students
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - studentId
+                - name
+                - email
+                - parentEmail
+              properties:
+                studentId:
+                  type: string
+                  example: "2021001"
+                name:
+                  type: string
+                  example: "Juan Dela Cruz"
+                email:
+                  type: string
+                  format: email
+                  example: juan.delacruz@clirdec.edu
+                year:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                  example: 2
+                section:
+                  type: string
+                  example: "A"
+                rfidUid:
+                  type: string
+                  example: "ABC123DEF456"
+                parentEmail:
+                  type: string
+                  format: email
+                  example: parent@email.com
+                parentName:
+                  type: string
+                  example: "Maria Dela Cruz"
+      responses:
+        "201":
+          description: Student created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Student created successfully"
+                      student:
+                        $ref: "#/components/schemas/Student"
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Student ID already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # Computer Management
+  /computers:
+    get:
+      summary: Get computers
+      description: Retrieve computer records with optional filtering
+      tags:
+        - Computers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: classroomId
+          in: query
+          schema:
+            type: integer
+          description: Filter by classroom ID
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [available, in_use, maintenance]
+          description: Filter by status
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Filter by active status
+      responses:
+        "200":
+          description: Computers retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComputersResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Add computers to classroom
+      description: Add multiple computers to a classroom (admin only)
+      tags:
+        - Computers
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - classroomId
+                - count
+                - namePrefix
+              properties:
+                classroomId:
+                  type: integer
+                  example: 1
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 50
+                  example: 25
+                namePrefix:
+                  type: string
+                  example: "PC-"
+                startNumber:
+                  type: integer
+                  minimum: 1
+                  default: 1
+                  example: 1
+      responses:
+        "201":
+          description: Computers added successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Success"
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "25 computers added successfully"
+                      computers:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Computer"
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # IoT Device Management
+  /iot-devices:
+    get:
+      summary: Get IoT devices
+      description: Retrieve IoT device records with optional filtering
+      tags:
+        - IoT Devices
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: classroomId
+          in: query
+          schema:
+            type: integer
+          description: Filter by classroom ID
+        - name: deviceType
+          in: query
+          schema:
+            type: string
+            enum: [esp32_s3]
+          description: Filter by device type
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [online, offline, maintenance]
+          description: Filter by status
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Filter by active status
+      responses:
+        "200":
+          description: IoT devices retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IoTDevicesResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Register IoT device
+      description: Register a new IoT device (admin only)
+      tags:
+        - IoT Devices
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deviceId
+                - classroomId
+                - deviceType
+              properties:
+                deviceId:
+                  type: string
+                  example: "ESP32_S3_001"
+                classroomId:
+                  type: integer
+                  example: 1
+                deviceType:
+                  type: string
+                  enum: [esp32_s3]
+                  example: esp32_s3
+                config:
+                  type: object
+                  additionalProperties: true
+                  example: { "rfid_timeout": 5000, "sensor_sensitivity": 0.8 }
+      responses:
+        "201":
+          description: IoT device registered successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref:
