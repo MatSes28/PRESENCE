@@ -1,5 +1,9 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { IncomingMessage } from "http";
+import { db } from "../storage.js";
+import { iotDevices } from "../schema.js";
+import { eq } from "drizzle-orm";
+import crypto from "crypto";
 
 interface WebSocketClient extends WebSocket {
   deviceId?: string;
@@ -16,86 +20,152 @@ interface WSMessage {
 const clients = new Map<string, WebSocketClient>();
 const deviceClients = new Map<string, WebSocketClient>();
 
-export function setupWebSocket(wss: WebSocketServer) {
-  wss.on("connection", (ws: WebSocketClient, request: IncomingMessage) => {
-    const url = new URL(request.url || "", "http://localhost");
-    const isDevice = url.pathname === "/iot";
-    const deviceId = url.searchParams.get("deviceId");
-    const userId = url.searchParams.get("userId");
+// Device authentication function
+async function authenticateDevice(
+  deviceId: string,
+  authToken?: string | null
+): Promise<boolean> {
+  try {
+    // Check if device exists in database
+    const device = await db
+      .select()
+      .from(iotDevices)
+      .where(eq(iotDevices.deviceId, deviceId))
+      .limit(1);
 
-    console.log(`New ${isDevice ? "device" : "web"} connection:`, {
-      deviceId,
-      userId,
-      remoteAddress: request.socket?.remoteAddress,
-    });
-
-    // Setup ping/pong for connection health
-    ws.isAlive = true;
-    ws.on("pong", () => {
-      ws.isAlive = true;
-    });
-
-    // Handle incoming messages
-    ws.on("message", (data: Buffer) => {
-      try {
-        const message: WSMessage = JSON.parse(data.toString());
-
-        if (isDevice) {
-          handleDeviceMessage(ws, message, deviceId);
-        } else {
-          handleWebMessage(ws, message, userId);
-        }
-      } catch (error) {
-        console.error("Failed to parse WebSocket message:", error);
-        ws.send(
-          JSON.stringify({
-            type: "error",
-            payload: { message: "Invalid message format" },
-            timestamp: new Date().toISOString(),
-          })
-        );
-      }
-    });
-
-    // Handle connection close
-    ws.on("close", () => {
-      if (isDevice && deviceId) {
-        deviceClients.delete(deviceId);
-        console.log(`Device disconnected: ${deviceId}`);
-      } else if (userId) {
-        clients.delete(userId.toString());
-        console.log(`Web client disconnected: ${userId}`);
-      }
-    });
-
-    // Handle errors
-    ws.on("error", (error) => {
-      console.error("WebSocket error:", error);
-    });
-
-    // Register client
-    if (isDevice && deviceId) {
-      ws.deviceId = deviceId;
-      deviceClients.set(deviceId, ws);
-    } else if (userId) {
-      ws.userId = parseInt(userId);
-      clients.set(userId, ws);
+    if (device.length === 0) {
+      console.log(`Device ${deviceId} not found in database`);
+      return false;
     }
 
-    // Send welcome message
-    ws.send(
-      JSON.stringify({
-        type: "connected",
-        payload: {
-          message: `Connected to CLIRDEC:PRESENCE ${
-            isDevice ? "IoT" : "Web"
-          } server`,
+    const dbDevice = device[0];
+
+    // Check if device is active
+    if (!dbDevice.isActive) {
+      console.log(`Device ${deviceId} is not active`);
+      return false;
+    }
+
+    // For now, allow connection without token for development
+    // In production, implement proper token-based authentication
+    if (!authToken) {
+      console.log(
+        `Device ${deviceId} connected without token (development mode)`
+      );
+      return true;
+    }
+
+    // TODO: Implement proper token validation
+    // For now, accept any token
+    return true;
+  } catch (error) {
+    console.error("Device authentication error:", error);
+    return false;
+  }
+}
+
+export function setupWebSocket(wss: WebSocketServer) {
+  wss.on(
+    "connection",
+    async (ws: WebSocketClient, request: IncomingMessage) => {
+      const url = new URL(request.url || "", "http://localhost");
+      const isDevice = url.pathname === "/iot";
+      const deviceId = url.searchParams.get("deviceId");
+      const userId = url.searchParams.get("userId");
+      const authToken = url.searchParams.get("token");
+
+      console.log(`New ${isDevice ? "device" : "web"} connection:`, {
+        deviceId,
+        userId,
+        remoteAddress: request.socket?.remoteAddress,
+      });
+
+      // Authenticate device connections
+      if (isDevice && deviceId) {
+        const isAuthenticated = await authenticateDevice(deviceId, authToken);
+        if (!isAuthenticated) {
+          console.log(`Device authentication failed for ${deviceId}`);
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              payload: { message: "Authentication failed" },
+              timestamp: new Date().toISOString(),
+            })
+          );
+          ws.close(1008, "Authentication failed");
+          return;
+        }
+        console.log(`Device ${deviceId} authenticated successfully`);
+      }
+
+      // Setup ping/pong for connection health
+      ws.isAlive = true;
+      ws.on("pong", () => {
+        ws.isAlive = true;
+      });
+
+      // Handle incoming messages
+      ws.on("message", (data: Buffer) => {
+        try {
+          const message: WSMessage = JSON.parse(data.toString());
+
+          if (isDevice) {
+            handleDeviceMessage(ws, message, deviceId);
+          } else {
+            handleWebMessage(ws, message, userId);
+          }
+        } catch (error) {
+          console.error("Failed to parse WebSocket message:", error);
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              payload: { message: "Invalid message format" },
+              timestamp: new Date().toISOString(),
+            })
+          );
+        }
+      });
+
+      // Handle connection close
+      ws.on("close", () => {
+        if (isDevice && deviceId) {
+          deviceClients.delete(deviceId);
+          console.log(`Device disconnected: ${deviceId}`);
+        } else if (userId) {
+          clients.delete(userId.toString());
+          console.log(`Web client disconnected: ${userId}`);
+        }
+      });
+
+      // Handle errors
+      ws.on("error", (error) => {
+        console.error("WebSocket error:", error);
+      });
+
+      // Register client
+      if (isDevice && deviceId) {
+        ws.deviceId = deviceId;
+        deviceClients.set(deviceId, ws);
+      } else if (userId) {
+        ws.userId = parseInt(userId);
+        clients.set(userId, ws);
+      }
+
+      // Send welcome message
+      ws.send(
+        JSON.stringify({
+          type: "connected",
+          payload: {
+            message: `Connected to CLIRDEC:PRESENCE ${
+              isDevice ? "IoT" : "Web"
+            } server`,
+            timestamp: new Date().toISOString(),
+          },
           timestamp: new Date().toISOString(),
-        },
-        timestamp: new Date().toISOString(),
-      })
-    );
-  });
+        })
+      );
+    }
+  );
 
   // Connection health check
   const interval = setInterval(() => {

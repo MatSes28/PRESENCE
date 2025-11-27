@@ -58,6 +58,10 @@ export const LabComputers = () => {
       }
     >
   >({});
+  const [showSmartAssignModal, setShowSmartAssignModal] = useState(false);
+  const [smartAssignSessionId, setSmartAssignSessionId] = useState<
+    number | null
+  >(null);
   const dragRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -356,6 +360,57 @@ export const LabComputers = () => {
     }
   };
 
+  const handleSmartAssignment = async (assignmentType: string) => {
+    if (!smartAssignSessionId) return;
+
+    setProcessing(`smart-assign-${assignmentType}`);
+    try {
+      let response;
+      switch (assignmentType) {
+        case "performance":
+          response = await api.assignByPerformance(smartAssignSessionId);
+          break;
+        case "learning-style":
+          response = await api.assignByLearningStyle(smartAssignSessionId);
+          break;
+        case "conflict-free":
+          response = await api.assignConflictFree(smartAssignSessionId);
+          break;
+        case "random":
+          response = await api.assignRandom(smartAssignSessionId);
+          break;
+        default:
+          throw new Error("Unknown assignment type");
+      }
+
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Smart Assignment Complete",
+          message: response.message || "Students assigned successfully",
+        });
+        setShowSmartAssignModal(false);
+        setSmartAssignSessionId(null);
+        fetchAssignments();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Assignment Failed",
+          message: response.message || "Failed to perform smart assignment",
+        });
+      }
+    } catch (error) {
+      console.error("Smart assignment error:", error);
+      addNotification({
+        type: "error",
+        title: "Assignment Failed",
+        message: "Failed to perform smart assignment",
+      });
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   const addComputers = async () => {
     if (!selectedClassroom) {
       addNotification({
@@ -528,6 +583,12 @@ export const LabComputers = () => {
             className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto"
           >
             Refresh
+          </button>
+          <button
+            onClick={() => setShowSmartAssignModal(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto"
+          >
+            Smart Assign
           </button>
           <button
             onClick={() => setShowAddComputers(true)}
@@ -1254,6 +1315,133 @@ export const LabComputers = () => {
                     {processing === "add-computers"
                       ? "Adding..."
                       : "Add Computers"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Smart Assignment Modal */}
+      {showSmartAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-gray-800 border-gray-700">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-white">
+                  Smart Assignment
+                </h3>
+                <button
+                  onClick={() => setShowSmartAssignModal(false)}
+                  className="text-gray-400 hover:text-gray-300"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Select Class Session
+                  </label>
+                  <select
+                    value={smartAssignSessionId || ""}
+                    onChange={(e) =>
+                      setSmartAssignSessionId(parseInt(e.target.value) || null)
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="">Choose a session...</option>
+                    {/* For now, we'll simulate session selection */}
+                    <option value="1">
+                      Current Session - Lab {selectedLab}
+                    </option>
+                  </select>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-300">
+                    Assignment Methods:
+                  </h4>
+
+                  <div className="grid grid-cols-1 gap-3">
+                    <button
+                      onClick={() => handleSmartAssignment("performance")}
+                      disabled={
+                        processing === "smart-assign-performance" ||
+                        !smartAssignSessionId
+                      }
+                      className="flex items-center p-3 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                    >
+                      <div className="text-2xl mr-3">🏆</div>
+                      <div className="text-left">
+                        <div className="font-medium">Performance-Based</div>
+                        <div className="text-xs opacity-90">
+                          Assign high performers to optimal positions
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleSmartAssignment("learning-style")}
+                      disabled={
+                        processing === "smart-assign-learning-style" ||
+                        !smartAssignSessionId
+                      }
+                      className="flex items-center p-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                    >
+                      <div className="text-2xl mr-3">🧠</div>
+                      <div className="text-left">
+                        <div className="font-medium">Learning Style</div>
+                        <div className="text-xs opacity-90">
+                          Match positions to learning preferences
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleSmartAssignment("conflict-free")}
+                      disabled={
+                        processing === "smart-assign-conflict-free" ||
+                        !smartAssignSessionId
+                      }
+                      className="flex items-center p-3 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                    >
+                      <div className="text-2xl mr-3">🤝</div>
+                      <div className="text-left">
+                        <div className="font-medium">Conflict-Free</div>
+                        <div className="text-xs opacity-90">
+                          Avoid seating conflicts and distractions
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleSmartAssignment("random")}
+                      disabled={
+                        processing === "smart-assign-random" ||
+                        !smartAssignSessionId
+                      }
+                      className="flex items-center p-3 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                    >
+                      <div className="text-2xl mr-3">🎲</div>
+                      <div className="text-left">
+                        <div className="font-medium">Random Assignment</div>
+                        <div className="text-xs opacity-90">
+                          Simple random distribution
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                  <button
+                    onClick={() => setShowSmartAssignModal(false)}
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium w-full sm:w-auto"
+                  >
+                    Cancel
                   </button>
                 </div>
               </div>

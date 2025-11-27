@@ -377,6 +377,38 @@ class ApiClient {
       body: JSON.stringify({ command, params }),
     });
   }
+
+  // Smart Assignment endpoints
+  async assignByPerformance(sessionId: number) {
+    return this.request(`/computers/smart-assign/performance/${sessionId}`, {
+      method: "POST",
+    });
+  }
+
+  async assignByLearningStyle(sessionId: number) {
+    return this.request(`/computers/smart-assign/learning-style/${sessionId}`, {
+      method: "POST",
+    });
+  }
+
+  async assignConflictFree(sessionId: number) {
+    return this.request(`/computers/smart-assign/conflict-free/${sessionId}`, {
+      method: "POST",
+    });
+  }
+
+  async assignRandom(sessionId: number) {
+    return this.request(`/computers/smart-assign/random/${sessionId}`, {
+      method: "POST",
+    });
+  }
+
+  async assignCustom(sessionId: number, criteria: any) {
+    return this.request(`/computers/smart-assign/custom/${sessionId}`, {
+      method: "POST",
+      body: JSON.stringify(criteria),
+    });
+  }
 }
 
 export const api = new ApiClient();

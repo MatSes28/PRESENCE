@@ -15,6 +15,7 @@ import {
   requireAdmin,
   requireAdminOrFaculty,
 } from "../middleware/auth.js";
+import { smartAssignmentService } from "../services/smartAssignment.js";
 
 const router = Router();
 
@@ -530,6 +531,139 @@ router.post(
       res
         .status(500)
         .json({ success: false, message: "Failed to release computer" });
+    }
+  }
+);
+
+// Smart Assignment Routes
+// POST /api/computers/smart-assign/performance/:sessionId - Assign by performance
+router.post(
+  "/smart-assign/performance/:sessionId",
+  requireAdminOrFaculty,
+  async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const assignments = await smartAssignmentService.assignByPerformance(
+        sessionId
+      );
+
+      res.json({
+        success: true,
+        data: assignments,
+        message: `Smart assignment completed for ${assignments.length} students`,
+      });
+    } catch (error) {
+      console.error("Error in performance-based assignment:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to perform smart assignment",
+      });
+    }
+  }
+);
+
+// POST /api/computers/smart-assign/learning-style/:sessionId - Assign by learning style
+router.post(
+  "/smart-assign/learning-style/:sessionId",
+  requireAdminOrFaculty,
+  async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const assignments = await smartAssignmentService.assignByLearningStyle(
+        sessionId
+      );
+
+      res.json({
+        success: true,
+        data: assignments,
+        message: `Learning style-based assignment completed for ${assignments.length} students`,
+      });
+    } catch (error) {
+      console.error("Error in learning style assignment:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to perform smart assignment",
+      });
+    }
+  }
+);
+
+// POST /api/computers/smart-assign/conflict-free/:sessionId - Assign conflict-free
+router.post(
+  "/smart-assign/conflict-free/:sessionId",
+  requireAdminOrFaculty,
+  async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const assignments = await smartAssignmentService.assignConflictFree(
+        sessionId
+      );
+
+      res.json({
+        success: true,
+        data: assignments,
+        message: `Conflict-free assignment completed for ${assignments.length} students`,
+      });
+    } catch (error) {
+      console.error("Error in conflict-free assignment:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to perform smart assignment",
+      });
+    }
+  }
+);
+
+// POST /api/computers/smart-assign/random/:sessionId - Random assignment
+router.post(
+  "/smart-assign/random/:sessionId",
+  requireAdminOrFaculty,
+  async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const assignments = await smartAssignmentService.assignRandom(sessionId);
+
+      res.json({
+        success: true,
+        data: assignments,
+        message: `Random assignment completed for ${assignments.length} students`,
+      });
+    } catch (error) {
+      console.error("Error in random assignment:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to perform smart assignment",
+      });
+    }
+  }
+);
+
+// POST /api/computers/smart-assign/custom/:sessionId - Custom assignment criteria
+router.post(
+  "/smart-assign/custom/:sessionId",
+  requireAdminOrFaculty,
+  async (req, res) => {
+    try {
+      const sessionId = parseInt(req.params.sessionId);
+      const criteria = req.body; // { prioritizePerformance, balanceLearningStyles, avoidConflicts, preferFamiliarComputers }
+
+      const assignments =
+        await smartAssignmentService.assignStudentsToComputers(
+          sessionId,
+          criteria
+        );
+
+      res.json({
+        success: true,
+        data: assignments,
+        message: `Custom assignment completed for ${assignments.length} students`,
+      });
+    } catch (error) {
+      console.error("Error in custom assignment:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to perform smart assignment",
+      });
     }
   }
 );
