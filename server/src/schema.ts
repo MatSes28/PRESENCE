@@ -15,6 +15,7 @@ export const enrollments = sharedSchema.enrollments;
 export const emailNotifications = sharedSchema.emailNotifications;
 export const subjectSessions = sharedSchema.subjectSessions;
 export const sessionAssignments = sharedSchema.sessionAssignments;
+export const computerMaintenance = sharedSchema.computerMaintenance;
 
 // Export relations
 export const usersRelations = sharedSchema.usersRelations;
@@ -35,6 +36,8 @@ export const emailNotificationsRelations =
 export const subjectSessionsRelations = sharedSchema.subjectSessionsRelations;
 export const sessionAssignmentsRelations =
   sharedSchema.sessionAssignmentsRelations;
+export const computerMaintenanceRelations =
+  sharedSchema.computerMaintenanceRelations;
 
 // Export types
 export type User = sharedSchema.User;
@@ -65,3 +68,5 @@ export type SubjectSession = sharedSchema.SubjectSession;
 export type NewSubjectSession = sharedSchema.NewSubjectSession;
 export type SessionAssignment = sharedSchema.SessionAssignment;
 export type NewSessionAssignment = sharedSchema.NewSessionAssignment;
+export type ComputerMaintenance = sharedSchema.ComputerMaintenance;
+export type NewComputerMaintenance = sharedSchema.NewComputerMaintenance;

@@ -135,6 +135,31 @@ export const computers = pgTable("computers", {
   ipAddress: varchar("ip_address", { length: 45 }),
   macAddress: varchar("mac_address", { length: 17 }),
   status: varchar("status", { length: 20 }).default("available").notNull(), // available, in_use, maintenance
+  lastMaintenance: timestamp("last_maintenance"),
+  nextMaintenance: timestamp("next_maintenance"),
+  maintenanceNotes: text("maintenance_notes"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Computer Maintenance Records table
+export const computerMaintenance = pgTable("computer_maintenance", {
+  id: serial("id").primaryKey(),
+  computerId: integer("computer_id")
+    .references(() => computers.id)
+    .notNull(),
+  maintenanceType: varchar("maintenance_type", { length: 50 }).notNull(), // preventive, corrective, upgrade
+  description: text("description").notNull(),
+  performedBy: integer("performed_by")
+    .references(() => users.id)
+    .notNull(),
+  scheduledDate: timestamp("scheduled_date"),
+  completedDate: timestamp("completed_date"),
+  status: varchar("status", { length: 20 }).default("scheduled").notNull(), // scheduled, in_progress, completed, cancelled
+  cost: integer("cost"), // Cost in cents
+  parts: jsonb("parts"), // Parts used/replaced
+  notes: text("notes"),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -348,6 +373,7 @@ export const computersRelations = relations(computers, ({ one, many }) => ({
     references: [classrooms.id],
   }),
   assignments: many(computerAssignments),
+  maintenanceRecords: many(computerMaintenance),
 }));
 
 export const computerAssignmentsRelations = relations(
@@ -437,6 +463,20 @@ export const sessionAssignmentsRelations = relations(
   })
 );
 
+export const computerMaintenanceRelations = relations(
+  computerMaintenance,
+  ({ one }) => ({
+    computer: one(computers, {
+      fields: [computerMaintenance.computerId],
+      references: [computers.id],
+    }),
+    performedBy: one(users, {
+      fields: [computerMaintenance.performedBy],
+      references: [users.id],
+    }),
+  })
+);
+
 // Types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -479,3 +519,6 @@ export type NewSubjectSession = typeof subjectSessions.$inferInsert;
 
 export type SessionAssignment = typeof sessionAssignments.$inferSelect;
 export type NewSessionAssignment = typeof sessionAssignments.$inferInsert;
+
+export type ComputerMaintenance = typeof computerMaintenance.$inferSelect;
+export type NewComputerMaintenance = typeof computerMaintenance.$inferInsert;

@@ -219,6 +219,55 @@ class ApiClient {
     return this.request("/computers/assignments");
   }
 
+  async getComputerStatus() {
+    return this.request("/computers/status");
+  }
+
+  async getMaintenanceRecords() {
+    return this.request("/computers/maintenance");
+  }
+
+  async scheduleMaintenance(maintenance: {
+    computerId: number;
+    maintenanceType: string;
+    description: string;
+    scheduledDate?: string;
+    cost?: number;
+    parts?: any;
+    notes?: string;
+  }) {
+    return this.request("/computers/maintenance", {
+      method: "POST",
+      body: JSON.stringify(maintenance),
+    });
+  }
+
+  async updateMaintenance(
+    id: number,
+    maintenance: Partial<{
+      status: string;
+      completedDate?: string;
+      cost?: number;
+      parts?: any;
+      notes?: string;
+    }>
+  ) {
+    return this.request(`/computers/maintenance/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(maintenance),
+    });
+  }
+
+  async deleteMaintenance(id: number) {
+    return this.request(`/computers/maintenance/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getComputerMaintenance(computerId: number) {
+    return this.request(`/computers/${computerId}/maintenance`);
+  }
+
   async assignComputer(assignment: {
     computerId: number;
     studentId: number;

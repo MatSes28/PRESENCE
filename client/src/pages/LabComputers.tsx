@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api";
 import { useNotifications } from "../components/NotificationSystem";
+import { useAuth } from "../hooks/useAuth";
+import { getWebSocketClient } from "../lib/websocket";
 
 interface Computer {
   id: number;
@@ -33,6 +35,7 @@ interface Subject {
 
 export const LabComputers = () => {
   const { addNotification } = useNotifications();
+  const { user } = useAuth();
   const [computers, setComputers] = useState<Computer[]>([]);
   const [assignments, setAssignments] = useState<ComputerAssignment[]>([]);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
@@ -62,15 +65,61 @@ export const LabComputers = () => {
   const [smartAssignSessionId, setSmartAssignSessionId] = useState<
     number | null
   >(null);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [maintenanceRecords, setMaintenanceRecords] = useState<any[]>([]);
+  const [selectedComputerForMaintenance, setSelectedComputerForMaintenance] =
+    useState<number | null>(null);
   const dragRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
-    initializeComputerStatus();
+    fetchComputerStatus();
   }, []);
 
-  // Initialize computer status
-  const initializeComputerStatus = () => {
+  // Load maintenance records when modal opens
+  useEffect(() => {
+    if (showMaintenanceModal) {
+      loadMaintenanceRecords();
+    }
+  }, [showMaintenanceModal]);
+
+  // Fetch real computer status
+  const fetchComputerStatus = async () => {
+    try {
+      const response = await api.getComputerStatus();
+      if (response.success && response.data) {
+        const statusMap: Record<
+          number,
+          {
+            isOnline: boolean;
+            lastActivity: Date;
+            status: "idle" | "active";
+            cpuUsage?: number;
+            memoryUsage?: number;
+          }
+        > = {};
+
+        (response.data as any[]).forEach((status: any) => {
+          statusMap[status.computerId] = {
+            isOnline: status.isOnline,
+            lastActivity: new Date(status.lastActivity),
+            status: status.status,
+            cpuUsage: status.cpuUsage,
+            memoryUsage: status.memoryUsage,
+          };
+        });
+
+        setComputerStatus(statusMap);
+      }
+    } catch (error) {
+      console.error("Failed to fetch computer status:", error);
+      // Fallback to mock data if API fails
+      initializeMockStatus();
+    }
+  };
+
+  // Initialize mock status as fallback
+  const initializeMockStatus = () => {
     const status: Record<
       number,
       { isOnline: boolean; lastActivity: Date; status: "idle" | "active" }
@@ -85,25 +134,37 @@ export const LabComputers = () => {
     setComputerStatus(status);
   };
 
-  // Update computer status periodically
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    const wsClient = getWebSocketClient(user?.id);
+
+    // Listen for computer status updates
+    wsClient.on("computerStatusUpdate", (data) => {
+      setComputerStatus((prev) => ({
+        ...prev,
+        [data.computerId]: {
+          isOnline: data.isOnline,
+          lastActivity: new Date(data.lastActivity),
+          status: data.status,
+          cpuUsage: data.cpuUsage,
+          memoryUsage: data.memoryUsage,
+        },
+      }));
+    });
+
+    // Get initial device status
+    wsClient.getDeviceStatus();
+
+    return () => {
+      wsClient.off("computerStatusUpdate");
+    };
+  }, [user?.id]);
+
+  // Update computer status periodically (fallback for when WebSocket isn't available)
   useEffect(() => {
     const interval = setInterval(() => {
-      setComputerStatus((prev) => {
-        const updated = { ...prev };
-        Object.keys(updated).forEach((computerId) => {
-          // Randomly update activity
-          if (Math.random() < 0.1) {
-            // 10% chance to update
-            updated[parseInt(computerId)] = {
-              ...updated[parseInt(computerId)],
-              lastActivity: new Date(),
-              status: Math.random() > 0.5 ? "active" : "idle",
-            };
-          }
-        });
-        return updated;
-      });
-    }, 30000); // Update every 30 seconds
+      fetchComputerStatus();
+    }, 60000); // Update every minute
 
     return () => clearInterval(interval);
   }, []);
@@ -212,6 +273,17 @@ export const LabComputers = () => {
     }
   };
 
+  const loadMaintenanceRecords = async () => {
+    try {
+      const response = await api.getMaintenanceRecords();
+      if (response.success) {
+        setMaintenanceRecords((response.data as any[]) || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch maintenance records:", error);
+    }
+  };
+
   const handleDragStart = (e: React.DragEvent, student: any) => {
     setDraggedStudent(student);
     e.dataTransfer.effectAllowed = "move";
@@ -267,21 +339,51 @@ export const LabComputers = () => {
 
   const handleDrop = async (e: React.DragEvent, computerId: number) => {
     e.preventDefault();
-    if (!draggedStudent) return;
+    if (!draggedStudent || !selectedSubject) return;
 
     setProcessing(`assign-${computerId}`);
 
     try {
-      // For now, we'll simulate assignment since we don't have the full assignment API
-      // In a real implementation, you'd call an assignment API
-      addNotification({
-        type: "success",
-        title: "Student Assigned",
-        message: `${draggedStudent.name} assigned to Computer ${computerId}`,
+      // Find the active class session for the selected subject
+      // For now, we'll use a simulated session ID - in a real implementation,
+      // you'd get the actual active session for the subject
+      const sessionsResponse = await api.getClassSessions();
+      let sessionId = 1; // Default fallback
+
+      if (sessionsResponse.success && sessionsResponse.data) {
+        // Find active session for the selected subject
+        const activeSession = (sessionsResponse.data as any[]).find(
+          (session: any) =>
+            session.status === "active" && session.subjectId === selectedSubject
+        );
+        if (activeSession) {
+          sessionId = activeSession.id;
+        }
+      }
+
+      const response = await api.assignComputer({
+        computerId,
+        studentId: draggedStudent.id,
+        classSessionId: sessionId,
       });
 
-      // Refresh assignments
-      fetchAssignments();
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Student Assigned",
+          message: `${draggedStudent.name} assigned to Computer ${computerId}`,
+        });
+
+        // Refresh assignments and computers
+        fetchAssignments();
+        fetchComputers();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Assignment Failed",
+          message: response.message || "Failed to assign student to computer",
+        });
+      }
     } catch (error) {
       console.error("Failed to assign student:", error);
       addNotification({
@@ -595,6 +697,12 @@ export const LabComputers = () => {
             className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto"
           >
             Add Computers
+          </button>
+          <button
+            onClick={() => setShowMaintenanceModal(true)}
+            className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto"
+          >
+            Maintenance
           </button>
         </div>
       </div>
@@ -1444,6 +1552,244 @@ export const LabComputers = () => {
                     Cancel
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Maintenance Modal */}
+      {showMaintenanceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-gray-800 border-gray-700">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-white">
+                  Computer Maintenance Management
+                </h3>
+                <button
+                  onClick={() => setShowMaintenanceModal(false)}
+                  className="text-gray-400 hover:text-gray-300"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Maintenance Records Table */}
+                <div className="bg-gray-900 rounded-lg p-4">
+                  <h4 className="text-md font-medium text-white mb-4">
+                    Maintenance History
+                  </h4>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-700">
+                      <thead className="bg-gray-800">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">
+                            Computer
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">
+                            Type
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">
+                            Status
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">
+                            Scheduled
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">
+                            Completed
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-gray-900 divide-y divide-gray-700">
+                        {maintenanceRecords.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={6}
+                              className="px-4 py-8 text-center text-gray-400"
+                            >
+                              No maintenance records found
+                            </td>
+                          </tr>
+                        ) : (
+                          maintenanceRecords.map((record: any) => (
+                            <tr
+                              key={record.maintenance.id}
+                              className="hover:bg-gray-800"
+                            >
+                              <td className="px-4 py-3 text-sm text-white">
+                                {record.computer.name}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-300">
+                                {record.maintenance.maintenanceType}
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    record.maintenance.status === "completed"
+                                      ? "bg-green-900 text-green-300"
+                                      : record.maintenance.status ===
+                                        "in_progress"
+                                      ? "bg-blue-900 text-blue-300"
+                                      : "bg-yellow-900 text-yellow-300"
+                                  }`}
+                                >
+                                  {record.maintenance.status}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-300">
+                                {record.maintenance.scheduledDate
+                                  ? new Date(
+                                      record.maintenance.scheduledDate
+                                    ).toLocaleDateString()
+                                  : "N/A"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-300">
+                                {record.maintenance.completedDate
+                                  ? new Date(
+                                      record.maintenance.completedDate
+                                    ).toLocaleDateString()
+                                  : "N/A"}
+                              </td>
+                              <td className="px-4 py-3 text-sm space-x-2">
+                                {record.maintenance.status === "scheduled" && (
+                                  <button className="text-blue-400 hover:text-blue-300">
+                                    Start
+                                  </button>
+                                )}
+                                {record.maintenance.status ===
+                                  "in_progress" && (
+                                  <button className="text-green-400 hover:text-green-300">
+                                    Complete
+                                  </button>
+                                )}
+                                <button className="text-gray-400 hover:text-gray-300">
+                                  Edit
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Schedule New Maintenance */}
+                <div className="bg-gray-900 rounded-lg p-4">
+                  <h4 className="text-md font-medium text-white mb-4">
+                    Schedule New Maintenance
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Computer
+                      </label>
+                      <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        <option>Select computer...</option>
+                        {computers.map((computer) => (
+                          <option key={computer.id} value={computer.id}>
+                            {computer.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Maintenance Type
+                      </label>
+                      <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        <option>Preventive</option>
+                        <option>Corrective</option>
+                        <option>Upgrade</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Scheduled Date
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Description
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Brief description"
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex justify-end">
+                    <button className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded text-sm font-medium">
+                      Schedule Maintenance
+                    </button>
+                  </div>
+                </div>
+
+                {/* Maintenance Statistics */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-gray-900 rounded-lg p-4 text-center">
+                    <div className="text-2xl mb-2">🔧</div>
+                    <div className="text-lg font-bold text-white">
+                      {
+                        computers.filter((c) => c.status === "maintenance")
+                          .length
+                      }
+                    </div>
+                    <div className="text-sm text-gray-400">In Maintenance</div>
+                  </div>
+                  <div className="bg-gray-900 rounded-lg p-4 text-center">
+                    <div className="text-2xl mb-2">📅</div>
+                    <div className="text-lg font-bold text-white">
+                      {
+                        maintenanceRecords.filter(
+                          (r: any) => r.maintenance.status === "scheduled"
+                        ).length
+                      }
+                    </div>
+                    <div className="text-sm text-gray-400">Scheduled</div>
+                  </div>
+                  <div className="bg-gray-900 rounded-lg p-4 text-center">
+                    <div className="text-2xl mb-2">⚡</div>
+                    <div className="text-lg font-bold text-white">
+                      {
+                        maintenanceRecords.filter(
+                          (r: any) => r.maintenance.status === "in_progress"
+                        ).length
+                      }
+                    </div>
+                    <div className="text-sm text-gray-400">In Progress</div>
+                  </div>
+                  <div className="bg-gray-900 rounded-lg p-4 text-center">
+                    <div className="text-2xl mb-2">✅</div>
+                    <div className="text-lg font-bold text-white">
+                      {
+                        maintenanceRecords.filter(
+                          (r: any) => r.maintenance.status === "completed"
+                        ).length
+                      }
+                    </div>
+                    <div className="text-sm text-gray-400">Completed</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setShowMaintenanceModal(false)}
+                  className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { eq, and, isNull, inArray } from "drizzle-orm";
+import { eq, and, isNull, inArray, desc } from "drizzle-orm";
 import { db } from "../storage.js";
 import {
   computers,
   computerAssignments,
+  computerMaintenance,
   students,
   users,
   schedules,
@@ -547,10 +548,58 @@ router.post(
         sessionId
       );
 
+      // Create actual assignments in database
+      const createdAssignments = [];
+      for (const assignment of assignments) {
+        try {
+          // Check if computer is available
+          const computerCheck = await db
+            .select()
+            .from(computers)
+            .where(
+              and(
+                eq(computers.id, assignment.computerId),
+                eq(computers.status, "available")
+              )
+            )
+            .limit(1);
+
+          if (computerCheck.length === 0) continue; // Skip if computer not available
+
+          // Update computer status
+          await db
+            .update(computers)
+            .set({ status: "in_use", updatedAt: new Date() })
+            .where(eq(computers.id, assignment.computerId));
+
+          // Create assignment record
+          const newAssignment = await db
+            .insert(computerAssignments)
+            .values({
+              computerId: assignment.computerId,
+              studentId: assignment.studentId,
+              classSessionId: sessionId,
+              status: "active",
+              assignedAt: new Date(),
+            })
+            .returning();
+
+          createdAssignments.push({
+            ...assignment,
+            id: newAssignment[0].id,
+          });
+        } catch (error) {
+          console.error(
+            `Failed to create assignment for student ${assignment.studentId}:`,
+            error
+          );
+        }
+      }
+
       res.json({
         success: true,
-        data: assignments,
-        message: `Smart assignment completed for ${assignments.length} students`,
+        data: createdAssignments,
+        message: `Smart assignment completed for ${createdAssignments.length} students`,
       });
     } catch (error) {
       console.error("Error in performance-based assignment:", error);
@@ -561,6 +610,60 @@ router.post(
     }
   }
 );
+
+// Helper function to create assignments from smart assignment results
+async function createAssignmentsFromResults(
+  assignments: any[],
+  sessionId: number
+) {
+  const createdAssignments = [];
+  for (const assignment of assignments) {
+    try {
+      // Check if computer is available
+      const computerCheck = await db
+        .select()
+        .from(computers)
+        .where(
+          and(
+            eq(computers.id, assignment.computerId),
+            eq(computers.status, "available")
+          )
+        )
+        .limit(1);
+
+      if (computerCheck.length === 0) continue; // Skip if computer not available
+
+      // Update computer status
+      await db
+        .update(computers)
+        .set({ status: "in_use", updatedAt: new Date() })
+        .where(eq(computers.id, assignment.computerId));
+
+      // Create assignment record
+      const newAssignment = await db
+        .insert(computerAssignments)
+        .values({
+          computerId: assignment.computerId,
+          studentId: assignment.studentId,
+          classSessionId: sessionId,
+          status: "active",
+          assignedAt: new Date(),
+        })
+        .returning();
+
+      createdAssignments.push({
+        ...assignment,
+        id: newAssignment[0].id,
+      });
+    } catch (error) {
+      console.error(
+        `Failed to create assignment for student ${assignment.studentId}:`,
+        error
+      );
+    }
+  }
+  return createdAssignments;
+}
 
 // POST /api/computers/smart-assign/learning-style/:sessionId - Assign by learning style
 router.post(
@@ -573,10 +676,15 @@ router.post(
         sessionId
       );
 
+      const createdAssignments = await createAssignmentsFromResults(
+        assignments,
+        sessionId
+      );
+
       res.json({
         success: true,
-        data: assignments,
-        message: `Learning style-based assignment completed for ${assignments.length} students`,
+        data: createdAssignments,
+        message: `Learning style-based assignment completed for ${createdAssignments.length} students`,
       });
     } catch (error) {
       console.error("Error in learning style assignment:", error);
@@ -599,10 +707,15 @@ router.post(
         sessionId
       );
 
+      const createdAssignments = await createAssignmentsFromResults(
+        assignments,
+        sessionId
+      );
+
       res.json({
         success: true,
-        data: assignments,
-        message: `Conflict-free assignment completed for ${assignments.length} students`,
+        data: createdAssignments,
+        message: `Conflict-free assignment completed for ${createdAssignments.length} students`,
       });
     } catch (error) {
       console.error("Error in conflict-free assignment:", error);
@@ -623,10 +736,15 @@ router.post(
       const sessionId = parseInt(req.params.sessionId);
       const assignments = await smartAssignmentService.assignRandom(sessionId);
 
+      const createdAssignments = await createAssignmentsFromResults(
+        assignments,
+        sessionId
+      );
+
       res.json({
         success: true,
-        data: assignments,
-        message: `Random assignment completed for ${assignments.length} students`,
+        data: createdAssignments,
+        message: `Random assignment completed for ${createdAssignments.length} students`,
       });
     } catch (error) {
       console.error("Error in random assignment:", error);
@@ -653,10 +771,15 @@ router.post(
           criteria
         );
 
+      const createdAssignments = await createAssignmentsFromResults(
+        assignments,
+        sessionId
+      );
+
       res.json({
         success: true,
-        data: assignments,
-        message: `Custom assignment completed for ${assignments.length} students`,
+        data: createdAssignments,
+        message: `Custom assignment completed for ${createdAssignments.length} students`,
       });
     } catch (error) {
       console.error("Error in custom assignment:", error);
@@ -667,5 +790,255 @@ router.post(
     }
   }
 );
+
+// GET /api/computers/status - Get real-time status for all computers
+router.get("/status", requireAuth, async (req, res) => {
+  try {
+    const allComputers = await db.select().from(computers);
+
+    // For now, simulate status based on assignments and random factors
+    // In a real implementation, this would come from actual computer monitoring
+    const statusData = allComputers.map((computer) => {
+      const isAssigned = computer.status === "in_use";
+      const randomOnline = Math.random() > 0.1; // 90% online rate
+      const lastActivity = new Date(Date.now() - Math.random() * 3600000); // Within last hour
+
+      return {
+        computerId: computer.id,
+        isOnline: randomOnline,
+        lastActivity: lastActivity.toISOString(),
+        status: isAssigned ? "active" : "idle",
+        currentUser: isAssigned ? "student" : null,
+        cpuUsage: Math.floor(Math.random() * 100),
+        memoryUsage: Math.floor(Math.random() * 100),
+      };
+    });
+
+    res.json({ success: true, data: statusData });
+  } catch (error) {
+    console.error("Error fetching computer status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch computer status",
+    });
+  }
+});
+
+// POST /api/computers/:id/heartbeat - Computer heartbeat endpoint
+router.post("/:id/heartbeat", async (req, res) => {
+  try {
+    const computerId = parseInt(req.params.id);
+    const { cpuUsage, memoryUsage, isOnline } = req.body;
+
+    // In a real implementation, this would update a status table
+    // For now, we'll just acknowledge the heartbeat
+    console.log(
+      `Heartbeat from computer ${computerId}: CPU ${cpuUsage}%, Memory ${memoryUsage}%, Online: ${isOnline}`
+    );
+
+    // Broadcast status update via WebSocket
+    const { broadcastToWebClients } = await import("../services/websocket.js");
+    broadcastToWebClients("computerStatusUpdate", {
+      computerId,
+      isOnline: true,
+      lastActivity: new Date().toISOString(),
+      status: "active",
+      cpuUsage,
+      memoryUsage,
+    });
+
+    res.json({ success: true, message: "Heartbeat received" });
+  } catch (error) {
+    console.error("Error processing heartbeat:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process heartbeat",
+    });
+  }
+});
+
+// Maintenance Routes
+
+// GET /api/computers/maintenance - Get all maintenance records
+router.get("/maintenance", requireAuth, async (req, res) => {
+  try {
+    const maintenance = await db
+      .select({
+        maintenance: computerMaintenance,
+        computer: {
+          id: computers.id,
+          name: computers.name,
+          classroomId: computers.classroomId,
+        },
+        performedBy: {
+          id: users.id,
+          name: users.name,
+        },
+      })
+      .from(computerMaintenance)
+      .innerJoin(computers, eq(computerMaintenance.computerId, computers.id))
+      .innerJoin(users, eq(computerMaintenance.performedBy, users.id))
+      .orderBy(desc(computerMaintenance.createdAt));
+
+    res.json({ success: true, data: maintenance });
+  } catch (error) {
+    console.error("Error fetching maintenance records:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch maintenance records",
+    });
+  }
+});
+
+// POST /api/computers/maintenance - Schedule maintenance
+router.post("/maintenance", requireAdminOrFaculty, async (req, res) => {
+  try {
+    const {
+      computerId,
+      maintenanceType,
+      description,
+      scheduledDate,
+      cost,
+      parts,
+      notes,
+    } = req.body;
+    const userId = req.session?.userId;
+
+    const newMaintenance = await db
+      .insert(computerMaintenance)
+      .values({
+        computerId,
+        maintenanceType,
+        description,
+        performedBy: userId,
+        scheduledDate: scheduledDate ? new Date(scheduledDate) : null,
+        cost,
+        parts,
+        notes,
+      })
+      .returning();
+
+    // Update computer's next maintenance date
+    if (scheduledDate) {
+      await db
+        .update(computers)
+        .set({ nextMaintenance: new Date(scheduledDate) })
+        .where(eq(computers.id, computerId));
+    }
+
+    res.status(201).json({ success: true, data: newMaintenance[0] });
+  } catch (error) {
+    console.error("Error scheduling maintenance:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to schedule maintenance",
+    });
+  }
+});
+
+// PUT /api/computers/maintenance/:id - Update maintenance record
+router.put("/maintenance/:id", requireAdminOrFaculty, async (req, res) => {
+  try {
+    const maintenanceId = parseInt(req.params.id);
+    const { status, completedDate, cost, parts, notes } = req.body;
+
+    const updateData: any = {
+      status,
+      cost,
+      parts,
+      notes,
+      updatedAt: new Date(),
+    };
+
+    if (completedDate) {
+      updateData.completedDate = new Date(completedDate);
+
+      // Update computer's last maintenance date
+      const maintenance = await db
+        .select()
+        .from(computerMaintenance)
+        .where(eq(computerMaintenance.id, maintenanceId))
+        .limit(1);
+
+      if (maintenance.length > 0) {
+        await db
+          .update(computers)
+          .set({
+            lastMaintenance: new Date(completedDate),
+            nextMaintenance: null, // Clear next maintenance until rescheduled
+          })
+          .where(eq(computers.id, maintenance[0].computerId));
+      }
+    }
+
+    const updatedMaintenance = await db
+      .update(computerMaintenance)
+      .set(updateData)
+      .where(eq(computerMaintenance.id, maintenanceId))
+      .returning();
+
+    if (updatedMaintenance.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Maintenance record not found",
+      });
+    }
+
+    res.json({ success: true, data: updatedMaintenance[0] });
+  } catch (error) {
+    console.error("Error updating maintenance:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update maintenance",
+    });
+  }
+});
+
+// DELETE /api/computers/maintenance/:id - Delete maintenance record
+router.delete("/maintenance/:id", requireAdmin, async (req, res) => {
+  try {
+    const maintenanceId = parseInt(req.params.id);
+
+    await db
+      .delete(computerMaintenance)
+      .where(eq(computerMaintenance.id, maintenanceId));
+
+    res.json({ success: true, message: "Maintenance record deleted" });
+  } catch (error) {
+    console.error("Error deleting maintenance:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete maintenance record",
+    });
+  }
+});
+
+// GET /api/computers/:id/maintenance - Get maintenance history for a computer
+router.get("/:id/maintenance", requireAuth, async (req, res) => {
+  try {
+    const computerId = parseInt(req.params.id);
+
+    const maintenance = await db
+      .select({
+        maintenance: computerMaintenance,
+        performedBy: {
+          id: users.id,
+          name: users.name,
+        },
+      })
+      .from(computerMaintenance)
+      .innerJoin(users, eq(computerMaintenance.performedBy, users.id))
+      .where(eq(computerMaintenance.computerId, computerId))
+      .orderBy(desc(computerMaintenance.createdAt));
+
+    res.json({ success: true, data: maintenance });
+  } catch (error) {
+    console.error("Error fetching computer maintenance:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch maintenance history",
+    });
+  }
+});
 
 export default router;
