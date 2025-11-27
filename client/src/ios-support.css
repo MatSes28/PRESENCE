@@ -1,0 +1,214 @@
+/* iOS-specific styles and optimizations */
+
+/* Safe area support for iOS devices with notches */
+@supports (padding: max(0px)) {
+  .ios-safe-area {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .ios-safe-header {
+    padding-top: max(16px, env(safe-area-inset-top));
+  }
+
+  .ios-safe-footer {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+/* iOS-specific touch optimizations */
+.ios-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Prevent zoom on input focus for iOS */
+@media screen and (max-width: 767px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* iOS-specific scrollbar styling */
+.ios-scroll {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #374151 #1f2937;
+}
+
+.ios-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.ios-scroll::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-radius: 3px;
+}
+
+.ios-scroll::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+
+.ios-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* iOS-specific modal and overlay styles */
+.ios-modal {
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 1000;
+  perspective: 1000;
+}
+
+/* iOS-specific button and interactive element styles */
+.ios-button {
+  -webkit-tap-highlight-color: rgba(6, 182, 212, 0.1);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* iOS-specific input styling */
+.ios-input {
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-border-radius: 0;
+  border-radius: 6px;
+}
+
+/* iOS-specific focus styles */
+.ios-focus:focus {
+  outline: 2px solid #06b6d4;
+  outline-offset: 2px;
+}
+
+/* iOS landscape orientation adjustments */
+@media screen and (orientation: landscape) and (max-height: 500px) {
+  .ios-landscape-compact {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .ios-landscape-header {
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+}
+
+/* iOS dark mode support */
+@media (prefers-color-scheme: dark) {
+  .ios-dark-mode {
+    color-scheme: dark;
+  }
+}
+
+/* iOS-specific animation optimizations */
+.ios-optimized-animation {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 1000;
+  perspective: 1000;
+}
+
+/* iOS-specific font rendering */
+.ios-font-optimized {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* iOS-specific gesture handling */
+.ios-gesture-area {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* iOS device-specific optimizations */
+
+/* iPhone X, XS, 11 Pro, 12 mini, 13 mini */
+@media only screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3),
+  only screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) {
+  .iphone-x-series {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* iPhone XR, 11 */
+@media only screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) {
+  .iphone-xr-series {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* iPhone 12, 12 Pro, 13, 13 Pro */
+@media only screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) {
+  .iphone-12-series {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* iPhone 12 Pro Max, 13 Pro Max */
+@media only screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) {
+  .iphone-12-max-series {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* iPhone 14, 14 Plus, 15, 15 Pro */
+@media only screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) {
+  .iphone-14-series {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* iPhone 14 Pro Max, 15 Plus, 15 Pro Max */
+@media only screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) {
+  .iphone-14-max-series {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* iPhone 16 Pro */
+@media only screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) {
+  .iphone-16-pro {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* iPhone 16 Pro Max */
+@media only screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) {
+  .iphone-16-max {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

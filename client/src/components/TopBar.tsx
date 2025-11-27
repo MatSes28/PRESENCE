@@ -21,7 +21,15 @@ const pageTitles: Record<string, string> = {
   "/settings": "Settings",
 };
 
-export const TopBar: React.FC = () => {
+interface TopBarProps {
+  onMenuClick?: () => void;
+  showMenuButton?: boolean;
+}
+
+export const TopBar: React.FC<TopBarProps> = ({
+  onMenuClick,
+  showMenuButton = false,
+}) => {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -34,14 +42,38 @@ export const TopBar: React.FC = () => {
   };
 
   return (
-    <header className="bg-gray-800 shadow-sm border-b border-gray-700 px-6 py-4">
+    <header className="bg-gray-800 shadow-sm border-b border-gray-700 px-4 md:px-6 py-4 pt-safe-top ios-safe-header ios-gesture-area">
       <div className="flex items-center justify-between">
+        {/* Mobile Menu Button */}
+        {showMenuButton && (
+          <button
+            data-sidebar-toggle
+            onClick={onMenuClick}
+            className="md:hidden p-2 mr-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors ios-button ios-touch-target ios-gesture-area"
+            aria-label="Open menu"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+        )}
+
         {/* Page Title / Breadcrumb */}
-        <div>
-          <h1 className="text-2xl font-semibold text-cyan-400">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl md:text-2xl font-semibold text-cyan-400 truncate ios-font-optimized">
             {currentTitle}
           </h1>
-          <nav className="text-sm text-gray-400">
+          <nav className="text-sm text-gray-400 hidden sm:block">
             <span>Home</span>
             {location !== "/" && (
               <>
