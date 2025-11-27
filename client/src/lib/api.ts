@@ -424,6 +424,48 @@ class ApiClient {
     });
   }
 
+  async updateSchedule(
+    id: number,
+    schedule: Partial<{
+      subjectId: number;
+      classroomId: number;
+      facultyId: number;
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+      semester: string;
+      academicYear: string;
+    }>
+  ) {
+    return this.request(`/schedules/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(schedule),
+    });
+  }
+
+  async deleteSchedule(id: number) {
+    return this.request(`/schedules/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async checkScheduleConflicts(conflictData: {
+    subjectId: number;
+    classroomId: number;
+    facultyId: number;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    semester: string;
+    academicYear: string;
+    excludeId?: number;
+  }) {
+    return this.request("/schedules/check-conflicts", {
+      method: "POST",
+      body: JSON.stringify(conflictData),
+    });
+  }
+
   // Class Sessions endpoints
   async getClassSessions() {
     return this.request("/class-sessions");

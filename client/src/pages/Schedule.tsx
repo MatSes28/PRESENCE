@@ -36,6 +36,7 @@ export const Schedule = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<any[]>([]);
@@ -51,6 +52,9 @@ export const Schedule = () => {
     academicYear: new Date().getFullYear().toString(),
   });
   const [uploadingCsv, setUploadingCsv] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [conflicts, setConflicts] = useState<any[]>([]);
+  const [checkingConflicts, setCheckingConflicts] = useState(false);
 
   useEffect(() => {
     fetchSchedules();
@@ -172,9 +176,10 @@ export const Schedule = () => {
       return;
     }
 
-    setSubmitting(true);
+    // Check for conflicts first
+    setCheckingConflicts(true);
     try {
-      const response = await api.createSchedule({
+      const conflictCheck = await api.checkScheduleConflicts({
         subjectId: parseInt(formData.subjectId),
         classroomId: parseInt(formData.classroomId),
         facultyId: parseInt(formData.facultyId),
@@ -183,13 +188,61 @@ export const Schedule = () => {
         endTime: formData.endTime,
         semester: formData.semester,
         academicYear: formData.academicYear,
+        excludeId: editingSchedule?.id,
       });
+
+      if (conflictCheck.success && (conflictCheck.data as any).hasConflicts) {
+        setConflicts((conflictCheck.data as any).conflicts);
+        addNotification({
+          type: "warning",
+          title: "Schedule Conflicts Detected",
+          message: "Please review the conflicts below before proceeding.",
+        });
+        setCheckingConflicts(false);
+        return;
+      }
+
+      setConflicts([]);
+    } catch (error) {
+      console.error("Failed to check conflicts:", error);
+      addNotification({
+        type: "error",
+        title: "Conflict Check Failed",
+        message: "Unable to check for schedule conflicts. Please try again.",
+      });
+      setCheckingConflicts(false);
+      return;
+    }
+    setCheckingConflicts(false);
+
+    // No conflicts, proceed with submission
+    setSubmitting(true);
+    try {
+      let response;
+      const scheduleData = {
+        subjectId: parseInt(formData.subjectId),
+        classroomId: parseInt(formData.classroomId),
+        facultyId: parseInt(formData.facultyId),
+        dayOfWeek: parseInt(formData.dayOfWeek),
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        semester: formData.semester,
+        academicYear: formData.academicYear,
+      };
+
+      if (editingSchedule) {
+        response = await api.updateSchedule(editingSchedule.id, scheduleData);
+      } else {
+        response = await api.createSchedule(scheduleData);
+      }
 
       if (response.success) {
         addNotification({
           type: "success",
-          title: "Schedule Added",
-          message: "Schedule has been successfully created!",
+          title: editingSchedule ? "Schedule Updated" : "Schedule Added",
+          message: `Schedule has been successfully ${
+            editingSchedule ? "updated" : "created"
+          }!`,
         });
         fetchSchedules();
         resetForm();
@@ -197,11 +250,16 @@ export const Schedule = () => {
         addNotification({
           type: "error",
           title: "Save Failed",
-          message: response.message || "Failed to create schedule",
+          message:
+            response.message ||
+            `Failed to ${editingSchedule ? "update" : "create"} schedule`,
         });
       }
     } catch (error) {
-      console.error("Failed to create schedule:", error);
+      console.error(
+        `Failed to ${editingSchedule ? "update" : "create"} schedule:`,
+        error
+      );
       addNotification({
         type: "error",
         title: "Network Error",
@@ -224,7 +282,61 @@ export const Schedule = () => {
       semester: "1st Semester",
       academicYear: new Date().getFullYear().toString(),
     });
+    setEditingSchedule(null);
     setShowAddForm(false);
+  };
+
+  const startEdit = (schedule: Schedule) => {
+    setFormData({
+      subjectId: schedule.subjectId.toString(),
+      classroomId: schedule.classroomId.toString(),
+      facultyId: schedule.facultyId.toString(),
+      dayOfWeek: schedule.dayOfWeek.toString(),
+      startTime: schedule.startTime,
+      endTime: schedule.endTime,
+      semester: schedule.semester,
+      academicYear: schedule.academicYear,
+    });
+    setEditingSchedule(schedule);
+    setShowAddForm(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this schedule? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(id);
+    try {
+      const response = await api.deleteSchedule(id);
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Schedule Deleted",
+          message: "Schedule has been successfully removed.",
+        });
+        fetchSchedules();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Delete Failed",
+          message: response.message || "Failed to delete schedule",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete schedule:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message: "Failed to delete schedule. Please try again.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const getSchedulesForDay = (dayOfWeek: number) => {
@@ -336,7 +448,7 @@ export const Schedule = () => {
       {showAddForm && (
         <div className="bg-gray-800 rounded-lg shadow p-6">
           <h4 className="text-lg font-medium text-white mb-4">
-            Add New Schedule
+            {editingSchedule ? "Edit Schedule" : "Add New Schedule"}
           </h4>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -478,6 +590,26 @@ export const Schedule = () => {
                 />
               </div>
             </div>
+
+            {/* Conflicts Display */}
+            {conflicts.length > 0 && (
+              <div className="bg-red-900 border border-red-700 rounded-md p-4">
+                <h5 className="text-red-300 font-medium mb-2">
+                  Schedule Conflicts Detected:
+                </h5>
+                <ul className="space-y-1">
+                  {conflicts.map((conflict: any, index: number) => (
+                    <li key={index} className="text-red-200 text-sm">
+                      • {conflict.message}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-red-300 text-sm mt-2">
+                  Please adjust the schedule details to resolve these conflicts.
+                </p>
+              </div>
+            )}
+
             <div className="flex justify-end space-x-3">
               <button
                 type="button"
@@ -489,11 +621,17 @@ export const Schedule = () => {
               </button>
               <LoadingButton
                 type="submit"
-                loading={submitting}
-                loadingText="Adding..."
+                loading={submitting || checkingConflicts}
+                loadingText={
+                  checkingConflicts
+                    ? "Checking conflicts..."
+                    : editingSchedule
+                    ? "Updating..."
+                    : "Adding..."
+                }
                 className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-4 py-2 rounded-md text-sm font-medium"
               >
-                Add Schedule
+                {editingSchedule ? "Update" : "Add"} Schedule
               </LoadingButton>
             </div>
           </form>
@@ -670,6 +808,11 @@ export const Schedule = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Semester
                 </th>
+                {user?.role === "admin" && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="bg-gray-800 divide-y divide-gray-700">
@@ -691,6 +834,23 @@ export const Schedule = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                     {schedule.semester} {schedule.academicYear}
                   </td>
+                  {user?.role === "admin" && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button
+                        onClick={() => startEdit(schedule)}
+                        className="text-cyan-400 hover:text-cyan-300"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(schedule.id)}
+                        disabled={deletingId === schedule.id}
+                        className="text-red-400 hover:text-red-300 disabled:text-red-600 disabled:cursor-not-allowed"
+                      >
+                        {deletingId === schedule.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

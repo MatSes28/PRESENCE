@@ -1,8 +1,7 @@
 import { Router } from "express";
 import { db } from "../storage.js";
 import { schedules, subjects, classrooms, users } from "../schema.js";
-import { eq, desc } from "drizzle-orm";
-import { sql } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import multer from "multer";
 import csv from "csv-parser";
 import { Readable } from "stream";
@@ -285,5 +284,131 @@ router.post(
     }
   }
 );
+
+// Check for schedule conflicts
+router.post("/check-conflicts", requireAuth, async (req, res) => {
+  try {
+    const {
+      subjectId,
+      classroomId,
+      facultyId,
+      dayOfWeek,
+      startTime,
+      endTime,
+      semester,
+      academicYear,
+      excludeId, // For updates, exclude the current schedule
+    } = req.body;
+
+    const conflicts = [];
+
+    // Check classroom conflicts
+    const classroomConflicts = await db
+      .select({
+        schedule: schedules,
+        subjectName: subjects.name,
+      })
+      .from(schedules)
+      .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
+      .where(
+        and(
+          eq(schedules.classroomId, classroomId),
+          eq(schedules.dayOfWeek, dayOfWeek),
+          eq(schedules.semester, semester),
+          eq(schedules.academicYear, academicYear),
+          excludeId ? sql`${schedules.id} != ${excludeId}` : sql`1=1`
+        )
+      );
+
+    // Check for time overlaps in classroom
+    for (const conflict of classroomConflicts) {
+      if (
+        timeSlotsOverlap(
+          startTime,
+          endTime,
+          conflict.schedule.startTime,
+          conflict.schedule.endTime
+        )
+      ) {
+        conflicts.push({
+          type: "classroom",
+          message: `Classroom conflict with ${conflict.subjectName} (${conflict.schedule.startTime}-${conflict.schedule.endTime})`,
+          conflictingSchedule: conflict.schedule,
+        });
+      }
+    }
+
+    // Check faculty conflicts
+    const facultyConflicts = await db
+      .select({
+        schedule: schedules,
+        subjectName: subjects.name,
+        classroomName: classrooms.name,
+      })
+      .from(schedules)
+      .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
+      .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
+      .where(
+        and(
+          eq(schedules.facultyId, facultyId),
+          eq(schedules.dayOfWeek, dayOfWeek),
+          eq(schedules.semester, semester),
+          eq(schedules.academicYear, academicYear),
+          excludeId ? sql`${schedules.id} != ${excludeId}` : sql`1=1`
+        )
+      );
+
+    // Check for time overlaps with faculty
+    for (const conflict of facultyConflicts) {
+      if (
+        timeSlotsOverlap(
+          startTime,
+          endTime,
+          conflict.schedule.startTime,
+          conflict.schedule.endTime
+        )
+      ) {
+        conflicts.push({
+          type: "faculty",
+          message: `Faculty conflict with ${conflict.subjectName} in ${conflict.classroomName} (${conflict.schedule.startTime}-${conflict.schedule.endTime})`,
+          conflictingSchedule: conflict.schedule,
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      conflicts,
+      hasConflicts: conflicts.length > 0,
+    });
+  } catch (error) {
+    console.error("Check conflicts error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Helper function to check if two time slots overlap
+function timeSlotsOverlap(
+  start1: string,
+  end1: string,
+  start2: string,
+  end2: string
+): boolean {
+  const start1Minutes = timeToMinutes(start1);
+  const end1Minutes = timeToMinutes(end1);
+  const start2Minutes = timeToMinutes(start2);
+  const end2Minutes = timeToMinutes(end2);
+
+  return start1Minutes < end2Minutes && end1Minutes > start2Minutes;
+}
+
+// Helper function to convert time string to minutes
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
 
 export default router;
