@@ -261,6 +261,21 @@ export const pushNotifications = pgTable("push_notifications", {
   isActive: boolean("is_active").default(true).notNull(),
 });
 
+// User Sessions table (for advanced session management)
+export const userSessions = pgTable("user_sessions", {
+  id: serial("id").primaryKey(),
+  sessionId: varchar("session_id", { length: 255 }).notNull().unique(),
+  userId: integer("user_id")
+    .references(() => users.id)
+    .notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(),
+  userAgent: text("user_agent"),
+  deviceFingerprint: varchar("device_fingerprint", { length: 32 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
 // Push Subscriptions table (for web push API)
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),
@@ -317,6 +332,7 @@ export const sessionAssignments = pgTable("session_assignments", {
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   schedules: many(schedules),
+  sessions: many(userSessions),
 }));
 
 export const studentsRelations = relations(students, ({ many }) => ({
@@ -490,6 +506,13 @@ export const computerMaintenanceRelations = relations(
   })
 );
 
+export const userSessionsRelations = relations(userSessions, ({ one }) => ({
+  user: one(users, {
+    fields: [userSessions.userId],
+    references: [users.id],
+  }),
+}));
+
 // Types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -535,3 +558,6 @@ export type NewSessionAssignment = typeof sessionAssignments.$inferInsert;
 
 export type ComputerMaintenance = typeof computerMaintenance.$inferSelect;
 export type NewComputerMaintenance = typeof computerMaintenance.$inferInsert;
+
+export type UserSession = typeof userSessions.$inferSelect;
+export type NewUserSession = typeof userSessions.$inferInsert;
