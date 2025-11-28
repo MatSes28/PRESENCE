@@ -136,8 +136,8 @@ router.post("/logout", (req, res) => {
   }
 });
 
-// Get current user
-router.get("/me", async (req, res) => {
+// Get current user (more generous rate limiting since this is just a status check)
+router.get("/me", rateLimit(50, 15 * 60 * 1000), async (req, res) => {
   try {
     if (!req.session?.userId) {
       return res.status(401).json({

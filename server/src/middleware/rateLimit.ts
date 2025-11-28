@@ -81,8 +81,8 @@ export const generalRateLimit = createUserRateLimit({
     message: "Too many requests, please try again later.",
     retryAfter: 15 * 60,
   },
-  // Skip rate limiting for health checks
-  skip: (req) => req.path === "/health",
+  // Skip rate limiting for health checks and auth routes (they have their own limits)
+  skip: (req) => req.path === "/health" || req.path.startsWith("/api/auth"),
 });
 
 // API optimization middleware
