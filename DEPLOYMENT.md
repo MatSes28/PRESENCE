@@ -49,6 +49,8 @@ BREVO_API_KEY=your_brevo_api_key
 FROM_EMAIL=clirdecpresence@gmail.com
 NODE_ENV=production
 SESSION_SECRET=your-32-character-secret-here
+JWT_SECRET=your-jwt-secret-key-change-in-production-min-32-chars-long
+JWT_REFRESH_SECRET=your-jwt-refresh-secret-key-change-in-production-min-32-chars-long
 ```
 
 ### 5. Deploy
@@ -156,6 +158,8 @@ FROM_EMAIL=matclirdecpresence@gmail.com
 # Application
 NODE_ENV=production
 SESSION_SECRET=32_character_random_string
+JWT_SECRET=your_jwt_secret_key_min_32_chars
+JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_min_32_chars
 ```
 
 ### Optional Variables
@@ -292,6 +296,7 @@ echo $DATABASE_URL
 ## Security Checklist
 
 - [ ] Change default SESSION_SECRET
+- [ ] Set JWT_SECRET and JWT_REFRESH_SECRET (min 32 characters each)
 - [ ] Use HTTPS in production
 - [ ] Configure CORS properly
 - [ ] Set secure cookie flags
