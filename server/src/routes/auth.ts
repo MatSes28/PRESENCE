@@ -5,18 +5,56 @@ import { db } from "../storage.js";
 import { users } from "../schema.js";
 import { eq } from "drizzle-orm";
 import { emailService } from "../services/emailService.js";
+import rateLimit from "express-rate-limit";
 import {
   sanitizeInput,
   validateRequest,
   validationRules,
-  rateLimit,
 } from "../middleware/validation.js";
 
 const router = Router();
 
+// Specific rate limiters for auth endpoints
+const loginRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 login attempts per window
+  message: {
+    success: false,
+    message: "Too many login attempts, please try again later.",
+    retryAfter: 15 * 60,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const meRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 status checks per window (more generous)
+  message: {
+    success: false,
+    message: "Too many requests, please try again later.",
+    retryAfter: 15 * 60,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const registerRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // 3 registrations per hour
+  message: {
+    success: false,
+    message: "Too many registration attempts, please try again later.",
+    retryAfter: 60 * 60,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Login route
 router.post(
   "/login",
+  loginRateLimit,
   sanitizeInput,
   validateRequest({
     email: validationRules.email,
@@ -25,7 +63,6 @@ router.post(
       return null; // Don't validate password complexity on login
     },
   }),
-  rateLimit(5, 15 * 60 * 1000),
   async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -137,7 +174,7 @@ router.post("/logout", (req, res) => {
 });
 
 // Get current user (more generous rate limiting since this is just a status check)
-router.get("/me", rateLimit(50, 15 * 60 * 1000), async (req, res) => {
+router.get("/me", meRateLimit, async (req, res) => {
   try {
     if (!req.session?.userId) {
       return res.status(401).json({
@@ -184,6 +221,7 @@ router.get("/me", rateLimit(50, 15 * 60 * 1000), async (req, res) => {
 // Register new user (admin only)
 router.post(
   "/register",
+  registerRateLimit,
   sanitizeInput,
   validateRequest({
     email: validationRules.email,
@@ -191,7 +229,6 @@ router.post(
     name: validationRules.name,
     role: validationRules.role,
   }),
-  rateLimit(3, 60 * 60 * 1000),
   async (req, res) => {
     try {
       // Check if user is admin

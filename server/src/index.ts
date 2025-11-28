@@ -15,7 +15,6 @@ import { setupWebSocket } from "./services/websocket.js";
 import { sql } from "drizzle-orm";
 import {
   generalRateLimit,
-  authRateLimit,
   attendanceRateLimit,
   reportRateLimit,
   iotRateLimit,
@@ -104,7 +103,6 @@ app.use(apiOptimization);
 app.use(dbConnectionOptimization);
 
 // Rate limiting with different limits for different endpoints
-app.use("/api/auth", authRateLimit);
 app.use("/api/attendance", attendanceRateLimit);
 app.use("/api/reports", reportRateLimit);
 app.use("/api/iot", iotRateLimit);
