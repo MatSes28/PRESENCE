@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request } from "express";
 import { gdprService } from "../services/gdprService.js";
 import { parentConsentService } from "../services/parentConsentService.js";
 import { validateRequest, validationRules } from "../middleware/validation.js";
@@ -24,7 +24,7 @@ const requireDataAccess = (req: any, res: any, next: any) => {
 
   // Users can access their own data, admins can access any data
   if (currentUserId === requestedUserId || userRole === "admin") {
-    (req as any).requestedUserId = requestedUserId;
+    req.requestedUserId = requestedUserId;
     next();
   } else {
     return res.status(403).json({
@@ -42,7 +42,7 @@ router.get(
   "/access/:userId",
   requireAuth,
   requireDataAccess,
-  async (req, res) => {
+  async (req: any, res) => {
     try {
       const userId = req.requestedUserId;
       const report = await gdprService.getDataAccessReport(userId);
@@ -77,7 +77,7 @@ router.get(
   "/portability/:userId",
   requireAuth,
   requireDataAccess,
-  async (req, res) => {
+  async (req: any, res) => {
     try {
       const userId = req.requestedUserId;
       const portableData = await gdprService.exportDataPortability(userId);
@@ -126,7 +126,7 @@ router.post(
       return null;
     },
   }),
-  async (req, res) => {
+  async (req: any, res) => {
     try {
       const userId = req.requestedUserId;
       const { corrections, reason } = req.body;
@@ -176,7 +176,7 @@ router.post(
       return null;
     },
   }),
-  async (req, res) => {
+  async (req: any, res) => {
     try {
       const userId = req.requestedUserId;
       const { reason } = req.body;
@@ -234,7 +234,7 @@ router.post(
       return null;
     },
   }),
-  async (req, res) => {
+  async (req: any, res) => {
     try {
       const userId = req.requestedUserId;
       const { restrictionType, reason } = req.body;
@@ -289,7 +289,7 @@ router.post(
       return null;
     },
   }),
-  async (req, res) => {
+  async (req: any, res) => {
     try {
       const userId = req.requestedUserId;
       const { processingType, reason } = req.body;

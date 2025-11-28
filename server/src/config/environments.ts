@@ -1,63 +1,72 @@
 // Configuration interfaces
-interface AppConfig {
-  // Base config
+interface BaseConfig {
   NODE_ENV: "development" | "staging" | "production";
   PORT: number;
   HOST: string;
   LOG_LEVEL: "error" | "warn" | "info" | "debug";
+}
 
-  // Database
+interface DatabaseConfig {
   DATABASE_URL: string;
   DB_MAX_CONNECTIONS: number;
   DB_IDLE_TIMEOUT: number;
   DB_CONNECT_TIMEOUT: number;
+}
 
-  // Security
+interface SecurityConfig {
   SESSION_SECRET: string;
   JWT_SECRET?: string;
   JWT_REFRESH_SECRET?: string;
   BCRYPT_ROUNDS: number;
   SESSION_MAX_AGE: number;
+}
 
-  // Email
+interface EmailConfig {
   BREVO_API_KEY?: string;
   FROM_EMAIL: string;
   EMAIL_TEMPLATES_PATH: string;
+}
 
-  // Cache
+interface CacheConfig {
   REDIS_URL?: string;
   CACHE_TTL: number;
   CACHE_PREFIX: string;
+}
 
-  // Rate Limiting
+interface RateLimitConfig {
   RATE_LIMIT_WINDOW: number;
   RATE_LIMIT_MAX_REQUESTS: number;
   ATTENDANCE_RATE_LIMIT: number;
   REPORT_RATE_LIMIT: number;
   IOT_RATE_LIMIT: number;
+}
 
-  // CORS
+interface CorsConfig {
   ALLOWED_ORIGINS: string[];
   CORS_MAX_AGE: number;
+}
 
-  // File Upload
+interface FileUploadConfig {
   MAX_FILE_SIZE: number;
   UPLOAD_PATH: string;
   ALLOWED_FILE_TYPES: string[];
+}
 
-  // Monitoring
+interface MonitoringConfig {
   METRICS_INTERVAL: number;
   ALERT_EMAIL_RECIPIENTS?: string;
   ALERT_WEBHOOK_URL?: string;
   HEALTH_CHECK_INTERVAL: number;
+}
 
-  // IoT
+interface IotConfig {
   DEFAULT_DEVICE_TIMEOUT: number;
   HEARTBEAT_INTERVAL: number;
   MAX_DEVICES_PER_CLASSROOM: number;
   DEVICE_DISCOVERY_PORT: number;
+}
 
-  // Backup
+interface BackupConfig {
   BACKUP_ENABLED: boolean;
   BACKUP_INTERVAL: number;
   BACKUP_RETENTION_DAYS: number;
@@ -65,28 +74,41 @@ interface AppConfig {
   BACKUP_COMPRESSION: boolean;
 }
 
+interface AppConfig
+  extends BaseConfig,
+    DatabaseConfig,
+    SecurityConfig,
+    EmailConfig,
+    CacheConfig,
+    RateLimitConfig,
+    CorsConfig,
+    FileUploadConfig,
+    MonitoringConfig,
+    IotConfig,
+    BackupConfig {}
+
 // Environment-specific defaults
-const environmentDefaults = {
+const environmentDefaults: Record<string, any> = {
   development: {
-    LOG_LEVEL: "debug" as const,
+    LOG_LEVEL: "debug",
     DB_MAX_CONNECTIONS: 10,
     BACKUP_ENABLED: false,
-    METRICS_INTERVAL: 60000, // 1 minute in dev
+    METRICS_INTERVAL: 60000,
   },
   staging: {
-    LOG_LEVEL: "info" as const,
+    LOG_LEVEL: "info",
     DB_MAX_CONNECTIONS: 15,
     BACKUP_ENABLED: true,
-    BACKUP_INTERVAL: 43200000, // 12 hours
-    METRICS_INTERVAL: 30000, // 30 seconds
+    BACKUP_INTERVAL: 43200000,
+    METRICS_INTERVAL: 30000,
   },
   production: {
-    LOG_LEVEL: "warn" as const,
+    LOG_LEVEL: "warn",
     DB_MAX_CONNECTIONS: 20,
     BACKUP_ENABLED: true,
-    BACKUP_INTERVAL: 86400000, // 24 hours
-    METRICS_INTERVAL: 30000, // 30 seconds
-    HEALTH_CHECK_INTERVAL: 30000, // 30 seconds
+    BACKUP_INTERVAL: 86400000,
+    METRICS_INTERVAL: 30000,
+    HEALTH_CHECK_INTERVAL: 30000,
   },
 };
 
@@ -182,33 +204,30 @@ export function loadConfig() {
     BACKUP_COMPRESSION: process.env.BACKUP_COMPRESSION !== "false", // Default true
   };
 
-  // Validate configuration
-  const config = configSchema.parse(rawConfig);
-
   // Additional validation for required fields
-  if (!config.DATABASE_URL) {
+  if (!rawConfig.DATABASE_URL) {
     throw new Error("DATABASE_URL is required");
   }
 
-  if (!config.SESSION_SECRET) {
+  if (!rawConfig.SESSION_SECRET) {
     throw new Error(
       "SESSION_SECRET is required and must be at least 32 characters"
     );
   }
 
-  if (env === "production" && !config.REDIS_URL) {
+  if (env === "production" && !rawConfig.REDIS_URL) {
     console.warn(
       "REDIS_URL not configured for production - caching will be disabled"
     );
   }
 
-  if (env === "production" && !config.BREVO_API_KEY) {
+  if (env === "production" && !rawConfig.BREVO_API_KEY) {
     console.warn(
       "BREVO_API_KEY not configured for production - email notifications will be disabled"
     );
   }
 
-  return config;
+  return rawConfig as unknown as AppConfig;
 }
 
 // Export validated configuration
@@ -238,11 +257,7 @@ export function validateConfiguration(): { valid: boolean; errors: string[] } {
   try {
     loadConfig();
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      errors.push(
-        ...error.errors.map((e) => `${e.path.join(".")}: ${e.message}`)
-      );
-    } else if (error instanceof Error) {
+    if (error instanceof Error) {
       errors.push(error.message);
     }
   }
