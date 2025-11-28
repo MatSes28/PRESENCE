@@ -97,7 +97,7 @@ const poolConfig = {
   // SSL configuration for production
   ...(isProduction && {
     ssl: {
-      rejectUnauthorized: true,
+      rejectUnauthorized: false, // Allow self-signed certificates (Railway)
       // Additional SSL options can be configured here
     },
   }),
