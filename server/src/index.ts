@@ -4,6 +4,7 @@ import helmet from "helmet";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { createServer } from "http";
+import { createServer as createHttpsServer } from "https";
 import { WebSocketServer } from "ws";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -89,13 +90,60 @@ console.log("✅ Environment variables validated successfully");
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Create secure server (HTTPS in production, HTTP in development)
+function createSecureServer(app: express.Application) {
+  const isProduction =
+    process.env.NODE_ENV === "production" || !!process.env.RAILWAY_ENVIRONMENT;
+
+  if (isProduction && process.env.SSL_CERT_PATH && process.env.SSL_KEY_PATH) {
+    // Production: Use HTTPS
+    try {
+      const sslOptions = {
+        cert: fs.readFileSync(process.env.SSL_CERT_PATH),
+        key: fs.readFileSync(process.env.SSL_KEY_PATH),
+        // Optional: CA certificate for client certificate authentication
+        ca: process.env.SSL_CA_PATH
+          ? fs.readFileSync(process.env.SSL_CA_PATH)
+          : undefined,
+        // Enforce minimum TLS version for security
+        minVersion: "TLSv1.2" as const,
+        // Disable insecure ciphers
+        ciphers: [
+          "ECDHE-RSA-AES128-GCM-SHA256",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-AES128-SHA256",
+          "ECDHE-RSA-AES256-SHA384",
+        ].join(":"),
+        // Honor cipher order
+        honorCipherOrder: true,
+      };
+
+      console.log("🔒 Creating HTTPS server for production");
+      return createHttpsServer(sslOptions, app);
+    } catch (error) {
+      console.error("❌ Failed to create HTTPS server:", error);
+      console.log("⚠️  Falling back to HTTP server");
+      return createServer(app);
+    }
+  } else {
+    // Development: Use HTTP
+    console.log("🔓 Creating HTTP server for development");
+    return createServer(app);
+  }
+}
+
 const app = express();
 
 // Trust proxy for accurate IP detection behind reverse proxies
 app.set("trust proxy", 1);
 
-const server = createServer(app);
-const wss = new WebSocketServer({ server });
+const server = createSecureServer(app);
+const wss = new WebSocketServer({
+  server,
+  // Additional security options for WebSocket
+  perMessageDeflate: false, // Disable compression to prevent BREACH attacks
+  maxPayload: 1024 * 1024, // 1MB max payload
+});
 
 // Health check endpoint (before other middleware)
 app.get("/health", (req, res) => {

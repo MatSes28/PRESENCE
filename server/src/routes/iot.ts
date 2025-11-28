@@ -17,30 +17,43 @@ const requireAuth = (req: any, res: any, next: any) => {
 };
 
 // Middleware to check device API key authentication
-const requireDeviceAuth = (req: any, res: any, next: any) => {
-  const apiKey =
-    req.headers["x-device-api-key"] ||
-    req.headers["authorization"]?.replace("Bearer ", "");
+const requireDeviceAuth = async (req: any, res: any, next: any) => {
+  try {
+    const apiKey =
+      req.headers["x-device-api-key"] ||
+      req.headers["authorization"]?.replace("Bearer ", "");
 
-  if (!apiKey) {
-    return res.status(401).json({
+    if (!apiKey) {
+      return res.status(401).json({
+        success: false,
+        message: "Device API key required",
+      });
+    }
+
+    // Validate API key against database
+    const deviceInfo = await iotDeviceManager.authenticateDeviceByApiKey(
+      apiKey
+    );
+
+    if (!deviceInfo) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or inactive device API key",
+      });
+    }
+
+    // Store device info for later use
+    req.deviceId = deviceInfo.deviceId;
+    req.deviceClassroomId = deviceInfo.classroomId;
+    req.deviceApiKey = apiKey;
+    next();
+  } catch (error) {
+    console.error("Device authentication error:", error);
+    res.status(500).json({
       success: false,
-      message: "Device API key required",
+      message: "Authentication service error",
     });
   }
-
-  // In production, validate against a secure device registry
-  // For now, accept any non-empty API key for development
-  if (typeof apiKey !== "string" || apiKey.length < 10) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid device API key",
-    });
-  }
-
-  // Store device info for later use
-  req.deviceApiKey = apiKey;
-  next();
 };
 
 // Get all IoT devices
@@ -330,6 +343,162 @@ router.get("/connected", requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error("Get connected devices error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Get device heartbeat history
+router.get("/devices/:deviceId/heartbeats", requireAuth, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { limit = 50 } = req.query;
+
+    const history = await iotDeviceManager.getHeartbeatHistory(
+      deviceId,
+      parseInt(limit as string, 10)
+    );
+
+    res.json({
+      success: true,
+      deviceId,
+      heartbeats: history,
+    });
+  } catch (error) {
+    console.error("Get device heartbeat history error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Get device heartbeat statistics
+router.get(
+  "/devices/:deviceId/heartbeat-stats",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const { deviceId } = req.params;
+
+      const stats = await iotDeviceManager.getDeviceHeartbeatStats(deviceId);
+
+      if (!stats) {
+        return res.status(404).json({
+          success: false,
+          message: "Device not found or no heartbeat data available",
+        });
+      }
+
+      res.json({
+        success: true,
+        stats,
+      });
+    } catch (error) {
+      console.error("Get device heartbeat stats error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+);
+
+// Get device API key (for device setup)
+router.get("/devices/:deviceId/api-key", requireAuth, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+
+    const apiKey = await iotDeviceManager.getDeviceApiKey(deviceId);
+
+    if (!apiKey) {
+      return res.status(404).json({
+        success: false,
+        message: "Device not found or API key not available",
+      });
+    }
+
+    res.json({
+      success: true,
+      deviceId,
+      apiKey,
+    });
+  } catch (error) {
+    console.error("Get device API key error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Regenerate device API key
+router.post(
+  "/devices/:deviceId/regenerate-api-key",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const { deviceId } = req.params;
+
+      const newApiKey = await iotDeviceManager.regenerateDeviceApiKey(deviceId);
+
+      if (!newApiKey) {
+        return res.status(404).json({
+          success: false,
+          message: "Device not found",
+        });
+      }
+
+      res.json({
+        success: true,
+        deviceId,
+        apiKey: newApiKey,
+        message: "API key regenerated successfully",
+      });
+    } catch (error) {
+      console.error("Regenerate device API key error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+);
+
+// Update device certificate
+router.post("/devices/:deviceId/certificate", requireAuth, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { certificateData, fingerprint } = req.body;
+
+    if (!certificateData || !fingerprint) {
+      return res.status(400).json({
+        success: false,
+        message: "Certificate data and fingerprint are required",
+      });
+    }
+
+    const success = await iotDeviceManager.updateDeviceCertificate(
+      deviceId,
+      certificateData,
+      fingerprint
+    );
+
+    if (!success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to update device certificate",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Device certificate updated successfully",
+    });
+  } catch (error) {
+    console.error("Update device certificate error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",

@@ -219,6 +219,61 @@ router.put("/system", requireAdmin, async (req, res) => {
   }
 });
 
+// Get IoT settings (admin only)
+router.get("/iot", requireAdmin, async (req, res) => {
+  try {
+    // Return default IoT settings
+    const settings = {
+      heartbeatTimeout: 300, // 5 minutes in seconds
+      heartbeatInterval: 60, // 1 minute in seconds
+      maxOfflineDuration: 3600, // 1 hour in seconds
+      enableHeartbeatMonitoring: true,
+    };
+
+    res.json({
+      success: true,
+      settings,
+    });
+  } catch (error) {
+    console.error("Get IoT settings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Update IoT settings (admin only)
+router.put("/iot", requireAdmin, async (req, res) => {
+  try {
+    const {
+      heartbeatTimeout,
+      heartbeatInterval,
+      maxOfflineDuration,
+      enableHeartbeatMonitoring,
+    } = req.body;
+
+    const settings = {
+      heartbeatTimeout: heartbeatTimeout || 300,
+      heartbeatInterval: heartbeatInterval || 60,
+      maxOfflineDuration: maxOfflineDuration || 3600,
+      enableHeartbeatMonitoring: enableHeartbeatMonitoring ?? true,
+    };
+
+    res.json({
+      success: true,
+      message: "IoT settings updated successfully",
+      settings,
+    });
+  } catch (error) {
+    console.error("Update IoT settings error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
 // Get hardware settings (admin only)
 router.get("/hardware", requireAdmin, async (req, res) => {
   try {

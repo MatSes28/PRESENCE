@@ -22,6 +22,27 @@
       "when": 1764256896600,
       "tag": "0002_tiresome_timeslip",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1764311924555,
+      "tag": "0003_wide_zodiak",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1764312499469,
+      "tag": "0004_sparkling_tag",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1764312856499,
+      "tag": "0005_deep_wendell_rand",
+      "breakpoints": true
     }
   ]
 }

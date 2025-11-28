@@ -210,6 +210,10 @@ export const iotDevices = pgTable("iot_devices", {
   status: varchar("status", { length: 20 }).default("offline").notNull(), // online, offline, maintenance
   lastSeen: timestamp("last_seen"),
   config: jsonb("config"),
+  // Security columns for device authentication
+  apiKeyHash: text("api_key_hash"), // SHA-256 hash of API key
+  certificate: text("certificate"), // Device certificate
+  certificateExpiresAt: timestamp("certificate_expires_at"), // Certificate expiration
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

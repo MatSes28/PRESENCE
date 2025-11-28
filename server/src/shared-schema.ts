@@ -210,9 +210,27 @@ export const iotDevices = pgTable("iot_devices", {
   status: varchar("status", { length: 20 }).default("offline").notNull(), // online, offline, maintenance
   lastSeen: timestamp("last_seen"),
   config: jsonb("config"),
+  // Security fields
+  apiKey: varchar("api_key", { length: 128 }).notNull().unique(), // Generated API key for device authentication
+  certificateFingerprint: varchar("certificate_fingerprint", { length: 128 }), // SHA-256 fingerprint of device certificate
+  certificateData: text("certificate_data"), // PEM-encoded device certificate
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// IoT Device Heartbeat History table
+export const iotDeviceHeartbeats = pgTable("iot_device_heartbeats", {
+  id: serial("id").primaryKey(),
+  deviceId: varchar("device_id", { length: 100 }).notNull(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  status: varchar("status", { length: 20 }).notNull(), // online, offline
+  batteryLevel: integer("battery_level"), // Battery percentage (0-100)
+  signalStrength: integer("signal_strength"), // Signal strength (-100 to 0 dBm)
+  temperature: integer("temperature"), // Temperature in Celsius
+  uptime: integer("uptime"), // Uptime in seconds
+  metadata: jsonb("metadata"), // Additional heartbeat data
+  isActive: boolean("is_active").default(true).notNull(),
 });
 
 // Enrollments table
@@ -273,6 +291,46 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+// Error Logs table (for comprehensive error tracking)
+export const errorLogs = pgTable("error_logs", {
+  id: serial("id").primaryKey(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  level: varchar("level", { length: 20 }).notNull(), // error, warn, info
+  message: text("message").notNull(),
+  stack: text("stack"),
+  category: varchar("category", { length: 50 }).notNull(), // validation, database, external, system, business
+  endpoint: varchar("endpoint", { length: 255 }),
+  userId: integer("user_id").references(() => users.id),
+  sessionId: varchar("session_id", { length: 255 }),
+  requestId: varchar("request_id", { length: 255 }),
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  method: varchar("method", { length: 10 }),
+  url: text("url"),
+  statusCode: integer("status_code"),
+  responseTime: integer("response_time"), // in milliseconds
+  metadata: jsonb("metadata"), // Additional error context
+  resolved: boolean("resolved").default(false).notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: integer("resolved_by").references(() => users.id),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+// Error Recovery Attempts table
+export const errorRecoveryAttempts = pgTable("error_recovery_attempts", {
+  id: serial("id").primaryKey(),
+  errorLogId: integer("error_log_id")
+    .references(() => errorLogs.id)
+    .notNull(),
+  attemptNumber: integer("attempt_number").notNull(),
+  strategy: varchar("strategy", { length: 50 }).notNull(), // retry, circuit_breaker, fallback
+  status: varchar("status", { length: 20 }).notNull(), // pending, success, failed
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  result: jsonb("result"),
   isActive: boolean("is_active").default(true).notNull(),
 });
 
@@ -414,6 +472,13 @@ export const iotDevicesRelations = relations(iotDevices, ({ one }) => ({
   }),
 }));
 
+export const iotDeviceHeartbeatsRelations = relations(
+  iotDeviceHeartbeats,
+  ({}) => ({
+    // No relations needed for heartbeat history
+  })
+);
+
 export const enrollmentsRelations = relations(enrollments, ({ one }) => ({
   student: one(students, {
     fields: [enrollments.studentId],
@@ -490,6 +555,28 @@ export const computerMaintenanceRelations = relations(
   })
 );
 
+export const errorLogsRelations = relations(errorLogs, ({ one, many }) => ({
+  user: one(users, {
+    fields: [errorLogs.userId],
+    references: [users.id],
+  }),
+  resolvedBy: one(users, {
+    fields: [errorLogs.resolvedBy],
+    references: [users.id],
+  }),
+  recoveryAttempts: many(errorRecoveryAttempts),
+}));
+
+export const errorRecoveryAttemptsRelations = relations(
+  errorRecoveryAttempts,
+  ({ one }) => ({
+    errorLog: one(errorLogs, {
+      fields: [errorRecoveryAttempts.errorLogId],
+      references: [errorLogs.id],
+    }),
+  })
+);
+
 // Types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -521,6 +608,9 @@ export type NewComputerAssignment = typeof computerAssignments.$inferInsert;
 export type IotDevice = typeof iotDevices.$inferSelect;
 export type NewIotDevice = typeof iotDevices.$inferInsert;
 
+export type IotDeviceHeartbeat = typeof iotDeviceHeartbeats.$inferSelect;
+export type NewIotDeviceHeartbeat = typeof iotDeviceHeartbeats.$inferInsert;
+
 export type Enrollment = typeof enrollments.$inferSelect;
 export type NewEnrollment = typeof enrollments.$inferInsert;
 
@@ -535,3 +625,9 @@ export type NewSessionAssignment = typeof sessionAssignments.$inferInsert;
 
 export type ComputerMaintenance = typeof computerMaintenance.$inferSelect;
 export type NewComputerMaintenance = typeof computerMaintenance.$inferInsert;
+
+export type ErrorLog = typeof errorLogs.$inferSelect;
+export type NewErrorLog = typeof errorLogs.$inferInsert;
+
+export type ErrorRecoveryAttempt = typeof errorRecoveryAttempts.$inferSelect;
+export type NewErrorRecoveryAttempt = typeof errorRecoveryAttempts.$inferInsert;

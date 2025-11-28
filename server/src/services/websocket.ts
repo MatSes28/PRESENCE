@@ -26,7 +26,10 @@ async function authenticateDevice(
   authToken?: string | null
 ): Promise<boolean> {
   try {
-    // Check if device exists in database
+    // Import iotDeviceManager dynamically to avoid circular imports
+    const { iotDeviceManager } = await import("./iotDeviceManager.js");
+
+    // Check if device exists and is active
     const device = await db
       .select()
       .from(iotDevices)
@@ -46,18 +49,36 @@ async function authenticateDevice(
       return false;
     }
 
-    // For now, allow connection without token for development
-    // In production, implement proper token-based authentication
+    // If no auth token provided, deny access
     if (!authToken) {
       console.log(
-        `Device ${deviceId} connected without token (development mode)`
+        `Device ${deviceId} attempted connection without authentication token`
+      );
+      return false;
+    }
+
+    // Try API key authentication first
+    const apiKeyAuth = await iotDeviceManager.authenticateDeviceByApiKey(
+      authToken
+    );
+    if (apiKeyAuth && apiKeyAuth.deviceId === deviceId) {
+      console.log(`Device ${deviceId} authenticated successfully via API key`);
+      return true;
+    }
+
+    // Try certificate fingerprint authentication
+    const certAuth = await iotDeviceManager.authenticateDeviceByCertificate(
+      authToken
+    );
+    if (certAuth && certAuth.deviceId === deviceId) {
+      console.log(
+        `Device ${deviceId} authenticated successfully via certificate`
       );
       return true;
     }
 
-    // TODO: Implement proper token validation
-    // For now, accept any token
-    return true;
+    console.log(`Device ${deviceId} authentication failed - invalid token`);
+    return false;
   } catch (error) {
     console.error("Device authentication error:", error);
     return false;
@@ -127,10 +148,22 @@ export function setupWebSocket(wss: WebSocketServer) {
       });
 
       // Handle connection close
-      ws.on("close", () => {
+      ws.on("close", async () => {
         if (isDevice && deviceId) {
           deviceClients.delete(deviceId);
           console.log(`Device disconnected: ${deviceId}`);
+
+          // Update device status to offline
+          try {
+            const { iotDeviceManager } = await import("./iotDeviceManager.js");
+            await iotDeviceManager.updateDeviceStatus(deviceId, "offline");
+            console.log(`Device ${deviceId} status updated to offline`);
+          } catch (error) {
+            console.error(
+              `Error updating device status for ${deviceId}:`,
+              error
+            );
+          }
         } else if (userId) {
           clients.delete(userId.toString());
           console.log(`Web client disconnected: ${userId}`);
@@ -194,6 +227,38 @@ async function handleDeviceMessage(
   message: WSMessage,
   deviceId?: string | null
 ) {
+  if (!deviceId) {
+    console.error("Device message received without deviceId");
+    return;
+  }
+
+  // Import iotDeviceManager dynamically to avoid circular imports
+  const { iotDeviceManager } = await import("./iotDeviceManager.js");
+
+  // Validate and authorize the command
+  const validation = await iotDeviceManager.validateAndAuthorizeCommand(
+    deviceId,
+    message.type,
+    message.payload
+  );
+
+  if (!validation.authorized) {
+    console.log(
+      `Command validation failed for device ${deviceId}: ${validation.reason}`
+    );
+    ws.send(
+      JSON.stringify({
+        type: "error",
+        payload: {
+          message: "Command not authorized",
+          reason: validation.reason,
+        },
+        timestamp: new Date().toISOString(),
+      })
+    );
+    return;
+  }
+
   switch (message.type) {
     case "rfid_scan":
       // Handle RFID scan from ESP32
@@ -247,14 +312,45 @@ async function handleDeviceMessage(
       break;
 
     case "heartbeat":
-      // Device heartbeat
-      if (deviceId) {
-        console.log(`Heartbeat from device ${deviceId}`);
+      // Device heartbeat - update status and record heartbeat
+      console.log(`Heartbeat from device ${deviceId}`);
+
+      try {
+        // Update device status to online and last seen
+        await iotDeviceManager.updateDeviceStatus(deviceId, "online");
+
+        // Record heartbeat using the device manager method
+        await iotDeviceManager.recordHeartbeat(deviceId, message.payload || {});
+
+        console.log(`Heartbeat recorded for device ${deviceId}`);
+      } catch (error) {
+        console.error(
+          `Error processing heartbeat for device ${deviceId}:`,
+          error
+        );
       }
+      break;
+
+    case "ping":
+      // Respond to ping
+      ws.send(
+        JSON.stringify({
+          type: "pong",
+          payload: { message: "pong" },
+          timestamp: new Date().toISOString(),
+        })
+      );
       break;
 
     default:
       console.log(`Unknown device message type: ${message.type}`);
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          payload: { message: `Unknown command: ${message.type}` },
+          timestamp: new Date().toISOString(),
+        })
+      );
   }
 }
 

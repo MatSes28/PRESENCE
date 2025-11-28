@@ -12,6 +12,7 @@ import {
 import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
 import { attendanceMonitor } from "../services/attendanceMonitor.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { handleRouteError } from "../middleware/errorLogging.js";
 
 const router = Router();
 
@@ -114,11 +115,7 @@ router.get("/", requireAuth, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get attendance records error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    await handleRouteError(error as Error, req, res, "get_attendance_records");
   }
 });
 
@@ -134,11 +131,7 @@ router.get("/stats/:sessionId", requireAuth, async (req, res) => {
       stats,
     });
   } catch (error) {
-    console.error("Get attendance stats error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    await handleRouteError(error as Error, req, res, "get_attendance_stats");
   }
 });
 
@@ -195,11 +188,7 @@ router.post("/manual", requireAuth, async (req, res) => {
       record: newRecord,
     });
   } catch (error) {
-    console.error("Manual attendance entry error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    await handleRouteError(error as Error, req, res, "manual_attendance_entry");
   }
 });
 

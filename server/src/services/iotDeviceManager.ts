@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { sendToDevice } from "./websocket.js";
 import * as dgram from "dgram";
 import * as net from "net";
+import crypto from "crypto";
 
 interface DeviceConfig {
   deviceId: string;
@@ -73,6 +74,9 @@ class IoTDeviceManager {
         console.log(`Updated IoT device: ${config.deviceId}`);
         return updatedDevice;
       } else {
+        // Generate API key for new device
+        const apiKey = crypto.randomBytes(32).toString("hex");
+
         // Create new device
         const [newDevice] = await db
           .insert(iotDevices)
@@ -82,10 +86,15 @@ class IoTDeviceManager {
             deviceType: config.deviceType,
             config: config.config,
             status: "offline",
+            apiKey: apiKey,
           })
           .returning();
 
-        console.log(`Registered new IoT device: ${config.deviceId}`);
+        console.log(
+          `Registered new IoT device: ${
+            config.deviceId
+          } with API key: ${apiKey.substring(0, 8)}...`
+        );
         return newDevice;
       }
     } catch (error) {
@@ -199,6 +208,19 @@ class IoTDeviceManager {
     command: string,
     params?: any
   ): Promise<boolean> {
+    // Validate command before sending
+    const validation = await this.validateAndAuthorizeCommand(
+      deviceId,
+      command,
+      params
+    );
+    if (!validation.authorized) {
+      console.error(
+        `Command validation failed for device ${deviceId}: ${validation.reason}`
+      );
+      return false;
+    }
+
     const message = {
       type: "command",
       command,
@@ -259,7 +281,9 @@ class IoTDeviceManager {
 
   async cleanupOfflineDevices() {
     const now = Date.now();
-    const offlineThreshold = 10 * 60 * 1000; // 10 minutes
+    // Use configurable heartbeat timeout (default 5 minutes = 300 seconds)
+    const offlineThreshold =
+      parseInt(process.env.HEARTBEAT_TIMEOUT || "300", 10) * 1000;
 
     for (const [deviceId, status] of this.deviceStatuses) {
       if (now - status.lastSeen.getTime() > offlineThreshold) {
@@ -268,6 +292,88 @@ class IoTDeviceManager {
     }
 
     console.log("Cleaned up offline devices");
+  }
+
+  // Heartbeat tracking methods
+  async recordHeartbeat(deviceId: string, heartbeatData: any) {
+    try {
+      const { iotDeviceHeartbeats } = await import("../schema.js");
+      const { db } = await import("../storage.js");
+
+      await db.insert(iotDeviceHeartbeats).values({
+        deviceId,
+        status: "online",
+        batteryLevel: heartbeatData.batteryLevel,
+        signalStrength: heartbeatData.signalStrength,
+        temperature: heartbeatData.temperature,
+        uptime: heartbeatData.uptime,
+        metadata: heartbeatData.metadata || {},
+      });
+
+      console.log(`Heartbeat recorded for device ${deviceId}`);
+    } catch (error) {
+      console.error(`Error recording heartbeat for device ${deviceId}:`, error);
+    }
+  }
+
+  async getHeartbeatHistory(deviceId: string, limit: number = 50) {
+    try {
+      const { iotDeviceHeartbeats } = await import("../schema.js");
+      const { db } = await import("../storage.js");
+      const { desc } = await import("drizzle-orm");
+
+      return await db
+        .select()
+        .from(iotDeviceHeartbeats)
+        .where(eq(iotDeviceHeartbeats.deviceId, deviceId))
+        .orderBy(desc(iotDeviceHeartbeats.timestamp))
+        .limit(limit);
+    } catch (error) {
+      console.error(
+        `Error getting heartbeat history for device ${deviceId}:`,
+        error
+      );
+      return [];
+    }
+  }
+
+  async getDeviceHeartbeatStats(deviceId: string) {
+    try {
+      const history = await this.getHeartbeatHistory(deviceId, 100);
+      if (history.length === 0) {
+        return null;
+      }
+
+      const latest = history[0];
+      const avgBattery =
+        history.reduce((sum, h) => sum + (h.batteryLevel || 0), 0) /
+        history.length;
+      const avgSignal =
+        history.reduce((sum, h) => sum + (h.signalStrength || 0), 0) /
+        history.length;
+      const avgTemp =
+        history.reduce((sum, h) => sum + (h.temperature || 0), 0) /
+        history.length;
+
+      return {
+        deviceId,
+        latestHeartbeat: latest,
+        averageBatteryLevel: Math.round(avgBattery),
+        averageSignalStrength: Math.round(avgSignal),
+        averageTemperature: Math.round(avgTemp),
+        totalHeartbeats: history.length,
+        timeRange: {
+          from: history[history.length - 1]?.timestamp,
+          to: latest.timestamp,
+        },
+      };
+    } catch (error) {
+      console.error(
+        `Error getting heartbeat stats for device ${deviceId}:`,
+        error
+      );
+      return null;
+    }
   }
 
   // Start periodic cleanup
@@ -552,6 +658,286 @@ class IoTDeviceManager {
     }
 
     return recommendations;
+  }
+
+  // Authentication Methods
+  async authenticateDeviceByApiKey(
+    apiKey: string
+  ): Promise<{ deviceId: string; classroomId: number } | null> {
+    try {
+      const device = await db
+        .select({
+          deviceId: iotDevices.deviceId,
+          classroomId: iotDevices.classroomId,
+          isActive: iotDevices.isActive,
+        })
+        .from(iotDevices)
+        .where(eq(iotDevices.apiKey, apiKey))
+        .limit(1);
+
+      if (device.length === 0 || !device[0].isActive) {
+        return null;
+      }
+
+      return {
+        deviceId: device[0].deviceId,
+        classroomId: device[0].classroomId,
+      };
+    } catch (error) {
+      console.error("Error authenticating device by API key:", error);
+      return null;
+    }
+  }
+
+  async authenticateDeviceByCertificate(
+    fingerprint: string
+  ): Promise<{ deviceId: string; classroomId: number } | null> {
+    try {
+      const device = await db
+        .select({
+          deviceId: iotDevices.deviceId,
+          classroomId: iotDevices.classroomId,
+          isActive: iotDevices.isActive,
+        })
+        .from(iotDevices)
+        .where(eq(iotDevices.certificateFingerprint, fingerprint))
+        .limit(1);
+
+      if (device.length === 0 || !device[0].isActive) {
+        return null;
+      }
+
+      return {
+        deviceId: device[0].deviceId,
+        classroomId: device[0].classroomId,
+      };
+    } catch (error) {
+      console.error("Error authenticating device by certificate:", error);
+      return null;
+    }
+  }
+
+  async updateDeviceCertificate(
+    deviceId: string,
+    certificateData: string,
+    fingerprint: string
+  ): Promise<boolean> {
+    try {
+      await db
+        .update(iotDevices)
+        .set({
+          certificateData: certificateData,
+          certificateFingerprint: fingerprint,
+          updatedAt: new Date(),
+        })
+        .where(eq(iotDevices.deviceId, deviceId));
+
+      console.log(`Updated certificate for device: ${deviceId}`);
+      return true;
+    } catch (error) {
+      console.error("Error updating device certificate:", error);
+      return false;
+    }
+  }
+
+  async getDeviceApiKey(deviceId: string): Promise<string | null> {
+    try {
+      const device = await db
+        .select({ apiKey: iotDevices.apiKey })
+        .from(iotDevices)
+        .where(eq(iotDevices.deviceId, deviceId))
+        .limit(1);
+
+      return device.length > 0 ? device[0].apiKey : null;
+    } catch (error) {
+      console.error("Error getting device API key:", error);
+      return null;
+    }
+  }
+
+  async regenerateDeviceApiKey(deviceId: string): Promise<string | null> {
+    try {
+      const newApiKey = crypto.randomBytes(32).toString("hex");
+
+      await db
+        .update(iotDevices)
+        .set({
+          apiKey: newApiKey,
+          updatedAt: new Date(),
+        })
+        .where(eq(iotDevices.deviceId, deviceId));
+
+      console.log(`Regenerated API key for device: ${deviceId}`);
+      return newApiKey;
+    } catch (error) {
+      console.error("Error regenerating device API key:", error);
+      return null;
+    }
+  }
+
+  // Command Validation and Authorization
+  async validateAndAuthorizeCommand(
+    deviceId: string,
+    command: string,
+    params?: any
+  ): Promise<{ authorized: boolean; reason?: string }> {
+    try {
+      // Get device information
+      const device = await db
+        .select({
+          deviceType: iotDevices.deviceType,
+          classroomId: iotDevices.classroomId,
+          isActive: iotDevices.isActive,
+        })
+        .from(iotDevices)
+        .where(eq(iotDevices.deviceId, deviceId))
+        .limit(1);
+
+      if (device.length === 0 || !device[0].isActive) {
+        return { authorized: false, reason: "Device not found or inactive" };
+      }
+
+      const deviceInfo = device[0];
+
+      // Define allowed commands per device type
+      const allowedCommands: Record<string, string[]> = {
+        esp32_s3: [
+          "ping",
+          "restart",
+          "update_config",
+          "update_firmware",
+          "health_check",
+          "diagnostics",
+          "rfid_scan",
+          "sensor_trigger",
+          "attendance_record",
+          "heartbeat",
+        ],
+        rfid_reader: [
+          "ping",
+          "restart",
+          "update_config",
+          "update_firmware",
+          "health_check",
+          "diagnostics",
+          "rfid_scan",
+          "heartbeat",
+        ],
+        ultrasonic_sensor: [
+          "ping",
+          "restart",
+          "update_config",
+          "update_firmware",
+          "health_check",
+          "diagnostics",
+          "sensor_trigger",
+          "attendance_record",
+          "heartbeat",
+        ],
+      };
+
+      // Check if command is allowed for this device type
+      const deviceAllowedCommands =
+        allowedCommands[deviceInfo.deviceType] || [];
+      if (!deviceAllowedCommands.includes(command)) {
+        return {
+          authorized: false,
+          reason: `Command '${command}' not allowed for device type '${deviceInfo.deviceType}'`,
+        };
+      }
+
+      // Validate command parameters
+      const paramValidation = this.validateCommandParameters(command, params);
+      if (!paramValidation.valid) {
+        return { authorized: false, reason: paramValidation.reason };
+      }
+
+      // Additional authorization checks can be added here
+      // For example, classroom-specific restrictions, time-based restrictions, etc.
+
+      return { authorized: true };
+    } catch (error) {
+      console.error("Error validating command:", error);
+      return { authorized: false, reason: "Validation service error" };
+    }
+  }
+
+  private validateCommandParameters(
+    command: string,
+    params?: any
+  ): { valid: boolean; reason?: string } {
+    if (!params) {
+      // Commands that don't require parameters
+      const noParamCommands = [
+        "ping",
+        "restart",
+        "health_check",
+        "diagnostics",
+        "heartbeat",
+      ];
+      if (noParamCommands.includes(command)) {
+        return { valid: true };
+      }
+      return {
+        valid: false,
+        reason: `Command '${command}' requires parameters`,
+      };
+    }
+
+    switch (command) {
+      case "update_config":
+        if (typeof params !== "object") {
+          return { valid: false, reason: "Config must be an object" };
+        }
+        // Validate config structure based on device type
+        break;
+
+      case "update_firmware":
+        if (!params.firmwareUrl || typeof params.firmwareUrl !== "string") {
+          return { valid: false, reason: "Valid firmwareUrl required" };
+        }
+        // Validate URL format
+        try {
+          new URL(params.firmwareUrl);
+        } catch {
+          return { valid: false, reason: "Invalid firmware URL format" };
+        }
+        break;
+
+      case "rfid_scan":
+        if (!params.rfidUid || typeof params.rfidUid !== "string") {
+          return { valid: false, reason: "Valid rfidUid required" };
+        }
+        break;
+
+      case "sensor_trigger":
+        if (
+          !params.sensorType ||
+          !["entry", "exit"].includes(params.sensorType)
+        ) {
+          return {
+            valid: false,
+            reason: "Valid sensorType ('entry' or 'exit') required",
+          };
+        }
+        break;
+
+      case "attendance_record":
+        // Attendance records can have various fields, basic validation
+        if (typeof params !== "object") {
+          return {
+            valid: false,
+            reason: "Attendance record must be an object",
+          };
+        }
+        break;
+
+      default:
+        // For unknown commands, accept any parameters for now
+        break;
+    }
+
+    return { valid: true };
   }
 
   // Utility Methods

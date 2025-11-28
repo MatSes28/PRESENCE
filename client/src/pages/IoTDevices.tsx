@@ -11,6 +11,8 @@ interface IoTDevice {
     status: "online" | "offline" | "maintenance";
     lastSeen: string | null;
     config: any;
+    apiKey?: string;
+    certificateFingerprint?: string;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;
@@ -38,6 +40,8 @@ export const IoTDevices: React.FC = () => {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<IoTDevice | null>(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
+  const [deviceApiKey, setDeviceApiKey] = useState<string | null>(null);
 
   // Registration form state
   const [registrationForm, setRegistrationForm] = useState({
@@ -119,6 +123,36 @@ export const IoTDevices: React.FC = () => {
       loadDevices();
     } catch (error) {
       console.error("Failed to update config:", error);
+    }
+  };
+
+  const handleGetApiKey = async (deviceId: string) => {
+    try {
+      // Find the device data
+      const deviceData = devices.find((d) => d.device.deviceId === deviceId);
+      if (deviceData) {
+        setSelectedDevice(deviceData);
+      }
+
+      const response = (await api.get(`/iot/devices/${deviceId}/api-key`)) as {
+        data: { apiKey: string };
+      };
+      setDeviceApiKey(response.data.apiKey);
+      setShowSecurityModal(true);
+    } catch (error) {
+      console.error("Failed to get API key:", error);
+    }
+  };
+
+  const handleRegenerateApiKey = async (deviceId: string) => {
+    try {
+      const response = (await api.post(
+        `/iot/devices/${deviceId}/regenerate-api-key`
+      )) as { data: { apiKey: string } };
+      setDeviceApiKey(response.data.apiKey);
+      alert("API key regenerated successfully!");
+    } catch (error) {
+      console.error("Failed to regenerate API key:", error);
     }
   };
 
@@ -348,6 +382,12 @@ export const IoTDevices: React.FC = () => {
                   >
                     Diagnostics
                   </button>
+                  <button
+                    onClick={() => handleGetApiKey(device.deviceId)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-medium"
+                  >
+                    🔐 Security
+                  </button>
                 </div>
               </div>
             </div>
@@ -556,6 +596,65 @@ export const IoTDevices: React.FC = () => {
                   className="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded text-sm font-medium"
                 >
                   Update Configuration
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Security Modal */}
+      {showSecurityModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white border-gray-300">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Device Security Settings
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    API Key
+                  </label>
+                  <div className="bg-gray-50 p-3 rounded-md font-mono text-sm break-all">
+                    {deviceApiKey || "Loading..."}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Use this API key for device authentication via REST API or
+                    WebSocket connections.
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => {
+                      if (selectedDevice) {
+                        handleRegenerateApiKey(selectedDevice.device.deviceId);
+                      }
+                    }}
+                    className="flex-1 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded text-sm font-medium"
+                  >
+                    Regenerate API Key
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(deviceApiKey || "");
+                      alert("API key copied to clipboard!");
+                    }}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium"
+                  >
+                    Copy Key
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mt-6">
+                <button
+                  onClick={() => {
+                    setShowSecurityModal(false);
+                    setDeviceApiKey(null);
+                  }}
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium"
+                >
+                  Close
                 </button>
               </div>
             </div>

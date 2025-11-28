@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { monitoringService } from "../services/monitoringService.js";
+import { errorLoggingMiddleware } from "./errorLogging.js";
 
 // Extend Express Request to include requestId
 declare global {
@@ -63,16 +64,25 @@ interface ErrorResponse {
 }
 
 // Error handler middleware
-export const errorHandler = (
+export const errorHandler = async (
   error: Error,
   req: Request,
   res: Response,
   next: NextFunction
-): void => {
+): Promise<void> => {
   // Generate request ID if not present
   const requestId =
     req.requestId ||
     `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // First, log the error using the new error logging middleware
+  try {
+    await new Promise<void>((resolve) => {
+      errorLoggingMiddleware(error, req, res, () => resolve());
+    });
+  } catch (loggingError) {
+    console.error("Error logging failed:", loggingError);
+  }
 
   // Categorize error type
   let statusCode = 500;
@@ -101,7 +111,7 @@ export const errorHandler = (
     logLevel = "error";
   }
 
-  // Log error with monitoring service
+  // Also log with the existing monitoring service for backward compatibility
   const errorContext = {
     endpoint: `${req.method} ${req.path}`,
     userId: (req as any).session?.userId,

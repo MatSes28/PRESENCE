@@ -55,17 +55,37 @@ interface DatabaseMetrics {
     idle: number;
     total: number;
     waiting: number;
+    max: number;
   };
   performance: {
     cacheHitRatio: number;
     avgQueryTime: number;
     slowQueries: number;
     deadlocks: number;
+    rollbacks: number;
+    conflicts: number;
   };
   storage: {
     databaseSize: number;
     indexSize: number;
     tableSize: number;
+    walSize: number;
+    tempSize: number;
+  };
+  replication?: {
+    isReplica: boolean;
+    lag: number;
+    status: string;
+  };
+  vacuum: {
+    lastVacuum: Date | null;
+    lastAutoVacuum: Date | null;
+    activeVacuums: number;
+  };
+  locks: {
+    total: number;
+    waiting: number;
+    deadlocks: number;
   };
 }
 
@@ -274,6 +294,76 @@ class MonitoringService {
         severity: "high",
         message: "Redis cache is disconnected",
         cooldown: 2,
+        enabled: true,
+      },
+      {
+        id: "database_high_connection_usage",
+        name: "High Database Connection Usage",
+        condition: (metrics) => {
+          const dbMetrics = metrics.database;
+          if (!dbMetrics?.connections) return false;
+          const usage =
+            dbMetrics.connections.active / dbMetrics.connections.max;
+          return usage > 0.8; // 80% connection usage
+        },
+        severity: "medium",
+        message: "Database connection pool usage is above 80%",
+        cooldown: 5,
+        enabled: true,
+      },
+      {
+        id: "database_high_lock_waiting",
+        name: "High Lock Waiting",
+        condition: (metrics) => {
+          const dbMetrics = metrics.database;
+          if (!dbMetrics?.locks) return false;
+          return dbMetrics.locks.waiting > 10; // More than 10 waiting locks
+        },
+        severity: "high",
+        message: "High number of waiting database locks detected",
+        cooldown: 2,
+        enabled: true,
+      },
+      {
+        id: "database_vacuum_overdue",
+        name: "Vacuum Overdue",
+        condition: (metrics) => {
+          const dbMetrics = metrics.database;
+          if (!dbMetrics?.vacuum?.lastAutoVacuum) return false;
+          const hoursSinceVacuum =
+            (Date.now() - dbMetrics.vacuum.lastAutoVacuum.getTime()) /
+            (1000 * 60 * 60);
+          return hoursSinceVacuum > 24; // No vacuum in 24 hours
+        },
+        severity: "medium",
+        message: "Database auto-vacuum has not run in over 24 hours",
+        cooldown: 60, // Check every hour
+        enabled: true,
+      },
+      {
+        id: "database_replication_lag",
+        name: "High Replication Lag",
+        condition: (metrics) => {
+          const dbMetrics = metrics.database;
+          if (!dbMetrics?.replication?.isReplica) return false;
+          return dbMetrics.replication.lag > 300; // 5 minutes lag
+        },
+        severity: "high",
+        message: "Database replication lag is over 5 minutes",
+        cooldown: 5,
+        enabled: true,
+      },
+      {
+        id: "database_low_cache_hit_ratio",
+        name: "Low Cache Hit Ratio",
+        condition: (metrics) => {
+          const dbMetrics = metrics.database;
+          if (!dbMetrics?.performance) return false;
+          return dbMetrics.performance.cacheHitRatio < 0.85; // Below 85%
+        },
+        severity: "medium",
+        message: "Database cache hit ratio is below 85%",
+        cooldown: 30, // Check every 30 minutes
         enabled: true,
       },
     ];
@@ -616,24 +706,143 @@ class MonitoringService {
         );
       }
 
-      const metrics = {
+      // Get additional database metrics
+      let vacuumStats = {
+        last_vacuum: null,
+        last_autovacuum: null,
+        active_vacuums: 0,
+      };
+      let lockStats = { total_locks: 0, waiting_locks: 0, deadlocks: 0 };
+      let replicationStats = { is_replica: false, lag: 0, status: "primary" };
+
+      // Get vacuum statistics
+      try {
+        const vacuumResult = await db.execute(sql`
+          SELECT
+            schemaname,
+            last_vacuum,
+            last_autovacuum,
+            vacuum_count,
+            autovacuum_count
+          FROM pg_stat_user_tables
+          WHERE schemaname = 'public'
+          LIMIT 1
+        `);
+
+        if (vacuumResult[0]) {
+          const result = vacuumResult[0] as any;
+          vacuumStats.last_vacuum = result.last_vacuum;
+          vacuumStats.last_autovacuum = result.last_autovacuum;
+        }
+
+        // Get active vacuum processes
+        const activeVacuumResult = await db.execute(sql`
+          SELECT COUNT(*) as active_vacuums
+          FROM pg_stat_activity
+          WHERE query LIKE '%VACUUM%' AND state = 'active'
+        `);
+        vacuumStats.active_vacuums =
+          Number((activeVacuumResult[0] as any).active_vacuums) || 0;
+      } catch (error) {
+        this.logger.debug("Failed to collect vacuum statistics", {
+          error: error.message,
+        });
+      }
+
+      // Get lock statistics
+      try {
+        const lockResult = await db.execute(sql`
+          SELECT
+            COUNT(*) as total_locks,
+            COUNT(CASE WHEN granted = false THEN 1 END) as waiting_locks
+          FROM pg_locks
+          WHERE database = (SELECT oid FROM pg_database WHERE datname = current_database())
+        `);
+
+        if (lockResult[0]) {
+          const result = lockResult[0] as any;
+          lockStats.total_locks = Number(result.total_locks) || 0;
+          lockStats.waiting_locks = Number(result.waiting_locks) || 0;
+        }
+
+        // Get deadlock count (from pg_stat_database)
+        const deadlockResult = await db.execute(sql`
+          SELECT deadlocks
+          FROM pg_stat_database
+          WHERE datname = current_database()
+        `);
+        lockStats.deadlocks = Number((deadlockResult[0] as any).deadlocks) || 0;
+      } catch (error) {
+        this.logger.debug("Failed to collect lock statistics", {
+          error: error.message,
+        });
+      }
+
+      // Get replication status (if available)
+      try {
+        const replicationResult = await db.execute(sql`
+          SELECT
+            CASE WHEN pg_is_in_recovery() THEN true ELSE false END as is_replica,
+            CASE WHEN pg_is_in_recovery()
+              THEN EXTRACT(epoch FROM now() - pg_last_xact_replay_timestamp())
+              ELSE 0
+            END as lag_seconds
+        `);
+
+        if (replicationResult[0]) {
+          const result = replicationResult[0] as any;
+          replicationStats.is_replica = result.is_replica;
+          replicationStats.lag = Number(result.lag_seconds) || 0;
+          replicationStats.status = result.is_replica ? "replica" : "primary";
+        }
+      } catch (error) {
+        this.logger.debug("Failed to collect replication statistics", {
+          error: error.message,
+        });
+      }
+
+      const metrics: DatabaseMetrics = {
         timestamp: new Date(),
         connections: {
           active: Number(connStats.active_connections) || 0,
           idle: Number(connStats.idle_connections) || 0,
           total: Number(connStats.total_connections) || 0,
           waiting: Number(connStats.waiting_connections) || 0,
+          max: 100, // Default max connections, could be queried from settings
         },
         performance: {
           cacheHitRatio: Number(performance.cache_hit_ratio) || 0,
           avgQueryTime: Number(performance.avg_query_time) || 0,
-          slowQueries: 0, // Would need additional monitoring setup
-          deadlocks: 0, // Would need additional monitoring setup
+          slowQueries: 0, // Would need pg_stat_statements
+          deadlocks: lockStats.deadlocks,
+          rollbacks: 0, // Would need additional tracking
+          conflicts: 0, // Would need additional tracking
         },
         storage: {
           databaseSize: Number(sizeStats.database_size) || 0,
           indexSize: Number(sizeStats.index_size) || 0,
           tableSize: Number(sizeStats.table_size) || 0,
+          walSize: 0, // Would need to query WAL directory size
+          tempSize: 0, // Would need to query temp file size
+        },
+        replication: {
+          isReplica: replicationStats.is_replica,
+          lag: replicationStats.lag,
+          status: replicationStats.status,
+        },
+        vacuum: {
+          lastVacuum: vacuumStats.last_vacuum
+            ? new Date(vacuumStats.last_vacuum)
+            : null,
+          lastAutoVacuum: vacuumStats.last_autovacuum
+            ? new Date(vacuumStats.last_autovacuum)
+            : null,
+          activeVacuums: vacuumStats.active_vacuums,
+        },
+        locks: {
+          total: lockStats.total_locks,
+          waiting: lockStats.waiting_locks,
+          deadlocks: lockStats.deadlocks,
         },
       };
 
@@ -646,14 +855,37 @@ class MonitoringService {
       });
       return {
         timestamp: new Date(),
-        connections: { active: 0, idle: 0, total: 0, waiting: 0 },
+        connections: { active: 0, idle: 0, total: 0, waiting: 0, max: 0 },
         performance: {
           cacheHitRatio: 0,
           avgQueryTime: 0,
           slowQueries: 0,
           deadlocks: 0,
+          rollbacks: 0,
+          conflicts: 0,
         },
-        storage: { databaseSize: 0, indexSize: 0, tableSize: 0 },
+        storage: {
+          databaseSize: 0,
+          indexSize: 0,
+          tableSize: 0,
+          walSize: 0,
+          tempSize: 0,
+        },
+        replication: {
+          isReplica: false,
+          lag: 0,
+          status: "unknown",
+        },
+        vacuum: {
+          lastVacuum: null,
+          lastAutoVacuum: null,
+          activeVacuums: 0,
+        },
+        locks: {
+          total: 0,
+          waiting: 0,
+          deadlocks: 0,
+        },
       };
     }
   }
