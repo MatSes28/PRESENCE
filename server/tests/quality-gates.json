@@ -1,0 +1,41 @@
+{
+  "coverage": {
+    "branches": 75,
+    "functions": 85,
+    "lines": 85,
+    "statements": 85
+  },
+  "performance": {
+    "maxResponseTime": 1000,
+    "maxMemoryUsage": 512,
+    "maxCpuUsage": 80
+  },
+  "security": {
+    "maxVulnerabilities": {
+      "critical": 0,
+      "high": 0,
+      "moderate": 5
+    },
+    "requiredHeaders": [
+      "X-Content-Type-Options",
+      "X-Frame-Options",
+      "X-XSS-Protection",
+      "Strict-Transport-Security"
+    ]
+  },
+  "reliability": {
+    "maxErrorRate": 0.01,
+    "minUptime": 99.9,
+    "maxResponseTimeP95": 2000
+  },
+  "maintainability": {
+    "maxComplexity": 10,
+    "maxLinesPerFunction": 50,
+    "minTestCoverage": 80
+  },
+  "accessibility": {
+    "minContrastRatio": 4.5,
+    "minFontSize": 14,
+    "maxLineLength": 80
+  }
+}

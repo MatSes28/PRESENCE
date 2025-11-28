@@ -1,16 +1,21 @@
-# Use Node.js 18 Alpine as base image (using Google mirror to avoid Docker Hub issues)
-FROM mirror.gcr.io/library/node:18-alpine
+# Multi-stage Dockerfile for production deployment
+# Stage 1: Build stage
+FROM mirror.gcr.io/library/node:18-alpine AS builder
 
-# Set working directory
+# Install build dependencies
+RUN apk add --no-cache python3 make g++ postgresql-client
+
+# Create app directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files for dependency installation
 COPY package*.json ./
 COPY server/package*.json ./server/
 COPY shared/package*.json ./shared/
+COPY client/package*.json ./client/
 
-# Install dependencies for all workspaces
-RUN npm install
+# Install all dependencies (including dev dependencies for building)
+RUN npm ci --only=production=false
 
 # Copy source code
 COPY server/ ./server/
@@ -19,35 +24,15 @@ COPY client/ ./client/
 
 # Build shared package first
 WORKDIR /app/shared
-RUN npm install
 RUN npm run build
-
-# Install server dependencies
-WORKDIR /app/server
-RUN npm install
 
 # Copy built shared files to server root (so ../../shared/ works from dist/server/src/)
 WORKDIR /app
 RUN cp -r shared/dist/* shared/
-WORKDIR /app/server
-
-# Copy database setup script
-COPY database_setup.sql ./server/
-
-# Install PostgreSQL client for database setup
-RUN apk add --no-cache postgresql-client
-
-# Setup database schema (skip if already exists)
-WORKDIR /app/server
-RUN psql "${DATABASE_URL}" -f database_setup.sql 2>/dev/null || echo "Database setup completed or already exists"
-
-# Expose port
-EXPOSE 3000
 
 # Build the client
 WORKDIR /app/client
-RUN npm install
-RUN npx vite build
+RUN npm run build
 
 # Copy built client to server public directory
 RUN mkdir -p /app/server/public
@@ -55,11 +40,52 @@ RUN cp -r dist/* /app/server/public/
 
 # Build the server
 WORKDIR /app/server
-RUN npm install
 RUN npm run build
 
-# Set working directory for runtime
-WORKDIR /app/server
+# Stage 2: Production runtime stage
+FROM mirror.gcr.io/library/node:18-alpine AS runtime
+
+# Install runtime dependencies
+RUN apk add --no-cache curl postgresql-client redis
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files
+COPY server/package*.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy built application from builder stage
+COPY --from=builder /app/server/dist ./dist
+COPY --from=builder /app/server/public ./public
+COPY --from=builder /app/shared/dist ./shared/dist
+
+# Copy database setup script (for initialization if needed)
+COPY database_setup.sql ./
+
+# Create logs directory with proper permissions
+RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV LOG_LEVEL=info
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
 
 # Start the application
 CMD ["node", "dist/server/src/index.js"]

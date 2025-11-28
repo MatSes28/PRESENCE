@@ -7,6 +7,7 @@ import {
 } from "../schema.js";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { sendToDevice } from "./websocket.js";
+import { cacheService } from "./cacheService.js";
 
 interface RFIDScan {
   deviceId: string;
@@ -314,6 +315,10 @@ class AttendanceMonitor {
       .returning();
 
     console.log(`Created attendance record: ${newRecord.id}`);
+
+    // Invalidate cache for this session
+    await cacheService.invalidateAttendance(newRecord.classSessionId);
+
     return newRecord;
   }
 
@@ -347,6 +352,9 @@ class AttendanceMonitor {
       .where(eq(attendanceRecords.id, existingRecord.id));
 
     console.log(`Updated attendance record: ${existingRecord.id}`);
+
+    // Invalidate cache for this session
+    await cacheService.invalidateAttendance(existingRecord.classSessionId);
   }
 
   private async createDiscrepancyRecord(
@@ -411,6 +419,14 @@ class AttendanceMonitor {
   }
 
   async getAttendanceStats(sessionId: number) {
+    const cacheKey = `attendance_stats:${sessionId}`;
+
+    // Try cache first
+    const cached = await cacheService.get<any>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const records = await db
       .select()
       .from(attendanceRecords)
@@ -426,6 +442,8 @@ class AttendanceMonitor {
         .length,
     };
 
+    // Cache for 2 minutes
+    await cacheService.set(cacheKey, stats, { ttl: 120 });
     return stats;
   }
 

@@ -8,6 +8,7 @@ import {
   sessionAssignments,
 } from "../schema.js";
 import { eq, and, gte, lte, desc, inArray } from "drizzle-orm";
+import { cacheService } from "./cacheService.js";
 
 interface SessionTemplate {
   subjectId: number;
@@ -41,22 +42,40 @@ class SessionManager {
       })
       .returning();
 
+    // Invalidate cache
+    await cacheService.invalidateSchedules(template.facultyId);
+
     return newSession;
   }
 
   async getSessionTemplates(facultyId?: number): Promise<any[]> {
+    const cacheKey = facultyId
+      ? `session_templates:faculty:${facultyId}`
+      : "session_templates:all";
+
+    // Try cache first
+    const cached = await cacheService.get<any[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    let templates;
     if (facultyId) {
-      return await db
+      templates = await db
         .select()
         .from(subjectSessions)
         .where(eq(subjectSessions.facultyId, facultyId))
         .orderBy(desc(subjectSessions.createdAt));
+    } else {
+      templates = await db
+        .select()
+        .from(subjectSessions)
+        .orderBy(desc(subjectSessions.createdAt));
     }
 
-    return await db
-      .select()
-      .from(subjectSessions)
-      .orderBy(desc(subjectSessions.createdAt));
+    // Cache for 10 minutes
+    await cacheService.set(cacheKey, templates, { ttl: 600 });
+    return templates;
   }
 
   // Bulk Session Management
@@ -214,6 +233,16 @@ class SessionManager {
     startDate?: Date,
     endDate?: Date
   ): Promise<any> {
+    const cacheKey = `session_analytics:${facultyId || "all"}:${
+      startDate?.toISOString() || "none"
+    }:${endDate?.toISOString() || "none"}`;
+
+    // Try cache first
+    const cached = await cacheService.get<any>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const conditions = [];
 
     if (facultyId) {
@@ -239,7 +268,7 @@ class SessionManager {
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined);
 
-    return {
+    const analytics = {
       totalSessions: sessions.length,
       completedSessions: sessions.filter(
         (s) => s.session.status === "completed"
@@ -252,6 +281,10 @@ class SessionManager {
       sessionsBySubject: this.groupBySubject(sessions),
       sessionsByMonth: this.groupByMonth(sessions),
     };
+
+    // Cache for 5 minutes
+    await cacheService.set(cacheKey, analytics, { ttl: 300 });
+    return analytics;
   }
 
   private getCurrentSemester(): string {

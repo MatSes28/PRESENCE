@@ -4,6 +4,7 @@ import {
   users,
   attendanceRecords,
   emailNotifications,
+  userSessions,
 } from "../schema.js";
 import { eq, and, lt, sql } from "drizzle-orm";
 import crypto from "crypto";
@@ -189,6 +190,72 @@ class GDPRService {
     // This is complex and should be done carefully with legal review
 
     return requestId;
+  }
+
+  // Execute data erasure (admin function after approval)
+  async executeDataErasure(userId: number, approvedBy: number): Promise<any> {
+    const results = {
+      userAnonymized: false,
+      attendanceRecordsDeleted: 0,
+      notificationsDeleted: 0,
+      sessionsDeleted: 0,
+      errors: [] as string[],
+      executedAt: new Date(),
+    };
+
+    try {
+      // Anonymize user data instead of deleting (for audit trails)
+      await db
+        .update(users)
+        .set({
+          name: "[DELETED]",
+          email: `deleted_${userId}@anonymous.local`,
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      results.userAnonymized = true;
+
+      // Delete attendance records
+      const attendanceResult = await db
+        .delete(attendanceRecords)
+        .where(eq(attendanceRecords.studentId, userId))
+        .returning();
+
+      results.attendanceRecordsDeleted = attendanceResult.length;
+
+      // Delete email notifications
+      const notificationResult = await db
+        .delete(emailNotifications)
+        .where(eq(emailNotifications.studentId, userId))
+        .returning();
+
+      results.notificationsDeleted = notificationResult.length;
+
+      // Delete user sessions
+      const sessionResult = await db
+        .delete(userSessions)
+        .where(eq(userSessions.userId, userId))
+        .returning();
+
+      results.sessionsDeleted = sessionResult.length;
+
+      // Log the erasure execution
+      await this.logPrivacyEvent(
+        userId,
+        "data_erasure_executed",
+        `Data erasure completed by admin ${approvedBy}`,
+        "system",
+        "gdpr_service",
+        `Erased: ${results.attendanceRecordsDeleted} attendance records, ${results.notificationsDeleted} notifications, ${results.sessionsDeleted} sessions`
+      );
+    } catch (error) {
+      console.error("Data erasure execution error:", error);
+      results.errors.push(error.message);
+    }
+
+    return results;
   }
 
   // Right to Data Portability

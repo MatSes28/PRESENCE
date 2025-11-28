@@ -249,3 +249,73 @@ groups:
         annotations:
           summary: "IoT sensor calibration drift detected"
           description: "Sensor {{ $labels.device_id }} has calibration drift of {{ $value }} units"
+
+  # Auto-scaling Alerts
+  - name: auto_scaling
+    rules:
+      - alert: HighCPUUsageScaleUp
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: info
+          category: scaling
+          action: scale_up
+        annotations:
+          summary: "High CPU usage detected - consider scaling up"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }} - trigger auto-scaling"
+          runbook_url: "https://docs.presence.clirdec.edu/runbooks/auto-scaling"
+
+      - alert: HighMemoryUsageScaleUp
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 85
+        for: 5m
+        labels:
+          severity: info
+          category: scaling
+          action: scale_up
+        annotations:
+          summary: "High memory usage detected - consider scaling up"
+          description: "Memory usage is {{ $value }}% on {{ $labels.instance }} - trigger auto-scaling"
+
+      - alert: HighRequestRateScaleUp
+        expr: rate(http_requests_total[5m]) > 500
+        for: 10m
+        labels:
+          severity: info
+          category: scaling
+          action: scale_up
+        annotations:
+          summary: "High request rate detected - consider scaling up"
+          description: "Request rate is {{ $value }} req/s - trigger auto-scaling"
+
+      - alert: LowUtilizationScaleDown
+        expr: (100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[10m])) * 100) < 20) and ((1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 30)
+        for: 30m
+        labels:
+          severity: info
+          category: scaling
+          action: scale_down
+        annotations:
+          summary: "Low resource utilization detected - consider scaling down"
+          description: "Resources are underutilized - safe to scale down instances"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: pg_stat_activity_count > 90
+        for: 5m
+        labels:
+          severity: warning
+          category: scaling
+          action: scale_up
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "Active connections: {{ $value }} - consider scaling application instances"
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          category: scaling
+          action: scale_redis
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis memory usage is {{ $value | humanizePercentage }} - consider scaling Redis"

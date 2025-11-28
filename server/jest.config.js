@@ -12,24 +12,37 @@ export default {
     "!src/**/*.d.ts",
     "!src/index.ts", // Entry point
     "!src/routes.ts", // Route aggregator
+    "!src/config/**/*.ts", // Configuration files
+    "!src/**/*.test.ts", // Test files
+    "!src/**/*.spec.ts", // Spec files
   ],
   coverageDirectory: "coverage",
-  coverageReporters: ["text", "lcov", "html", "json"],
+  coverageReporters: [
+    "text",
+    "lcov",
+    "html",
+    "json",
+    "cobertura", // For CI/CD integration
+  ],
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 80,
-      lines: 80,
-      statements: 80,
+      branches: 75,
+      functions: 85,
+      lines: 85,
+      statements: 85,
     },
   },
+  // Quality gates and best practices
+  bail: false, // Don't stop on first failure, run all tests
+  passWithNoTests: false, // Fail if no tests found
+  testFailureExitCode: 1, // Explicit exit code for failures
   setupFilesAfterEnv: ["<rootDir>/tests/setup.ts"],
   testTimeout: 10000,
   verbose: true,
   forceExit: true,
   detectOpenHandles: true,
   maxWorkers: "50%",
-  moduleNameMapping: {
+  moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   // Test categorization

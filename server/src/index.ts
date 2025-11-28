@@ -28,6 +28,7 @@ import {
 } from "./middleware/rateLimit.js";
 import { cacheService } from "./services/cacheService.js";
 import { databaseBackupService } from "./services/databaseBackup.js";
+import { monitoringService } from "./services/monitoringService.js";
 import {
   errorHandler,
   requestIdMiddleware,
@@ -385,17 +386,59 @@ server.listen({ port: PORT, host: HOST }, () => {
   console.log("Server started successfully");
 });
 
-// Graceful shutdown
-process.on("SIGTERM", () => {
-  console.log("SIGTERM received, shutting down gracefully");
-  server.close(() => {
-    console.log("Process terminated");
-  });
-});
+// Graceful shutdown handler
+async function gracefulShutdown(signal: string) {
+  console.log(`${signal} received, initiating graceful shutdown...`);
 
-process.on("SIGINT", () => {
-  console.log("SIGINT received, shutting down gracefully");
-  server.close(() => {
-    console.log("Process terminated");
-  });
-});
+  try {
+    // Stop accepting new connections
+    server.close((err) => {
+      if (err) {
+        console.error("Error closing HTTP server:", err);
+        process.exit(1);
+      }
+      console.log("HTTP server closed");
+    });
+
+    // Close WebSocket server
+    if (wss) {
+      wss.clients.forEach((client) => {
+        client.close(1001, "Server shutting down");
+      });
+      wss.close((err) => {
+        if (err) {
+          console.error("Error closing WebSocket server:", err);
+        } else {
+          console.log("WebSocket server closed");
+        }
+      });
+    }
+
+    // Stop monitoring service
+    monitoringService.destroy();
+    console.log("Monitoring service stopped");
+
+    // Close Redis connections
+    await cacheService.disconnect();
+    console.log("Redis connections closed");
+
+    // Close database connections (if needed)
+    // Drizzle ORM handles connection pooling automatically
+
+    // Stop automated database backup
+    if (process.env.NODE_ENV === "production") {
+      databaseBackupService.stopAutomatedBackup();
+      console.log("Automated database backup stopped");
+    }
+
+    console.log("Graceful shutdown completed");
+    process.exit(0);
+  } catch (error) {
+    console.error("Error during graceful shutdown:", error);
+    process.exit(1);
+  }
+}
+
+// Graceful shutdown
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));

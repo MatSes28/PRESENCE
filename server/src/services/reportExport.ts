@@ -9,7 +9,7 @@ import {
   enrollments,
 } from "../schema.js";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 import { createWriteStream } from "fs";
 import { join } from "path";
@@ -475,25 +475,45 @@ class ReportExportService {
     const fileName = `report_${Date.now()}.xlsx`;
     const filePath = join(process.cwd(), "exports", fileName);
 
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Report");
 
-    // Add formatting if template specifies
-    if (template?.styling) {
+    // Add headers if data exists
+    if (data.length > 0) {
+      const headers = Object.keys(data[0]);
+      worksheet.addRow(headers);
+
+      // Add data rows
+      data.forEach((row) => {
+        const values = headers.map((header) => row[header]);
+        worksheet.addRow(values);
+      });
+
       // Apply basic styling
-      worksheet["!cols"] = Object.keys(data[0] || {}).map(() => ({
-        width: 15,
-      }));
+      if (template?.styling) {
+        worksheet.columns = headers.map(() => ({ width: 15 }));
+
+        // Style header row
+        const headerRow = worksheet.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF667eea" },
+        };
+      }
     }
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-    XLSX.writeFile(workbook, filePath);
+    await workbook.xlsx.writeFile(filePath);
+
+    // Get actual file size
+    const stats = require("fs").statSync(filePath);
 
     return {
       filePath,
       fileName,
       format: "excel",
-      size: 0, // Would need to get actual file size
+      size: stats.size,
       recordCount: data.length,
     };
   }

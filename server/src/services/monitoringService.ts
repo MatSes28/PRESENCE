@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
+import * as v8 from "v8";
 import winston from "winston";
 import DailyRotateFile from "winston-daily-rotate-file";
 import { db } from "../storage.js";
@@ -1215,6 +1216,91 @@ class MonitoringService {
     metrics += `presence_uptime_seconds ${health.uptime}\n`;
 
     return metrics;
+  }
+
+  // Heap profiling methods for memory analysis
+  public takeHeapSnapshot(): string {
+    try {
+      const snapshotPath = path.join(
+        process.cwd(),
+        "logs",
+        `heap-${Date.now()}.heapsnapshot`
+      );
+
+      // Ensure logs directory exists
+      if (!fs.existsSync(path.dirname(snapshotPath))) {
+        fs.mkdirSync(path.dirname(snapshotPath), { recursive: true });
+      }
+
+      // Take heap snapshot
+      const snapshot = v8.writeHeapSnapshot(snapshotPath);
+
+      this.logger.info("Heap snapshot taken", {
+        type: "profiling",
+        path: snapshotPath,
+        size: fs.statSync(snapshotPath).size,
+      });
+
+      return snapshotPath;
+    } catch (error) {
+      this.logger.error("Failed to take heap snapshot", {
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  // CPU profiling methods
+  public startCpuProfiling(): string {
+    try {
+      const profileId = `cpu-profile-${Date.now()}`;
+      // Note: In Node.js, CPU profiling requires additional setup with inspector
+      // This is a placeholder for more advanced profiling implementation
+      this.logger.info("CPU profiling started", {
+        type: "profiling",
+        profileId,
+      });
+      return profileId;
+    } catch (error) {
+      this.logger.error("Failed to start CPU profiling", {
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  public stopCpuProfiling(profileId: string): void {
+    try {
+      this.logger.info("CPU profiling stopped", {
+        type: "profiling",
+        profileId,
+      });
+    } catch (error) {
+      this.logger.error("Failed to stop CPU profiling", {
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  // Get memory statistics
+  public getMemoryStats(): {
+    heapUsed: number;
+    heapTotal: number;
+    external: number;
+    rss: number;
+    heapUsagePercent: number;
+  } {
+    const memUsage = process.memoryUsage();
+    const heapUsagePercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+
+    return {
+      heapUsed: memUsage.heapUsed,
+      heapTotal: memUsage.heapTotal,
+      external: memUsage.external,
+      rss: memUsage.rss,
+      heapUsagePercent,
+    };
   }
 
   // Cleanup method

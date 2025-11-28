@@ -350,6 +350,29 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   isActive: boolean("is_active").default(true).notNull(),
 });
 
+// Audit Logs table (comprehensive audit trail)
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  userId: integer("user_id").references(() => users.id),
+  action: varchar("action", { length: 100 }).notNull(),
+  resource: varchar("resource", { length: 100 }).notNull(),
+  resourceId: varchar("resource_id", { length: 255 }),
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id", { length: 255 }),
+  success: boolean("success").default(true).notNull(),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata"),
+  // Tamper-proof fields
+  hash: varchar("hash", { length: 128 }), // SHA-256 hash of the log entry
+  previousHash: varchar("previous_hash", { length: 128 }), // Hash of previous entry for chain
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Subject Sessions table - For lab session management
 export const subjectSessions = pgTable("subject_sessions", {
   id: serial("id").primaryKey(),
@@ -601,6 +624,13 @@ export const errorRecoveryAttemptsRelations = relations(
   })
 );
 
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
+  }),
+}));
+
 // Types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -658,3 +688,6 @@ export type NewErrorLog = typeof errorLogs.$inferInsert;
 
 export type ErrorRecoveryAttempt = typeof errorRecoveryAttempts.$inferSelect;
 export type NewErrorRecoveryAttempt = typeof errorRecoveryAttempts.$inferInsert;
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type NewAuditLog = typeof auditLogs.$inferInsert;

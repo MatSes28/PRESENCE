@@ -40,7 +40,7 @@ const poolConfig = {
   allow_exit_on_idle: !isProduction, // Allow exit in development
 
   // Performance optimizations
-  prepare: false, // Disable prepared statements for better connection sharing
+  prepare: true, // Enable prepared statements for better performance
   types: {}, // Use default type parsers
 
   // Connection retry and error handling

@@ -1,0 +1,108 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    # IoT device startup - mass connection
+    - duration: 60
+      arrivalRate: 500  # Many devices connecting at once
+      name: "IoT Device Startup"
+    # Normal IoT operation
+    - duration: 1800  # 30 minutes
+      arrivalRate: 100  # Regular heartbeat intervals
+      name: "Normal IoT Operation"
+    # Peak RFID scanning (class change times)
+    - duration: 300  # 5 minutes
+      arrivalRate: 300
+      name: "Peak RFID Scanning"
+    # Low activity period
+    - duration: 600  # 10 minutes
+      arrivalRate: 20
+      name: "Low Activity Period"
+  defaults:
+    headers:
+      Authorization: "Bearer {{ auth_token }}"
+      Content-Type: "application/json"
+  processor: "./artillery-processor.js"
+
+scenarios:
+  # IoT Device Registration
+  - name: "Device Registration"
+    weight: 5
+    flow:
+      - post:
+          url: "/api/iot/register"
+          json:
+            deviceId: "{{ generateDeviceId }}"
+            deviceType: "rfid_reader"
+            location: "gate_{{ $randomInt(1, 10) }}"
+            firmwareVersion: "1.2.3"
+          expect:
+            - statusCode: 201
+
+  # RFID Scan Events
+  - name: "RFID Entry Scan"
+    weight: 40
+    flow:
+      - post:
+          url: "/api/iot/rfid-scan"
+          json:
+            deviceId: "{{ generateDeviceId }}"
+            rfidUid: "{{ generateRFID }}"
+            direction: "entry"
+            timestamp: "{{ $isoTimestamp }}"
+            signalStrength: "{{ $randomInt(-30, -70) }}"
+          expect:
+            - statusCode: 200
+
+  - name: "RFID Exit Scan"
+    weight: 35
+    flow:
+      - post:
+          url: "/api/iot/rfid-scan"
+          json:
+            deviceId: "{{ generateDeviceId }}"
+            rfidUid: "{{ generateRFID }}"
+            direction: "exit"
+            timestamp: "{{ $isoTimestamp }}"
+            signalStrength: "{{ $randomInt(-30, -70) }}"
+          expect:
+            - statusCode: 200
+
+  # Device Heartbeat
+  - name: "Device Heartbeat"
+    weight: 15
+    flow:
+      - post:
+          url: "/api/iot/heartbeat"
+          json:
+            deviceId: "{{ generateDeviceId }}"
+            batteryLevel: "{{ $randomInt(20, 100) }}"
+            signalStrength: "{{ $randomInt(-50, -20) }}"
+            temperature: "{{ $randomInt(15, 35) }}"
+            uptime: "{{ $randomInt(3600, 86400) }}"
+            lastScanCount: "{{ $randomInt(0, 50) }}"
+          expect:
+            - statusCode: 200
+
+  # Device Status Check
+  - name: "Device Status Query"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/iot/devices/{{ generateDeviceId }}/status"
+          expect:
+            - statusCode: 200
+
+# IoT-specific performance thresholds
+ensure:
+  p95: 500   # 95th percentile < 500ms for IoT responses
+  p99: 1000  # 99th percentile < 1 second
+  rps: 200   # Minimum 200 IoT requests per second
+
+# IoT metrics
+metrics:
+  - name: "RFID Scans Processed"
+    capture: json: "$..rfidScansProcessed"
+  - name: "Device Heartbeats"
+    capture: json: "$..deviceHeartbeats"
+  - name: "Failed Device Connections"
+    capture: json: "$..failedDeviceConnections"

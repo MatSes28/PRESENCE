@@ -23,6 +23,7 @@ import {
 import multer from "multer";
 import csv from "csv-parser";
 import { Readable } from "stream";
+import { encryptionService } from "../services/encryptionService.js";
 
 const router = Router();
 
@@ -68,24 +69,67 @@ router.get("/", requireAuth, async (req, res) => {
         });
       }
 
-      const allStudents = await db
+      const encryptedStudents = await db
         .select()
         .from(students)
         .where(inArray(students.id, studentIds))
         .orderBy(students.name);
 
+      // Decrypt sensitive data
+      const decryptedStudents = encryptedStudents.map((student) => ({
+        ...student,
+        rfidUid: student.rfidUid
+          ? encryptionService.decryptRFID(student.rfidUid)
+          : null,
+        parentEmail: student.parentEmail
+          ? encryptionService.decryptParentData(
+              student.parentEmail,
+              student.parentName || ""
+            ).email
+          : null,
+        parentName: student.parentName
+          ? encryptionService.decryptParentData(
+              student.parentEmail || "",
+              student.parentName
+            ).phone
+          : null,
+      }));
+
       return res.json({
         success: true,
-        students: allStudents,
+        students: decryptedStudents,
       });
     }
 
     // Admin sees all students
-    const allStudents = await db.select().from(students).orderBy(students.name);
+    const encryptedStudents = await db
+      .select()
+      .from(students)
+      .orderBy(students.name);
+
+    // Decrypt sensitive data
+    const decryptedStudents = encryptedStudents.map((student) => ({
+      ...student,
+      rfidUid: student.rfidUid
+        ? encryptionService.decryptRFID(student.rfidUid)
+        : null,
+      parentEmail: student.parentEmail
+        ? encryptionService.decryptParentData(
+            student.parentEmail,
+            student.parentName || ""
+          ).email
+        : null,
+      parentName: student.parentName
+        ? encryptionService.decryptParentData(
+            student.parentEmail || "",
+            student.parentName
+          ).phone
+        : null,
+    }));
 
     res.json({
       success: true,
-      students: allStudents,
+      students: decryptedStudents,
     });
   } catch (error) {
     console.error("Get students error:", error);
@@ -114,9 +158,31 @@ router.get("/:id", requireAuth, async (req, res) => {
       });
     }
 
+    const encryptedStudent = studentResult[0];
+
+    // Decrypt sensitive data
+    const decryptedStudent = {
+      ...encryptedStudent,
+      rfidUid: encryptedStudent.rfidUid
+        ? encryptionService.decryptRFID(encryptedStudent.rfidUid)
+        : null,
+      parentEmail: encryptedStudent.parentEmail
+        ? encryptionService.decryptParentData(
+            encryptedStudent.parentEmail,
+            encryptedStudent.parentName || ""
+          ).email
+        : null,
+      parentName: encryptedStudent.parentName
+        ? encryptionService.decryptParentData(
+            encryptedStudent.parentEmail || "",
+            encryptedStudent.parentName
+          ).phone
+        : null,
+    };
+
     res.json({
       success: true,
-      student: studentResult[0],
+      student: decryptedStudent,
     });
   } catch (error) {
     console.error("Get student error:", error);
@@ -192,6 +258,15 @@ router.post(
         }
       }
 
+      // Encrypt sensitive data
+      const encryptedRfid = rfidUid
+        ? encryptionService.encryptRFID(rfidUid)
+        : null;
+      const encryptedParentData = encryptionService.encryptParentData(
+        parentEmail,
+        parentName || ""
+      );
+
       const [newStudent] = await db
         .insert(students)
         .values({
@@ -200,9 +275,9 @@ router.post(
           email,
           year,
           section,
-          rfidUid,
-          parentEmail,
-          parentName,
+          rfidUid: encryptedRfid,
+          parentEmail: encryptedParentData.email,
+          parentName: encryptedParentData.phone, // Using phone field for parentName since it's encrypted together
         })
         .returning();
 
@@ -249,18 +324,31 @@ router.put("/:id", requireAdmin, async (req, res) => {
       }
     }
 
+    // Encrypt sensitive data
+    const encryptedRfid = rfidUid
+      ? encryptionService.encryptRFID(rfidUid)
+      : undefined;
+    const encryptedParentData = parentEmail
+      ? encryptionService.encryptParentData(parentEmail, parentName || "")
+      : undefined;
+
+    const updateData: any = {
+      name,
+      email,
+      year,
+      section,
+      updatedAt: new Date(),
+    };
+
+    if (encryptedRfid !== undefined) updateData.rfidUid = encryptedRfid;
+    if (encryptedParentData) {
+      updateData.parentEmail = encryptedParentData.email;
+      updateData.parentName = encryptedParentData.phone;
+    }
+
     const [updatedStudent] = await db
       .update(students)
-      .set({
-        name,
-        email,
-        year,
-        section,
-        rfidUid,
-        parentEmail,
-        parentName,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(students.id, studentId))
       .returning();
 
@@ -271,10 +359,30 @@ router.put("/:id", requireAdmin, async (req, res) => {
       });
     }
 
+    // Decrypt for response
+    const decryptedStudent = {
+      ...updatedStudent,
+      rfidUid: updatedStudent.rfidUid
+        ? encryptionService.decryptRFID(updatedStudent.rfidUid)
+        : null,
+      parentEmail: updatedStudent.parentEmail
+        ? encryptionService.decryptParentData(
+            updatedStudent.parentEmail,
+            updatedStudent.parentName || ""
+          ).email
+        : null,
+      parentName: updatedStudent.parentName
+        ? encryptionService.decryptParentData(
+            updatedStudent.parentEmail || "",
+            updatedStudent.parentName
+          ).phone
+        : null,
+    };
+
     res.json({
       success: true,
       message: "Student updated successfully",
-      student: updatedStudent,
+      student: decryptedStudent,
     });
   } catch (error) {
     console.error("Update student error:", error);
@@ -389,10 +497,12 @@ router.post("/:id/assign-rfid", requireAdmin, async (req, res) => {
       });
     }
 
+    const encryptedRfid = encryptionService.encryptRFID(rfidUid);
+
     const [updatedStudent] = await db
       .update(students)
       .set({
-        rfidUid,
+        rfidUid: encryptedRfid,
         updatedAt: new Date(),
       })
       .where(eq(students.id, studentId))
@@ -405,10 +515,30 @@ router.post("/:id/assign-rfid", requireAdmin, async (req, res) => {
       });
     }
 
+    // Decrypt for response
+    const decryptedStudent = {
+      ...updatedStudent,
+      rfidUid: updatedStudent.rfidUid
+        ? encryptionService.decryptRFID(updatedStudent.rfidUid)
+        : null,
+      parentEmail: updatedStudent.parentEmail
+        ? encryptionService.decryptParentData(
+            updatedStudent.parentEmail,
+            updatedStudent.parentName || ""
+          ).email
+        : null,
+      parentName: updatedStudent.parentName
+        ? encryptionService.decryptParentData(
+            updatedStudent.parentEmail || "",
+            updatedStudent.parentName
+          ).phone
+        : null,
+    };
+
     res.json({
       success: true,
       message: "RFID assigned successfully",
-      student: updatedStudent,
+      student: decryptedStudent,
     });
   } catch (error) {
     console.error("Assign RFID error:", error);
@@ -478,15 +608,24 @@ router.post(
                   }
                 }
 
+                // Encrypt sensitive data
+                const encryptedRfid = row.rfidUid
+                  ? encryptionService.encryptRFID(row.rfidUid)
+                  : null;
+                const encryptedParentData = encryptionService.encryptParentData(
+                  row.parentEmail,
+                  row.parentName || ""
+                );
+
                 await db.insert(students).values({
                   studentId: row.studentId,
                   name: row.name,
                   email: row.email || null,
                   year: row.year || null,
                   section: row.section || null,
-                  rfidUid: row.rfidUid || null,
-                  parentEmail: row.parentEmail,
-                  parentName: row.parentName || null,
+                  rfidUid: encryptedRfid,
+                  parentEmail: encryptedParentData.email,
+                  parentName: encryptedParentData.phone,
                 });
 
                 imported++;

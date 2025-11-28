@@ -2,6 +2,7 @@ import { Router, Request } from "express";
 import { gdprService } from "../services/gdprService.js";
 import { parentConsentService } from "../services/parentConsentService.js";
 import { validateRequest, validationRules } from "../middleware/validation.js";
+import { requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -502,6 +503,41 @@ router.get("/consent/report/:studentId", requireAuth, async (req, res) => {
     });
   }
 });
+
+// Execute data erasure (admin only)
+router.post(
+  "/erasure/execute/:userId",
+  requireAuth,
+  requireAdmin,
+  validateRequest({
+    approvedBy: (value) => {
+      if (!value || typeof value !== "number") {
+        return "Approved by user ID is required";
+      }
+      return null;
+    },
+  }),
+  async (req: any, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const { approvedBy } = req.body;
+
+      const results = await gdprService.executeDataErasure(userId, approvedBy);
+
+      res.json({
+        success: true,
+        message: "Data erasure executed",
+        results,
+      });
+    } catch (error) {
+      console.error("Execute data erasure error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+);
 
 // Privacy Policy and Terms
 router.get("/privacy-policy", (req, res) => {

@@ -19,6 +19,7 @@ Welcome to the comprehensive documentation suite for CLIRDEC:PRESENCE, a real-ti
 - **[System Architecture](./developer/architecture.md)** - Technical architecture and design decisions
 - **[API Reference](./developer/api-reference.md)** - Complete API documentation with examples
 - **[Deployment Guide](./developer/deployment.md)** - Production deployment and configuration
+- **[Incident Response Plan](./incident-response-plan.md)** - Security incident handling procedures
 
 ### 📡 API Documentation
 

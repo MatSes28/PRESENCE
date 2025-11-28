@@ -36,8 +36,8 @@ export const Monitor: React.FC = () => {
     setLoading(true);
     try {
       const [sessionsRes, statsRes] = await Promise.all([
-        api.get("/attendance/active-sessions"),
-        api.get("/reports/system-stats"),
+        api.get<ActiveSession[]>("/attendance/active-sessions"),
+        api.get<SystemStats>("/reports/system-stats"),
       ]);
 
       setActiveSessions(sessionsRes.data);

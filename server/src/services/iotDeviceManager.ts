@@ -5,6 +5,7 @@ import { sendToDevice } from "./websocket.js";
 import * as dgram from "dgram";
 import * as net from "net";
 import crypto from "crypto";
+import { cacheService } from "./cacheService.js";
 
 interface DeviceConfig {
   deviceId: string;
@@ -131,6 +132,9 @@ class IoTDeviceManager {
         .where(eq(iotDevices.deviceId, deviceId));
 
       console.log(`Updated device status: ${deviceId} -> ${status}`);
+
+      // Invalidate cache
+      await cacheService.invalidateIoTDevices();
     } catch (error) {
       console.error("Error updating device status:", error);
     }
@@ -173,8 +177,16 @@ class IoTDeviceManager {
   }
 
   async getDevicesByClassroom(classroomId: number) {
+    const cacheKey = `iot_devices:classroom:${classroomId}`;
+
+    // Try cache first
+    const cached = await cacheService.get<any[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
-      return await db
+      const devices = await db
         .select({
           device: iotDevices,
           classroom: classrooms,
@@ -182,6 +194,10 @@ class IoTDeviceManager {
         .from(iotDevices)
         .innerJoin(classrooms, eq(iotDevices.classroomId, classrooms.id))
         .where(eq(iotDevices.classroomId, classroomId));
+
+      // Cache for 5 minutes
+      await cacheService.set(cacheKey, devices, { ttl: 300 });
+      return devices;
     } catch (error) {
       console.error("Error getting devices by classroom:", error);
       return [];
@@ -189,14 +205,26 @@ class IoTDeviceManager {
   }
 
   async getAllDevices() {
+    const cacheKey = "iot_devices:all";
+
+    // Try cache first
+    const cached = await cacheService.get<any[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
-      return await db
+      const devices = await db
         .select({
           device: iotDevices,
           classroom: classrooms,
         })
         .from(iotDevices)
         .innerJoin(classrooms, eq(iotDevices.classroomId, classrooms.id));
+
+      // Cache for 5 minutes
+      await cacheService.set(cacheKey, devices, { ttl: 300 });
+      return devices;
     } catch (error) {
       console.error("Error getting all devices:", error);
       return [];

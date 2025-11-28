@@ -41,10 +41,10 @@ export const Compliance: React.FC = () => {
     setLoading(true);
     try {
       if (activeTab === "audit") {
-        const response = await api.get("/audit/logs");
+        const response = await api.get<AuditLog[]>("/audit/logs");
         setAuditLogs(response.data);
       } else if (activeTab === "login") {
-        const response = await api.get("/audit/login-attempts");
+        const response = await api.get<LoginAttempt[]>("/audit/login-attempts");
         setLoginAttempts(response.data);
       }
     } catch (error) {
@@ -56,11 +56,11 @@ export const Compliance: React.FC = () => {
 
   const handleExportAuditLogs = async () => {
     try {
-      const response = await api.get("/audit/export", { responseType: "blob" });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      // For now, use a simple download approach
       const link = document.createElement("a");
-      link.href = url;
+      link.href = "/api/audit/export";
       link.setAttribute("download", "audit-logs.csv");
+      link.setAttribute("target", "_blank");
       document.body.appendChild(link);
       link.click();
       link.remove();

@@ -1,0 +1,493 @@
+import { iotDeviceManager } from "../../../src/services/iotDeviceManager";
+
+// Mock external dependencies
+jest.mock("../../../src/storage.js", () => ({
+  db: {
+    select: jest.fn(() => ({
+      from: jest.fn(() => ({
+        where: jest.fn(() => ({
+          limit: jest.fn(() => []),
+          orderBy: jest.fn(() => []),
+          innerJoin: jest.fn(() => ({
+            where: jest.fn(() => []),
+          })),
+        })),
+      })),
+    })),
+    update: jest.fn(() => ({
+      set: jest.fn(() => ({
+        where: jest.fn(() => ({
+          returning: jest.fn(() => []),
+        })),
+      })),
+    })),
+    insert: jest.fn(() => ({
+      values: jest.fn(() => ({
+        returning: jest.fn(() => []),
+      })),
+    })),
+  },
+}));
+
+jest.mock("../../../src/services/websocket.js", () => ({
+  sendToDevice: jest.fn(),
+}));
+
+jest.mock("crypto", () => ({
+  randomBytes: jest.fn(() => Buffer.from("mockbytes")),
+}));
+
+jest.mock("dgram", () => ({
+  createSocket: jest.fn(() => ({
+    on: jest.fn(),
+    bind: jest.fn((port, callback) => callback()),
+    send: jest.fn(),
+    close: jest.fn(),
+  })),
+}));
+
+describe("IoTDeviceManager", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("Device Registration", () => {
+    it("should register new device successfully", async () => {
+      const mockInsert = require("../../../src/storage.js").db.insert;
+      const mockSelect = require("../../../src/storage.js").db.select;
+
+      mockSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => [],
+          }),
+        }),
+      });
+
+      mockInsert.mockReturnValue({
+        values: () => ({
+          returning: () => [{}],
+        }),
+      });
+
+      const config = {
+        deviceId: "device123",
+        classroomId: 1,
+        deviceType: "esp32_s3",
+        config: { ip: "192.168.1.100" },
+      };
+
+      const result = await iotDeviceManager.registerDevice(config);
+
+      expect(mockInsert).toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+
+    it("should update existing device", async () => {
+      const mockUpdate = require("../../../src/storage.js").db.update;
+      const mockSelect = require("../../../src/storage.js").db.select;
+
+      mockSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => [{ id: 1 }],
+          }),
+        }),
+      });
+
+      mockUpdate.mockReturnValue({
+        set: () => ({
+          where: () => ({
+            returning: () => [{}],
+          }),
+        }),
+      });
+
+      const config = {
+        deviceId: "existing-device",
+        classroomId: 2,
+        deviceType: "rfid_reader",
+      };
+
+      const result = await iotDeviceManager.registerDevice(config);
+
+      expect(mockUpdate).toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe("Device Status Management", () => {
+    it("should update device status", async () => {
+      const mockUpdate = require("../../../src/storage.js").db.update;
+
+      mockUpdate.mockReturnValue({
+        set: () => ({
+          where: () => ({
+            returning: () => [],
+          }),
+        }),
+      });
+
+      await expect(
+        iotDeviceManager.updateDeviceStatus("device123", "online")
+      ).resolves.not.toThrow();
+
+      expect(mockUpdate).toHaveBeenCalled();
+    });
+
+    it("should get device status from cache", async () => {
+      // First set status in cache
+      await iotDeviceManager.updateDeviceStatus("device123", "online");
+
+      const status = await iotDeviceManager.getDeviceStatus("device123");
+
+      expect(status).not.toBe(null);
+      expect(status?.status).toBe("online");
+    });
+
+    it("should get device status from database", async () => {
+      const mockSelect = require("../../../src/storage.js").db.select;
+
+      mockSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => [
+              {
+                deviceId: "device123",
+                status: "offline",
+                lastSeen: new Date(),
+                config: { ip: "192.168.1.100" },
+              },
+            ],
+          }),
+        }),
+      });
+
+      const status = await iotDeviceManager.getDeviceStatus("device123");
+
+      expect(status).not.toBe(null);
+      expect(status?.deviceId).toBe("device123");
+    });
+  });
+
+  describe("Device Commands", () => {
+    it("should send command to device", async () => {
+      const mockSendToDevice =
+        require("../../../src/services/websocket.js").sendToDevice;
+      const mockSelect = require("../../../src/storage.js").db.select;
+
+      mockSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => [
+              {
+                deviceType: "esp32_s3",
+                classroomId: 1,
+                isActive: true,
+              },
+            ],
+          }),
+        }),
+      });
+
+      mockSendToDevice.mockResolvedValue(true);
+
+      const result = await iotDeviceManager.sendCommandToDevice(
+        "device123",
+        "ping"
+      );
+
+      expect(mockSendToDevice).toHaveBeenCalledWith(
+        "device123",
+        "command",
+        expect.any(Object)
+      );
+      expect(result).toBe(true);
+    });
+
+    it("should configure device", async () => {
+      const mockUpdate = require("../../../src/storage.js").db.update;
+      const mockSendToDevice =
+        require("../../../src/services/websocket.js").sendToDevice;
+
+      mockUpdate.mockReturnValue({
+        set: () => ({
+          where: () => ({
+            returning: () => [],
+          }),
+        }),
+      });
+
+      mockSendToDevice.mockResolvedValue(true);
+
+      const result = await iotDeviceManager.configureDevice("device123", {
+        ip: "192.168.1.200",
+      });
+
+      expect(mockUpdate).toHaveBeenCalled();
+      expect(mockSendToDevice).toHaveBeenCalledWith(
+        "device123",
+        "update_config",
+        { ip: "192.168.1.200" }
+      );
+      expect(result).toBe(true);
+    });
+
+    it("should restart device", async () => {
+      const mockSendToDevice =
+        require("../../../src/services/websocket.js").sendToDevice;
+      const mockSelect = require("../../../src/storage.js").db.select;
+
+      mockSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => [
+              {
+                deviceType: "esp32_s3",
+                classroomId: 1,
+                isActive: true,
+              },
+            ],
+          }),
+        }),
+      });
+
+      mockSendToDevice.mockResolvedValue(true);
+
+      const result = await iotDeviceManager.restartDevice("device123");
+
+      expect(mockSendToDevice).toHaveBeenCalledWith("device123", "restart");
+      expect(result).toBe(true);
+    });
+  });
+
+  describe("Command Validation", () => {
+    it("should validate allowed command", async () => {
+      const mockSelect = require("../../../src/storage.js").db.select;
+
+      mockSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => [
+              {
+                deviceType: "esp32_s3",
+                classroomId: 1,
+                isActive: true,
+              },
+            ],
+          }),
+        }),
+      });
+
+      const result = await iotDeviceManager["validateAndAuthorizeCommand"](
+        "device123",
+        "ping"
+      );
+
+      expect(result.authorized).toBe(true);
+    });
+
+    it("should reject unauthorized command", async () => {
+      const mockSelect = require("../../../src/storage.js").db.select;
+
+      mockSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => [
+              {
+                deviceType: "esp32_s3",
+                classroomId: 1,
+                isActive: true,
+              },
+            ],
+          }),
+        }),
+      });
+
+      const result = await iotDeviceManager["validateAndAuthorizeCommand"](
+        "device123",
+        "invalid_command"
+      );
+
+      expect(result.authorized).toBe(false);
+      expect(result.reason).toContain("not allowed");
+    });
+
+    it("should validate command parameters", () => {
+      const result = (iotDeviceManager as any).validateCommandParameters(
+        "update_firmware",
+        { firmwareUrl: "http://example.com/firmware.bin" }
+      );
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should reject invalid firmware URL", () => {
+      const result = (iotDeviceManager as any).validateCommandParameters(
+        "update_firmware",
+        { firmwareUrl: "invalid-url" }
+      );
+
+      expect(result.valid).toBe(false);
+      expect(result.reason).toContain("Invalid firmware URL format");
+    });
+  });
+
+  describe("Device Authentication", () => {
+    it("should authenticate device by API key", async () => {
+      const mockSelect = require("../../../src/storage.js").db.select;
+
+      mockSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => [
+              {
+                deviceId: "device123",
+                classroomId: 1,
+                isActive: true,
+              },
+            ],
+          }),
+        }),
+      });
+
+      const result = await iotDeviceManager.authenticateDeviceByApiKey(
+        "valid-api-key"
+      );
+
+      expect(result).not.toBe(null);
+      expect(result?.deviceId).toBe("device123");
+    });
+
+    it("should return null for invalid API key", async () => {
+      const mockSelect = require("../../../src/storage.js").db.select;
+
+      mockSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => [],
+          }),
+        }),
+      });
+
+      const result = await iotDeviceManager.authenticateDeviceByApiKey(
+        "invalid-api-key"
+      );
+
+      expect(result).toBe(null);
+    });
+  });
+
+  describe("Health Monitoring", () => {
+    it("should perform health check", async () => {
+      const mockSendToDevice =
+        require("../../../src/services/websocket.js").sendToDevice;
+      const mockSelect = require("../../../src/storage.js").db.select;
+
+      mockSelect.mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: () => [
+              {
+                deviceType: "esp32_s3",
+                classroomId: 1,
+                isActive: true,
+              },
+            ],
+          }),
+        }),
+      });
+
+      mockSendToDevice.mockResolvedValue(true);
+
+      const result = await iotDeviceManager.performHealthCheck("device123");
+
+      expect(result).not.toBe(null);
+      expect(result?.deviceId).toBe("device123");
+      expect(result?.cpuUsage).toBeDefined();
+    });
+
+    it("should get maintenance recommendations", async () => {
+      // Mock health metrics with high CPU usage
+      const metrics = {
+        deviceId: "device123",
+        uptime: 3600,
+        cpuUsage: 95,
+        memoryUsage: 50,
+        temperature: 40,
+        signalStrength: 80,
+        errorCount: 2,
+        lastHealthCheck: new Date(),
+      };
+
+      (iotDeviceManager as any).healthMetrics.set("device123", metrics);
+
+      const recommendations =
+        await iotDeviceManager.getMaintenanceRecommendations();
+
+      expect(recommendations.length).toBeGreaterThan(0);
+      expect(recommendations[0].deviceId).toBe("device123");
+      expect(recommendations[0].priority).toBe("medium");
+    });
+  });
+
+  describe("Device Statistics", () => {
+    it("should get device stats", async () => {
+      const mockSelect = require("../../../src/storage.js").db.select;
+
+      mockSelect.mockReturnValue({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => [
+              {
+                device: { deviceId: "device1", classroomId: 1 },
+                classroom: { id: 1, name: "Classroom 1" },
+              },
+              {
+                device: { deviceId: "device2", classroomId: 1 },
+                classroom: { id: 1, name: "Classroom 1" },
+              },
+            ],
+          }),
+        }),
+      });
+
+      const stats = await iotDeviceManager.getDeviceStats();
+
+      expect(stats.total).toBe(2);
+      expect(stats.online).toBe(0); // No devices marked as online
+    });
+  });
+
+  describe("Error Handling", () => {
+    it("should handle database errors during device registration", async () => {
+      const mockInsert = require("../../../src/storage.js").db.insert;
+      mockInsert.mockImplementation(() => {
+        throw new Error("Database connection failed");
+      });
+
+      const config = {
+        deviceId: "device123",
+        classroomId: 1,
+        deviceType: "esp32_s3",
+      };
+
+      await expect(iotDeviceManager.registerDevice(config)).rejects.toThrow(
+        "Database connection failed"
+      );
+    });
+
+    it("should handle command send failures", async () => {
+      const mockSendToDevice =
+        require("../../../src/services/websocket.js").sendToDevice;
+      mockSendToDevice.mockResolvedValue(false);
+
+      const result = await iotDeviceManager.sendCommandToDevice(
+        "device123",
+        "ping"
+      );
+
+      expect(result).toBe(false);
+    });
+  });
+});

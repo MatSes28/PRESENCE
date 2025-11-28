@@ -5,6 +5,7 @@ import { db } from "../storage.js";
 import { users } from "../schema.js";
 import { eq } from "drizzle-orm";
 import { emailService } from "../services/emailService.js";
+import { auditService } from "../services/auditService.js";
 import rateLimit from "express-rate-limit";
 import {
   sanitizeInput,
@@ -82,6 +83,14 @@ router.post(
         .limit(1);
 
       if (userResult.length === 0) {
+        // Log failed login attempt for non-existent user
+        await auditService.logFailedLoginAttempt(
+          null,
+          req.ip || req.connection.remoteAddress || "unknown",
+          req.get("User-Agent") || "unknown",
+          "User not found"
+        );
+
         return res.status(401).json({
           success: false,
           message: "Invalid credentials",
@@ -95,6 +104,14 @@ router.post(
       const isValidPassword = await bcrypt.compare(password, user.password);
       console.log(`[AUTH] Password valid: ${isValidPassword}`);
       if (!isValidPassword) {
+        // Log failed login attempt for invalid password
+        await auditService.logFailedLoginAttempt(
+          user.id,
+          req.ip || req.connection.remoteAddress || "unknown",
+          req.get("User-Agent") || "unknown",
+          "Invalid password"
+        );
+
         return res.status(401).json({
           success: false,
           message: "Invalid credentials",
@@ -107,7 +124,7 @@ router.post(
         req.session.userRole = user.role;
 
         // Save session before sending response
-        req.session.save((err) => {
+        req.session.save(async (err) => {
           if (err) {
             console.error("Session save error:", err);
             return res.status(500).json({
@@ -115,6 +132,15 @@ router.post(
               message: "Session save failed",
             });
           }
+
+          // Log successful login
+          await auditService.logUserLogin(
+            user.id,
+            req.ip || req.connection.remoteAddress || "unknown",
+            req.get("User-Agent") || "unknown",
+            req.sessionID || "unknown",
+            true
+          );
 
           // Return user info (without password)
           const { password: _, ...userWithoutPassword } = user;
@@ -148,15 +174,28 @@ router.post(
 );
 
 // Logout route
-router.post("/logout", (req, res) => {
+router.post("/logout", async (req, res) => {
+  const userId = req.session?.userId;
+  const sessionId = req.sessionID;
+
   if (req.session) {
-    req.session.destroy((err) => {
+    req.session.destroy(async (err) => {
       if (err) {
         console.error("Session destroy error:", err);
         return res.status(500).json({
           success: false,
           message: "Logout failed",
         });
+      }
+
+      // Log logout event
+      if (userId) {
+        await auditService.logUserLogout(
+          userId,
+          req.ip || req.connection.remoteAddress || "unknown",
+          req.get("User-Agent") || "unknown",
+          sessionId || "unknown"
+        );
       }
 
       res.clearCookie("connect.sid");
@@ -288,6 +327,17 @@ router.post(
         })
         .returning();
 
+      // Log user creation
+      await auditService.logResourceCreate(
+        req.session.userId,
+        "user",
+        newUser.id,
+        { email, name, role, facultyId, department, gender },
+        req.ip || req.connection.remoteAddress || "unknown",
+        req.get("User-Agent") || "unknown",
+        req.sessionID || "unknown"
+      );
+
       const { password: _, ...userWithoutPassword } = newUser;
 
       res.status(201).json({
@@ -413,6 +463,14 @@ router.put("/change-password", async (req, res) => {
       .update(users)
       .set({ password: hashedPassword })
       .where(eq(users.id, user.id));
+
+    // Log password change
+    await auditService.logPasswordChange(
+      user.id,
+      req.ip || req.connection.remoteAddress || "unknown",
+      req.get("User-Agent") || "unknown",
+      req.sessionID || "unknown"
+    );
 
     res.json({
       success: true,
