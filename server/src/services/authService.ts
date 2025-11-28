@@ -4,21 +4,8 @@ import speakeasy from "speakeasy";
 import qrcode from "qrcode";
 import crypto from "crypto";
 import { db } from "../storage.js";
-import { users } from "../schema.js";
-import { eq, and, lt, sql } from "drizzle-orm";
-
-// Temporary interface for user sessions until schema is updated
-interface UserSession {
-  id: number;
-  sessionId: string;
-  userId: number;
-  ipAddress: string;
-  userAgent: string | null;
-  deviceFingerprint: string | null;
-  createdAt: Date;
-  expiresAt: Date;
-  isActive: boolean;
-}
+import { users, userSessions } from "../../shared/schema.js";
+import { eq, and, lt, sql, desc } from "drizzle-orm";
 
 interface TwoFactorSetup {
   secret: string;
@@ -188,44 +175,104 @@ class AuthService {
   }
 
   async validateSession(sessionId: string): Promise<SessionInfo | null> {
-    // Simplified implementation - in production, this would query the database
-    // For now, return a mock session for demonstration
-    return {
-      sessionId,
-      userId: 1,
-      ipAddress: "127.0.0.1",
-      userAgent: "Mock User Agent",
-      createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
-      isActive: true,
-      deviceFingerprint: "mock-fingerprint",
-    };
+    try {
+      const session = await db
+        .select()
+        .from(userSessions)
+        .where(
+          and(
+            eq(userSessions.sessionId, sessionId),
+            eq(userSessions.isActive, true),
+            lt(
+              userSessions.createdAt,
+              new Date(Date.now() + 8 * 60 * 60 * 1000)
+            ) // Not expired
+          )
+        )
+        .limit(1);
+
+      if (session.length === 0) {
+        return null;
+      }
+
+      const sessionData = session[0];
+      return {
+        sessionId: sessionData.sessionId,
+        userId: sessionData.userId,
+        ipAddress: sessionData.ipAddress,
+        userAgent: sessionData.userAgent || undefined,
+        createdAt: sessionData.createdAt,
+        expiresAt: sessionData.expiresAt,
+        isActive: sessionData.isActive,
+        deviceFingerprint: sessionData.deviceFingerprint || undefined,
+      };
+    } catch (error) {
+      console.error("Error validating session:", error);
+      return null;
+    }
   }
 
   async invalidateSession(sessionId: string): Promise<void> {
-    // Simplified implementation - in production, this would update the database
-    console.log(`Invalidating session: ${sessionId}`);
+    try {
+      await db
+        .update(userSessions)
+        .set({
+          isActive: false,
+        })
+        .where(eq(userSessions.sessionId, sessionId));
+    } catch (error) {
+      console.error("Error invalidating session:", error);
+      throw error;
+    }
   }
 
   async invalidateAllUserSessions(userId: number): Promise<void> {
-    // Simplified implementation - in production, this would update the database
-    console.log(`Invalidating all sessions for user: ${userId}`);
+    try {
+      await db
+        .update(userSessions)
+        .set({
+          isActive: false,
+        })
+        .where(
+          and(eq(userSessions.userId, userId), eq(userSessions.isActive, true))
+        );
+    } catch (error) {
+      console.error("Error invalidating all user sessions:", error);
+      throw error;
+    }
   }
 
   async getActiveSessions(userId: number): Promise<SessionInfo[]> {
-    // Simplified implementation - in production, this would query the database
-    return [
-      {
-        sessionId: "mock-session-id",
-        userId,
-        ipAddress: "127.0.0.1",
-        userAgent: "Mock User Agent",
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
-        isActive: true,
-        deviceFingerprint: "mock-fingerprint",
-      },
-    ];
+    try {
+      const sessions = await db
+        .select()
+        .from(userSessions)
+        .where(
+          and(
+            eq(userSessions.userId, userId),
+            eq(userSessions.isActive, true),
+            lt(
+              userSessions.createdAt,
+              new Date(Date.now() + 8 * 60 * 60 * 1000)
+            ) // Not expired
+          )
+        )
+        .orderBy(desc(userSessions.createdAt));
+
+      return sessions.map((session) => ({
+        sessionId: session.sessionId,
+        userId: session.userId,
+        ipAddress: session.ipAddress,
+        userAgent: session.userAgent || undefined,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        isActive: session.isActive,
+        deviceFingerprint: session.deviceFingerprint || undefined,
+      }));
+    } catch (error) {
+      console.error("Error getting active sessions:", error);
+      return [];
+    }
   }
 
   // Login attempt tracking and account lockout

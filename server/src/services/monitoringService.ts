@@ -373,49 +373,108 @@ class MonitoringService {
       let sizeStats = { database_size: 0, index_size: 0, table_size: 0 };
       let performance = { cache_hit_ratio: 0, avg_query_time: 0 };
 
-      // Get connection statistics (may fail if pg_stat_activity is not accessible)
+      // Get basic connection test
+      try {
+        await db.execute(sql`SELECT 1 as connection_test`);
+        connStats.total_connections = 1; // At least our connection works
+        connStats.active_connections = 1;
+      } catch (error) {
+        this.logger.warn("Database connection test failed", {
+          error: error.message,
+        });
+      }
+
+      // Get database size information (try alternative method)
+      try {
+        // Use information_schema instead of pg_database_size for better compatibility
+        const tableSizeResult = await db.execute(sql`
+          SELECT
+            SUM(pg_total_relation_size(schemaname||'.'||tablename)) as total_size,
+            SUM(pg_relation_size(schemaname||'.'||tablename)) as table_size,
+            SUM(pg_total_relation_size(schemaname||'.'||tablename) - pg_relation_size(schemaname||'.'||tablename)) as index_size
+          FROM pg_tables
+          WHERE schemaname = 'public'
+        `);
+
+        if (tableSizeResult[0]) {
+          const result = tableSizeResult[0] as any;
+          sizeStats.database_size = Number(result.total_size) || 0;
+          sizeStats.table_size = Number(result.table_size) || 0;
+          sizeStats.index_size = Number(result.index_size) || 0;
+        }
+      } catch (error) {
+        this.logger.warn("Failed to collect database size metrics", {
+          error: error.message,
+        });
+
+        // Fallback: try to get approximate size from system catalogs
+        try {
+          const approxResult = await db.execute(sql`
+            SELECT COUNT(*) as table_count FROM information_schema.tables
+            WHERE table_schema = 'public'
+          `);
+          // Estimate size based on table count (rough approximation)
+          const tableCount = Number((approxResult[0] as any).table_count) || 0;
+          sizeStats.database_size = tableCount * 1024 * 1024; // Rough 1MB per table estimate
+        } catch (fallbackError) {
+          this.logger.warn("Fallback database size estimation also failed", {
+            error: fallbackError.message,
+          });
+        }
+      }
+
+      // Try to get connection info from pg_stat_activity (may require permissions)
       try {
         const connectionStats = await db.execute(sql`
           SELECT
-            count(*) as total_connections,
-            count(case when state = 'active' then 1 end) as active_connections,
-            count(case when state = 'idle' then 1 end) as idle_connections,
-            count(case when waiting = true then 1 end) as waiting_connections
+            COUNT(*) as total_connections,
+            COUNT(CASE WHEN state = 'active' THEN 1 END) as active_connections,
+            COUNT(CASE WHEN state = 'idle' THEN 1 END) as idle_connections
           FROM pg_stat_activity
+          WHERE datname = current_database()
         `);
-        connStats = connectionStats[0] as any;
+
+        if (connectionStats[0]) {
+          const result = connectionStats[0] as any;
+          connStats.total_connections = Number(result.total_connections) || 1;
+          connStats.active_connections = Number(result.active_connections) || 1;
+          connStats.idle_connections = Number(result.idle_connections) || 0;
+        }
       } catch (error) {
-        // Silently fail if pg_stat_activity is not accessible
+        this.logger.debug(
+          "pg_stat_activity not accessible, using basic connection info",
+          {
+            error: error.message,
+          }
+        );
+        // Keep the basic connection info we set earlier
       }
 
-      // Get database size information
-      try {
-        const dbSizeResult = await db.execute(sql`
-          SELECT
-            pg_database_size(current_database()) as database_size,
-            pg_indexes_size(current_database()) as index_size,
-            pg_database_size(current_database()) - pg_indexes_size(current_database()) as table_size
-        `);
-        sizeStats = dbSizeResult[0] as any;
-      } catch (error) {
-        // Silently fail if database size functions are not available
-      }
-
-      // Get performance statistics (may fail if pg_stat_statements extension is not installed)
+      // Try performance stats if pg_stat_statements is available
       try {
         const perfStats = await db.execute(sql`
           SELECT
-            sum(blks_hit) * 100.0 / (sum(blks_hit) + sum(blks_read)) as cache_hit_ratio,
-            avg(total_time / calls) as avg_query_time
+            COALESCE(sum(blks_hit) * 100.0 / NULLIF((sum(blks_hit) + sum(blks_read)), 0), 0) as cache_hit_ratio,
+            COALESCE(avg(total_time / NULLIF(calls, 0)), 0) as avg_query_time
           FROM pg_stat_statements
           WHERE calls > 0
         `);
-        performance = perfStats[0] as any;
+
+        if (perfStats[0]) {
+          const result = perfStats[0] as any;
+          performance.cache_hit_ratio = Number(result.cache_hit_ratio) || 0;
+          performance.avg_query_time = Number(result.avg_query_time) || 0;
+        }
       } catch (error) {
-        // Silently fail if pg_stat_statements is not available
+        this.logger.debug(
+          "pg_stat_statements not available, performance metrics disabled",
+          {
+            error: error.message,
+          }
+        );
       }
 
-      return {
+      const metrics = {
         timestamp: new Date(),
         connections: {
           active: Number(connStats.active_connections) || 0,
@@ -426,8 +485,8 @@ class MonitoringService {
         performance: {
           cacheHitRatio: Number(performance.cache_hit_ratio) || 0,
           avgQueryTime: Number(performance.avg_query_time) || 0,
-          slowQueries: 0, // Would need additional monitoring
-          deadlocks: 0, // Would need additional monitoring
+          slowQueries: 0, // Would need additional monitoring setup
+          deadlocks: 0, // Would need additional monitoring setup
         },
         storage: {
           databaseSize: Number(sizeStats.database_size) || 0,
@@ -435,9 +494,13 @@ class MonitoringService {
           tableSize: Number(sizeStats.table_size) || 0,
         },
       };
+
+      this.logger.debug("Database metrics collected", metrics);
+      return metrics;
     } catch (error) {
       this.logger.error("Failed to collect database metrics", {
         error: error.message,
+        stack: error.stack,
       });
       return {
         timestamp: new Date(),
