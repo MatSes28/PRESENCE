@@ -79,6 +79,7 @@ USER nodejs
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV LOG_LEVEL=info
+ENV ENCRYPTION_MASTER_KEY=prod-encryption-key-32-chars-01
 
 # Expose port
 EXPOSE 3000
