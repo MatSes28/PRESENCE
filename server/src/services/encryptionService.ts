@@ -29,9 +29,7 @@ class EncryptionService {
     };
 
     this.masterKey =
-      process.env.ENCRYPTION_MASTER_KEY ||
-      "fallback-master-key-change-in-production-must-be-32-chars";
-
+      process.env.ENCRYPTION_MASTER_KEY || "change-this-key-in-production-32";
     if (this.masterKey.length !== 32) {
       throw new Error("Master key must be exactly 32 characters long");
     }
