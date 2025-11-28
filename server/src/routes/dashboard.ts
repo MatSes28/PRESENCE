@@ -13,6 +13,7 @@ import {
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { cacheService } from "../services/cacheService.js";
 import { notificationService } from "../services/notificationService.js";
+import { createUserRateLimit } from "../middleware/rateLimit.js";
 
 const router = Router();
 
@@ -27,8 +28,15 @@ const requireAuth = (req: any, res: any, next: any) => {
   next();
 };
 
+// Rate limiting for authenticated dashboard operations
+const dashboardRateLimit = createUserRateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // Higher limit for authenticated users
+  message: "Too many dashboard requests, please try again later.",
+});
+
 // Get dashboard statistics
-router.get("/stats", requireAuth, async (req, res) => {
+router.get("/stats", requireAuth, dashboardRateLimit, async (req, res) => {
   try {
     // Try to get from cache first
     const cachedStats = await cacheService.getDashboardStats();
@@ -218,7 +226,7 @@ router.get("/stats", requireAuth, async (req, res) => {
 });
 
 // Get recent activity
-router.get("/activity", requireAuth, async (req, res) => {
+router.get("/activity", requireAuth, dashboardRateLimit, async (req, res) => {
   try {
     const recentAttendance = await db
       .select({
@@ -254,68 +262,73 @@ router.get("/activity", requireAuth, async (req, res) => {
 });
 
 // Get active sessions
-router.get("/sessions/active", requireAuth, async (req, res) => {
-  try {
-    const today = new Date();
-    const startOfDay = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
-    );
-    const endOfDay = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate() + 1
-    );
-
-    const activeSessions = await db
-      .select({
-        id: classSessions.id,
-        subjectName: subjects.name,
-        classroomName: classrooms.name,
-        startTime: schedules.startTime,
-        status: classSessions.status,
-        presentCount: sql<number>`count(case when ${attendanceRecords.status} = 'present' then 1 end)`,
-        absentCount: sql<number>`count(case when ${attendanceRecords.status} = 'absent' then 1 end)`,
-      })
-      .from(classSessions)
-      .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
-      .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
-      .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
-      .leftJoin(
-        attendanceRecords,
-        eq(attendanceRecords.classSessionId, classSessions.id)
-      )
-      .where(
-        and(
-          gte(classSessions.date, startOfDay),
-          lte(classSessions.date, endOfDay),
-          eq(classSessions.status, "active")
-        )
-      )
-      .groupBy(
-        classSessions.id,
-        subjects.name,
-        classrooms.name,
-        schedules.startTime,
-        classSessions.status
+router.get(
+  "/sessions/active",
+  requireAuth,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      const today = new Date();
+      const startOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+      );
+      const endOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1
       );
 
-    res.json({
-      success: true,
-      data: activeSessions,
-    });
-  } catch (error) {
-    console.error("Active sessions error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+      const activeSessions = await db
+        .select({
+          id: classSessions.id,
+          subjectName: subjects.name,
+          classroomName: classrooms.name,
+          startTime: schedules.startTime,
+          status: classSessions.status,
+          presentCount: sql<number>`count(case when ${attendanceRecords.status} = 'present' then 1 end)`,
+          absentCount: sql<number>`count(case when ${attendanceRecords.status} = 'absent' then 1 end)`,
+        })
+        .from(classSessions)
+        .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+        .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
+        .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
+        .leftJoin(
+          attendanceRecords,
+          eq(attendanceRecords.classSessionId, classSessions.id)
+        )
+        .where(
+          and(
+            gte(classSessions.date, startOfDay),
+            lte(classSessions.date, endOfDay),
+            eq(classSessions.status, "active")
+          )
+        )
+        .groupBy(
+          classSessions.id,
+          subjects.name,
+          classrooms.name,
+          schedules.startTime,
+          classSessions.status
+        );
+
+      res.json({
+        success: true,
+        data: activeSessions,
+      });
+    } catch (error) {
+      console.error("Active sessions error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
   }
-});
+);
 
 // Get analytics data for charts and trends
-router.get("/analytics", requireAuth, async (req, res) => {
+router.get("/analytics", requireAuth, dashboardRateLimit, async (req, res) => {
   try {
     const { period = "7d" } = req.query;
 
@@ -464,7 +477,7 @@ router.get("/analytics", requireAuth, async (req, res) => {
 });
 
 // Get real-time alerts and notifications
-router.get("/alerts", requireAuth, async (req, res) => {
+router.get("/alerts", requireAuth, dashboardRateLimit, async (req, res) => {
   try {
     const alerts = await notificationService.generateDashboardAlerts();
 
@@ -482,132 +495,147 @@ router.get("/alerts", requireAuth, async (req, res) => {
 });
 
 // Send automated attendance alerts (admin only)
-router.post("/alerts/attendance/send", requireAuth, async (req, res) => {
-  try {
-    // Check if user is admin
-    const user = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, req.session.userId))
-      .limit(1);
+router.post(
+  "/alerts/attendance/send",
+  requireAuth,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      // Check if user is admin
+      const user = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, req.session.userId))
+        .limit(1);
 
-    if (!user.length || user[0].role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access required",
-      });
-    }
+      if (!user.length || user[0].role !== "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Admin access required",
+        });
+      }
 
-    await notificationService.sendAutomatedAttendanceAlerts();
+      await notificationService.sendAutomatedAttendanceAlerts();
 
-    res.json({
-      success: true,
-      message: "Automated attendance alerts sent successfully",
-    });
-  } catch (error) {
-    console.error("Send attendance alerts error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to send attendance alerts",
-    });
-  }
-});
-
-// Send parent notification (admin only)
-router.post("/notifications/parent", requireAuth, async (req, res) => {
-  try {
-    const { studentId, notificationType, message, additionalData } = req.body;
-
-    if (!studentId || !notificationType || !message) {
-      return res.status(400).json({
-        success: false,
-        message: "Student ID, notification type, and message are required",
-      });
-    }
-
-    // Check if user is admin
-    const user = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, req.session.userId))
-      .limit(1);
-
-    if (!user.length || user[0].role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access required",
-      });
-    }
-
-    const success = await notificationService.sendParentNotification(
-      studentId,
-      notificationType,
-      message,
-      additionalData
-    );
-
-    if (success) {
       res.json({
         success: true,
-        message: "Parent notification sent successfully",
+        message: "Automated attendance alerts sent successfully",
       });
-    } else {
+    } catch (error) {
+      console.error("Send attendance alerts error:", error);
       res.status(500).json({
         success: false,
-        message: "Failed to send parent notification",
+        message: "Failed to send attendance alerts",
       });
     }
-  } catch (error) {
-    console.error("Parent notification error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
   }
-});
+);
+
+// Send parent notification (admin only)
+router.post(
+  "/notifications/parent",
+  requireAuth,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      const { studentId, notificationType, message, additionalData } = req.body;
+
+      if (!studentId || !notificationType || !message) {
+        return res.status(400).json({
+          success: false,
+          message: "Student ID, notification type, and message are required",
+        });
+      }
+
+      // Check if user is admin
+      const user = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, req.session.userId))
+        .limit(1);
+
+      if (!user.length || user[0].role !== "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Admin access required",
+        });
+      }
+
+      const success = await notificationService.sendParentNotification(
+        studentId,
+        notificationType,
+        message,
+        additionalData
+      );
+
+      if (success) {
+        res.json({
+          success: true,
+          message: "Parent notification sent successfully",
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: "Failed to send parent notification",
+        });
+      }
+    } catch (error) {
+      console.error("Parent notification error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  }
+);
 
 // Bulk parent notifications (admin only)
-router.post("/notifications/parent/bulk", requireAuth, async (req, res) => {
-  try {
-    const { notifications } = req.body;
+router.post(
+  "/notifications/parent/bulk",
+  requireAuth,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      const { notifications } = req.body;
 
-    if (!Array.isArray(notifications) || notifications.length === 0) {
-      return res.status(400).json({
+      if (!Array.isArray(notifications) || notifications.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Notifications array is required",
+        });
+      }
+
+      // Check if user is admin
+      const user = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, req.session.userId))
+        .limit(1);
+
+      if (!user.length || user[0].role !== "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Admin access required",
+        });
+      }
+
+      const result = await notificationService.sendBulkParentNotifications(
+        notifications
+      );
+
+      res.json({
+        success: true,
+        message: `Bulk notifications sent: ${result.success} successful, ${result.failed} failed`,
+        data: result,
+      });
+    } catch (error) {
+      console.error("Bulk parent notifications error:", error);
+      res.status(500).json({
         success: false,
-        message: "Notifications array is required",
+        message: "Internal server error",
       });
     }
-
-    // Check if user is admin
-    const user = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, req.session.userId))
-      .limit(1);
-
-    if (!user.length || user[0].role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access required",
-      });
-    }
-
-    const result = await notificationService.sendBulkParentNotifications(
-      notifications
-    );
-
-    res.json({
-      success: true,
-      message: `Bulk notifications sent: ${result.success} successful, ${result.failed} failed`,
-      data: result,
-    });
-  } catch (error) {
-    console.error("Bulk parent notifications error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
   }
-});
+);
 
 export default router;
