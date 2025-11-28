@@ -32,7 +32,11 @@ const requireAuth = (req: any, res: any, next: any) => {
 const dashboardRateLimit = createUserRateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 500, // Higher limit for authenticated users
-  message: "Too many dashboard requests, please try again later.",
+  message: {
+    success: false,
+    message: "Too many dashboard requests, please try again later.",
+    retryAfter: 15 * 60,
+  },
 });
 
 // Get dashboard statistics

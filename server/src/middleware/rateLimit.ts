@@ -56,7 +56,7 @@ export const iotRateLimit = rateLimit({
 export const createUserRateLimit = (options: {
   windowMs: number;
   max: number;
-  message?: string;
+  message?: string | object;
   skipSuccessfulRequests?: boolean;
   skipFailedRequests?: boolean;
   skip?: (req: Request) => boolean;
@@ -76,7 +76,11 @@ export const createUserRateLimit = (options: {
 export const generalRateLimit = createUserRateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each user/IP to 100 requests per windowMs
-  message: "Too many requests, please try again later.",
+  message: {
+    success: false,
+    message: "Too many requests, please try again later.",
+    retryAfter: 15 * 60,
+  },
   // Skip rate limiting for health checks
   skip: (req) => req.path === "/health",
 });
