@@ -65,10 +65,13 @@ Railway will automatically build and deploy your application.
 # Install dependencies
 npm install
 
+# Generate secure JWT secrets
+node generate-secrets.js
+
 # Copy environment file
 cp .env.example .env
 
-# Edit .env with your configuration
+# Edit .env with your generated secrets and configuration
 nano .env
 
 # Push database schema
@@ -142,6 +145,45 @@ CMD ["npm", "start"]
 docker build -t clirdec-presence .
 docker run -p 3000:3000 --env-file .env clirdec-presence
 ```
+
+## Generating Secure JWT Secrets
+
+For security, JWT secrets must be cryptographically secure random strings. Never use predictable values like "your-secret-key".
+
+### Using the Secret Generator
+
+```bash
+# Generate default 32-byte (64 hex character) secrets
+node generate-secrets.js
+
+# Generate longer secrets (recommended for production)
+node generate-secrets.js --length 64
+
+# Generate multiple secret pairs
+node generate-secrets.js --count 3
+
+# Generate base64 format secrets
+node generate-secrets.js --format base64
+```
+
+### Manual Generation (Alternative)
+
+```bash
+# Using Node.js crypto (recommended)
+node -e "console.log('JWT_SECRET=' + require('crypto').randomBytes(32).toString('hex'))"
+node -e "console.log('JWT_REFRESH_SECRET=' + require('crypto').randomBytes(32).toString('hex'))"
+
+# Using OpenSSL
+openssl rand -hex 32
+```
+
+### Security Requirements
+
+- **Minimum Length**: 32 bytes (64 hex characters)
+- **Random Source**: Cryptographically secure random generator
+- **Uniqueness**: Different secrets for JWT_SECRET and JWT_REFRESH_SECRET
+- **Storage**: Never commit to version control
+- **Rotation**: Regenerate for production deployment
 
 ## Environment Configuration
 
