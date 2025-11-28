@@ -1,7 +1,7 @@
 import { db } from "../storage.js";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { auditLogs } from "../schema.js";
-import { createHash } from "crypto";
+import crypto from "crypto";
 
 interface AuditEvent {
   id: string;
@@ -82,7 +82,7 @@ class AuditService {
         previousHash,
       });
 
-      const hash = createHash("sha256").update(eventData).digest("hex");
+      const hash = crypto.createHash("sha256").update(eventData).digest("hex");
 
       // Insert into database with tamper-proof hash
       await db.insert(auditLogs).values({
