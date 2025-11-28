@@ -15,7 +15,7 @@ COPY shared/package*.json ./shared/
 COPY client/package*.json ./client/
 
 # Install all dependencies (including dev dependencies for building)
-RUN npm ci --only=production=false
+RUN npm ci
 
 # Copy source code
 COPY server/ ./server/
@@ -57,6 +57,7 @@ WORKDIR /app
 
 # Copy package files
 COPY server/package*.json ./
+COPY server/package-lock.json ./
 
 # Install only production dependencies
 RUN npm ci --only=production && npm cache clean --force
