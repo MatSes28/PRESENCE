@@ -1,40 +1,35 @@
 config:
-  target: "http://localhost:3000"
+  target: 'http://localhost:3000'
   phases:
     # Warm-up phase
     - duration: 60
       arrivalRate: 5
-      name: "Warm-up"
-
+      name: "Warm up"
     # Normal load
     - duration: 300
       arrivalRate: 20
-      name: "Normal Load"
-
+      name: "Normal load"
     # Peak load
     - duration: 120
       arrivalRate: 50
-      name: "Peak Load"
-
+      name: "Peak load"
     # Stress test
     - duration: 60
       arrivalRate: 100
-      name: "Stress Test"
-
+      name: "Stress test"
     # Recovery
     - duration: 60
       arrivalRate: 10
       name: "Recovery"
-
   defaults:
     headers:
-      Authorization: "Bearer test-token"
-      Content-Type: "application/json"
+      Authorization: "Bearer test-jwt-token"
+  processor: "./artillery-processor.js"
 
 scenarios:
   # Authentication scenarios
   - name: "User Login"
-    weight: 10
+    weight: 5
     flow:
       - post:
           url: "/api/auth/login"
@@ -43,111 +38,105 @@ scenarios:
             password: "password123"
           expect:
             - statusCode: 200
-            - hasProperty: "token"
+          capture:
+            json: "$.token"
+            as: "auth_token"
 
-  # Dashboard access
-  - name: "Dashboard Access"
-    weight: 25
-    flow:
-      - get:
-          url: "/api/dashboard/stats"
-          expect:
-            - statusCode: 200
-            - hasProperty: "data"
-
-  # Attendance operations
-  - name: "Get Attendance Records"
-    weight: 20
-    flow:
-      - get:
-          url: "/api/attendance?limit=10"
-          expect:
-            - statusCode: 200
-            - hasProperty: "records"
-
+  # Attendance scenarios
   - name: "Manual Attendance Entry"
-    weight: 15
+    weight: 25
     flow:
       - post:
           url: "/api/attendance/manual"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
           json:
-            studentId: 1
-            classSessionId: 1
+            studentId: "{{ $randomInt(1, 1000) }}"
+            classSessionId: "{{ $randomInt(1, 50) }}"
             entryTime: "{{ $isoTimestamp }}"
             notes: "Load test entry"
           expect:
             - statusCode: 201
 
-  # RFID Simulation
+  - name: "Get Attendance Records"
+    weight: 30
+    flow:
+      - get:
+          url: "/api/attendance"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+          qs:
+            limit: 50
+            offset: "{{ $randomInt(0, 100) }}"
+          expect:
+            - statusCode: 200
+
   - name: "RFID Scan Simulation"
-    weight: 10
+    weight: 15
     flow:
       - post:
           url: "/api/attendance/simulate-rfid"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
           json:
-            rfidUid: "LOAD{{ $randomInt }}{{ $randomInt }}"
+            rfidUid: "RFID{{ $randomInt(100000, 999999) }}"
+          expect:
+            - statusCode: 200
+
+  # Dashboard scenarios
+  - name: "Dashboard Data"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/dashboard/stats"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
           expect:
             - statusCode: 200
 
   # Student management
-  - name: "Get Students"
-    weight: 10
+  - name: "Student List"
+    weight: 8
     flow:
       - get:
-          url: "/api/students?limit=20"
+          url: "/api/students"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
+          qs:
+            limit: 20
+            page: "{{ $randomInt(1, 10) }}"
           expect:
             - statusCode: 200
-            - hasProperty: "students"
 
-  # Schedule management
-  - name: "Get Schedules"
+  # IoT device scenarios
+  - name: "IoT Device Status"
     weight: 5
     flow:
       - get:
-          url: "/api/schedules"
+          url: "/api/iot/devices"
+          headers:
+            Authorization: "Bearer {{ auth_token }}"
           expect:
             - statusCode: 200
-            - hasProperty: "schedules"
 
-  # Health check
+  # API health check
   - name: "Health Check"
-    weight: 5
+    weight: 2
     flow:
       - get:
           url: "/health"
           expect:
             - statusCode: 200
-            - hasProperty: "status"
 
-# Environment variables for different test environments
-environments:
-  local:
-    target: "http://localhost:3000"
-    variables:
-      testUser: "test@example.com"
+# Performance thresholds
+ensure:
+  p95: 1000  # 95th percentile response time < 1 second
+  p99: 2000  # 99th percentile response time < 2 seconds
+  rps: 30    # Minimum 30 requests per second
 
-  staging:
-    target: "https://api-staging.clirdec.edu"
-    variables:
-      testUser: "staging@example.com"
-
-  production:
-    target: "https://api.clirdec.edu"
-    variables:
-      testUser: "prod@example.com"
-
-# Plugins for enhanced reporting
-plugins:
-  ensure:
-    - selector: "count>0"
-      value: 1
-  metrics-by-endpoint: {}
-  apdex:
-    threshold: 500
-  hls:
-    buckets: 10
-  response-times:
-    percentiles:
-      - 50
-      - 95
-      - 99
+# Custom metrics
+metrics:
+  - name: "Attendance Records Created"
+    capture: json: "$..attendanceRecordsCreated"
+  - name: "RFID Scans Processed"
+    capture: json: "$..rfidScansProcessed"

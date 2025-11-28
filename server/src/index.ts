@@ -26,6 +26,7 @@ import {
   dbConnectionOptimization,
 } from "./middleware/rateLimit.js";
 import { cacheService } from "./services/cacheService.js";
+import { databaseBackupService } from "./services/databaseBackup.js";
 import {
   errorHandler,
   requestIdMiddleware,
@@ -46,6 +47,44 @@ import {
   enrollments,
   emailNotifications,
 } from "../../shared/schema.js";
+
+// Environment variable validation for security
+const requiredEnvVars = [
+  "DATABASE_URL",
+  "SESSION_SECRET",
+  "JWT_SECRET",
+  "JWT_REFRESH_SECRET",
+];
+
+const missingEnvVars = requiredEnvVars.filter(
+  (varName) => !process.env[varName]
+);
+if (missingEnvVars.length > 0) {
+  console.error("❌ Missing required environment variables:", missingEnvVars);
+  console.error("Please set these variables in your .env file or environment");
+  process.exit(1);
+}
+
+// Validate session secret length (minimum 32 characters for security)
+if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length < 32) {
+  console.error("❌ SESSION_SECRET must be at least 32 characters long");
+  process.exit(1);
+}
+
+if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+  console.error("❌ JWT_SECRET must be at least 32 characters long");
+  process.exit(1);
+}
+
+if (
+  process.env.JWT_REFRESH_SECRET &&
+  process.env.JWT_REFRESH_SECRET.length < 32
+) {
+  console.error("❌ JWT_REFRESH_SECRET must be at least 32 characters long");
+  process.exit(1);
+}
+
+console.log("✅ Environment variables validated successfully");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,8 +133,37 @@ app.get("/", (req, res) => {
 app.use(requestIdMiddleware);
 
 // Security middleware
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "ws:", "wss:"],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  })
+);
 app.use(corsOptimization);
+
+// HTTPS enforcement middleware
+if (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT) {
+  app.use((req, res, next) => {
+    if (req.header("x-forwarded-proto") !== "https") {
+      res.redirect(`https://${req.header("host")}${req.url}`);
+    } else {
+      next();
+    }
+  });
+}
 
 // Performance and optimization middleware
 app.use(requestLogging);
@@ -258,6 +326,12 @@ const HOST = process.env.HOST || "0.0.0.0";
 server.listen({ port: PORT, host: HOST }, () => {
   console.log(`🚀 Server running on ${HOST}:${PORT}`);
   console.log(`🌐 WebSocket server ready`);
+
+  // Start automated database backup (only in production)
+  if (process.env.NODE_ENV === "production") {
+    databaseBackupService.startAutomatedBackup();
+    console.log("Automated database backup enabled");
+  }
 
   // Don't check database on startup to avoid crashes
   console.log("Server started successfully");

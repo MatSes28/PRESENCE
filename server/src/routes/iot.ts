@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { iotDeviceManager } from "../services/iotDeviceManager.js";
 import { sendToDevice, broadcastToWebClients } from "../services/websocket.js";
+import { validateRequest, validationRules } from "../middleware/validation.js";
 
 const router = Router();
 
@@ -12,6 +13,33 @@ const requireAuth = (req: any, res: any, next: any) => {
       message: "Authentication required",
     });
   }
+  next();
+};
+
+// Middleware to check device API key authentication
+const requireDeviceAuth = (req: any, res: any, next: any) => {
+  const apiKey =
+    req.headers["x-device-api-key"] ||
+    req.headers["authorization"]?.replace("Bearer ", "");
+
+  if (!apiKey) {
+    return res.status(401).json({
+      success: false,
+      message: "Device API key required",
+    });
+  }
+
+  // In production, validate against a secure device registry
+  // For now, accept any non-empty API key for development
+  if (typeof apiKey !== "string" || apiKey.length < 10) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid device API key",
+    });
+  }
+
+  // Store device info for later use
+  req.deviceApiKey = apiKey;
   next();
 };
 
@@ -61,37 +89,61 @@ router.get("/devices/:deviceId", requireAuth, async (req, res) => {
 });
 
 // Register new device
-router.post("/devices", requireAuth, async (req, res) => {
-  try {
-    const { deviceId, classroomId, deviceType, config } = req.body;
+router.post(
+  "/devices",
+  requireAuth,
+  validateRequest({
+    deviceId: (value) => {
+      if (!value) return "Device ID is required";
+      if (typeof value !== "string" || value.length < 3 || value.length > 50) {
+        return "Device ID must be 3-50 characters";
+      }
+      if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
+        return "Device ID contains invalid characters";
+      }
+      return null;
+    },
+    classroomId: validationRules.positiveInteger,
+    deviceType: (value) => {
+      if (!value) return "Device type is required";
+      if (!["esp32_s3", "rfid_reader", "ultrasonic_sensor"].includes(value)) {
+        return "Invalid device type";
+      }
+      return null;
+    },
+  }),
+  async (req, res) => {
+    try {
+      const { deviceId, classroomId, deviceType, config } = req.body;
 
-    if (!deviceId || !classroomId || !deviceType) {
-      return res.status(400).json({
+      if (!deviceId || !classroomId || !deviceType) {
+        return res.status(400).json({
+          success: false,
+          message: "Device ID, Classroom ID, and Device Type are required",
+        });
+      }
+
+      const device = await iotDeviceManager.registerDevice({
+        deviceId,
+        classroomId: parseInt(classroomId),
+        deviceType,
+        config,
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Device registered successfully",
+        device,
+      });
+    } catch (error) {
+      console.error("Register IoT device error:", error);
+      res.status(500).json({
         success: false,
-        message: "Device ID, Classroom ID, and Device Type are required",
+        message: "Internal server error",
       });
     }
-
-    const device = await iotDeviceManager.registerDevice({
-      deviceId,
-      classroomId: parseInt(classroomId),
-      deviceType,
-      config,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "Device registered successfully",
-      device,
-    });
-  } catch (error) {
-    console.error("Register IoT device error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
   }
-});
+);
 
 // Update device configuration
 router.put("/devices/:deviceId/config", requireAuth, async (req, res) => {
@@ -285,62 +337,69 @@ router.get("/connected", requireAuth, async (req, res) => {
   }
 });
 
-// Simulate RFID tap for testing
-router.post("/attendance/simulate-rfid", async (req, res) => {
-  try {
-    const { rfidUid } = req.body;
-
-    if (!rfidUid) {
-      return res.status(400).json({
-        success: false,
-        message: "RFID UID is required",
-      });
-    }
-
-    // Simulate RFID scan by sending to WebSocket
-    const simulatedData: any = {
-      type: "rfid_scan",
-      rfidUid,
-      deviceId: "simulator",
-      timestamp: new Date().toISOString(),
-    };
-
-    // Also process the RFID scan directly for testing
+// Simulate RFID tap for testing (requires device authentication)
+router.post(
+  "/attendance/simulate-rfid",
+  requireDeviceAuth,
+  validateRequest({
+    rfidUid: validationRules.rfidUid,
+  }),
+  async (req, res) => {
     try {
-      const { attendanceMonitor } = await import(
-        "../services/attendanceMonitor.js"
-      );
-      console.log(`[SIMULATE RFID] Processing RFID scan: ${rfidUid}`);
-      const result = await attendanceMonitor.processRFIDScan({
-        deviceId: "simulator",
+      const { rfidUid } = req.body;
+
+      if (!rfidUid) {
+        return res.status(400).json({
+          success: false,
+          message: "RFID UID is required",
+        });
+      }
+
+      // Simulate RFID scan by sending to WebSocket
+      const simulatedData: any = {
+        type: "rfid_scan",
         rfidUid,
-        timestamp: simulatedData.timestamp,
-      });
-      console.log(`[SIMULATE RFID] Processing result:`, result);
-      simulatedData.processingResult = result;
-    } catch (error) {
-      console.error(`[SIMULATE RFID] Error processing RFID scan:`, error);
-      simulatedData.processingResult = {
-        success: false,
-        message: error.message,
+        deviceId: "simulator",
+        timestamp: new Date().toISOString(),
       };
+
+      // Also process the RFID scan directly for testing
+      try {
+        const { attendanceMonitor } = await import(
+          "../services/attendanceMonitor.js"
+        );
+        console.log(`[SIMULATE RFID] Processing RFID scan: ${rfidUid}`);
+        const result = await attendanceMonitor.processRFIDScan({
+          deviceId: "simulator",
+          rfidUid,
+          timestamp: simulatedData.timestamp,
+        });
+        console.log(`[SIMULATE RFID] Processing result:`, result);
+        simulatedData.processingResult = result;
+      } catch (error) {
+        console.error(`[SIMULATE RFID] Error processing RFID scan:`, error);
+        simulatedData.processingResult = {
+          success: false,
+          message: error.message,
+        };
+      }
+
+      // Send to WebSocket for real-time updates
+      broadcastToWebClients("rfidScan", simulatedData);
+
+      res.json({
+        success: true,
+        message: "RFID tap simulated successfully",
+        data: simulatedData,
+      });
+    } catch (error) {
+      console.error("Simulate RFID error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
     }
-
-    // Send to WebSocket for real-time updates
-    broadcastToWebClients("rfidScan", simulatedData);
-
-    res.json({
-      success: true,
-      message: "RFID tap simulated successfully",
-      data: simulatedData,
-    });
-  } catch (error) {
-    console.error("Simulate RFID error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
   }
-});
+);
 
 export default router;

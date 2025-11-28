@@ -110,6 +110,29 @@ interface ErrorLogEntry {
   metadata: Record<string, any>;
 }
 
+// Alert Configuration
+interface AlertRule {
+  id: string;
+  name: string;
+  condition: (metrics: any) => boolean;
+  severity: "low" | "medium" | "high" | "critical";
+  message: string;
+  cooldown: number; // minutes
+  enabled: boolean;
+}
+
+// Alert Instance
+interface Alert {
+  id: string;
+  ruleId: string;
+  timestamp: Date;
+  severity: AlertRule["severity"];
+  message: string;
+  metrics: any;
+  resolved: boolean;
+  resolvedAt?: Date;
+}
+
 // Performance Trace
 interface PerformanceTrace {
   id: string;
@@ -133,9 +156,13 @@ class MonitoringService {
   private traces: Map<string, PerformanceTrace> = new Map();
   private systemMetricsHistory: SystemMetrics[] = [];
   private applicationMetricsHistory: ApplicationMetrics[] = [];
+  private alertRules: AlertRule[] = [];
+  private activeAlerts: Map<string, Alert> = new Map();
+  private alertCooldowns: Map<string, Date> = new Map();
 
   constructor() {
     this.initializeLogger();
+    this.initializeAlertRules();
     this.startMetricsCollection();
   }
 
@@ -197,6 +224,113 @@ class MonitoringService {
     });
   }
 
+  // Initialize alert rules for automated monitoring
+  private initializeAlertRules(): void {
+    this.alertRules = [
+      {
+        id: "high_cpu_usage",
+        name: "High CPU Usage",
+        condition: (metrics) => metrics.cpu?.usage > 90,
+        severity: "high",
+        message: "CPU usage is above 90%",
+        cooldown: 5,
+        enabled: true,
+      },
+      {
+        id: "high_memory_usage",
+        name: "High Memory Usage",
+        condition: (metrics) => metrics.memory?.usagePercent > 90,
+        severity: "high",
+        message: "Memory usage is above 90%",
+        cooldown: 5,
+        enabled: true,
+      },
+      {
+        id: "database_connection_issues",
+        name: "Database Connection Issues",
+        condition: (metrics) => metrics.connections?.active === 0,
+        severity: "critical",
+        message: "No active database connections",
+        cooldown: 1,
+        enabled: true,
+      },
+      {
+        id: "high_error_rate",
+        name: "High Error Rate",
+        condition: (metrics) => {
+          const total = metrics.requests?.total || 0;
+          const failed = metrics.requests?.failed || 0;
+          return total > 10 && failed / total > 0.1; // 10% error rate
+        },
+        severity: "medium",
+        message: "Error rate is above 10%",
+        cooldown: 10,
+        enabled: true,
+      },
+      {
+        id: "redis_disconnected",
+        name: "Redis Disconnected",
+        condition: (metrics) => !metrics.redis?.connected,
+        severity: "high",
+        message: "Redis cache is disconnected",
+        cooldown: 2,
+        enabled: true,
+      },
+    ];
+  }
+
+  // Check alert conditions and trigger alerts
+  private checkAlerts(metrics: any): void {
+    const now = new Date();
+
+    for (const rule of this.alertRules) {
+      if (!rule.enabled) continue;
+
+      // Check cooldown
+      const lastAlert = this.alertCooldowns.get(rule.id);
+      if (
+        lastAlert &&
+        now.getTime() - lastAlert.getTime() < rule.cooldown * 60 * 1000
+      ) {
+        continue;
+      }
+
+      // Check condition
+      if (rule.condition(metrics)) {
+        this.triggerAlert(rule, metrics);
+        this.alertCooldowns.set(rule.id, now);
+      }
+    }
+  }
+
+  // Trigger an alert
+  private triggerAlert(rule: AlertRule, metrics: any): void {
+    const alertId = `alert_${rule.id}_${Date.now()}`;
+    const alert: Alert = {
+      id: alertId,
+      ruleId: rule.id,
+      timestamp: new Date(),
+      severity: rule.severity,
+      message: rule.message,
+      metrics,
+      resolved: false,
+    };
+
+    this.activeAlerts.set(alertId, alert);
+
+    // Log the alert
+    this.logger.error("Alert Triggered", {
+      type: "alert",
+      alert,
+    });
+
+    // TODO: Send notifications (email, SMS, etc.) for critical alerts
+    if (rule.severity === "critical") {
+      console.error(`🚨 CRITICAL ALERT: ${rule.message}`);
+      // In production, this would send SMS/email notifications
+    }
+  }
+
   // Start collecting system and application metrics
   private startMetricsCollection(): void {
     // Collect metrics every 30 seconds
@@ -217,6 +351,14 @@ class MonitoringService {
         if (this.applicationMetricsHistory.length > 100) {
           this.applicationMetricsHistory.shift();
         }
+
+        // Check for alerts based on collected metrics
+        this.checkAlerts({
+          system: systemMetrics,
+          database: databaseMetrics,
+          application: applicationMetrics,
+          redis: { connected: true }, // TODO: Add Redis health check
+        });
 
         // Log metrics for monitoring
         this.logger.info("System Metrics Collected", {

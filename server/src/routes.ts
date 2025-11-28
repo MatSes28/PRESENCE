@@ -19,6 +19,7 @@ import mobileRoutes from "./routes/mobile.js";
 import integrationRoutes from "./routes/integrations.js";
 import settingsRoutes from "./routes/settings.js";
 import healthRoutes from "./routes/health.js";
+import gdprRoutes from "./routes/gdpr.js";
 // Removed audit routes - not in paper scope
 
 const router = Router();
@@ -48,5 +49,6 @@ router.use("/ai-analytics", aiAnalyticsRoutes);
 router.use("/mobile", mobileRoutes);
 router.use("/integrations", integrationRoutes);
 router.use("/settings", settingsRoutes);
+router.use("/gdpr", gdprRoutes);
 
 export default router;
