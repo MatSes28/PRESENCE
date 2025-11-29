@@ -38,10 +38,18 @@ export const Reports = () => {
     todayLate: 0,
     activeSessions: 0,
   });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+  });
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [classrooms, setClassrooms] = useState<any[]>([]);
 
   useEffect(() => {
     loadPreviewData();
     loadRealTimeStats();
+    loadFilterOptions();
   }, []);
 
   // Auto-refresh effect
@@ -59,13 +67,20 @@ export const Reports = () => {
     };
   }, [autoRefresh]);
 
-  const loadPreviewData = async () => {
+  const loadPreviewData = async (page = pagination.page, filters = {}) => {
     try {
       setLoading(true);
 
+      const offset = (page - 1) * pagination.limit;
+      const queryParams = new URLSearchParams({
+        limit: pagination.limit.toString(),
+        offset: offset.toString(),
+        ...filters,
+      });
+
       // Fetch real attendance data for preview
       const response = await fetch(
-        "/api/reports/attendance-records?limit=10&offset=0",
+        `/api/reports/attendance-records?${queryParams}`,
         {
           credentials: "include",
         }
@@ -76,6 +91,12 @@ export const Reports = () => {
       if (data.success && data.data && Array.isArray(data.data)) {
         setPreviewData(data.data);
         calculateStatistics(data.data);
+        // Update pagination info (assuming backend provides total count)
+        setPagination((prev) => ({
+          ...prev,
+          page,
+          total: data.total || data.data.length, // Fallback if no total provided
+        }));
       } else {
         console.error("Failed to load preview data:", data.message);
         addNotification({
@@ -92,6 +113,7 @@ export const Reports = () => {
           late: 0,
           absent: 0,
         });
+        setPagination((prev) => ({ ...prev, total: 0 }));
       }
     } catch (error) {
       console.error("Failed to load preview data:", error);
@@ -107,6 +129,7 @@ export const Reports = () => {
         late: 0,
         absent: 0,
       });
+      setPagination((prev) => ({ ...prev, total: 0 }));
     } finally {
       setLoading(false);
     }
@@ -124,17 +147,24 @@ export const Reports = () => {
 
   const loadRealTimeStats = async () => {
     try {
-      // Real-time stats require backend implementation
-      // For now, show placeholder data
-      console.log("Real-time stats loading - backend implementation required");
-
-      // Set placeholder stats since backend methods don't exist yet
-      setRealTimeStats({
-        todayPresent: 0,
-        todayAbsent: 0,
-        todayLate: 0,
-        activeSessions: 0,
+      const response = await fetch("/api/reports/real-time-stats", {
+        credentials: "include",
       });
+
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        setRealTimeStats(data.data);
+      } else {
+        console.error("Failed to load real-time stats:", data.message);
+        // Set default values on error
+        setRealTimeStats({
+          todayPresent: 0,
+          todayAbsent: 0,
+          todayLate: 0,
+          activeSessions: 0,
+        });
+      }
     } catch (error) {
       console.error("Failed to load real-time stats:", error);
       setRealTimeStats({
@@ -143,6 +173,30 @@ export const Reports = () => {
         todayLate: 0,
         activeSessions: 0,
       });
+    }
+  };
+
+  const loadFilterOptions = async () => {
+    try {
+      // Load subjects
+      const subjectsResponse = await fetch("/api/subjects", {
+        credentials: "include",
+      });
+      const subjectsData = await subjectsResponse.json();
+      if (subjectsData.success) {
+        setSubjects(subjectsData.data || []);
+      }
+
+      // Load classrooms
+      const classroomsResponse = await fetch("/api/classrooms", {
+        credentials: "include",
+      });
+      const classroomsData = await classroomsResponse.json();
+      if (classroomsData.success) {
+        setClassrooms(classroomsData.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to load filter options:", error);
     }
   };
 
@@ -491,8 +545,11 @@ export const Reports = () => {
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
                 <option value="">All Subjects</option>
-                <option value="1">CS101 - Introduction to Programming</option>
-                <option value="2">CS102 - Data Structures</option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.code} - {subject.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -512,9 +569,11 @@ export const Reports = () => {
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
                 <option value="">All Sections</option>
-                <option value="1">Section A</option>
-                <option value="2">Section B</option>
-                <option value="3">Section C</option>
+                {classrooms.map((classroom) => (
+                  <option key={classroom.id} value={classroom.id}>
+                    {classroom.name} - {classroom.location}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -710,6 +769,48 @@ export const Reports = () => {
           </table>
         </div>
       </div>
+
+      {/* Pagination Controls */}
+      {pagination.total > pagination.limit && (
+        <div className="flex items-center justify-between px-6 py-3 bg-gray-800 border-t border-gray-700">
+          <div className="text-sm text-gray-400">
+            Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
+            {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
+            {pagination.total} results
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => {
+                const newPage = pagination.page - 1;
+                setPagination((prev) => ({ ...prev, page: newPage }));
+                loadPreviewData(newPage);
+              }}
+              disabled={pagination.page <= 1}
+              className="px-3 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-400">
+              Page {pagination.page} of{" "}
+              {Math.ceil(pagination.total / pagination.limit)}
+            </span>
+            <button
+              onClick={() => {
+                const newPage = pagination.page + 1;
+                setPagination((prev) => ({ ...prev, page: newPage }));
+                loadPreviewData(newPage);
+              }}
+              disabled={
+                pagination.page >=
+                Math.ceil(pagination.total / pagination.limit)
+              }
+              className="px-3 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Summary Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

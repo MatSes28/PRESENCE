@@ -9,7 +9,7 @@ import {
   subjects,
   enrollments,
 } from "../schema.js";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, lt, desc, sql } from "drizzle-orm";
 import { reportSchedulerService } from "../services/reportScheduler.js";
 
 const router = Router();
@@ -556,6 +556,80 @@ router.get("/history", requireAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch report history",
+    });
+  }
+});
+
+// Get real-time attendance statistics
+router.get("/real-time-stats", requireAuth, async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Today's attendance stats
+    const todayStats = await db
+      .select({
+        status: attendanceRecords.status,
+        count: sql<number>`count(*)`,
+      })
+      .from(attendanceRecords)
+      .where(
+        and(
+          gte(attendanceRecords.createdAt, today),
+          lt(attendanceRecords.createdAt, tomorrow)
+        )
+      )
+      .groupBy(attendanceRecords.status);
+
+    // Active sessions today
+    const activeSessions = await db
+      .select({
+        count: sql<number>`count(*)`,
+      })
+      .from(classSessions)
+      .where(
+        and(
+          gte(classSessions.date, today),
+          lt(classSessions.date, tomorrow),
+          eq(classSessions.status, "active")
+        )
+      );
+
+    // Process stats
+    let todayPresent = 0;
+    let todayLate = 0;
+    let todayAbsent = 0;
+
+    todayStats.forEach((stat: any) => {
+      switch (stat.status) {
+        case "present":
+          todayPresent = Number(stat.count);
+          break;
+        case "late":
+          todayLate = Number(stat.count);
+          break;
+        case "absent":
+          todayAbsent = Number(stat.count);
+          break;
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        todayPresent,
+        todayLate,
+        todayAbsent,
+        activeSessions: Number((activeSessions[0] as any)?.count || 0),
+      },
+    });
+  } catch (error) {
+    console.error("Get real-time stats error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch real-time statistics",
     });
   }
 });
