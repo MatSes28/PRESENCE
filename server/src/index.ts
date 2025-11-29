@@ -9,6 +9,7 @@ import { WebSocketServer } from "ws";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import bcrypt from "bcryptjs";
 
 import { db } from "./storage.js";
 import routes from "./routes.js";
@@ -146,13 +147,65 @@ const wss = new WebSocketServer({
   maxPayload: 1024 * 1024, // 1MB max payload
 });
 
-// Health check endpoint (before other middleware)
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    message: "Server is healthy",
-  });
+// Comprehensive health check endpoint
+app.get("/health", async (req, res) => {
+  try {
+    const healthChecks = {
+      database: false,
+      redis: false,
+      filesystem: false,
+    };
+
+    // Check database connectivity
+    try {
+      await db.execute(sql`SELECT 1`);
+      healthChecks.database = true;
+    } catch (error) {
+      console.error("Database health check failed:", error);
+    }
+
+    // Check Redis connectivity
+    try {
+      const isRedisHealthy = await cacheService.ping();
+      healthChecks.redis = isRedisHealthy;
+    } catch (error) {
+      console.error("Redis health check failed:", error);
+    }
+
+    // Check filesystem access
+    try {
+      await fs.promises.access(process.cwd(), fs.constants.R_OK);
+      healthChecks.filesystem = true;
+    } catch (error) {
+      console.error("Filesystem health check failed:", error);
+    }
+
+    // Determine overall health status
+    const allHealthy = Object.values(healthChecks).every(Boolean);
+    const status = allHealthy ? "healthy" : "degraded";
+
+    const response = {
+      status,
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      version: process.version,
+      checks: healthChecks,
+      services: {
+        database: healthChecks.database ? "up" : "down",
+        redis: healthChecks.redis ? "up" : "down",
+        filesystem: healthChecks.filesystem ? "accessible" : "inaccessible",
+      },
+    };
+
+    res.status(allHealthy ? 200 : 503).json(response);
+  } catch (error) {
+    console.error("Health check error:", error);
+    res.status(503).json({
+      status: "unhealthy",
+      timestamp: new Date().toISOString(),
+      error: "Health check failed",
+    });
+  }
 });
 
 // Root route for SPA
@@ -401,7 +454,6 @@ server.listen({ port: PORT, host: HOST }, () => {
 
       // Create admin user if it doesn't exist
       try {
-        const bcrypt = await import("bcryptjs");
         const existingAdmin = await db
           .select()
           .from(users)
@@ -431,6 +483,8 @@ server.listen({ port: PORT, host: HOST }, () => {
         }
       } catch (error) {
         console.error("❌ Failed to setup admin user:", error);
+        console.error("Error details:", error.message);
+        // Don't exit - admin can be created manually if needed
       }
     }
   });

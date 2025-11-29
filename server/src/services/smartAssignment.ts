@@ -267,7 +267,8 @@ class SmartAssignmentService {
           student,
           computer,
           criteria,
-          studentToComputerMap
+          studentToComputerMap,
+          studentMap
         );
 
         if (score.score > bestScore) {
@@ -297,7 +298,8 @@ class SmartAssignmentService {
     student: StudentProfile,
     computer: any,
     criteria: AssignmentCriteria,
-    studentToComputerMap: Map<number, number>
+    studentToComputerMap: Map<number, number>,
+    studentMap: Map<number, StudentProfile>
   ): Promise<{ score: number; reasoning: string[] }> {
     let score = 50; // Base score
     const reasoning: string[] = [];
