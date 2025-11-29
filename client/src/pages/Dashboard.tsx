@@ -197,9 +197,24 @@ export const Dashboard = () => {
       const response = await api.getAnalytics(period);
       if (response.success && response.data) {
         setAnalyticsData(response.data);
+      } else {
+        console.error(
+          "Failed to load preview data:",
+          response?.message || "No data returned"
+        );
+        addNotification({
+          type: "error",
+          title: "Analytics Error",
+          message: response?.message || "Failed to load analytics data",
+        });
       }
     } catch (error) {
-      console.error("Failed to fetch analytics:", error);
+      console.error("Failed to load preview data:", error);
+      addNotification({
+        type: "error",
+        title: "Analytics Error",
+        message: "Failed to load analytics data. Please try again.",
+      });
     } finally {
       setAnalyticsLoading(false);
     }
@@ -725,7 +740,7 @@ export const Dashboard = () => {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
         </div>
-      ) : analyticsData ? (
+      ) : analyticsData && analyticsData.dailyTrends ? (
         <>
           {/* Daily Attendance Trends Chart */}
           <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">

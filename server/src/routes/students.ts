@@ -76,24 +76,58 @@ router.get("/", requireAuth, async (req, res) => {
         .orderBy(students.name);
 
       // Decrypt sensitive data
-      const decryptedStudents = encryptedStudents.map((student) => ({
-        ...student,
-        rfidUid: student.rfidUid
-          ? encryptionService.decryptRFID(student.rfidUid)
-          : null,
-        parentEmail: student.parentEmail
-          ? encryptionService.decryptParentData(
+      const decryptedStudents = encryptedStudents.map((student) => {
+        let rfidUid = null;
+        let parentEmail = null;
+        let parentName = null;
+
+        try {
+          rfidUid = student.rfidUid
+            ? encryptionService.decryptRFID(student.rfidUid)
+            : null;
+        } catch (error) {
+          console.warn(
+            `Failed to decrypt RFID for student ${student.id}:`,
+            error
+          );
+        }
+
+        try {
+          if (student.parentEmail) {
+            parentEmail = encryptionService.decryptParentData(
               student.parentEmail,
               student.parentName || ""
-            ).email
-          : null,
-        parentName: student.parentName
-          ? encryptionService.decryptParentData(
+            ).email;
+          }
+        } catch (error) {
+          console.warn(
+            `Failed to decrypt parent email for student ${student.id}:`,
+            error
+          );
+        }
+
+        try {
+          if (student.parentName) {
+            const decryptedParent = encryptionService.decryptParentData(
               student.parentEmail || "",
               student.parentName
-            ).phone
-          : null,
-      }));
+            );
+            parentName = decryptedParent.phone;
+          }
+        } catch (error) {
+          console.warn(
+            `Failed to decrypt parent name for student ${student.id}:`,
+            error
+          );
+        }
+
+        return {
+          ...student,
+          rfidUid,
+          parentEmail,
+          parentName,
+        };
+      });
 
       return res.json({
         success: true,
@@ -108,24 +142,58 @@ router.get("/", requireAuth, async (req, res) => {
       .orderBy(students.name);
 
     // Decrypt sensitive data
-    const decryptedStudents = encryptedStudents.map((student) => ({
-      ...student,
-      rfidUid: student.rfidUid
-        ? encryptionService.decryptRFID(student.rfidUid)
-        : null,
-      parentEmail: student.parentEmail
-        ? encryptionService.decryptParentData(
+    const decryptedStudents = encryptedStudents.map((student) => {
+      let rfidUid = null;
+      let parentEmail = null;
+      let parentName = null;
+
+      try {
+        rfidUid = student.rfidUid
+          ? encryptionService.decryptRFID(student.rfidUid)
+          : null;
+      } catch (error) {
+        console.warn(
+          `Failed to decrypt RFID for student ${student.id}:`,
+          error
+        );
+      }
+
+      try {
+        if (student.parentEmail) {
+          parentEmail = encryptionService.decryptParentData(
             student.parentEmail,
             student.parentName || ""
-          ).email
-        : null,
-      parentName: student.parentName
-        ? encryptionService.decryptParentData(
+          ).email;
+        }
+      } catch (error) {
+        console.warn(
+          `Failed to decrypt parent email for student ${student.id}:`,
+          error
+        );
+      }
+
+      try {
+        if (student.parentName) {
+          const decryptedParent = encryptionService.decryptParentData(
             student.parentEmail || "",
             student.parentName
-          ).phone
-        : null,
-    }));
+          );
+          parentName = decryptedParent.phone;
+        }
+      } catch (error) {
+        console.warn(
+          `Failed to decrypt parent name for student ${student.id}:`,
+          error
+        );
+      }
+
+      return {
+        ...student,
+        rfidUid,
+        parentEmail,
+        parentName,
+      };
+    });
 
     res.json({
       success: true,
