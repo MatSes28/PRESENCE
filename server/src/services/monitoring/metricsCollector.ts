@@ -388,71 +388,151 @@ export class MetricsCollector {
           return stats;
         }
       } else {
-        // Unix-like systems: Use system commands or libraries
+        // Unix-like systems: Try multiple approaches for network stats
         try {
-          // Try to use ip command for Linux
-          const { stdout } = await execAsync(
-            "ip -s link show | grep -E '^[0-9]+:' -A 3"
-          );
-          const lines = stdout.trim().split("\n");
-          const interfaces = os.networkInterfaces();
-          const stats: SystemMetrics["network"]["interfaces"] = [];
+          // First try to detect if we have standard ip command
+          let stats: SystemMetrics["network"]["interfaces"] = [];
 
-          let currentInterface = "";
-          let rxBytes = 0;
-          let txBytes = 0;
-          let rxErrors = 0;
-          let txErrors = 0;
-
-          for (const line of lines) {
-            if (line.match(/^[0-9]+:\s+([^:]+):/)) {
-              // New interface
-              if (currentInterface && !currentInterface.includes("lo")) {
-                stats.push({
-                  name: currentInterface,
-                  rx_bytes: rxBytes,
-                  tx_bytes: txBytes,
-                  rx_errors: rxErrors,
-                  tx_errors: txErrors,
-                });
-              }
-              currentInterface = line.split(":")[1].trim();
-              rxBytes = 0;
-              txBytes = 0;
-              rxErrors = 0;
-              txErrors = 0;
-            } else if (line.includes("RX:")) {
-              const rxMatch = line.match(/RX:\s+bytes\s+(\d+)/);
-              if (rxMatch) rxBytes = parseInt(rxMatch[1]);
-              const rxErrorMatch = line.match(/errors\s+(\d+)/);
-              if (rxErrorMatch) rxErrors = parseInt(rxErrorMatch[1]);
-            } else if (line.includes("TX:")) {
-              const txMatch = line.match(/TX:\s+bytes\s+(\d+)/);
-              if (txMatch) txBytes = parseInt(txMatch[1]);
-              const txErrorMatch = line.match(/errors\s+(\d+)/);
-              if (txErrorMatch) txErrors = parseInt(txErrorMatch[1]);
+          try {
+            // Try standard ip command syntax first
+            const { stdout } = await execAsync("ip -s link show");
+            stats = this.parseIpLinkOutput(stdout);
+          } catch (ipError) {
+            try {
+              // Try BusyBox compatible syntax
+              const { stdout } = await execAsync("ip link show");
+              stats = this.parseBusyBoxIpOutput(stdout);
+            } catch (busyBoxError) {
+              // Try using /proc/net/dev as fallback
+              stats = await this.parseProcNetDev();
             }
-          }
-
-          // Add the last interface
-          if (currentInterface && !currentInterface.includes("lo")) {
-            stats.push({
-              name: currentInterface,
-              rx_bytes: rxBytes,
-              tx_bytes: txBytes,
-              rx_errors: rxErrors,
-              tx_errors: txErrors,
-            });
           }
 
           return stats.length > 0 ? stats : this.getBasicNetworkStats();
         } catch (error) {
-          console.warn("ip command failed, using basic interface info:", error);
+          console.warn(
+            "All network stats collection methods failed, using basic interface info:",
+            error
+          );
           return this.getBasicNetworkStats();
         }
       }
     } catch (error) {
       console.warn("Failed to collect network statistics:", error);
+      return this.getBasicNetworkStats();
+    }
+  }
+
+  // Parse standard ip link output
+  private parseIpLinkOutput(
+    output: string
+  ): SystemMetrics["network"]["interfaces"] {
+    const lines = output.trim().split("\n");
+    const interfaces = os.networkInterfaces();
+    const stats: SystemMetrics["network"]["interfaces"] = [];
+
+    let currentInterface = "";
+    let rxBytes = 0;
+    let txBytes = 0;
+    let rxErrors = 0;
+    let txErrors = 0;
+
+    for (const line of lines) {
+      if (line.match(/^[0-9]+:\s+([^:]+):/)) {
+        // New interface
+        if (currentInterface && !currentInterface.includes("lo")) {
+          stats.push({
+            name: currentInterface,
+            rx_bytes: rxBytes,
+            tx_bytes: txBytes,
+            rx_errors: rxErrors,
+            tx_errors: txErrors,
+          });
+        }
+        currentInterface = line.split(":")[1].trim();
+        rxBytes = 0;
+        txBytes = 0;
+        rxErrors = 0;
+        txErrors = 0;
+      } else if (line.includes("RX:")) {
+        const rxMatch = line.match(/RX:\s+bytes\s+(\d+)/);
+        if (rxMatch) rxBytes = parseInt(rxMatch[1]);
+        const rxErrorMatch = line.match(/errors\s+(\d+)/);
+        if (rxErrorMatch) rxErrors = parseInt(rxErrorMatch[1]);
+      } else if (line.includes("TX:")) {
+        const txMatch = line.match(/TX:\s+bytes\s+(\d+)/);
+        if (txMatch) txBytes = parseInt(txMatch[1]);
+        const txErrorMatch = line.match(/errors\s+(\d+)/);
+        if (txErrorMatch) txErrors = parseInt(txErrorMatch[1]);
+      }
+    }
+
+    // Add the last interface
+    if (currentInterface && !currentInterface.includes("lo")) {
+      stats.push({
+        name: currentInterface,
+        rx_bytes: rxBytes,
+        tx_bytes: txBytes,
+        rx_errors: rxErrors,
+        tx_errors: txErrors,
+      });
+    }
+
+    return stats;
+  }
+
+  // Parse BusyBox ip link output (simpler format)
+  private parseBusyBoxIpOutput(
+    output: string
+  ): SystemMetrics["network"]["interfaces"] {
+    const lines = output.trim().split("\n");
+    const interfaces = os.networkInterfaces();
+    const stats: SystemMetrics["network"]["interfaces"] = [];
+
+    for (const [name, addresses] of Object.entries(interfaces)) {
+      if (addresses && addresses.length > 0 && !name.includes("Loopback")) {
+        // For BusyBox, we can't get detailed stats, so we return basic info
+        stats.push({
+          name,
+          rx_bytes: 0, // BusyBox ip doesn't provide detailed stats
+          tx_bytes: 0,
+          rx_errors: 0,
+          tx_errors: 0,
+        });
+      }
+    }
+
+    return stats;
+  }
+
+  // Parse /proc/net/dev for network statistics
+  private async parseProcNetDev(): Promise<
+    SystemMetrics["network"]["interfaces"]
+  > {
+    try {
+      const output = await fs.promises.readFile("/proc/net/dev", "utf8");
+      const lines = output.trim().split("\n").slice(2); // Skip header lines
+      const stats: SystemMetrics["network"]["interfaces"] = [];
+
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 17) {
+          const interfaceName = parts[0].replace(":", "");
+          if (!interfaceName.includes("lo")) {
+            stats.push({
+              name: interfaceName,
+              rx_bytes: parseInt(parts[1]) || 0,
+              tx_bytes: parseInt(parts[9]) || 0,
+              rx_errors: parseInt(parts[3]) || 0,
+              tx_errors: parseInt(parts[11]) || 0,
+            });
+          }
+        }
+      }
+
+      return stats;
+    } catch (error) {
+      // If /proc/net/dev is not available, fall back to basic info
       return this.getBasicNetworkStats();
     }
   }
