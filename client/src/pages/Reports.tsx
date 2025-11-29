@@ -63,38 +63,34 @@ export const Reports = () => {
     try {
       setLoading(true);
 
-      // Try to fetch real attendance data for preview
-      const response = await api.getAttendanceRecords({
-        limit: 10,
-        offset: 0,
+      // Report generation requires backend implementation
+      // For now, show empty state with proper messaging
+      console.log(
+        "Report preview data loading - backend implementation required"
+      );
+
+      addNotification({
+        type: "info",
+        title: "Preview Unavailable",
+        message:
+          "Report preview requires backend implementation. Showing empty state.",
       });
 
-      if (response.success && response.data && Array.isArray(response.data)) {
-        setPreviewData(response.data);
-        calculateStatistics(response.data);
-      } else {
-        console.error("Failed to load preview data:", response.message);
-        addNotification({
-          type: "warning",
-          title: "Preview Unavailable",
-          message:
-            "Unable to load report preview data. Report generation may still work.",
-        });
-        // Set empty data instead of mock data
-        setPreviewData([]);
-        setStatistics({
-          totalRecords: 0,
-          present: 0,
-          late: 0,
-          absent: 0,
-        });
-      }
+      // Set empty data since backend methods don't exist yet
+      setPreviewData([]);
+      setStatistics({
+        totalRecords: 0,
+        present: 0,
+        late: 0,
+        absent: 0,
+      });
     } catch (error) {
       console.error("Failed to load preview data:", error);
       addNotification({
         type: "error",
         title: "Preview Error",
-        message: "Failed to load report preview. Please check your connection.",
+        message:
+          "Failed to load report preview. Backend implementation required.",
       });
       setPreviewData([]);
       setStatistics({
@@ -120,99 +116,48 @@ export const Reports = () => {
 
   const loadRealTimeStats = async () => {
     try {
-      // Get today's attendance stats
-      const today = new Date().toISOString().split("T")[0];
-      const todayResponse = await api.getAttendanceRecords({
-        date: today,
-        limit: 1000, // Get more records for accurate stats
+      // Real-time stats require backend implementation
+      // For now, show placeholder data
+      console.log("Real-time stats loading - backend implementation required");
+
+      // Set placeholder stats since backend methods don't exist yet
+      setRealTimeStats({
+        todayPresent: 0,
+        todayAbsent: 0,
+        todayLate: 0,
+        activeSessions: 0,
       });
-
-      if (todayResponse.success && todayResponse.data) {
-        const todayRecords = todayResponse.data as any[];
-        const todayStats = {
-          todayPresent: todayRecords.filter(
-            (r: any) => r.record.status === "present"
-          ).length,
-          todayAbsent: todayRecords.filter(
-            (r: any) => r.record.status === "absent"
-          ).length,
-          todayLate: todayRecords.filter((r: any) => r.record.status === "late")
-            .length,
-          activeSessions: 0, // This would come from sessions API
-        };
-        setRealTimeStats(todayStats);
-      }
-
-      // Try to get active sessions count
-      try {
-        const sessionsResponse = await api.get("/attendance/sessions/active");
-        if (sessionsResponse.success && sessionsResponse.data) {
-          setRealTimeStats((prev) => ({
-            ...prev,
-            activeSessions: (sessionsResponse.data as any[]).length,
-          }));
-        }
-      } catch (sessionError) {
-        // Ignore session error, keep activeSessions as 0
-      }
     } catch (error) {
       console.error("Failed to load real-time stats:", error);
+      setRealTimeStats({
+        todayPresent: 0,
+        todayAbsent: 0,
+        todayLate: 0,
+        activeSessions: 0,
+      });
     }
   };
 
   const handleQuickReport = async (type: "daily" | "weekly" | "analytics") => {
-    const today = new Date().toISOString().split("T")[0];
-    let startDate = today;
-    const endDate = today;
-
-    if (type === "weekly") {
-      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      startDate = weekAgo.toISOString().split("T")[0];
-    } else if (type === "analytics") {
-      const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      startDate = monthAgo.toISOString().split("T")[0];
-    }
-
-    const params = {
-      ...reportParams,
-      type: "attendance" as const,
-      startDate,
-      endDate,
-      format: "csv" as const,
-    };
-
     setGenerating(true);
     try {
-      // Try to generate report using the API
-      const response = await api.generateReport({
-        type: "attendance",
-        format: "csv",
-        startDate,
-        endDate,
-      });
+      // Report generation requires backend implementation
+      console.log(
+        `Attempting to generate ${type} report - backend implementation required`
+      );
 
-      if (response.success) {
-        addNotification({
-          type: "success",
-          title: "Report Generated",
-          message: `${
-            type.charAt(0).toUpperCase() + type.slice(1)
-          } report has been generated successfully.`,
-        });
-      } else {
-        addNotification({
-          type: "error",
-          title: "Report Generation Failed",
-          message:
-            response.message ||
-            "Failed to generate report. Report generation requires backend implementation.",
-        });
-      }
+      addNotification({
+        type: "warning",
+        title: "Report Generation Unavailable",
+        message: `Report generation requires backend implementation. ${
+          type.charAt(0).toUpperCase() + type.slice(1)
+        } report cannot be generated at this time.`,
+      });
     } catch (error) {
       console.error("Failed to generate quick report:", error);
       addNotification({
         type: "error",
-        title: "Report Generation Unavailable",
+        title: "Report Generation Failed",
         message:
           "Report generation requires backend implementation. Please contact administrator.",
       });
@@ -224,38 +169,24 @@ export const Reports = () => {
   const handleGenerateReport = async () => {
     setGenerating(true);
     try {
-      const response = await api.generateReport(reportParams);
+      // Report generation requires backend implementation
+      console.log(
+        "Attempting to generate report - backend implementation required"
+      );
 
-      if (response.success) {
-        // Handle file download
-        if (response.data && (response.data as any).downloadUrl) {
-          window.open((response.data as any).downloadUrl, "_blank");
-          addNotification({
-            type: "success",
-            title: "Report Generated",
-            message: "Your report has been generated and is downloading.",
-          });
-        } else {
-          addNotification({
-            type: "success",
-            title: "Report Generated",
-            message: "Report generated successfully!",
-          });
-        }
-      } else {
-        addNotification({
-          type: "error",
-          title: "Report Generation Failed",
-          message: response.message || "Failed to generate report",
-        });
-      }
+      addNotification({
+        type: "warning",
+        title: "Report Generation Unavailable",
+        message:
+          "Report generation requires backend implementation. Please contact administrator.",
+      });
     } catch (error) {
       console.error("Failed to generate report:", error);
       addNotification({
         type: "error",
-        title: "Network Error",
+        title: "Report Generation Failed",
         message:
-          "Failed to generate report. Please check your connection and try again.",
+          "Report generation requires backend implementation. Please contact administrator.",
       });
     } finally {
       setGenerating(false);
