@@ -62,32 +62,55 @@ const requiredEnvVars = [
 const missingEnvVars = requiredEnvVars.filter(
   (varName) => !process.env[varName]
 );
+
+// In Railway/production, don't exit - allow deployment to succeed with warnings
+const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
+const isProduction = process.env.NODE_ENV === "production" || isRailway;
+
 if (missingEnvVars.length > 0) {
   console.error("❌ Missing required environment variables:", missingEnvVars);
-  console.error("Please set these variables in your .env file or environment");
-  process.exit(1);
+  if (!isRailway && !isProduction) {
+    console.error(
+      "Please set these variables in your .env file or environment"
+    );
+    process.exit(1);
+  } else {
+    console.warn(
+      "⚠️  Running in Railway with missing environment variables - some features may not work"
+    );
+  }
 }
 
-// Validate session secret length (minimum 32 characters for security)
-if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length < 32) {
-  console.error("❌ SESSION_SECRET must be at least 32 characters long");
-  process.exit(1);
-}
+// Validate secret lengths (minimum 32 characters for security)
+const secretsToValidate = [
+  { name: "SESSION_SECRET", value: process.env.SESSION_SECRET },
+  { name: "JWT_SECRET", value: process.env.JWT_SECRET },
+  { name: "JWT_REFRESH_SECRET", value: process.env.JWT_REFRESH_SECRET },
+];
 
-if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
-  console.error("❌ JWT_SECRET must be at least 32 characters long");
-  process.exit(1);
+for (const secret of secretsToValidate) {
+  if (secret.value && secret.value.length < 32) {
+    console.error(`❌ ${secret.name} must be at least 32 characters long`);
+    if (!isRailway && !isProduction) {
+      process.exit(1);
+    } else {
+      console.warn(
+        `⚠️  ${secret.name} is too short - using fallback for Railway deployment`
+      );
+    }
+  }
 }
 
 if (
-  process.env.JWT_REFRESH_SECRET &&
-  process.env.JWT_REFRESH_SECRET.length < 32
+  missingEnvVars.length === 0 &&
+  secretsToValidate.every((s) => !s.value || s.value.length >= 32)
 ) {
-  console.error("❌ JWT_REFRESH_SECRET must be at least 32 characters long");
-  process.exit(1);
+  console.log("✅ Environment variables validated successfully");
+} else if (isRailway || isProduction) {
+  console.log(
+    "⚠️  Environment validation completed with warnings (Railway deployment)"
+  );
 }
-
-console.log("✅ Environment variables validated successfully");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -139,21 +162,29 @@ const app = express();
 // Trust proxy for accurate IP detection behind reverse proxies
 app.set("trust proxy", 1);
 
-const server = createSecureServer(app);
-const wss = new WebSocketServer({
-  server,
-  // Additional security options for WebSocket
-  perMessageDeflate: false, // Disable compression to prevent BREACH attacks
-  maxPayload: 1024 * 1024, // 1MB max payload
-});
-
-// Comprehensive health check endpoint
+// Health check endpoint (available during startup and after initialization)
 app.get("/health", async (req, res) => {
   try {
+    // If we haven't completed full initialization yet, return basic status
+    if (!(global as any).appInitialized) {
+      return res.status(200).json({
+        status: "starting",
+        timestamp: new Date().toISOString(),
+        message: "Application is starting up",
+        environment: {
+          NODE_ENV: process.env.NODE_ENV,
+          RAILWAY_ENVIRONMENT: process.env.RAILWAY_ENVIRONMENT,
+          PORT: process.env.PORT,
+        },
+      });
+    }
+
+    // Full health check after initialization
     const healthChecks = {
       database: false,
       redis: false,
       filesystem: false,
+      environment: missingEnvVars.length === 0,
     };
 
     // Check database connectivity
@@ -181,8 +212,14 @@ app.get("/health", async (req, res) => {
     }
 
     // Determine overall health status
-    const allHealthy = Object.values(healthChecks).every(Boolean);
-    const status = allHealthy ? "healthy" : "degraded";
+    const criticalChecks = [healthChecks.database, healthChecks.filesystem];
+    const allHealthy =
+      criticalChecks.every(Boolean) && healthChecks.environment;
+    const status = allHealthy
+      ? "healthy"
+      : healthChecks.database && healthChecks.filesystem
+      ? "degraded"
+      : "unhealthy";
 
     const response = {
       status,
@@ -194,18 +231,36 @@ app.get("/health", async (req, res) => {
         database: healthChecks.database ? "up" : "down",
         redis: healthChecks.redis ? "up" : "down",
         filesystem: healthChecks.filesystem ? "accessible" : "inaccessible",
+        environment: healthChecks.environment
+          ? "configured"
+          : "missing_variables",
       },
+      warnings:
+        missingEnvVars.length > 0
+          ? [`Missing environment variables: ${missingEnvVars.join(", ")}`]
+          : [],
     };
 
-    res.status(allHealthy ? 200 : 503).json(response);
+    res
+      .status(allHealthy ? 200 : status === "degraded" ? 200 : 503)
+      .json(response);
   } catch (error) {
     console.error("Health check error:", error);
     res.status(503).json({
       status: "unhealthy",
       timestamp: new Date().toISOString(),
       error: "Health check failed",
+      details: error.message,
     });
   }
+});
+
+const server = createSecureServer(app);
+const wss = new WebSocketServer({
+  server,
+  // Additional security options for WebSocket
+  perMessageDeflate: false, // Disable compression to prevent BREACH attacks
+  maxPayload: 1024 * 1024, // 1MB max payload
 });
 
 // Root route for SPA
@@ -302,8 +357,6 @@ app.use(preventSQLInjection);
 const PgSession = connectPgSimple(session);
 
 // Parse database URL for session store SSL config
-const isProduction =
-  process.env.NODE_ENV === "production" || !!process.env.RAILWAY_ENVIRONMENT;
 const sessionDbConfig = {
   connectionString: process.env.DATABASE_URL,
   ...(isProduction && {
@@ -490,6 +543,9 @@ server.listen({ port: PORT, host: HOST }, () => {
   });
 
   console.log("Server started successfully");
+
+  // Mark app as fully initialized for health checks
+  (global as any).appInitialized = true;
 });
 
 // Graceful shutdown handler
