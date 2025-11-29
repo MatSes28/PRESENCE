@@ -4,7 +4,6 @@ import {
   integer,
   timestamp,
   boolean,
-  uuid,
   serial,
   varchar,
   jsonb,
