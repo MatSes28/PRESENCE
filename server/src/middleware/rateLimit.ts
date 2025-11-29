@@ -75,7 +75,7 @@ export const createUserRateLimit = (options: {
 // General API rate limiting (user-based for authenticated users, IP-based for anonymous)
 export const generalRateLimit = createUserRateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each user/IP to 100 requests per windowMs
+  max: 1000, // Limit each user/IP to 1000 requests per windowMs (increased for dashboard-heavy usage)
   message: {
     success: false,
     message: "Too many requests, please try again later.",

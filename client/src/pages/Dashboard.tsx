@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getWebSocketClient } from "../lib/websocket";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
+import { useNotifications } from "../components/NotificationSystem";
 import {
   LineChart,
   Line,
@@ -32,10 +33,7 @@ interface DashboardStats {
 
 export const Dashboard = () => {
   const { user } = useAuth();
-  // const { addNotification } = useNotifications();
-  const addNotification = (notification: any) => {
-    console.log("Notification:", notification);
-  };
+  const { addNotification } = useNotifications();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
   const [realTimeData, setRealTimeData] = useState<any[]>([]);
