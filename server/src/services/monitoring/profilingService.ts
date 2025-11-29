@@ -70,19 +70,7 @@ export class ProfilingService {
   }
 
   // Get heap statistics
-  public getHeapStatistics(): {
-    total_heap_size: number;
-    total_heap_size_executable: number;
-    total_physical_size: number;
-    total_available_size: number;
-    used_heap_size: number;
-    heap_size_limit: number;
-    malloced_memory: number;
-    peak_malloced_memory: number;
-    does_zap_garbage: boolean;
-    number_of_native_contexts: number;
-    number_of_detached_contexts: number;
-  } {
+  public getHeapStatistics(): v8.HeapInfo {
     return v8.getHeapStatistics();
   }
 
@@ -124,8 +112,8 @@ export class ProfilingService {
 
   // Get comprehensive memory profile
   public getMemoryProfile(): {
-    heapStats: ReturnType<typeof v8.getHeapStatistics>;
-    heapSpaceStats: ReturnType<typeof v8.getHeapSpaceStatistics>;
+    heapStats: v8.HeapInfo;
+    heapSpaceStats: v8.HeapSpaceInfo[];
     processMemory: NodeJS.MemoryUsage;
     timestamp: Date;
   } {
