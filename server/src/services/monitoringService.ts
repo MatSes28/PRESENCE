@@ -536,25 +536,65 @@ class MonitoringService {
   // Get disk usage for all mounted filesystems
   private async getDiskUsage(): Promise<SystemMetrics["disk"]> {
     try {
-      // Use system commands to get disk usage
-      const { stdout } = await execAsync("df -k | tail -n +2");
-      const lines = stdout.trim().split("\n");
+      // Cross-platform disk usage detection
+      const platform = process.platform;
 
-      return lines.map((line) => {
-        const parts = line.split(/\s+/);
-        const total = parseInt(parts[1]) * 1024; // Convert to bytes
-        const used = parseInt(parts[2]) * 1024;
-        const free = parseInt(parts[3]) * 1024;
+      if (platform === "win32") {
+        // Windows: Use fs.statSync to get drive information
+        const drives = ["C:", "D:", "E:", "F:"]; // Common drive letters
+        const diskInfo: SystemMetrics["disk"] = [];
 
-        return {
-          total,
-          used,
-          free,
-          usagePercent: (used / total) * 100,
-        };
-      });
+        for (const drive of drives) {
+          try {
+            const stats = fs.statSync(drive);
+            // On Windows, we can't easily get total/free space without additional APIs
+            // Return basic info to avoid errors
+            diskInfo.push({
+              total: 0, // Would need Windows Management Instrumentation (WMI) or PowerShell
+              used: 0,
+              free: 0,
+              usagePercent: 0,
+            });
+          } catch (error) {
+            // Drive doesn't exist or not accessible, skip
+            continue;
+          }
+        }
+
+        // If no drives found, return fallback
+        if (diskInfo.length === 0) {
+          return [
+            {
+              total: 0,
+              used: 0,
+              free: 0,
+              usagePercent: 0,
+            },
+          ];
+        }
+
+        return diskInfo;
+      } else {
+        // Unix-like systems: Use df command
+        const { stdout } = await execAsync("df -k | tail -n +2");
+        const lines = stdout.trim().split("\n");
+
+        return lines.map((line) => {
+          const parts = line.split(/\s+/);
+          const total = parseInt(parts[1]) * 1024; // Convert to bytes
+          const used = parseInt(parts[2]) * 1024;
+          const free = parseInt(parts[3]) * 1024;
+
+          return {
+            total,
+            used,
+            free,
+            usagePercent: (used / total) * 100,
+          };
+        });
+      }
     } catch (error) {
-      // Fallback for systems where df is not available
+      // Fallback for systems where disk detection fails
       return [
         {
           total: 0,

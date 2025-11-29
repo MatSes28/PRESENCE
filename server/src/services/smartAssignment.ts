@@ -7,6 +7,7 @@ import {
   subjects,
   enrollments,
   computers,
+  attendanceRecords,
 } from "../schema.js";
 import { eq, and, desc } from "drizzle-orm";
 
@@ -149,31 +150,72 @@ class SmartAssignmentService {
   private async calculateStudentPerformance(
     studentId: number
   ): Promise<number> {
-    // Simplified performance calculation
-    // In a real system, you'd calculate GPA from grades
-    // For now, return a random score between 1-4
-    return Math.random() * 3 + 1; // 1.0 to 4.0 GPA equivalent
+    try {
+      // Calculate performance based on attendance records
+      // Higher attendance rate = better performance score
+      const studentAttendanceRecords = await db
+        .select()
+        .from(attendanceRecords)
+        .where(eq(attendanceRecords.studentId, studentId));
+
+      if (studentAttendanceRecords.length === 0) {
+        return 2.5; // Default neutral score for new students
+      }
+
+      // Calculate attendance rate (present + late) / total sessions
+      const totalSessions = studentAttendanceRecords.length;
+      const presentSessions = studentAttendanceRecords.filter(
+        (record) => record.status === "present" || record.status === "late"
+      ).length;
+
+      const attendanceRate = presentSessions / totalSessions;
+
+      // Convert attendance rate to GPA-like score (1.0 to 4.0)
+      // 90%+ attendance = 4.0, 80% = 3.0, etc.
+      let performanceScore = 1.0 + attendanceRate * 3.0;
+
+      // Cap at 4.0 and ensure minimum 1.0
+      performanceScore = Math.max(1.0, Math.min(4.0, performanceScore));
+
+      return performanceScore;
+    } catch (error) {
+      console.warn(
+        `Failed to calculate performance for student ${studentId}:`,
+        error
+      );
+      return 2.5; // Default fallback score
+    }
   }
 
   private inferLearningStyle(
     student: any
   ): "visual" | "auditory" | "kinesthetic" {
-    // Enhanced learning style inference based on student data
-    // In a real system, you'd have learning style assessments stored in database
+    // Learning style inference based on student characteristics
+    // In a real system, this would be based on actual learning assessments
+    // For now, we'll use a deterministic approach based on student data
+
     const styles: ("visual" | "auditory" | "kinesthetic")[] = [
       "visual",
       "auditory",
       "kinesthetic",
     ];
 
-    // For now, use a more sophisticated pseudo-random assignment
-    // You could base this on student ID, name, or other characteristics
-    const hash = student.name.split("").reduce((a, b) => {
-      a = (a << 5) - a + b.charCodeAt(0);
-      return a & a;
-    }, 0);
+    // Create a deterministic seed based on student characteristics
+    let seed = student.id;
 
-    return styles[Math.abs(hash) % styles.length];
+    // Factor in student name length and first letter
+    if (student.name) {
+      seed += student.name.length;
+      seed += student.name.charCodeAt(0);
+    }
+
+    // Factor in year level (higher year = more likely to be different styles)
+    if (student.year) {
+      seed += student.year * 10;
+    }
+
+    // Use seed to deterministically select learning style
+    return styles[Math.abs(seed) % styles.length];
   }
 
   private async getStudentConflicts(studentId: number): Promise<number[]> {
@@ -199,7 +241,11 @@ class SmartAssignmentService {
   ): Promise<AssignmentResult[]> {
     const assignments: AssignmentResult[] = [];
     const assignedComputers = new Set<number>();
-    const assignedStudents = new Map<number, StudentProfile>();
+    const studentToComputerMap = new Map<number, number>(); // studentId -> computerId
+
+    // Create a lookup map for quick student access
+    const studentMap = new Map<number, StudentProfile>();
+    students.forEach((student) => studentMap.set(student.id, student));
 
     // Sort students by priority (performance, etc.)
     const sortedStudents = [...students].sort((a, b) => {
@@ -221,7 +267,7 @@ class SmartAssignmentService {
           student,
           computer,
           criteria,
-          assignedStudents
+          studentToComputerMap
         );
 
         if (score.score > bestScore) {
@@ -240,7 +286,7 @@ class SmartAssignmentService {
         });
 
         assignedComputers.add(bestComputer.id);
-        assignedStudents.set(student.id, student);
+        studentToComputerMap.set(student.id, bestComputer.id);
       }
     }
 
@@ -251,7 +297,7 @@ class SmartAssignmentService {
     student: StudentProfile,
     computer: any,
     criteria: AssignmentCriteria,
-    assignedStudents: Map<number, StudentProfile>
+    studentToComputerMap: Map<number, number>
   ): Promise<{ score: number; reasoning: string[] }> {
     let score = 50; // Base score
     const reasoning: string[] = [];
@@ -275,7 +321,8 @@ class SmartAssignmentService {
       const learningStyleBonus = await this.calculateLearningStyleScore(
         student,
         computer,
-        assignedStudents
+        studentToComputerMap,
+        studentMap
       );
       score += learningStyleBonus.score;
       reasoning.push(...learningStyleBonus.reasoning);
@@ -303,7 +350,8 @@ class SmartAssignmentService {
       const conflictPenalty = await this.calculateConflictScore(
         student,
         computer,
-        assignedStudents
+        studentToComputerMap,
+        studentMap
       );
       score += conflictPenalty.score;
       reasoning.push(...conflictPenalty.reasoning);
@@ -320,13 +368,18 @@ class SmartAssignmentService {
   private async calculateLearningStyleScore(
     student: StudentProfile,
     computer: any,
-    assignedStudents: Map<number, StudentProfile>
+    studentToComputerMap: Map<number, number>,
+    studentMap: Map<number, StudentProfile>
   ): Promise<{ score: number; reasoning: string[] }> {
     let score = 0;
     const reasoning: string[] = [];
 
     // Group similar learning styles together for collaborative learning
-    const nearbyStudents = this.getNearbyStudents(computer, assignedStudents);
+    const nearbyStudents = this.getNearbyStudents(
+      computer,
+      studentToComputerMap,
+      studentMap
+    );
     const similarStyles = nearbyStudents.filter(
       (s) => s.learningStyle === student.learningStyle
     ).length;
@@ -371,12 +424,17 @@ class SmartAssignmentService {
   private async calculateConflictScore(
     student: StudentProfile,
     computer: any,
-    assignedStudents: Map<number, StudentProfile>
+    studentToComputerMap: Map<number, number>,
+    studentMap: Map<number, StudentProfile>
   ): Promise<{ score: number; reasoning: string[] }> {
     let score = 0;
     const reasoning: string[] = [];
 
-    const nearbyStudents = this.getNearbyStudents(computer, assignedStudents);
+    const nearbyStudents = this.getNearbyStudents(
+      computer,
+      studentToComputerMap,
+      studentMap
+    );
     const conflictsNearby = nearbyStudents.filter((s) =>
       student.conflicts.includes(s.id)
     ).length;
@@ -423,18 +481,38 @@ class SmartAssignmentService {
 
   private getNearbyStudents(
     computer: any,
-    assignedStudents: Map<number, StudentProfile>
+    studentToComputerMap: Map<number, number>,
+    studentMap: Map<number, StudentProfile>
   ): StudentProfile[] {
-    // Simplified proximity calculation
-    // In a real system, you'd have actual position coordinates
+    // Calculate proximity based on computer positions
+    // Assume classroom layout: computers arranged in rows of 5
     const nearby: StudentProfile[] = [];
+    const computersPerRow = 5;
 
-    // Mock proximity logic - assume computers in same "row" are nearby
-    const computerRow = Math.floor((computer.id - 1) / 5); // 5 computers per row
+    const currentRow = Math.floor((computer.id - 1) / computersPerRow);
+    const currentCol = (computer.id - 1) % computersPerRow;
 
-    for (const [studentId, student] of assignedStudents) {
-      // This is simplified - you'd need actual position mapping
-      nearby.push(student);
+    // Find students assigned to computers in the same row or adjacent positions
+    for (const [studentId, assignedComputerId] of studentToComputerMap) {
+      const student = studentMap.get(studentId);
+      if (!student) continue;
+
+      const assignedRow = Math.floor(
+        (assignedComputerId - 1) / computersPerRow
+      );
+      const assignedCol = (assignedComputerId - 1) % computersPerRow;
+
+      // Consider students in same row or adjacent columns as nearby
+      const rowDiff = Math.abs(currentRow - assignedRow);
+      const colDiff = Math.abs(currentCol - assignedCol);
+
+      if (rowDiff === 0 && colDiff <= 1) {
+        // Same row, adjacent or same column
+        nearby.push(student);
+      } else if (rowDiff === 1 && colDiff === 0) {
+        // Adjacent row, same column
+        nearby.push(student);
+      }
     }
 
     return nearby.slice(0, 4); // Return up to 4 nearby students

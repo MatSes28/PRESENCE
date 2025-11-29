@@ -14,13 +14,11 @@ async function runSQL() {
   });
 
   try {
-    console.log("Running database setup...");
-    const addColumns = fs.readFileSync("add-columns.sql", "utf8");
-    const insertAdmin = fs.readFileSync("insert-admin.sql", "utf8");
-    const fullContent = addColumns + "\n" + insertAdmin;
+    console.log("Creating audit_logs table...");
+    const auditLogsSQL = fs.readFileSync("create-audit-logs.sql", "utf8");
 
     // Split by semicolon and execute each statement
-    const statements = fullContent
+    const statements = auditLogsSQL
       .split(";")
       .filter((stmt) => stmt.trim().length > 0);
 
@@ -31,7 +29,7 @@ async function runSQL() {
       }
     }
 
-    console.log("Database setup completed successfully!");
+    console.log("Audit logs table created successfully!");
   } catch (error) {
     console.error("Error running SQL:", error);
   } finally {
