@@ -123,39 +123,28 @@ router.post(
         req.session.userId = user.id;
         req.session.userRole = user.role;
 
-        // Save session before sending response
-        req.session.save(async (err) => {
-          if (err) {
-            console.error("Session save error:", err);
-            return res.status(500).json({
-              success: false,
-              message: "Session save failed",
-            });
-          }
+        // Log successful login
+        await auditService.logUserLogin(
+          user.id,
+          req.ip || req.connection.remoteAddress || "unknown",
+          req.get("User-Agent") || "unknown",
+          req.sessionID || "unknown",
+          true
+        );
 
-          // Log successful login
-          await auditService.logUserLogin(
-            user.id,
-            req.ip || req.connection.remoteAddress || "unknown",
-            req.get("User-Agent") || "unknown",
-            req.sessionID || "unknown",
-            true
-          );
+        // Return user info (without password)
+        const { password: _, ...userWithoutPassword } = user;
 
-          // Return user info (without password)
-          const { password: _, ...userWithoutPassword } = user;
+        // Add name field for frontend compatibility
+        const userWithName = {
+          ...userWithoutPassword,
+          name: user.name,
+        };
 
-          // Add name field for frontend compatibility
-          const userWithName = {
-            ...userWithoutPassword,
-            name: user.name,
-          };
-
-          res.json({
-            success: true,
-            message: "Login successful",
-            data: userWithName,
-          });
+        res.json({
+          success: true,
+          message: "Login successful",
+          data: userWithName,
         });
       } else {
         res.status(500).json({
