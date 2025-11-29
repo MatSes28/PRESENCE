@@ -443,12 +443,22 @@ class MonitoringService {
           this.applicationMetricsHistory.shift();
         }
 
+        // Check Redis connectivity
+        let redisConnected = false;
+        try {
+          // Import cacheService dynamically to avoid circular dependency
+          const { cacheService } = await import("../services/cacheService.js");
+          redisConnected = await cacheService.ping();
+        } catch (error) {
+          console.warn("Redis health check failed:", error);
+        }
+
         // Check for alerts based on collected metrics
         this.checkAlerts({
           system: systemMetrics,
           database: databaseMetrics,
           application: applicationMetrics,
-          redis: { connected: true }, // TODO: Add Redis health check
+          redis: { connected: redisConnected },
         });
 
         // Log metrics for monitoring
@@ -540,40 +550,94 @@ class MonitoringService {
       const platform = process.platform;
 
       if (platform === "win32") {
-        // Windows: Use fs.statSync to get drive information
-        const drives = ["C:", "D:", "E:", "F:"]; // Common drive letters
-        const diskInfo: SystemMetrics["disk"] = [];
+        // Windows: Use PowerShell to get drive information
+        try {
+          const { stdout } = await execAsync(
+            'powershell -Command "Get-WmiObject Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 } | Select-Object DeviceID, Size, FreeSpace | ConvertTo-Json"'
+          );
 
-        for (const drive of drives) {
-          try {
-            const stats = fs.statSync(drive);
-            // On Windows, we can't easily get total/free space without additional APIs
-            // Return basic info to avoid errors
-            diskInfo.push({
-              total: 0, // Would need Windows Management Instrumentation (WMI) or PowerShell
-              used: 0,
-              free: 0,
-              usagePercent: 0,
-            });
-          } catch (error) {
-            // Drive doesn't exist or not accessible, skip
-            continue;
+          const drives = JSON.parse(stdout.trim());
+          const diskInfo: SystemMetrics["disk"] = [];
+
+          // Handle single drive (PowerShell returns object) or multiple drives (array)
+          const driveArray = Array.isArray(drives) ? drives : [drives];
+
+          for (const drive of driveArray) {
+            if (drive.Size && drive.Size > 0) {
+              const total = Number(drive.Size);
+              const free = Number(drive.FreeSpace || 0);
+              const used = total - free;
+              const usagePercent = (used / total) * 100;
+
+              diskInfo.push({
+                total,
+                used,
+                free,
+                usagePercent,
+              });
+            }
           }
-        }
 
-        // If no drives found, return fallback
-        if (diskInfo.length === 0) {
-          return [
-            {
-              total: 0,
-              used: 0,
-              free: 0,
-              usagePercent: 0,
-            },
-          ];
-        }
+          // If PowerShell method fails or no drives found, try fs.statSync as fallback
+          if (diskInfo.length === 0) {
+            const fallbackDrives = ["C:", "D:", "E:", "F:"];
+            for (const drive of fallbackDrives) {
+              try {
+                fs.statSync(drive);
+                // If we can stat the drive, assume it's accessible but we can't get size info
+                diskInfo.push({
+                  total: 0, // Unknown
+                  used: 0,
+                  free: 0,
+                  usagePercent: 0,
+                });
+              } catch (error) {
+                // Drive doesn't exist or not accessible, skip
+                continue;
+              }
+            }
+          }
 
-        return diskInfo;
+          return diskInfo.length > 0
+            ? diskInfo
+            : [
+                {
+                  total: 0,
+                  used: 0,
+                  free: 0,
+                  usagePercent: 0,
+                },
+              ];
+        } catch (error) {
+          // Fallback to basic drive detection if PowerShell fails
+          const drives = ["C:", "D:", "E:", "F:"];
+          const diskInfo: SystemMetrics["disk"] = [];
+
+          for (const drive of drives) {
+            try {
+              fs.statSync(drive);
+              diskInfo.push({
+                total: 0, // Cannot determine on Windows without additional tools
+                used: 0,
+                free: 0,
+                usagePercent: 0,
+              });
+            } catch (error) {
+              continue;
+            }
+          }
+
+          return diskInfo.length > 0
+            ? diskInfo
+            : [
+                {
+                  total: 0,
+                  used: 0,
+                  free: 0,
+                  usagePercent: 0,
+                },
+              ];
+        }
       } else {
         // Unix-like systems: Use df command
         const { stdout } = await execAsync("df -k | tail -n +2");

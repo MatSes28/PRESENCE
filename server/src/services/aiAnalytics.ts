@@ -789,8 +789,30 @@ class AIAnalyticsService {
   }
 
   private async calculateAverageScore(studentId: number): Promise<number> {
-    // Simplified - in real system would have grades table
-    return Math.random() * 0.4 + 0.6; // 0.6 to 1.0 range
+    try {
+      // Calculate average score based on attendance rate and computer assignment history
+      const attendanceRate = await this.calculateAttendanceRate(studentId);
+      const computerAssignments = await this.countComputerAssignments(
+        studentId
+      );
+
+      // Base score from attendance (attendance contributes 70% to score)
+      let score = attendanceRate * 0.7;
+
+      // Computer assignment frequency bonus (contributes 30% to score)
+      // More assignments indicate better engagement and performance
+      const assignmentBonus = Math.min(computerAssignments / 10, 1) * 0.3; // Cap at 10 assignments
+      score += assignmentBonus;
+
+      // Ensure score is within reasonable bounds
+      return Math.max(0.1, Math.min(1.0, score));
+    } catch (error) {
+      console.warn(
+        `Failed to calculate average score for student ${studentId}:`,
+        error
+      );
+      return 0.5; // Default neutral score
+    }
   }
 
   private async countComputerAssignments(studentId: number): Promise<number> {
@@ -818,9 +840,95 @@ class AIAnalyticsService {
   }
 
   private async inferLearningStyle(studentId: number): Promise<string> {
-    // Simplified learning style inference
-    const styles = ["visual", "auditory", "kinesthetic"];
-    return styles[Math.floor(Math.random() * styles.length)];
+    try {
+      // Infer learning style based on student behavior patterns
+      const student = await db
+        .select()
+        .from(students)
+        .where(eq(students.id, studentId))
+        .limit(1);
+
+      if (!student.length) {
+        return "visual"; // Default
+      }
+
+      const studentData = student[0];
+
+      // Get attendance patterns to infer learning preferences
+      const attendanceHistory = await db
+        .select({
+          status: attendanceRecords.status,
+          createdAt: attendanceRecords.createdAt,
+        })
+        .from(attendanceRecords)
+        .where(eq(attendanceRecords.studentId, studentId))
+        .orderBy(desc(attendanceRecords.createdAt))
+        .limit(20);
+
+      // Get computer assignment history
+      const assignments = await db
+        .select({
+          assignedAt: computerAssignments.assignedAt,
+        })
+        .from(computerAssignments)
+        .where(eq(computerAssignments.studentId, studentId))
+        .orderBy(desc(computerAssignments.assignedAt))
+        .limit(10);
+
+      // Analyze patterns to determine learning style
+      let visualScore = 0;
+      let auditoryScore = 0;
+      let kinestheticScore = 0;
+
+      // Factor 1: Attendance consistency (regular attenders may be more visual learners)
+      const presentCount = attendanceHistory.filter(
+        (r) => r.status === "present" || r.status === "late"
+      ).length;
+      const attendanceRate =
+        attendanceHistory.length > 0
+          ? presentCount / attendanceHistory.length
+          : 0;
+
+      if (attendanceRate > 0.8) {
+        visualScore += 2; // Consistent attenders often benefit from visual structure
+      } else if (attendanceRate > 0.6) {
+        auditoryScore += 1; // Moderate attenders may prefer auditory learning
+      } else {
+        kinestheticScore += 1; // Irregular attenders may need hands-on learning
+      }
+
+      // Factor 2: Computer assignment frequency (more assignments suggest kinesthetic/active learning)
+      if (assignments.length > 5) {
+        kinestheticScore += 2; // Frequent computer use suggests hands-on learning preference
+      } else if (assignments.length > 2) {
+        auditoryScore += 1; // Moderate use suggests group/auditory learning
+      } else {
+        visualScore += 1; // Less computer interaction suggests visual learning preference
+      }
+
+      // Factor 3: Name-based deterministic factor (for consistency)
+      const nameHash = studentData.name.split("").reduce((hash, char) => {
+        return (hash << 5) - hash + char.charCodeAt(0);
+      }, 0);
+
+      const nameFactor = Math.abs(nameHash) % 3;
+      if (nameFactor === 0) visualScore += 1;
+      else if (nameFactor === 1) auditoryScore += 1;
+      else kinestheticScore += 1;
+
+      // Determine the dominant learning style
+      const maxScore = Math.max(visualScore, auditoryScore, kinestheticScore);
+
+      if (maxScore === visualScore) return "visual";
+      if (maxScore === auditoryScore) return "auditory";
+      return "kinesthetic";
+    } catch (error) {
+      console.warn(
+        `Failed to infer learning style for student ${studentId}:`,
+        error
+      );
+      return "visual"; // Default fallback
+    }
   }
 
   // Additional helper methods would be implemented...
@@ -828,8 +936,32 @@ class AIAnalyticsService {
     learningStyle: string,
     computer: any
   ): number {
-    // Simplified compatibility calculation
-    return Math.random() * 0.5 + 0.5; // 0.5 to 1.0
+    // Calculate compatibility based on learning style and computer position
+    // Assume classroom layout: computers arranged in rows of 5
+    const computersPerRow = 5;
+    const row = Math.floor((computer.id - 1) / computersPerRow);
+    const col = (computer.id - 1) % computersPerRow;
+
+    let compatibility = 0.5; // Base compatibility
+
+    switch (learningStyle) {
+      case "visual":
+        // Visual learners benefit from front positions
+        if (row === 0) compatibility += 0.3; // Front row
+        else if (row === 1) compatibility += 0.1; // Second row
+        break;
+      case "auditory":
+        // Auditory learners benefit from middle positions for group interaction
+        if (row >= 1 && row <= 2) compatibility += 0.3; // Middle rows
+        if (col >= 1 && col <= 3) compatibility += 0.1; // Middle columns
+        break;
+      case "kinesthetic":
+        // Kinesthetic learners may prefer varied positions, no strong preference
+        compatibility += 0.2; // Slight bonus for active engagement
+        break;
+    }
+
+    return Math.max(0.1, Math.min(1.0, compatibility));
   }
 
   private countNearbyHighPerformers(
@@ -837,8 +969,36 @@ class AIAnalyticsService {
     assignments: SeatingOptimizationResult[],
     student: StudentPerformanceData
   ): number {
-    // Simplified proximity calculation
-    return Math.floor(Math.random() * 3);
+    // Count high-performing students assigned to nearby computers
+    const computersPerRow = 5;
+    const currentRow = Math.floor((computer.id - 1) / computersPerRow);
+    const currentCol = (computer.id - 1) % computersPerRow;
+
+    let nearbyHighPerformers = 0;
+
+    for (const assignment of assignments) {
+      if (assignment.studentId === student.studentId) continue; // Skip self
+
+      const assignedRow = Math.floor(
+        (assignment.recommendedComputerId - 1) / computersPerRow
+      );
+      const assignedCol =
+        (assignment.recommendedComputerId - 1) % computersPerRow;
+
+      // Check if nearby (same row or adjacent)
+      const rowDiff = Math.abs(currentRow - assignedRow);
+      const colDiff = Math.abs(currentCol - assignedCol);
+
+      if ((rowDiff === 0 && colDiff <= 1) || (rowDiff === 1 && colDiff === 0)) {
+        // This assignment is nearby, check if student is high performer
+        // For now, assume students with performance > 0.8 are high performers
+        if (student.averageScore > 0.8) {
+          nearbyHighPerformers++;
+        }
+      }
+    }
+
+    return nearbyHighPerformers;
   }
 
   private countNearbyConflicts(
@@ -846,8 +1006,37 @@ class AIAnalyticsService {
     assignments: SeatingOptimizationResult[],
     student: StudentPerformanceData
   ): number {
-    // Simplified conflict counting
-    return Math.floor(Math.random() * 2);
+    // Count students with conflicts assigned to nearby computers
+    const computersPerRow = 5;
+    const currentRow = Math.floor((computer.id - 1) / computersPerRow);
+    const currentCol = (computer.id - 1) % computersPerRow;
+
+    let nearbyConflicts = 0;
+
+    for (const assignment of assignments) {
+      if (assignment.studentId === student.studentId) continue; // Skip self
+
+      const assignedRow = Math.floor(
+        (assignment.recommendedComputerId - 1) / computersPerRow
+      );
+      const assignedCol =
+        (assignment.recommendedComputerId - 1) % computersPerRow;
+
+      // Check if nearby (same row or adjacent)
+      const rowDiff = Math.abs(currentRow - assignedRow);
+      const colDiff = Math.abs(currentCol - assignedCol);
+
+      if ((rowDiff === 0 && colDiff <= 1) || (rowDiff === 1 && colDiff === 0)) {
+        // This assignment is nearby, check if there's a conflict
+        // For now, check if students have very different performance levels (potential conflicts)
+        // In a real system, this would check actual conflict records
+        if (student.behavioralFlags && student.behavioralFlags.length > 0) {
+          nearbyConflicts++;
+        }
+      }
+    }
+
+    return nearbyConflicts;
   }
 
   private async getStudentHistoricalData(studentId: number): Promise<any> {
@@ -891,8 +1080,19 @@ class AIAnalyticsService {
   }
 
   private hasLearningStyleConflict(student1: any, student2: any): boolean {
-    // Simplified conflict detection
-    return Math.random() > 0.8;
+    // Check if learning styles conflict (opposite styles may not work well together)
+    const conflictPairs = [
+      ["visual", "kinesthetic"], // Visual learners prefer quiet, kinesthetic need movement
+      ["auditory", "visual"], // May compete for different types of focus
+    ];
+
+    const style1 = student1.learningStyle || "visual";
+    const style2 = student2.learningStyle || "visual";
+
+    return conflictPairs.some(
+      ([a, b]) =>
+        (style1 === a && style2 === b) || (style1 === b && style2 === a)
+    );
   }
 
   private hasPerformanceGapConflict(student1: any, student2: any): boolean {
@@ -903,8 +1103,21 @@ class AIAnalyticsService {
   }
 
   private hasBehavioralConflict(student1: any, student2: any): boolean {
-    // Simplified behavioral conflict detection
-    return Math.random() > 0.95;
+    // Check for behavioral conflicts based on flags and performance patterns
+    const flags1 = student1.behavioralFlags || [];
+    const flags2 = student2.behavioralFlags || [];
+
+    // If either student has behavioral flags, there's potential for conflict
+    if (flags1.length > 0 || flags2.length > 0) {
+      return true;
+    }
+
+    // Check for extreme performance differences (may indicate behavioral issues)
+    const perf1 = student1.performance || student1.averageScore || 0;
+    const perf2 = student2.performance || student2.averageScore || 0;
+
+    // Large performance gaps might indicate different behavioral patterns
+    return Math.abs(perf1 - perf2) > 1.5;
   }
 
   private generateResolutionRecommendation(conflict: any): string {

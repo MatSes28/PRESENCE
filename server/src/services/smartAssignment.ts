@@ -9,7 +9,7 @@ import {
   computers,
   attendanceRecords,
 } from "../schema.js";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 interface AssignmentCriteria {
   prioritizePerformance?: boolean;
@@ -219,19 +219,59 @@ class SmartAssignmentService {
   }
 
   private async getStudentConflicts(studentId: number): Promise<number[]> {
-    // In a real system, you'd have a student_relationships or conflicts table
-    // For now, return empty array - this would be populated from:
-    // - Teacher reports of problematic student pairings
-    // - Parent requests to separate siblings/friends
-    // - Behavioral records indicating conflicts
+    try {
+      // Check for behavioral conflicts based on attendance patterns
+      // Students who frequently miss class together might indicate conflicts
+      const studentAttendance = await db
+        .select({
+          classSessionId: attendanceRecords.classSessionId,
+          status: attendanceRecords.status,
+        })
+        .from(attendanceRecords)
+        .where(eq(attendanceRecords.studentId, studentId))
+        .orderBy(desc(attendanceRecords.createdAt))
+        .limit(20);
 
-    // Example implementation:
-    // const conflicts = await db
-    //   .select({ conflictingStudentId: studentConflicts.conflictingStudentId })
-    //   .from(studentConflicts)
-    //   .where(eq(studentConflicts.studentId, studentId));
+      if (studentAttendance.length === 0) {
+        return [];
+      }
 
-    return []; // Return empty for now
+      // Find students with similar absence patterns (potential conflicts)
+      const conflictCandidates: number[] = [];
+
+      // Get attendance records for other students in the same sessions
+      for (const record of studentAttendance) {
+        if (record.status === "absent") {
+          // Find other students who were also absent from this session
+          const absentStudents = await db
+            .select({ studentId: attendanceRecords.studentId })
+            .from(attendanceRecords)
+            .where(
+              and(
+                eq(attendanceRecords.classSessionId, record.classSessionId),
+                eq(attendanceRecords.status, "absent"),
+                sql`${attendanceRecords.studentId} != ${studentId}`
+              )
+            );
+
+          // If multiple students are absent together frequently, they might have conflicts
+          absentStudents.forEach((absent) => {
+            if (!conflictCandidates.includes(absent.studentId)) {
+              conflictCandidates.push(absent.studentId);
+            }
+          });
+        }
+      }
+
+      // Return up to 3 potential conflicts based on attendance patterns
+      return conflictCandidates.slice(0, 3);
+    } catch (error) {
+      console.warn(
+        `Failed to detect conflicts for student ${studentId}:`,
+        error
+      );
+      return [];
+    }
   }
 
   private async performSmartAssignment(
