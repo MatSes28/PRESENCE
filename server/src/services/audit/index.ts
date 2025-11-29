@@ -268,6 +268,21 @@ class AuditService {
     );
   }
 
+  // Backward compatibility methods
+  async logFailedLoginAttempt(
+    userId: number | null,
+    ipAddress: string,
+    userAgent: string,
+    reason: string
+  ): Promise<void> {
+    return auditSecurityService.logFailedLoginAttempt(
+      userId,
+      ipAddress,
+      userAgent,
+      reason
+    );
+  }
+
   async logSystemEvent(
     eventType: string,
     details: any,
