@@ -306,22 +306,7 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
       status,
     } = req.query;
 
-    let query = db
-      .select({
-        record: attendanceRecords,
-        student: {
-          id: students.id,
-          name: students.name,
-          studentId: students.studentId,
-        },
-      })
-      .from(attendanceRecords)
-      .leftJoin(students, eq(attendanceRecords.studentId, students.id))
-      .orderBy(desc(attendanceRecords.createdAt))
-      .limit(parseInt(limit as string))
-      .offset(parseInt(offset as string));
-
-    // Apply filters
+    // Build conditions first
     const conditions = [];
 
     if (date) {
@@ -350,11 +335,26 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
       conditions.push(eq(attendanceRecords.status, status as string));
     }
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
+    // Build query with conditional where clause
+    const baseQuery = db
+      .select({
+        record: attendanceRecords,
+        student: {
+          id: students.id,
+          name: students.name,
+          studentId: students.studentId,
+        },
+      })
+      .from(attendanceRecords)
+      .leftJoin(students, eq(attendanceRecords.studentId, students.id));
 
-    const records = await query;
+    const query =
+      conditions.length > 0 ? baseQuery.where(and(...conditions)) : baseQuery;
+
+    const records = await query
+      .orderBy(desc(attendanceRecords.createdAt))
+      .limit(parseInt(limit as string))
+      .offset(parseInt(offset as string));
 
     res.json({
       success: true,
