@@ -13,7 +13,7 @@ import fs from "fs";
 import { db } from "./storage.js";
 import routes from "./routes.js";
 import { setupWebSocket } from "./services/websocket.js";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import {
   generalRateLimit,
   attendanceRateLimit,
@@ -382,7 +382,47 @@ server.listen({ port: PORT, host: HOST }, () => {
     console.log("Automated database backup enabled");
   }
 
-  // Don't check database on startup to avoid crashes
+  // Check database and create admin user if needed
+  checkDatabaseConnection().then(async (dbAvailable) => {
+    if (dbAvailable) {
+      await logTableCounts();
+
+      // Create admin user if it doesn't exist
+      try {
+        const bcrypt = await import("bcryptjs");
+        const existingAdmin = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, "admin@clsu.edu.ph"))
+          .limit(1);
+
+        if (existingAdmin.length === 0) {
+          const hashedPassword = await bcrypt.hash("admin123", 12);
+          await db.insert(users).values({
+            email: "admin@clsu.edu.ph",
+            password: hashedPassword,
+            name: "System Administrator",
+            role: "admin",
+            isActive: true,
+          });
+          console.log("✅ Admin user created: admin@clsu.edu.ph / admin123");
+        } else {
+          // Update password to ensure it's correct
+          const hashedPassword = await bcrypt.hash("admin123", 12);
+          await db
+            .update(users)
+            .set({ password: hashedPassword, isActive: true })
+            .where(eq(users.email, "admin@clsu.edu.ph"));
+          console.log(
+            "✅ Admin user password updated: admin@clsu.edu.ph / admin123"
+          );
+        }
+      } catch (error) {
+        console.error("❌ Failed to setup admin user:", error);
+      }
+    }
+  });
+
   console.log("Server started successfully");
 });
 
