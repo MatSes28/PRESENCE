@@ -31,7 +31,7 @@ const requireAuth = (req: any, res: any, next: any) => {
 // Rate limiting for authenticated dashboard operations
 const dashboardRateLimit = createUserRateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Higher limit for authenticated users
+  max: 5000, // Very high limit for dashboard operations
   message: {
     success: false,
     message: "Too many dashboard requests, please try again later.",
@@ -42,7 +42,7 @@ const dashboardRateLimit = createUserRateLimit({
 // Get dashboard statistics
 router.get("/stats", dashboardRateLimit, async (req, res) => {
   try {
-    // Try to get from cache first
+    // Try to get from cache first (longer cache time)
     const cachedStats = await cacheService.getDashboardStats();
     if (cachedStats) {
       return res.json({
@@ -212,8 +212,8 @@ router.get("/stats", dashboardRateLimit, async (req, res) => {
       errorRate: Math.round(errorRate * 100) / 100,
     };
 
-    // Cache the results for 60 seconds
-    await cacheService.setDashboardStats(stats, 60);
+    // Cache the results for 5 minutes
+    await cacheService.setDashboardStats(stats, 300);
 
     res.json({
       success: true,
