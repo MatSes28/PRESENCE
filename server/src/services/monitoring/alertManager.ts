@@ -82,7 +82,7 @@ export class AlertManager {
         severity: "high",
         message: "Redis cache is disconnected",
         cooldown: 2,
-        enabled: true,
+        enabled: false, // Temporarily disabled due to connection instability in dev environment
       },
       {
         id: "database_high_connection_usage",
@@ -147,11 +147,13 @@ export class AlertManager {
         condition: (metrics) => {
           const dbMetrics = metrics.database;
           if (!dbMetrics?.performance) return false;
-          return dbMetrics.performance.cacheHitRatio < 0.85; // Below 85%
+          // Only alert if cache hit ratio is very low and we have some query activity
+          const hitRatio = dbMetrics.performance.cacheHitRatio;
+          return hitRatio > 0 && hitRatio < 0.5; // Below 50% and not 0 (which indicates no activity)
         },
         severity: "medium",
-        message: "Database cache hit ratio is below 85%",
-        cooldown: 30, // Check every 30 minutes
+        message: "Database cache hit ratio is below 50%",
+        cooldown: 60, // Check every hour
         enabled: true,
       },
     ];
