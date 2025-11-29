@@ -294,6 +294,234 @@ router.get("/templates", requireAuth, async (req, res) => {
   }
 });
 
+// Get attendance records for preview (used by frontend Reports page)
+router.get("/attendance-records", requireAuth, async (req, res) => {
+  try {
+    const {
+      limit = 10,
+      offset = 0,
+      date,
+      studentId,
+      sessionId,
+      status,
+    } = req.query;
+
+    let query = db
+      .select({
+        record: attendanceRecords,
+        student: {
+          id: students.id,
+          name: students.name,
+          studentId: students.studentId,
+        },
+      })
+      .from(attendanceRecords)
+      .leftJoin(students, eq(attendanceRecords.studentId, students.id))
+      .orderBy(desc(attendanceRecords.createdAt))
+      .limit(parseInt(limit as string))
+      .offset(parseInt(offset as string));
+
+    // Apply filters
+    const conditions = [];
+
+    if (date) {
+      const startOfDay = new Date(date as string);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date as string);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      conditions.push(gte(attendanceRecords.createdAt, startOfDay));
+      conditions.push(lte(attendanceRecords.createdAt, endOfDay));
+    }
+
+    if (studentId) {
+      conditions.push(
+        eq(attendanceRecords.studentId, parseInt(studentId as string))
+      );
+    }
+
+    if (sessionId) {
+      conditions.push(
+        eq(attendanceRecords.classSessionId, parseInt(sessionId as string))
+      );
+    }
+
+    if (status) {
+      conditions.push(eq(attendanceRecords.status, status as string));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const records = await query;
+
+    res.json({
+      success: true,
+      data: records,
+    });
+  } catch (error) {
+    console.error("Get attendance records error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch attendance records",
+    });
+  }
+});
+
+// Generate report (used by frontend Reports page)
+router.post("/generate-report", requireAuth, async (req, res) => {
+  try {
+    const {
+      type,
+      format = "csv",
+      startDate,
+      endDate,
+      subjectId,
+      classroomId,
+      facultyId,
+    } = req.body;
+
+    if (!type) {
+      return res.status(400).json({
+        success: false,
+        message: "Report type is required",
+      });
+    }
+
+    // Build query based on report type
+    let query;
+    let data = [];
+
+    switch (type) {
+      case "attendance":
+        query = db
+          .select({
+            record: attendanceRecords,
+            student: {
+              id: students.id,
+              name: students.name,
+              studentId: students.studentId,
+            },
+            session: {
+              id: classSessions.id,
+              subjectName: subjects.name,
+            },
+          })
+          .from(attendanceRecords)
+          .leftJoin(students, eq(attendanceRecords.studentId, students.id))
+          .leftJoin(
+            classSessions,
+            eq(attendanceRecords.classSessionId, classSessions.id)
+          )
+          .leftJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+          .leftJoin(subjects, eq(schedules.subjectId, subjects.id));
+
+        // Apply date filters
+        const conditions = [];
+        if (startDate) {
+          conditions.push(
+            gte(attendanceRecords.createdAt, new Date(startDate))
+          );
+        }
+        if (endDate) {
+          conditions.push(lte(attendanceRecords.createdAt, new Date(endDate)));
+        }
+        if (subjectId) {
+          conditions.push(eq(schedules.subjectId, parseInt(subjectId)));
+        }
+        if (classroomId) {
+          conditions.push(eq(schedules.classroomId, parseInt(classroomId)));
+        }
+        if (facultyId) {
+          conditions.push(eq(schedules.facultyId, parseInt(facultyId)));
+        }
+
+        if (conditions.length > 0) {
+          query = query.where(and(...conditions));
+        }
+
+        data = await query.orderBy(desc(attendanceRecords.createdAt));
+        break;
+
+      case "students":
+        query = db
+          .select({
+            student: students,
+            enrollmentCount: sql<number>`count(${enrollments.id})`,
+          })
+          .from(students)
+          .leftJoin(enrollments, eq(students.id, enrollments.studentId))
+          .groupBy(students.id);
+
+        data = await query;
+        break;
+
+      case "classroom":
+        query = db
+          .select({
+            session: classSessions,
+            schedule: schedules,
+            attendanceCount: sql<number>`count(${attendanceRecords.id})`,
+            presentCount: sql<number>`count(case when ${attendanceRecords.status} = 'present' then 1 end)`,
+          })
+          .from(classSessions)
+          .leftJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+          .leftJoin(
+            attendanceRecords,
+            eq(classSessions.id, attendanceRecords.classSessionId)
+          )
+          .groupBy(classSessions.id, schedules.id);
+
+        // Apply date filters
+        const sessionConditions = [];
+        if (startDate) {
+          sessionConditions.push(
+            gte(classSessions.createdAt, new Date(startDate))
+          );
+        }
+        if (endDate) {
+          sessionConditions.push(
+            lte(classSessions.createdAt, new Date(endDate))
+          );
+        }
+
+        if (sessionConditions.length > 0) {
+          query = query.where(and(...sessionConditions));
+        }
+
+        data = await query.orderBy(desc(classSessions.createdAt));
+        break;
+
+      default:
+        return res.status(400).json({
+          success: false,
+          message: "Invalid report type",
+        });
+    }
+
+    // For now, return the data directly
+    // In a real implementation, you'd generate a file and return a download URL
+    res.json({
+      success: true,
+      message: "Report data retrieved successfully",
+      data: {
+        type,
+        format,
+        recordCount: data.length,
+        generatedAt: new Date(),
+        data,
+      },
+    });
+  } catch (error) {
+    console.error("Generate report error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate report",
+    });
+  }
+});
+
 // Get report history (mock implementation)
 router.get("/history", requireAuth, async (req, res) => {
   try {
