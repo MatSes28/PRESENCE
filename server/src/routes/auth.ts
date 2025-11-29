@@ -212,6 +212,16 @@ router.post("/logout", async (req, res) => {
   }
 });
 
+// Debug session endpoint
+router.get("/debug-session", (req, res) => {
+  res.json({
+    sessionID: req.sessionID,
+    session: req.session,
+    userId: req.session?.userId,
+    userRole: req.session?.userRole,
+  });
+});
+
 // Get current user (more generous rate limiting since this is just a status check)
 router.get("/me", meRateLimit, async (req, res) => {
   try {
