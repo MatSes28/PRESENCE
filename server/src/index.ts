@@ -248,10 +248,22 @@ app.use(preventSQLInjection);
 // Session configuration with PostgreSQL store
 const PgSession = connectPgSimple(session);
 
+// Parse database URL for session store SSL config
+const isProduction =
+  process.env.NODE_ENV === "production" || !!process.env.RAILWAY_ENVIRONMENT;
+const sessionDbConfig = {
+  connectionString: process.env.DATABASE_URL,
+  ...(isProduction && {
+    ssl: {
+      rejectUnauthorized: false, // Allow self-signed certificates (Railway)
+    },
+  }),
+};
+
 app.use(
   session({
     store: new PgSession({
-      conString: process.env.DATABASE_URL,
+      ...sessionDbConfig,
       tableName: "user_sessions", // Will be created automatically
       createTableIfMissing: true,
       // Clean up expired sessions every hour
