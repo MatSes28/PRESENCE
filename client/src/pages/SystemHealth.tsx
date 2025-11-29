@@ -48,7 +48,7 @@ export const SystemHealth: React.FC = () => {
   const loadHealthMetrics = async () => {
     try {
       const response = await api.get<HealthMetrics>("/health");
-      setMetrics(response.data);
+      setMetrics(response.data ?? null);
     } catch (error) {
       console.error("Failed to load health metrics:", error);
     } finally {

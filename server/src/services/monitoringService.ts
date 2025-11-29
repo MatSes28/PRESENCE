@@ -675,27 +675,181 @@ class MonitoringService {
     SystemMetrics["network"]["interfaces"]
   > {
     try {
-      // This is a simplified implementation
-      // In production, you might use system-specific APIs or libraries
-      const interfaces = os.networkInterfaces();
-      const stats: SystemMetrics["network"]["interfaces"] = [];
+      const platform = process.platform;
 
-      for (const [name, addresses] of Object.entries(interfaces)) {
-        if (addresses && addresses.length > 0) {
-          stats.push({
-            name,
-            rx_bytes: 0, // Would need system-specific implementation
-            tx_bytes: 0,
-            rx_errors: 0,
-            tx_errors: 0,
-          });
+      if (platform === "win32") {
+        // Windows: Use PowerShell to get network interface statistics
+        try {
+          const { stdout } = await execAsync(
+            "powershell -Command \"Get-NetAdapterStatistics | Where-Object { $_.Name -notlike '*Loopback*' -and $_.Name -notlike '*isatap*' -and $_.Name -notlike '*teredo*' } | Select-Object Name, ReceivedBytes, SentBytes, ReceivedPacketsDropped, SentPacketsDropped | ConvertTo-Json\""
+          );
+
+          const interfaces = os.networkInterfaces();
+          const stats: SystemMetrics["network"]["interfaces"] = [];
+
+          let netStats: any[] = [];
+          try {
+            netStats = JSON.parse(stdout.trim());
+            // Handle single adapter case
+            if (!Array.isArray(netStats)) {
+              netStats = [netStats];
+            }
+          } catch (parseError) {
+            // If JSON parsing fails, fall back to basic interface listing
+            console.warn(
+              "Failed to parse network statistics JSON, using basic interface info"
+            );
+          }
+
+          for (const [name, addresses] of Object.entries(interfaces)) {
+            if (
+              addresses &&
+              addresses.length > 0 &&
+              !name.includes("Loopback")
+            ) {
+              // Find matching stats from PowerShell output
+              const adapterStats = netStats.find(
+                (stat: any) =>
+                  stat.Name &&
+                  name
+                    .toLowerCase()
+                    .includes(stat.Name.toLowerCase().replace(/\s+/g, ""))
+              );
+
+              stats.push({
+                name,
+                rx_bytes: adapterStats
+                  ? Number(adapterStats.ReceivedBytes) || 0
+                  : 0,
+                tx_bytes: adapterStats
+                  ? Number(adapterStats.SentBytes) || 0
+                  : 0,
+                rx_errors: adapterStats
+                  ? Number(adapterStats.ReceivedPacketsDropped) || 0
+                  : 0,
+                tx_errors: adapterStats
+                  ? Number(adapterStats.SentPacketsDropped) || 0
+                  : 0,
+              });
+            }
+          }
+
+          return stats;
+        } catch (error) {
+          console.warn(
+            "PowerShell network stats failed, using basic interface info:",
+            error
+          );
+          // Fallback to basic interface listing
+          const interfaces = os.networkInterfaces();
+          const stats: SystemMetrics["network"]["interfaces"] = [];
+
+          for (const [name, addresses] of Object.entries(interfaces)) {
+            if (
+              addresses &&
+              addresses.length > 0 &&
+              !name.includes("Loopback")
+            ) {
+              stats.push({
+                name,
+                rx_bytes: 0,
+                tx_bytes: 0,
+                rx_errors: 0,
+                tx_errors: 0,
+              });
+            }
+          }
+
+          return stats;
+        }
+      } else {
+        // Unix-like systems: Use system commands or libraries
+        try {
+          // Try to use ip command for Linux
+          const { stdout } = await execAsync(
+            "ip -s link show | grep -E '^[0-9]+:' -A 3"
+          );
+          const lines = stdout.trim().split("\n");
+          const interfaces = os.networkInterfaces();
+          const stats: SystemMetrics["network"]["interfaces"] = [];
+
+          let currentInterface = "";
+          let rxBytes = 0;
+          let txBytes = 0;
+          let rxErrors = 0;
+          let txErrors = 0;
+
+          for (const line of lines) {
+            if (line.match(/^[0-9]+:\s+([^:]+):/)) {
+              // New interface
+              if (currentInterface && !currentInterface.includes("lo")) {
+                stats.push({
+                  name: currentInterface,
+                  rx_bytes: rxBytes,
+                  tx_bytes: txBytes,
+                  rx_errors: rxErrors,
+                  tx_errors: txErrors,
+                });
+              }
+              currentInterface = line.split(":")[1].trim();
+              rxBytes = 0;
+              txBytes = 0;
+              rxErrors = 0;
+              txErrors = 0;
+            } else if (line.includes("RX:")) {
+              const rxMatch = line.match(/RX:\s+bytes\s+(\d+)/);
+              if (rxMatch) rxBytes = parseInt(rxMatch[1]);
+              const rxErrorMatch = line.match(/errors\s+(\d+)/);
+              if (rxErrorMatch) rxErrors = parseInt(rxErrorMatch[1]);
+            } else if (line.includes("TX:")) {
+              const txMatch = line.match(/TX:\s+bytes\s+(\d+)/);
+              if (txMatch) txBytes = parseInt(txMatch[1]);
+              const txErrorMatch = line.match(/errors\s+(\d+)/);
+              if (txErrorMatch) txErrors = parseInt(txErrorMatch[1]);
+            }
+          }
+
+          // Add the last interface
+          if (currentInterface && !currentInterface.includes("lo")) {
+            stats.push({
+              name: currentInterface,
+              rx_bytes: rxBytes,
+              tx_bytes: txBytes,
+              rx_errors: rxErrors,
+              tx_errors: txErrors,
+            });
+          }
+
+          return stats.length > 0 ? stats : this.getBasicNetworkStats();
+        } catch (error) {
+          console.warn("ip command failed, using basic interface info:", error);
+          return this.getBasicNetworkStats();
         }
       }
-
-      return stats;
     } catch (error) {
-      return [];
+      console.warn("Failed to collect network statistics:", error);
+      return this.getBasicNetworkStats();
     }
+  }
+
+  // Fallback method for basic network interface information
+  private getBasicNetworkStats(): SystemMetrics["network"]["interfaces"] {
+    const interfaces = os.networkInterfaces();
+    const stats: SystemMetrics["network"]["interfaces"] = [];
+
+    for (const [name, addresses] of Object.entries(interfaces)) {
+      if (addresses && addresses.length > 0 && !name.includes("Loopback")) {
+        stats.push({
+          name,
+          rx_bytes: 0,
+          tx_bytes: 0,
+          rx_errors: 0,
+          tx_errors: 0,
+        });
+      }
+    }
+
+    return stats;
   }
 
   // Collect database performance metrics

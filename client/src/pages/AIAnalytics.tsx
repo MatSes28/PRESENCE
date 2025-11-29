@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
+import { useNotifications } from "../components/NotificationSystem";
 
 interface AIInsight {
   type: string;
@@ -21,9 +22,15 @@ export const AIAnalytics = () => {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
+    null
+  );
+  const { addNotification } = useNotifications();
 
   useEffect(() => {
     loadAnalytics();
+    loadSessions();
   }, []);
 
   const loadAnalytics = async () => {
@@ -42,18 +49,50 @@ export const AIAnalytics = () => {
     }
   };
 
+  const loadSessions = async () => {
+    try {
+      const response = await api.get("/sessions");
+      if (response.success) {
+        const data = response.data as { sessions: any[] };
+        setSessions(data.sessions || []);
+        // Set the first active session as default if available
+        const activeSession = data.sessions?.find(
+          (s: any) => s.session.status === "active"
+        );
+        if (activeSession) {
+          setSelectedSessionId(activeSession.session.id);
+        }
+      }
+    } catch (err: any) {
+      console.error("Failed to load sessions:", err);
+    }
+  };
+
   const runSeatingOptimization = async (sessionId: number) => {
     try {
       const response = await api.optimizeSeating(sessionId);
       if (response.success) {
-        alert("AI seating optimization completed!");
+        addNotification({
+          type: "success",
+          title: "Seating Optimization Complete",
+          message: "AI seating optimization has been completed successfully.",
+        });
         // Refresh analytics
         loadAnalytics();
       } else {
-        alert(response.message || "Optimization failed");
+        addNotification({
+          type: "error",
+          title: "Optimization Failed",
+          message: response.message || "Seating optimization failed.",
+        });
       }
     } catch (err: any) {
-      alert(err.message || "Optimization failed");
+      addNotification({
+        type: "error",
+        title: "Optimization Error",
+        message:
+          err.message || "An error occurred during seating optimization.",
+      });
     }
   };
 
@@ -65,14 +104,24 @@ export const AIAnalytics = () => {
           detectedConflicts: any[];
           resolutions: any[];
         };
-        alert(
-          `Found ${data.detectedConflicts.length} conflicts. ${data.resolutions.length} resolutions suggested.`
-        );
+        addNotification({
+          type: "info",
+          title: "Conflict Detection Complete",
+          message: `Found ${data.detectedConflicts.length} conflicts. ${data.resolutions.length} resolutions suggested.`,
+        });
       } else {
-        alert(response.message || "Conflict detection failed");
+        addNotification({
+          type: "error",
+          title: "Conflict Detection Failed",
+          message: response.message || "Failed to detect conflicts.",
+        });
       }
     } catch (err: any) {
-      alert(err.message || "Conflict detection failed");
+      addNotification({
+        type: "error",
+        title: "Conflict Detection Error",
+        message: err.message || "An error occurred during conflict detection.",
+      });
     }
   };
 
@@ -215,6 +264,39 @@ export const AIAnalytics = () => {
         </div>
       </div>
 
+      {/* Session Selector */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          Select Session
+        </h2>
+        <div className="flex items-center space-x-4">
+          <label htmlFor="session-select" className="text-gray-600">
+            Active Session:
+          </label>
+          <select
+            id="session-select"
+            value={selectedSessionId || ""}
+            onChange={(e) =>
+              setSelectedSessionId(Number(e.target.value) || null)
+            }
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            <option value="">Select a session...</option>
+            {sessions.map((sessionData) => (
+              <option
+                key={sessionData.session.id}
+                value={sessionData.session.id}
+              >
+                {sessionData.schedule.subject} -{" "}
+                {sessionData.schedule.classroom} (
+                {new Date(sessionData.session.date).toLocaleDateString()}) [
+                {sessionData.session.status}]
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* AI Actions */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -222,16 +304,30 @@ export const AIAnalytics = () => {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
-            onClick={() => runSeatingOptimization(1)} // Replace with actual session ID
-            className="px-4 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all duration-200 transform hover:scale-105"
+            onClick={() =>
+              selectedSessionId && runSeatingOptimization(selectedSessionId)
+            }
+            disabled={!selectedSessionId}
+            className={`px-4 py-3 rounded-lg transition-all duration-200 transform hover:scale-105 ${
+              selectedSessionId
+                ? "bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:from-teal-600 hover:to-cyan-700"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
           >
             <div className="font-medium">Optimize Seating</div>
             <div className="text-sm opacity-90">AI-powered arrangement</div>
           </button>
 
           <button
-            onClick={() => detectConflicts(1)} // Replace with actual session ID
-            className="px-4 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-lg hover:from-orange-600 hover:to-red-700 transition-all duration-200 transform hover:scale-105"
+            onClick={() =>
+              selectedSessionId && detectConflicts(selectedSessionId)
+            }
+            disabled={!selectedSessionId}
+            className={`px-4 py-3 rounded-lg transition-all duration-200 transform hover:scale-105 ${
+              selectedSessionId
+                ? "bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
           >
             <div className="font-medium">Detect Conflicts</div>
             <div className="text-sm opacity-90">Automated resolution</div>

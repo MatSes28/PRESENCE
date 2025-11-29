@@ -40,8 +40,8 @@ export const Monitor: React.FC = () => {
         api.get<SystemStats>("/reports/system-stats"),
       ]);
 
-      setActiveSessions(sessionsRes.data);
-      setStats(statsRes.data);
+      setActiveSessions(sessionsRes.data ?? []);
+      setStats(statsRes.data ?? null);
     } catch (error) {
       console.error("Failed to load monitor data:", error);
     } finally {

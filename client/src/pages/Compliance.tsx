@@ -42,10 +42,10 @@ export const Compliance: React.FC = () => {
     try {
       if (activeTab === "audit") {
         const response = await api.get<AuditLog[]>("/audit/logs");
-        setAuditLogs(response.data);
+        setAuditLogs(response.data ?? []);
       } else if (activeTab === "login") {
         const response = await api.get<LoginAttempt[]>("/audit/login-attempts");
-        setLoginAttempts(response.data);
+        setLoginAttempts(response.data ?? []);
       }
     } catch (error) {
       console.error("Failed to load compliance data:", error);

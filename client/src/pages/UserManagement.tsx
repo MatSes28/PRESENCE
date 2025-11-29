@@ -112,19 +112,28 @@ export const UserManagement: React.FC = () => {
 
     setSubmitting(true);
     try {
-      const userData = {
-        email: formData.email,
-        name: formData.name,
-        password: editingUser ? undefined : formData.password, // Don't send password when editing
-        role: formData.role,
-        facultyId: formData.facultyId || undefined,
-        department: formData.department || undefined,
-        gender: formData.gender || undefined,
-      };
+      const userData = editingUser
+        ? {
+            email: formData.email,
+            name: formData.name,
+            role: formData.role,
+            facultyId: formData.facultyId || undefined,
+            department: formData.department || undefined,
+            gender: formData.gender || undefined,
+          }
+        : {
+            email: formData.email,
+            name: formData.name,
+            password: formData.password,
+            role: formData.role,
+            facultyId: formData.facultyId || undefined,
+            department: formData.department || undefined,
+            gender: formData.gender || undefined,
+          };
 
       const response = editingUser
-        ? await api.updateUser(parseInt(editingUser.id), userData)
-        : await api.createUser(userData);
+        ? await api.updateUser(parseInt(editingUser.id), userData as any)
+        : await api.createUser(userData as any);
 
       if (response.success) {
         addNotification({

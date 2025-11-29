@@ -18,6 +18,7 @@ import { Settings } from "./pages/Settings";
 import { Roster } from "./pages/Roster";
 import { UserManagement } from "./pages/UserManagement";
 import { ResetPassword } from "./pages/ResetPassword";
+import { AIAnalytics } from "./pages/AIAnalytics";
 import { useEffect } from "react";
 
 function AppContent() {
@@ -142,6 +143,14 @@ function AppContent() {
         component={() => (
           <Layout>
             <UserManagement />
+          </Layout>
+        )}
+      />
+      <Route
+        path="/ai-analytics"
+        component={() => (
+          <Layout>
+            <AIAnalytics />
           </Layout>
         )}
       />
