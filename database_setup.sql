@@ -267,10 +267,9 @@ CREATE TRIGGER trigger_iot_devices_updated_at
 -- SAMPLE DATA (Optional - for testing)
 -- ===========================================
 
--- Insert sample admin user (password should be hashed in production)
--- Password: admin123 (hashed)
-INSERT INTO users (email, password, name, role) VALUES
-('admin@clsu.edu.ph', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uB0Y/CjVzQy', 'System Administrator', 'admin');
+-- Admin user creation is now handled by the application startup code
+-- to avoid hardcoded passwords. The application will create the admin user
+-- with a secure password from environment variables or generate a random one.
 
 -- Insert sample faculty
 INSERT INTO users (email, password, name, role) VALUES

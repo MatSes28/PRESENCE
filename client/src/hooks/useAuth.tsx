@@ -68,22 +68,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setError(null);
       setLoading(true);
 
-      console.log("Making login API call...");
       const response = await api.login(email, password);
-      console.log("API response:", response);
 
       if (response.success && (response.data || (response as any).user)) {
         const userData = response.data || (response as any).user;
         setUser(userData as User);
         // Connect to WebSocket with user ID
         await connectWebSocket((userData as User).id);
-        console.log("Login successful, user set:", userData);
         return true;
       } else {
-        console.log(
-          "Login failed - response not successful:",
-          response.message
-        );
         setError(response.message || "Login failed");
         return false;
       }

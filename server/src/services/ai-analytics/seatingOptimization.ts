@@ -594,14 +594,62 @@ export class SeatingOptimizationService {
 
   private async getComputerPerformanceData(computerId: number): Promise<any> {
     const assignments = await db
-      .select()
+      .select({
+        assignment: computerAssignments,
+        student: students,
+        attendance: attendanceRecords,
+      })
       .from(computerAssignments)
+      .innerJoin(students, eq(computerAssignments.studentId, students.id))
+      .leftJoin(
+        attendanceRecords,
+        and(
+          eq(attendanceRecords.studentId, computerAssignments.studentId),
+          eq(
+            attendanceRecords.classSessionId,
+            computerAssignments.classSessionId
+          )
+        )
+      )
       .where(eq(computerAssignments.computerId, computerId))
-      .limit(10);
+      .limit(50); // Increased sample size for better analysis
+
+    // Calculate real performance metrics
+    let totalScore = 0;
+    let validAssignments = 0;
+    const learningStyles: { [key: string]: number } = {};
+
+    for (const assignment of assignments) {
+      if (assignment.attendance) {
+        // Use attendance as a proxy for performance
+        const attendanceScore =
+          assignment.attendance.status === "present"
+            ? 1
+            : assignment.attendance.status === "late"
+            ? 0.7
+            : 0.3;
+        totalScore += attendanceScore;
+        validAssignments++;
+      }
+
+      // Infer learning style from student data
+      const learningStyle = await this.inferLearningStyle(
+        assignment.student.id
+      );
+      learningStyles[learningStyle] = (learningStyles[learningStyle] || 0) + 1;
+    }
+
+    const averagePerformance =
+      validAssignments > 0 ? totalScore / validAssignments : 0.7;
+
+    // Find most common learning style for this computer
+    const optimalLearningStyle =
+      Object.entries(learningStyles).sort(([, a], [, b]) => b - a)[0]?.[0] ||
+      "visual";
 
     return {
-      averagePerformance: 0.75, // Mock value
-      optimalLearningStyle: "visual", // Mock value
+      averagePerformance: Math.max(0.1, Math.min(1.0, averagePerformance)),
+      optimalLearningStyle,
       totalAssignments: assignments.length,
     };
   }

@@ -132,3 +132,6 @@ afterAll(async () => {
   // Close any open database connections
   // This will be handled by the global teardown
 });
+
+// Export empty object to make this an external module
+export {};

@@ -109,7 +109,6 @@ export const LiveAttendance = () => {
 
         // Connection status
         wsClient.on("connect", () => {
-          console.log("WebSocket connected");
           setIsConnected(true);
           addNotification({
             type: "success",
@@ -119,7 +118,6 @@ export const LiveAttendance = () => {
         });
 
         wsClient.on("disconnect", () => {
-          console.log("WebSocket disconnected");
           setIsConnected(false);
           addNotification({
             type: "warning",
@@ -130,7 +128,6 @@ export const LiveAttendance = () => {
 
           // Attempt to reconnect after 5 seconds
           reconnectTimeout = setTimeout(() => {
-            console.log("Attempting to reconnect WebSocket...");
             connectWebSocket();
           }, 5000);
         });
@@ -147,7 +144,6 @@ export const LiveAttendance = () => {
 
         // Real-time attendance events
         wsClient.on("rfidScan", (data: any) => {
-          console.log("RFID scan received:", data);
           addEvent({
             id: Date.now().toString(),
             type: "rfid_scan",
@@ -159,7 +155,6 @@ export const LiveAttendance = () => {
         });
 
         wsClient.on("sensorTrigger", (data: any) => {
-          console.log("Sensor trigger received:", data);
           addEvent({
             id: Date.now().toString(),
             type: "sensor_trigger",
@@ -172,7 +167,6 @@ export const LiveAttendance = () => {
         });
 
         wsClient.on("attendanceRecord", (data: any) => {
-          console.log("Attendance record received:", data);
           addEvent({
             id: Date.now().toString(),
             type: "attendance_record",
@@ -188,7 +182,6 @@ export const LiveAttendance = () => {
         });
 
         wsClient.on("deviceStatus", (data: any) => {
-          console.log("Device status received:", data);
           if (Array.isArray(data)) {
             setStats((prev) => ({
               ...prev,
@@ -657,8 +650,7 @@ export const LiveAttendance = () => {
 
   // Add notification helper - using console for now since NotificationSystem is not imported
   const addNotification = (notification: any) => {
-    console.log("Notification:", notification);
-    // TODO: Import and use proper notification system
+    // Placeholder for notification system integration
   };
 
   // Load students and sessions for manual entry

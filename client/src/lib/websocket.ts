@@ -60,7 +60,6 @@ class WebSocketClient {
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
-          console.log("WebSocket connected");
           this.reconnectAttempts = 0;
           resolve();
         };
@@ -75,7 +74,6 @@ class WebSocketClient {
         };
 
         this.ws.onclose = () => {
-          console.log("WebSocket disconnected");
           this.attemptReconnect();
         };
 
@@ -108,9 +106,6 @@ class WebSocketClient {
     }
 
     this.reconnectAttempts++;
-    console.log(
-      `Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`
-    );
 
     this.reconnectTimeout = setTimeout(() => {
       this.connect().catch(() => {
@@ -143,7 +138,7 @@ class WebSocketClient {
         this.emit("error", message.payload);
         break;
       default:
-        console.log("Unhandled message type:", message.type);
+      // Unhandled message type
     }
   }
 

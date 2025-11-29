@@ -20,6 +20,61 @@ interface WSMessage {
 const clients = new Map<string, WebSocketClient>();
 const deviceClients = new Map<string, WebSocketClient>();
 
+// Connection limits and monitoring
+const MAX_CONNECTIONS = 1000;
+const CONNECTION_CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const CONNECTION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+
+// Track connection metrics
+let totalConnections = 0;
+let activeConnections = 0;
+let peakConnections = 0;
+
+// Connection cleanup function
+function cleanupStaleConnections() {
+  const now = Date.now();
+  let cleaned = 0;
+
+  // Clean up device connections
+  for (const [deviceId, client] of deviceClients) {
+    if (
+      !client.isAlive ||
+      ((client as any).lastActivity &&
+        now - (client as any).lastActivity > CONNECTION_TIMEOUT)
+    ) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.close(1000, "Connection timeout");
+      }
+      deviceClients.delete(deviceId);
+      cleaned++;
+    }
+  }
+
+  // Clean up web client connections
+  for (const [userId, client] of clients) {
+    if (
+      !client.isAlive ||
+      ((client as any).lastActivity &&
+        now - (client as any).lastActivity > CONNECTION_TIMEOUT)
+    ) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.close(1000, "Connection timeout");
+      }
+      clients.delete(userId);
+      cleaned++;
+    }
+  }
+
+  activeConnections = clients.size + deviceClients.size;
+
+  if (cleaned > 0) {
+    console.log(`Cleaned up ${cleaned} stale WebSocket connections`);
+  }
+}
+
+// Start periodic cleanup
+setInterval(cleanupStaleConnections, CONNECTION_CLEANUP_INTERVAL);
+
 // Device authentication function
 async function authenticateDevice(
   deviceId: string,
@@ -89,17 +144,44 @@ export function setupWebSocket(wss: WebSocketServer) {
   wss.on(
     "connection",
     async (ws: WebSocketClient, request: IncomingMessage) => {
+      // Check connection limits
+      const currentConnections = clients.size + deviceClients.size;
+      if (currentConnections >= MAX_CONNECTIONS) {
+        console.warn(
+          `Connection limit reached (${MAX_CONNECTIONS}), rejecting new connection`
+        );
+        ws.close(1013, "Server is at capacity");
+        return;
+      }
+
       const url = new URL(request.url || "", "http://localhost");
       const isDevice = url.pathname === "/iot";
       const deviceId = url.searchParams.get("deviceId");
       const userId = url.searchParams.get("userId");
       const authToken = url.searchParams.get("token");
 
-      console.log(`New ${isDevice ? "device" : "web"} connection:`, {
-        deviceId,
-        userId,
-        remoteAddress: request.socket?.remoteAddress,
-      });
+      // Track connection metrics
+      totalConnections++;
+      activeConnections = currentConnections + 1;
+      peakConnections = Math.max(peakConnections, activeConnections);
+
+      // Add activity tracking
+      (ws as any).lastActivity = Date.now();
+      (ws as any).connectionId = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+
+      console.log(
+        `New ${
+          isDevice ? "device" : "web"
+        } connection (${activeConnections}/${MAX_CONNECTIONS}):`,
+        {
+          deviceId,
+          userId,
+          connectionId: (ws as any).connectionId,
+          remoteAddress: request.socket?.remoteAddress,
+        }
+      );
 
       // Authenticate device connections
       if (isDevice && deviceId) {
@@ -127,6 +209,9 @@ export function setupWebSocket(wss: WebSocketServer) {
 
       // Handle incoming messages
       ws.on("message", (data: Buffer) => {
+        // Update activity timestamp
+        (ws as any).lastActivity = Date.now();
+
         try {
           const message: WSMessage = JSON.parse(data.toString());
 
@@ -149,9 +234,13 @@ export function setupWebSocket(wss: WebSocketServer) {
 
       // Handle connection close
       ws.on("close", async () => {
+        activeConnections--;
+
         if (isDevice && deviceId) {
           deviceClients.delete(deviceId);
-          console.log(`Device disconnected: ${deviceId}`);
+          console.log(
+            `Device disconnected: ${deviceId} (${activeConnections} active connections)`
+          );
 
           // Update device status to offline
           try {
@@ -166,7 +255,9 @@ export function setupWebSocket(wss: WebSocketServer) {
           }
         } else if (userId) {
           clients.delete(userId.toString());
-          console.log(`Web client disconnected: ${userId}`);
+          console.log(
+            `Web client disconnected: ${userId} (${activeConnections} active connections)`
+          );
         }
       });
 
@@ -424,6 +515,27 @@ export function getConnectedDevices(): string[] {
 
 export function getConnectedWebClients(): string[] {
   return Array.from(clients.keys());
+}
+
+// Get connection statistics
+export function getConnectionStats() {
+  return {
+    totalConnections,
+    activeConnections,
+    peakConnections,
+    deviceConnections: deviceClients.size,
+    webClientConnections: clients.size,
+    connectionLimit: MAX_CONNECTIONS,
+    utilizationPercent: ((activeConnections / MAX_CONNECTIONS) * 100).toFixed(
+      1
+    ),
+  };
+}
+
+// Force cleanup of stale connections
+export function forceCleanup() {
+  cleanupStaleConnections();
+  return getConnectionStats();
 }
 
 export { broadcastToWebClients };

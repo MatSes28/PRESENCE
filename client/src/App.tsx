@@ -25,12 +25,9 @@ function AppContent() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
 
-  console.log("AppContent render - user:", user, "loading:", loading);
-
   // Handle redirect after successful login
   useEffect(() => {
     if (!loading && user) {
-      console.log("User authenticated, redirecting to dashboard");
       setLocation("/");
     }
   }, [user, loading, setLocation]);
@@ -44,7 +41,6 @@ function AppContent() {
   }
 
   if (!user) {
-    console.log("No user, showing login form");
     return (
       <Router>
         <Route path="/login" component={LoginForm} />
@@ -55,19 +51,10 @@ function AppContent() {
     );
   }
 
-  console.log("User authenticated, showing dashboard");
   return (
     <Router>
       <Route
         path="/"
-        component={() => (
-          <Layout>
-            <Dashboard />
-          </Layout>
-        )}
-      />
-      <Route
-        path="/dashboard"
         component={() => (
           <Layout>
             <Dashboard />
