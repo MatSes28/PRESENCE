@@ -57,6 +57,7 @@ WORKDIR /app
 
 # Set environment
 ENV NODE_ENV=production
+ENV REDIS_URL=redis://host.docker.internal:6379
 
 # Copy package files
 COPY server/package.json ./
