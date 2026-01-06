@@ -62,7 +62,6 @@ class CacheService {
   private async connect(): Promise<void> {
     try {
       await this.client.connect();
-      console.log("Connected to Redis successfully");
     } catch (error) {
       console.warn("Failed to connect to Redis, caching disabled:", error);
       this.isConnected = false;
@@ -94,7 +93,6 @@ class CacheService {
       };
 
       await this.client.setEx(cacheKey, entry.ttl, JSON.stringify(entry));
-      console.log(`Cache set: ${cacheKey}`);
       return true;
     } catch (error) {
       console.error("Cache set error:", error);
@@ -122,7 +120,6 @@ class CacheService {
         return null;
       }
 
-      console.log(`Cache get: ${cacheKey} found`);
       return entry.data;
     } catch (error) {
       console.error("Cache get error:", error);
