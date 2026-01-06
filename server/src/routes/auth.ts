@@ -545,7 +545,7 @@ router.post("/forgot-password", async (req, res) => {
 
     // Store reset token in Redis with 24 hours expiry
     const tokenKey = `password_reset:${resetToken}`;
-    const setSuccess = await cacheService.set(
+    await cacheService.set(
       tokenKey,
       JSON.stringify({
         email: email,
@@ -554,9 +554,6 @@ router.post("/forgot-password", async (req, res) => {
       }),
       { ttl: 24 * 60 * 60 }
     ); // 24 hours in seconds
-    console.log(
-      `[AUTH] Password reset token set for ${email}, success: ${setSuccess}`
-    );
 
     const resetLink = `${
       process.env.FRONTEND_URL || "http://localhost:5173"
@@ -657,9 +654,6 @@ router.post("/reset-password", async (req, res) => {
     // Verify token against stored reset tokens
     const tokenKey = `password_reset:${token}`;
     const tokenData = await cacheService.get(tokenKey);
-    console.log(
-      `[AUTH] Password reset token lookup for token ${token}, found: ${!!tokenData}`
-    );
 
     if (!tokenData || typeof tokenData !== "string") {
       return res.status(400).json({
