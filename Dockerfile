@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for production deployment
 # Stage 1: Build stage
-FROM mirror.gcr.io/library/node:20-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache python3 make g++ postgresql-client
@@ -43,7 +43,7 @@ WORKDIR /app/server
 RUN npm run build
 
 # Stage 2: Production runtime stage
-FROM mirror.gcr.io/library/node:20-alpine AS runtime
+FROM node:20-alpine AS runtime
 
 # Install runtime dependencies
 RUN apk add --no-cache curl postgresql-client redis
@@ -54,6 +54,9 @@ RUN addgroup -g 1001 -S nodejs && \
 
 # Create app directory
 WORKDIR /app
+
+# Set environment
+ENV NODE_ENV=production
 
 # Copy package files
 COPY server/package.json ./
