@@ -62,7 +62,6 @@ class CacheService {
   private async connect(): Promise<void> {
     if (this.isConnected) return;
     try {
-      await this.client.disconnect();
       await this.client.connect();
       console.log("Connected to Redis successfully");
     } catch (error) {

@@ -3,33 +3,28 @@ import { db } from "./server/src/storage.js";
 import { users } from "./server/src/schema.js";
 import { eq } from "drizzle-orm";
 
-const resets = [
-  { email: "mattferia777@gmail.com", password: "Matt@123" },
-  { email: "admin@clsu.edu.ph", password: "admin123" },
-  { email: "faculty@clsu.edu.ph", password: "faculty132" },
-];
+const email = process.argv[2];
+const newPassword = process.argv[3];
 
-async function resetPasswords() {
+if (!email || !newPassword) {
+  console.log("Usage: node reset-password.js <email> <newPassword>");
+  process.exit(1);
+}
+
+async function resetPassword() {
   try {
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    for (const { email, password } of resets) {
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
+    await db
+      .update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.email, email));
 
-      await db
-        .update(users)
-        .set({ password: hashedPassword })
-        .where(eq(users.email, email));
-
-      console.log(`Password reset for ${email}`);
-    }
-
-    console.log("All passwords reset successfully");
+    console.log(`Password reset for ${email}`);
   } catch (error) {
-    console.error("Error resetting passwords:", error);
-  } finally {
-    process.exit(0);
+    console.error("Error resetting password:", error);
   }
 }
 
-resetPasswords();
+resetPassword();
