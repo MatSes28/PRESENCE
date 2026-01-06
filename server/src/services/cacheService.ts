@@ -79,9 +79,6 @@ class CacheService {
     data: T,
     options: CacheOptions = {}
   ): Promise<boolean> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
     if (!this.isConnected) return false;
 
     try {
@@ -101,9 +98,6 @@ class CacheService {
   }
 
   async get<T>(key: string, prefix?: string): Promise<T | null> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
     if (!this.isConnected) return null;
 
     try {
@@ -393,9 +387,6 @@ class CacheService {
 
   // Health check
   async ping(): Promise<boolean> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
     if (!this.isConnected) return false;
 
     try {
