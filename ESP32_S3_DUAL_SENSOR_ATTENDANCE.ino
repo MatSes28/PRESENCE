@@ -50,7 +50,6 @@ bool WS_SSL = true;
 // Device Configuration
 const char* DEVICE_ID = "ESP32_S3_001"; // Unique device identifier
 const char* CLASSROOM_ID = "ROOM_101"; // Associated classroom
-const char* API_KEY = "your-device-api-key-here"; // Device API key for authentication
 
 // RFID Configuration
 #define SS_PIN 21
@@ -181,8 +180,8 @@ void connectWebSocket() {
   webSocket.setReconnectInterval(5173);
   webSocket.enableHeartbeat(15173, 3000, 2);
 
-  // Add device ID and API key as query parameters for authentication
-  String url = String(WS_PATH) + "?deviceId=" + DEVICE_ID + "&token=" + API_KEY;
+  // Add device ID as query parameter
+  String url = String(WS_PATH) + "?deviceId=" + DEVICE_ID;
   webSocket.beginSSL(WS_HOST, WS_PORT, url.c_str());
 }
 

@@ -1,21 +1,11 @@
 /** @type {import('jest').Config} */
 export default {
-  preset: "ts-jest/presets/default-esm",
+  preset: "ts-jest",
   testEnvironment: "node",
-  extensionsToTreatAsEsm: [".ts"],
   roots: ["<rootDir>/src", "<rootDir>/tests"],
   testMatch: ["**/__tests__/**/*.test.ts", "**/?(*.)+(spec|test).ts"],
-  testPathIgnorePatterns: [
-    "/node_modules/",
-    "/dist/",
-    "/tests/e2e/", // Exclude Playwright e2e tests from Jest
-  ],
   transform: {
-    "^.+\\.ts$": ["ts-jest", { useESM: true }],
-  },
-  moduleNameMapper: {
-    "^(\\.{1,2}/.*)\\.js$": "$1",
-    "^@/(.*)$": "<rootDir>/src/$1",
+    "^.+\\.ts$": "ts-jest",
   },
   collectCoverageFrom: [
     "src/**/*.ts",
@@ -52,8 +42,13 @@ export default {
   forceExit: true,
   detectOpenHandles: true,
   maxWorkers: "50%",
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
+  },
+  // Test categorization
+  testPathIgnorePatterns: ["/node_modules/", "/dist/"],
   moduleFileExtensions: ["ts", "js", "json"],
-  // Database test isolation - temporarily disabled for testing
-  // globalSetup: "<rootDir>/tests/globalSetup.ts",
-  // globalTeardown: "<rootDir>/tests/globalTeardown.ts",
+  // Database test isolation
+  globalSetup: "<rootDir>/tests/globalSetup.ts",
+  globalTeardown: "<rootDir>/tests/globalTeardown.ts",
 };

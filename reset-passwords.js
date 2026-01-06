@@ -3,7 +3,6 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { users } from "./shared/schema.js";
 import { eq } from "drizzle-orm";
-import crypto from "crypto";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -14,14 +13,10 @@ async function resetPasswords() {
   try {
     console.log("🔄 Resetting user passwords...");
 
-    // Hash new passwords - use environment variables or generate random
+    // Hash new passwords
     const saltRounds = 12;
-    const adminPlainPassword =
-      process.env.ADMIN_PASSWORD || crypto.randomBytes(16).toString("hex");
-    const facultyPlainPassword =
-      process.env.FACULTY_PASSWORD || crypto.randomBytes(16).toString("hex");
-    const adminPassword = await bcrypt.hash(adminPlainPassword, saltRounds);
-    const facultyPassword = await bcrypt.hash(facultyPlainPassword, saltRounds);
+    const adminPassword = await bcrypt.hash("admin123", saltRounds);
+    const facultyPassword = await bcrypt.hash("faculty123", saltRounds);
 
     // Update admin password
     const adminResult = await db
@@ -68,8 +63,8 @@ async function resetPasswords() {
     }
 
     console.log("\n🎉 Password reset complete!");
-    console.log(`Admin: admin@clsu.edu.ph / ${adminPlainPassword}`);
-    console.log(`Faculty: faculty@clsu.edu.ph / ${facultyPlainPassword}`);
+    console.log("Admin: admin@clsu.edu.ph / admin123");
+    console.log("Faculty: faculty@clsu.edu.ph / faculty123");
   } catch (error) {
     console.error("❌ Error resetting passwords:", error);
   } finally {

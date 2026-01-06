@@ -3,7 +3,6 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import { users } from "./shared/schema.js";
-import crypto from "crypto";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -36,11 +35,9 @@ async function fixAdminPassword() {
   try {
     console.log("🔄 Fixing admin password...");
 
-    // Hash the password - use environment variable or generate random
+    // Hash the password "admin123"
     const saltRounds = 12;
-    const adminPlainPassword =
-      process.env.ADMIN_PASSWORD || crypto.randomBytes(16).toString("hex");
-    const hashedPassword = await bcrypt.hash(adminPlainPassword, saltRounds);
+    const hashedPassword = await bcrypt.hash("admin123", saltRounds);
 
     // Update admin user password
     const result = await db
@@ -52,7 +49,7 @@ async function fixAdminPassword() {
     if (result.length > 0) {
       console.log("✅ Admin password updated successfully!");
       console.log("Email: admin@clsu.edu.ph");
-      console.log(`Password: ${adminPlainPassword}`);
+      console.log("Password: admin123");
     } else {
       console.log("❌ Admin user not found");
     }

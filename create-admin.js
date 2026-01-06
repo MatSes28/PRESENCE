@@ -3,11 +3,6 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import { users } from "./shared/schema.js";
-import crypto from "crypto";
-
-function generateRandomPassword() {
-  return crypto.randomBytes(16).toString("hex");
-}
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -39,14 +34,9 @@ async function createAdmin() {
   try {
     console.log("🔄 Setting up admin user...");
 
-    // Get admin password from environment or generate random one
-    const adminPassword =
-      process.env.ADMIN_PASSWORD || generateRandomPassword();
-    console.log(`Using admin password: ${adminPassword}`);
-
-    // Hash the password
+    // Hash the password "admin123"
     const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
+    const hashedPassword = await bcrypt.hash("admin123", saltRounds);
 
     // Check if admin user already exists
     const existingAdmin = await db
@@ -89,7 +79,7 @@ async function createAdmin() {
     }
 
     console.log("Email: admin@clsu.edu.ph");
-    console.log(`Password: ${adminPassword}`);
+    console.log("Password: admin123");
     console.log("Role: admin");
   } catch (error) {
     console.error("❌ Error creating admin user:", error);

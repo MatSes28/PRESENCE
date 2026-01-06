@@ -27,7 +27,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Students table - Configurable institutional defaults
+// Students table - Limited to BSIT students from DIT under College of Engineering
 export const students = pgTable("students", {
   id: serial("id").primaryKey(),
   studentId: varchar("student_id", { length: 50 }).notNull().unique(),
@@ -35,15 +35,11 @@ export const students = pgTable("students", {
   email: varchar("email", { length: 255 }),
   year: integer("year"),
   section: varchar("section", { length: 50 }),
-  program: varchar("program", { length: 100 })
-    .default(process.env.INSTITUTION_PROGRAM || "BSIT")
-    .notNull(),
-  department: varchar("department", { length: 100 })
-    .default(process.env.INSTITUTION_DEPARTMENT || "DIT")
-    .notNull(),
+  program: varchar("program", { length: 100 }).default("BSIT").notNull(), // Always BSIT
+  department: varchar("department", { length: 100 }).default("DIT").notNull(), // Always DIT
   college: varchar("college", { length: 100 })
-    .default(process.env.INSTITUTION_COLLEGE || "College of Engineering")
-    .notNull(),
+    .default("College of Engineering")
+    .notNull(), // Always College of Engineering
   rfidUid: varchar("rfid_uid", { length: 50 }).unique(),
   parentEmail: varchar("parent_email", { length: 255 }).notNull(), // Made mandatory
   parentName: varchar("parent_name", { length: 255 }),
@@ -52,13 +48,13 @@ export const students = pgTable("students", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Classrooms table - Configurable institutional location
+// Classrooms table - Limited to 4 CLIRDEC classrooms
 export const classrooms = pgTable("classrooms", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   location: varchar("location", { length: 255 })
-    .default(process.env.INSTITUTION_LOCATION || "CLIRDEC Building")
-    .notNull(),
+    .default("CLIRDEC Building")
+    .notNull(), // Always CLIRDEC Building
   type: varchar("type", { length: 50 }).default("lecture").notNull(), // lecture, laboratory
   capacity: integer("capacity"),
   isActive: boolean("is_active").default(true).notNull(),

@@ -3,7 +3,6 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { eq } from "drizzle-orm";
 import { users } from "./shared/dist/schema.js";
-import crypto from "crypto";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -51,10 +50,7 @@ async function runMigrations() {
       console.log("⚠️  Admin user not found, creating...");
       // This should have been created on startup, but let's ensure it exists
       const bcrypt = await import("bcryptjs");
-      const adminPlainPassword =
-        process.env.ADMIN_PASSWORD || crypto.randomBytes(16).toString("hex");
-      const hashedPassword = await bcrypt.hash(adminPlainPassword, 12);
-      console.log(`Admin password: ${adminPlainPassword}`);
+      const hashedPassword = await bcrypt.hash("admin123", 12);
 
       await db.insert(users).values({
         email: "admin@clsu.edu.ph",

@@ -160,6 +160,7 @@ export const Schedule = () => {
       const data = await response.json();
       if (data.success) {
         // Process sessions data if needed
+        console.log("Sessions:", data.sessions);
       }
     } catch (error) {
       console.error("Failed to fetch sessions:", error);

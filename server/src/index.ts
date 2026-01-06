@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import compression from "compression";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { createServer } from "http";
@@ -10,7 +9,6 @@ import { WebSocketServer } from "ws";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
-import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
 import { db } from "./storage.js";
@@ -311,23 +309,6 @@ app.use(
     },
   })
 );
-
-// Response compression middleware
-app.use(
-  compression({
-    level: 6, // Good balance between compression and speed
-    threshold: 1024, // Only compress responses larger than 1KB
-    filter: (req, res) => {
-      // Don't compress responses with this request header
-      if (req.headers["x-no-compression"]) {
-        return false;
-      }
-      // Use compression filter function
-      return compression.filter(req, res);
-    },
-  })
-);
-
 app.use(corsOptimization);
 
 // HTTPS enforcement middleware
@@ -533,10 +514,7 @@ server.listen({ port: PORT, host: HOST }, () => {
           .limit(1);
 
         if (existingAdmin.length === 0) {
-          const adminPassword =
-            process.env.ADMIN_PASSWORD ||
-            crypto.randomBytes(16).toString("hex");
-          const hashedPassword = await bcrypt.hash(adminPassword, 12);
+          const hashedPassword = await bcrypt.hash("admin123", 12);
           await db.insert(users).values({
             email: "admin@clsu.edu.ph",
             password: hashedPassword,
@@ -544,21 +522,16 @@ server.listen({ port: PORT, host: HOST }, () => {
             role: "admin",
             isActive: true,
           });
-          console.log(
-            `✅ Admin user created: admin@clsu.edu.ph / ${adminPassword}`
-          );
+          console.log("✅ Admin user created: admin@clsu.edu.ph / admin123");
         } else {
           // Update password to ensure it's correct
-          const adminPassword =
-            process.env.ADMIN_PASSWORD ||
-            crypto.randomBytes(16).toString("hex");
-          const hashedPassword = await bcrypt.hash(adminPassword, 12);
+          const hashedPassword = await bcrypt.hash("admin123", 12);
           await db
             .update(users)
             .set({ password: hashedPassword, isActive: true })
             .where(eq(users.email, "admin@clsu.edu.ph"));
           console.log(
-            `✅ Admin user password updated: admin@clsu.edu.ph / ${adminPassword}`
+            "✅ Admin user password updated: admin@clsu.edu.ph / admin123"
           );
         }
       } catch (error) {
