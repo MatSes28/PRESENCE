@@ -13,7 +13,6 @@ COPY package*.json ./
 COPY server/package*.json ./server/
 COPY shared/package*.json ./shared/
 COPY client/package*.json ./client/
-COPY start.sh ./
 
 # Install all dependencies (including dev dependencies for building)
 RUN npm ci
