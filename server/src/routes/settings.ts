@@ -1,10 +1,50 @@
 import { Router } from "express";
 import { db } from "../storage.js";
-import { users } from "../schema.js";
-import { eq } from "drizzle-orm";
+import { users, systemSettings } from "../shared-schema.js";
+import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 const router = Router();
+
+// Helper functions for system settings
+const getSetting = async (key: string) => {
+  const result = await db
+    .select()
+    .from(systemSettings)
+    .where(and(eq(systemSettings.key, key), eq(systemSettings.isActive, true)))
+    .limit(1);
+  return result[0]?.value || null;
+};
+
+const setSetting = async (
+  key: string,
+  value: any,
+  category: string,
+  description?: string
+) => {
+  const existing = await db
+    .select()
+    .from(systemSettings)
+    .where(eq(systemSettings.key, key))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db
+      .update(systemSettings)
+      .set({
+        value,
+        updatedAt: new Date(),
+      })
+      .where(eq(systemSettings.key, key));
+  } else {
+    await db.insert(systemSettings).values({
+      key,
+      value,
+      category,
+      description,
+    });
+  }
+};
 
 // Middleware to check authentication
 const requireAuth = (req: any, res: any, next: any) => {
@@ -156,15 +196,16 @@ router.put("/password", requireAuth, async (req, res) => {
 // Get system settings (admin only)
 router.get("/system", requireAdmin, async (req, res) => {
   try {
-    // For now, return default settings. In production, you'd store these in DB
     const settings = {
-      lateThreshold: 15,
-      absentThreshold: 60,
-      emailNotifications: true,
-      semester: "1st Semester",
-      academicYear: new Date().getFullYear().toString(),
-      autoEndSessions: true,
-      requireProfessorTap: false,
+      lateThreshold: (await getSetting("lateThreshold")) ?? 15,
+      absentThreshold: (await getSetting("absentThreshold")) ?? 60,
+      emailNotifications: (await getSetting("emailNotifications")) ?? true,
+      semester: (await getSetting("semester")) ?? "1st Semester",
+      academicYear:
+        (await getSetting("academicYear")) ??
+        new Date().getFullYear().toString(),
+      autoEndSessions: (await getSetting("autoEndSessions")) ?? true,
+      requireProfessorTap: (await getSetting("requireProfessorTap")) ?? false,
     };
 
     res.json({
@@ -193,8 +234,50 @@ router.put("/system", requireAdmin, async (req, res) => {
       requireProfessorTap,
     } = req.body;
 
-    // In a real implementation, you'd save these to a system_settings table
-    // For now, just return success
+    // Save settings to database
+    await setSetting(
+      "lateThreshold",
+      lateThreshold || 15,
+      "system",
+      "Late threshold in minutes"
+    );
+    await setSetting(
+      "absentThreshold",
+      absentThreshold || 60,
+      "system",
+      "Absent threshold in minutes"
+    );
+    await setSetting(
+      "emailNotifications",
+      emailNotifications ?? true,
+      "system",
+      "Enable email notifications"
+    );
+    await setSetting(
+      "semester",
+      semester || "1st Semester",
+      "system",
+      "Current semester"
+    );
+    await setSetting(
+      "academicYear",
+      academicYear || new Date().getFullYear().toString(),
+      "system",
+      "Academic year"
+    );
+    await setSetting(
+      "autoEndSessions",
+      autoEndSessions ?? true,
+      "system",
+      "Auto-end sessions after scheduled time"
+    );
+    await setSetting(
+      "requireProfessorTap",
+      requireProfessorTap ?? false,
+      "system",
+      "Require professor tap to activate session"
+    );
+
     const settings = {
       lateThreshold: lateThreshold || 15,
       absentThreshold: absentThreshold || 60,
@@ -277,12 +360,12 @@ router.put("/iot", requireAdmin, async (req, res) => {
 // Get hardware settings (admin only)
 router.get("/hardware", requireAdmin, async (req, res) => {
   try {
-    // Return default hardware settings
     const settings = {
-      rfidScannerPort: "COM3",
-      proximitySensorThreshold: 5,
-      dualValidation: true,
-      autoReconnect: true,
+      rfidScannerPort: (await getSetting("rfidScannerPort")) ?? "COM3",
+      proximitySensorThreshold:
+        (await getSetting("proximitySensorThreshold")) ?? 5,
+      dualValidation: (await getSetting("dualValidation")) ?? true,
+      autoReconnect: (await getSetting("autoReconnect")) ?? true,
     };
 
     res.json({
@@ -307,6 +390,31 @@ router.put("/hardware", requireAdmin, async (req, res) => {
       dualValidation,
       autoReconnect,
     } = req.body;
+
+    await setSetting(
+      "rfidScannerPort",
+      rfidScannerPort || "COM3",
+      "hardware",
+      "RFID scanner port"
+    );
+    await setSetting(
+      "proximitySensorThreshold",
+      proximitySensorThreshold || 5,
+      "hardware",
+      "Proximity sensor threshold in meters"
+    );
+    await setSetting(
+      "dualValidation",
+      dualValidation ?? true,
+      "hardware",
+      "Require dual validation (RFID + Proximity)"
+    );
+    await setSetting(
+      "autoReconnect",
+      autoReconnect ?? true,
+      "hardware",
+      "Auto-reconnect on hardware failure"
+    );
 
     const settings = {
       rfidScannerPort: rfidScannerPort || "COM3",
@@ -333,11 +441,12 @@ router.put("/hardware", requireAdmin, async (req, res) => {
 router.get("/email", requireAdmin, async (req, res) => {
   try {
     const settings = {
-      smtpServer: "smtp.gmail.com",
-      senderEmail: "clirdec.presence@clsu.edu.ph",
-      absenceThreshold: 3,
-      dailySummary: true,
-      lateNotifications: true,
+      smtpServer: (await getSetting("smtpServer")) ?? "smtp.gmail.com",
+      senderEmail:
+        (await getSetting("senderEmail")) ?? "clirdec.presence@clsu.edu.ph",
+      absenceThreshold: (await getSetting("absenceThreshold")) ?? 3,
+      dailySummary: (await getSetting("dailySummary")) ?? true,
+      lateNotifications: (await getSetting("lateNotifications")) ?? true,
     };
 
     res.json({
@@ -363,6 +472,37 @@ router.put("/email", requireAdmin, async (req, res) => {
       dailySummary,
       lateNotifications,
     } = req.body;
+
+    await setSetting(
+      "smtpServer",
+      smtpServer || "smtp.gmail.com",
+      "email",
+      "SMTP server for email notifications"
+    );
+    await setSetting(
+      "senderEmail",
+      senderEmail || "clirdec.presence@clsu.edu.ph",
+      "email",
+      "Sender email address"
+    );
+    await setSetting(
+      "absenceThreshold",
+      absenceThreshold || 3,
+      "email",
+      "Consecutive absence threshold for notifications"
+    );
+    await setSetting(
+      "dailySummary",
+      dailySummary ?? true,
+      "email",
+      "Send daily attendance summary"
+    );
+    await setSetting(
+      "lateNotifications",
+      lateNotifications ?? true,
+      "email",
+      "Send notifications for late arrivals"
+    );
 
     const settings = {
       smtpServer: smtpServer || "smtp.gmail.com",

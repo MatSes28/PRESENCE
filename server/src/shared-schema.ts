@@ -334,6 +334,18 @@ export const errorRecoveryAttempts = pgTable("error_recovery_attempts", {
   isActive: boolean("is_active").default(true).notNull(),
 });
 
+// System Settings table
+export const systemSettings = pgTable("system_settings", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: jsonb("value").notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 50 }).notNull(), // system, hardware, email, iot
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Subject Sessions table - For lab session management
 export const subjectSessions = pgTable("subject_sessions", {
   id: serial("id").primaryKey(),
@@ -631,3 +643,6 @@ export type NewErrorLog = typeof errorLogs.$inferInsert;
 
 export type ErrorRecoveryAttempt = typeof errorRecoveryAttempts.$inferSelect;
 export type NewErrorRecoveryAttempt = typeof errorRecoveryAttempts.$inferInsert;
+
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type NewSystemSetting = typeof systemSettings.$inferInsert;

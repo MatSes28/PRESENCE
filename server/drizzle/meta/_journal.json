@@ -43,6 +43,13 @@
       "when": 1764312856499,
       "tag": "0005_deep_wendell_rand",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1767677042597,
+      "tag": "0006_melted_talisman",
+      "breakpoints": true
     }
   ]
 }

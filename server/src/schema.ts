@@ -350,6 +350,18 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   isActive: boolean("is_active").default(true).notNull(),
 });
 
+// System Settings table
+export const systemSettings = pgTable("system_settings", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: jsonb("value").notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 50 }).notNull(), // system, hardware, email, iot
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Audit Logs table (comprehensive audit trail)
 export const auditLogs = pgTable("audit_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -688,6 +700,9 @@ export type NewErrorLog = typeof errorLogs.$inferInsert;
 
 export type ErrorRecoveryAttempt = typeof errorRecoveryAttempts.$inferSelect;
 export type NewErrorRecoveryAttempt = typeof errorRecoveryAttempts.$inferInsert;
+
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type NewSystemSetting = typeof systemSettings.$inferInsert;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;

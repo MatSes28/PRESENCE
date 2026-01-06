@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useNotifications } from "../components/NotificationSystem";
 import { LoadingButton } from "../components/LoadingSpinner";
@@ -57,6 +57,40 @@ export const Settings = () => {
     lateNotifications: true,
   });
 
+  // Load settings on component mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        if (user?.role === "admin") {
+          const [systemRes, hardwareRes, emailRes] = await Promise.all([
+            api.get("/settings/system"),
+            api.get("/settings/hardware"),
+            api.get("/settings/email"),
+          ]);
+
+          if ((systemRes.data as any).success) {
+            setSystemSettings((systemRes.data as any).settings);
+          }
+          if ((hardwareRes.data as any).success) {
+            setHardwareSettings((hardwareRes.data as any).settings);
+          }
+          if ((emailRes.data as any).success) {
+            setEmailSettings((emailRes.data as any).settings);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+        addNotification({
+          type: "error",
+          title: "Settings Load Failed",
+          message: "Could not load current settings from server",
+        });
+      }
+    };
+
+    loadSettings();
+  }, [user?.role, addNotification]);
+
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -69,13 +103,25 @@ export const Settings = () => {
       return;
     }
 
-    // Simulate successful update since backend persistence is not implemented
-    addNotification({
-      type: "warning",
-      title: "Profile Update Simulated",
-      message:
-        "Profile changes are not persisted. Backend implementation required for actual updates.",
-    });
+    try {
+      const response = await api.put("/settings/profile", profileData);
+      if ((response.data as any).success) {
+        addNotification({
+          type: "success",
+          title: "Profile Updated",
+          message: "Your profile has been updated successfully",
+        });
+      } else {
+        throw new Error((response.data as any).message || "Update failed");
+      }
+    } catch (error) {
+      console.error("Profile update error:", error);
+      addNotification({
+        type: "error",
+        title: "Update Failed",
+        message: "Could not update profile. Please try again.",
+      });
+    }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -90,49 +136,102 @@ export const Settings = () => {
       return;
     }
 
-    // Simulate successful password change since backend persistence is not implemented
-    addNotification({
-      type: "warning",
-      title: "Password Change Simulated",
-      message:
-        "Password changes are not persisted. Backend implementation required for actual updates.",
-    });
-    setPasswordData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
-    passwordValidation.clearErrors();
+    try {
+      const response = await api.put("/settings/password", {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      if ((response.data as any).success) {
+        addNotification({
+          type: "success",
+          title: "Password Changed",
+          message: "Your password has been changed successfully",
+        });
+        setPasswordData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+        passwordValidation.clearErrors();
+      } else {
+        throw new Error(
+          (response.data as any).message || "Password change failed"
+        );
+      }
+    } catch (error) {
+      console.error("Password change error:", error);
+      addNotification({
+        type: "error",
+        title: "Password Change Failed",
+        message: "Could not change password. Please try again.",
+      });
+    }
   };
 
   const handleSystemSettingsSave = async () => {
-    // Simulate successful save since backend persistence is not implemented
-    addNotification({
-      type: "warning",
-      title: "Settings Save Simulated",
-      message:
-        "System settings are not persisted. Backend implementation required for actual saves.",
-    });
+    try {
+      const response = await api.put("/settings/system", systemSettings);
+      if ((response.data as any).success) {
+        addNotification({
+          type: "success",
+          title: "System Settings Saved",
+          message: "System settings have been saved successfully",
+        });
+      } else {
+        throw new Error((response.data as any).message || "Save failed");
+      }
+    } catch (error) {
+      console.error("System settings save error:", error);
+      addNotification({
+        type: "error",
+        title: "Save Failed",
+        message: "Could not save system settings. Please try again.",
+      });
+    }
   };
 
   const handleHardwareSettingsSave = async () => {
-    // Simulate successful save since backend persistence is not implemented
-    addNotification({
-      type: "warning",
-      title: "Hardware Settings Save Simulated",
-      message:
-        "Hardware settings are not persisted. Backend implementation required for actual saves.",
-    });
+    try {
+      const response = await api.put("/settings/hardware", hardwareSettings);
+      if ((response.data as any).success) {
+        addNotification({
+          type: "success",
+          title: "Hardware Settings Saved",
+          message: "Hardware settings have been saved successfully",
+        });
+      } else {
+        throw new Error((response.data as any).message || "Save failed");
+      }
+    } catch (error) {
+      console.error("Hardware settings save error:", error);
+      addNotification({
+        type: "error",
+        title: "Save Failed",
+        message: "Could not save hardware settings. Please try again.",
+      });
+    }
   };
 
   const handleEmailSettingsSave = async () => {
-    // Simulate successful save since backend persistence is not implemented
-    addNotification({
-      type: "warning",
-      title: "Email Settings Save Simulated",
-      message:
-        "Email settings are not persisted. Backend implementation required for actual saves.",
-    });
+    try {
+      const response = await api.put("/settings/email", emailSettings);
+      if ((response.data as any).success) {
+        addNotification({
+          type: "success",
+          title: "Email Settings Saved",
+          message: "Email settings have been saved successfully",
+        });
+      } else {
+        throw new Error((response.data as any).message || "Save failed");
+      }
+    } catch (error) {
+      console.error("Email settings save error:", error);
+      addNotification({
+        type: "error",
+        title: "Save Failed",
+        message: "Could not save email settings. Please try again.",
+      });
+    }
   };
 
   const tabs = [
@@ -145,24 +244,6 @@ export const Settings = () => {
 
   return (
     <div className="space-y-6">
-      {/* Warning Banner */}
-      <div className="bg-yellow-900 border border-yellow-600 rounded-lg p-4">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <span className="text-yellow-400 text-lg">⚠️</span>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-yellow-400">
-              Settings Persistence Not Available
-            </h3>
-            <p className="text-sm text-yellow-200 mt-1">
-              Settings are currently stored locally and will not persist.
-              Database persistence requires backend implementation.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Header */}
       <div>
         <h3 className="text-lg font-medium text-white">Settings</h3>
