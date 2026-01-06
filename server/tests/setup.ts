@@ -15,7 +15,7 @@ process.env.NODE_ENV = "test";
 process.env.LOG_LEVEL = "error"; // Reduce log noise during tests
 
 // Mock external services
-jest.mock("../src/services/websocket.js", () => ({
+jest.mock("../src/services/websocket", () => ({
   setupWebSocket: jest.fn(),
   getWebSocketClient: jest.fn(() => ({
     on: jest.fn(),
@@ -26,14 +26,14 @@ jest.mock("../src/services/websocket.js", () => ({
 }));
 
 // Mock email service
-jest.mock("../src/services/emailService.js", () => ({
+jest.mock("../src/services/emailService", () => ({
   sendEmail: jest.fn(),
   sendWelcomeEmail: jest.fn(),
   sendPasswordResetEmail: jest.fn(),
 }));
 
 // Mock monitoring service to avoid actual logging during tests
-jest.mock("../src/services/monitoringService.js", () => ({
+jest.mock("../src/services/monitoringService", () => ({
   monitoringService: {
     logError: jest.fn(),
     logWarning: jest.fn(),
@@ -132,3 +132,5 @@ afterAll(async () => {
   // Close any open database connections
   // This will be handled by the global teardown
 });
+
+export {};

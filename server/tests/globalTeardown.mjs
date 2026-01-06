@@ -1,6 +1,6 @@
-const { db } = require("../src/storage.js");
+import { db } from "../src/storage.js";
 
-module.exports = async function globalTeardown() {
+export default async function globalTeardown() {
   try {
     // Close database connections
     await db.$client.end();
@@ -8,4 +8,4 @@ module.exports = async function globalTeardown() {
   } catch (error) {
     console.error("❌ Error during test teardown:", error);
   }
-};
+}

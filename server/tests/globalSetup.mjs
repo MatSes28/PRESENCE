@@ -1,7 +1,7 @@
-const { db } = require("../src/storage");
-const { sql } = require("drizzle-orm");
+import { db } from "../src/storage.js";
+import { sql } from "drizzle-orm";
 
-module.exports = async function globalSetup() {
+export default async function globalSetup() {
   try {
     // Ensure test database is available
     await db.execute(sql`SELECT 1`);
@@ -15,4 +15,4 @@ module.exports = async function globalSetup() {
     console.error("❌ Failed to setup test database:", error);
     throw error;
   }
-};
+}

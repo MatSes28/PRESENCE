@@ -1,4 +1,4 @@
-const { db } = require("../src/storage.js");
+const { db } = require("../src/storage");
 
 module.exports = async function globalTeardown() {
   try {
