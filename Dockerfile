@@ -57,7 +57,6 @@ WORKDIR /app
 
 # Set environment
 ENV NODE_ENV=production
-ENV REDIS_URL=redis://host.docker.internal:6379
 
 # Copy package files
 COPY server/package.json ./
@@ -69,18 +68,18 @@ RUN npm install --omit=dev && npm cache clean --force
 COPY --from=builder /app/server/dist ./dist
 COPY --from=builder /app/server/public ./public
 COPY --from=builder /app/shared/dist ./shared/dist
+COPY --from=builder /app/start.sh ./
 
 # Copy database setup script (for initialization if needed)
 COPY database_setup.sql ./
 
 # Create logs directory with proper permissions
-RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app
+RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app && chmod +x /app/start.sh
 
 # Switch to non-root user
 USER nodejs
 
 # Set environment variables
-ENV NODE_ENV=production
 ENV PORT=3000
 ENV LOG_LEVEL=info
 ENV ENCRYPTION_MASTER_KEY=prod-encryption-key-32-chars-012
@@ -93,4 +92,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
 # Start the application
-CMD ["node", "dist/server/src/index.js"]
+CMD ["./start.sh"]
