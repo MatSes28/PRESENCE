@@ -131,7 +131,7 @@ export const validationPatterns = {
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   password: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/,
   phone: /^\+?[\d\s\-\(\)]+$/,
-  studentId: /^[A-Z0-9]{8,12}$/,
+  studentId: /^[A-Z0-9-]{5,20}$/i,
 };
 
 // Common validation rules
@@ -178,7 +178,7 @@ export const commonValidationRules = {
     pattern: validationPatterns.studentId,
     custom: (value: string) => {
       if (!validationPatterns.studentId.test(value)) {
-        return "Student ID must be 8-12 alphanumeric characters";
+        return "Student ID must be 5-20 alphanumeric characters (hyphens allowed)";
       }
       return null;
     },

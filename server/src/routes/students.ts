@@ -49,7 +49,7 @@ router.get("/", requireAuth, async (req, res) => {
       if (subjectIds.length === 0) {
         return res.json({
           success: true,
-          students: [],
+          data: [],
         });
       }
 
@@ -65,7 +65,7 @@ router.get("/", requireAuth, async (req, res) => {
       if (studentIds.length === 0) {
         return res.json({
           success: true,
-          students: [],
+          data: [],
         });
       }
 
@@ -131,7 +131,7 @@ router.get("/", requireAuth, async (req, res) => {
 
       return res.json({
         success: true,
-        students: decryptedStudents,
+        data: decryptedStudents,
       });
     }
 
@@ -197,7 +197,7 @@ router.get("/", requireAuth, async (req, res) => {
 
     res.json({
       success: true,
-      students: decryptedStudents,
+      data: decryptedStudents,
     });
   } catch (error) {
     console.error("Get students error:", error);

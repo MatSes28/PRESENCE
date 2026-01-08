@@ -85,8 +85,8 @@ export const validationRules = {
 
   studentId: (value: string) => {
     if (!value) return "Student ID is required";
-    if (!/^\d{4}-\d{5}$/.test(value))
-      return "Invalid student ID format (YYYY-NNNNN)";
+    if (!/^[A-Z0-9-]{5,20}$/i.test(value))
+      return "Invalid student ID format (5-20 alphanumeric characters with hyphens)";
     return null;
   },
 

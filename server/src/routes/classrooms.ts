@@ -10,10 +10,16 @@ const router = Router();
 router.get("/", requireAuth, async (req, res) => {
   try {
     const allClassrooms = await db.select().from(classrooms);
-    res.json(allClassrooms);
+    res.json({
+      success: true,
+      data: allClassrooms,
+    });
   } catch (error) {
     console.error("Error fetching classrooms:", error);
-    res.status(500).json({ error: "Failed to fetch classrooms" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch classrooms",
+    });
   }
 });
 
