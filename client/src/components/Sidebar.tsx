@@ -50,6 +50,12 @@ const navigationItems: NavItem[] = [
   },
   { path: "/users", label: "User Management", icon: "👤", roles: ["admin"] },
   {
+    path: "/subjects",
+    label: "Subjects",
+    icon: "📚",
+    roles: ["admin", "faculty"],
+  },
+  {
     path: "/settings",
     label: "Settings",
     icon: "⚙️",

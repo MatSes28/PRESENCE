@@ -294,6 +294,48 @@ class ApiClient {
     return this.request(`/students/${id}`);
   }
 
+  // Subjects endpoints
+  async getSubjects() {
+    return this.request("/subjects");
+  }
+
+  async getSubject(id: number) {
+    return this.request(`/subjects/${id}`);
+  }
+
+  async createSubject(subject: {
+    name: string;
+    code: string;
+    description?: string;
+    credits?: number;
+  }) {
+    return this.request("/subjects", {
+      method: "POST",
+      body: JSON.stringify(subject),
+    });
+  }
+
+  async updateSubject(
+    id: number,
+    subject: Partial<{
+      name: string;
+      code: string;
+      description: string;
+      credits: number;
+    }>
+  ) {
+    return this.request(`/subjects/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(subject),
+    });
+  }
+
+  async deleteSubject(id: number) {
+    return this.request(`/subjects/${id}`, {
+      method: "DELETE",
+    });
+  }
+
   async createStudent(student: {
     studentId: string;
     name: string;

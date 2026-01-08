@@ -19,6 +19,7 @@ import { Roster } from "./pages/Roster";
 import { UserManagement } from "./pages/UserManagement";
 import { ResetPassword } from "./pages/ResetPassword";
 import { AIAnalytics } from "./pages/AIAnalytics";
+import { Subjects } from "./pages/Subjects";
 import { useEffect } from "react";
 
 function AppContent() {
@@ -151,6 +152,14 @@ function AppContent() {
         component={() => (
           <Layout>
             <AIAnalytics />
+          </Layout>
+        )}
+      />
+      <Route
+        path="/subjects"
+        component={() => (
+          <Layout>
+            <Subjects />
           </Layout>
         )}
       />
