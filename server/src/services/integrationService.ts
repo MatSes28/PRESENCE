@@ -168,33 +168,18 @@ class IntegrationService {
 
     try {
       // Google Classroom API integration would go here
-      // This is a placeholder for the actual implementation
-
       console.log(`[GOOGLE_CLASSROOM] Syncing classroom ${classroomId}`);
 
-      // Simulate API call
-      const mockResponse = {
-        courses: [
-          {
-            id: "course123",
-            name: "Computer Science 101",
-            students: [
-              { id: "student1", name: "John Doe", email: "john@example.com" },
-              { id: "student2", name: "Jane Smith", email: "jane@example.com" },
-            ],
-          },
-        ],
-      };
+      // TODO: Implement actual Google Classroom API integration
+      // 1. Set up OAuth2 client with credentials
+      // 2. List courses using classroomId
+      // 3. Fetch students from courses
+      // 4. Sync with local database
 
-      // Process and sync data
-      for (const course of mockResponse.courses) {
-        // Create/update subjects
-        // Create/update students
-        // Sync enrollments
-        result.syncedRecords += course.students.length;
-      }
-
-      result.success = true;
+      // For now, log that integration is pending
+      result.errors.push(
+        "Google Classroom integration requires API credentials and OAuth setup"
+      );
       return result;
     } catch (error) {
       console.error("Google Classroom sync error:", error);
@@ -216,35 +201,16 @@ class IntegrationService {
       // Microsoft Teams API integration would go here
       console.log(`[MICROSOFT_TEAMS] Syncing team ${teamId}`);
 
-      // Simulate attendance sync from Teams meetings
-      const mockAttendance = [
-        {
-          studentId: "student1",
-          status: "present",
-          joinTime: "09:00",
-          leaveTime: "10:30",
-        },
-        {
-          studentId: "student2",
-          status: "late",
-          joinTime: "09:15",
-          leaveTime: "10:30",
-        },
-        {
-          studentId: "student3",
-          status: "absent",
-          joinTime: null,
-          leaveTime: null,
-        },
-      ];
+      // TODO: Implement actual Microsoft Graph API integration
+      // 1. Set up OAuth2 client with Microsoft credentials
+      // 2. Get team members using teamId
+      // 3. Fetch meeting attendance reports
+      // 4. Sync with local database
 
-      // Process attendance data
-      for (const record of mockAttendance) {
-        // Update attendance records in database
-        result.syncedRecords++;
-      }
-
-      result.success = true;
+      // For now, log that integration is pending
+      result.errors.push(
+        "Microsoft Teams integration requires API credentials and OAuth setup"
+      );
       return result;
     } catch (error) {
       console.error("Microsoft Teams sync error:", error);
@@ -350,51 +316,15 @@ class IntegrationService {
       // Moodle Web Services API calls would go here
       console.log("[MOODLE] Syncing students from Moodle");
 
-      // Simulate Moodle API response
-      const mockStudents: MoodleUser[] = [
-        {
-          id: 1,
-          username: "student1",
-          firstname: "John",
-          lastname: "Doe",
-          email: "john@example.com",
-        },
-        {
-          id: 2,
-          username: "student2",
-          firstname: "Jane",
-          lastname: "Smith",
-          email: "jane@example.com",
-        },
-      ];
+      // TODO: Implement actual Moodle Web Services API integration
+      // 1. Call core_user_get_users_by_field to get users
+      // 2. Call enrol_get_enrolled_users to get enrollments
+      // 3. Process and sync with local database
 
-      for (const moodleStudent of mockStudents) {
-        try {
-          // Check if student exists
-          const existingStudent = await db
-            .select()
-            .from(students)
-            .where(eq(students.email, moodleStudent.email))
-            .limit(1);
-
-          if (existingStudent.length === 0) {
-            // Create new student
-            await db.insert(students).values({
-              studentId: moodleStudent.username,
-              name: `${moodleStudent.firstname} ${moodleStudent.lastname}`,
-              email: moodleStudent.email,
-              parentEmail: `${moodleStudent.username}@parent.example.com`, // Mock parent email
-            });
-            result.syncedRecords++;
-          }
-        } catch (error) {
-          result.errors.push(
-            `Failed to sync student ${moodleStudent.email}: ${error}`
-          );
-        }
-      }
-
-      result.success = true;
+      // For now, log that integration is pending
+      result.errors.push(
+        "Moodle integration requires API endpoint and token configuration"
+      );
       return result;
     } catch (error) {
       console.error("Moodle sync error:", error);
@@ -408,11 +338,18 @@ class IntegrationService {
   ): Promise<SyncResult> {
     // Similar implementation for Canvas LMS
     const result: SyncResult = {
-      success: true,
-      syncedRecords: 5, // Mock data
+      success: false,
+      syncedRecords: 0,
       errors: [],
       timestamp: new Date(),
     };
+
+    // TODO: Implement actual Canvas LMS API integration
+    // 1. Call Canvas API to get users and enrollments
+    // 2. Process and sync with local database
+    result.errors.push(
+      "Canvas LMS integration requires API endpoint and token configuration"
+    );
     return result;
   }
 

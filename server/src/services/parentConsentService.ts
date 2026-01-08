@@ -94,58 +94,17 @@ class ParentConsentService {
     ipAddress: string,
     userAgent: string
   ): Promise<boolean> {
-    // TODO: Find consent request by token
-    // For now, simulate finding a request
-
-    const mockRequest: ConsentRequest = {
-      id: crypto.randomUUID(),
-      studentId: 1,
-      parentEmail: "parent@example.com",
-      consentType: "attendance_tracking",
-      requestDate: new Date(),
-      status: "pending",
+    // TODO: Find consent request by token from database
+    // For now, log the consent request for debugging
+    console.log("[GDPR] Processing consent request:", {
       token,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      requestedBy: 1,
-    };
-
-    if (mockRequest.expiresAt < new Date()) {
-      throw new Error("Consent request has expired");
-    }
-
-    // Record the consent
-    const consent: ParentConsent = {
-      id: crypto.randomUUID(),
-      studentId: mockRequest.studentId,
-      parentEmail: mockRequest.parentEmail,
-      consentType: mockRequest.consentType,
       consented,
-      consentDate: new Date(),
-      consentVersion: this.consentVersion,
       ipAddress,
-      userAgent,
-      expiresAt: new Date(
-        Date.now() + this.consentValidityDays * 24 * 60 * 60 * 1000
-      ),
-      consentToken: token,
-    };
+      timestamp: new Date(),
+    });
 
-    console.log("Parent Consent Recorded:", consent);
-
-    // TODO: Store in parent_consents table
-    // TODO: Update consent request status
-
-    // Log GDPR compliance event
-    await gdprService.logPrivacyEvent(
-      mockRequest.studentId,
-      `parent_consent_${consented ? "granted" : "denied"}`,
-      `consent_type: ${mockRequest.consentType}`,
-      ipAddress,
-      userAgent,
-      "Parent consent processed via secure token"
-    );
-
-    return true;
+    // Return false to indicate database not available for storage
+    return false;
   }
 
   // Check if parent consent is valid
@@ -154,34 +113,41 @@ class ParentConsentService {
     consentType: ParentConsent["consentType"]
   ): Promise<boolean> {
     // TODO: Check database for valid consent
-    // For now, return true for development
-    return true;
+    // For development, log and return false to require actual consent
+    console.log(
+      `[GDPR] Checking consent for student ${studentId}, type: ${consentType}`
+    );
+    // Return false until database storage is implemented
+    return false;
   }
 
   // Get consent status for a student
   async getStudentConsentStatus(studentId: number): Promise<any> {
     // TODO: Query database for all consents
+    // Return pending status until database storage is implemented
+    console.log(`[GDPR] Getting consent status for student ${studentId}`);
     return {
       studentId,
       consents: {
         attendance_tracking: {
-          consented: true,
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          consented: false,
+          status: "pending",
         },
         email_notifications: {
-          consented: true,
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          consented: false,
+          status: "pending",
         },
         data_processing: {
-          consented: true,
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          consented: false,
+          status: "pending",
         },
         emergency_contact: {
-          consented: true,
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          consented: false,
+          status: "pending",
         },
       },
       lastUpdated: new Date(),
+      note: "Consent tracking requires database storage implementation",
     };
   }
 

@@ -399,24 +399,28 @@ class CalendarSyncService {
     config: CalendarConfig,
     externalId?: string
   ): Promise<boolean> {
-    // Simulate API call
-    return Math.random() > 0.5;
+    // In production, this would call Google Calendar API
+    // For now, return false to always create new events
+    console.log(`[GOOGLE_CALENDAR] Checking if event exists: ${externalId}`);
+    return false;
   }
 
   private async createGoogleEvent(
     config: CalendarConfig,
     event: CalendarEvent
   ): Promise<void> {
-    // Simulate API call
-    console.log(`Creating Google Calendar event: ${event.title}`);
+    // In production, this would call Google Calendar API
+    console.log(`[GOOGLE_CALENDAR] Creating event: ${event.title}`);
+    // TODO: Implement actual API call
   }
 
   private async updateGoogleEvent(
     config: CalendarConfig,
     event: CalendarEvent
   ): Promise<void> {
-    // Simulate API call
-    console.log(`Updating Google Calendar event: ${event.title}`);
+    // In production, this would call Google Calendar API
+    console.log(`[GOOGLE_CALENDAR] Updating event: ${event.title}`);
+    // TODO: Implement actual API call
   }
 
   private async getGoogleCalendarEvents(
@@ -424,7 +428,11 @@ class CalendarSyncService {
     startDate: Date,
     endDate: Date
   ): Promise<any[]> {
-    // Simulate API call
+    // In production, this would call Google Calendar API
+    console.log(
+      `[GOOGLE_CALENDAR] Fetching events from ${startDate} to ${endDate}`
+    );
+    // TODO: Implement actual API call to list events
     return [];
   }
 
@@ -433,24 +441,27 @@ class CalendarSyncService {
     config: CalendarConfig,
     externalId?: string
   ): Promise<boolean> {
-    // Simulate API call
-    return Math.random() > 0.5;
+    // In production, this would call Microsoft Graph API
+    console.log(`[OUTLOOK_CALENDAR] Checking if event exists: ${externalId}`);
+    return false;
   }
 
   private async createOutlookEvent(
     config: CalendarConfig,
     event: CalendarEvent
   ): Promise<void> {
-    // Simulate API call
-    console.log(`Creating Outlook Calendar event: ${event.title}`);
+    // In production, this would call Microsoft Graph API
+    console.log(`[OUTLOOK_CALENDAR] Creating event: ${event.title}`);
+    // TODO: Implement actual API call
   }
 
   private async updateOutlookEvent(
     config: CalendarConfig,
     event: CalendarEvent
   ): Promise<void> {
-    // Simulate API call
-    console.log(`Updating Outlook Calendar event: ${event.title}`);
+    // In production, this would call Microsoft Graph API
+    console.log(`[OUTLOOK_CALENDAR] Updating event: ${event.title}`);
+    // TODO: Implement actual API call
   }
 
   private async getOutlookCalendarEvents(
@@ -458,7 +469,11 @@ class CalendarSyncService {
     startDate: Date,
     endDate: Date
   ): Promise<any[]> {
-    // Simulate API call
+    // In production, this would call Microsoft Graph API
+    console.log(
+      `[OUTLOOK_CALENDAR] Fetching events from ${startDate} to ${endDate}`
+    );
+    // TODO: Implement actual API call to list events
     return [];
   }
 
@@ -575,11 +590,23 @@ class CalendarSyncService {
     code: string,
     redirectUri: string
   ): Promise<{ accessToken: string; refreshToken?: string }> {
-    // In a real implementation, exchange code for tokens
-    // For now, return mock tokens
+    // In a real implementation, exchange code for tokens with OAuth provider
+    // For now, log the callback for debugging
+    console.log(`[CALENDAR] OAuth callback received for ${provider}`);
+
+    // TODO: Implement actual OAuth token exchange
+    // For Google:
+    // 1. Exchange code for tokens using https://oauth2.googleapis.com/token
+    // 2. Store refresh token securely
+    //
+    // For Microsoft:
+    // 1. Exchange code for tokens using https://login.microsoftonline.com/common/oauth2/v2.0/token
+    // 2. Store refresh token securely
+
+    // Return placeholder until OAuth is properly implemented
     return {
-      accessToken: "mock_access_token",
-      refreshToken: "mock_refresh_token",
+      accessToken: "pending_token_exchange",
+      refreshToken: "pending_refresh_token",
     };
   }
 }

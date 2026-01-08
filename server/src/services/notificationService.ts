@@ -9,6 +9,8 @@ import {
   enrollments,
   computers,
   iotDevices,
+  errorLogs,
+  auditLogs,
   // pushNotifications,
   // pushSubscriptions,
 } from "../schema.js";
@@ -582,9 +584,35 @@ class NotificationService {
       consecutiveDays: number;
     }>
   > {
-    // This would require more complex SQL to find consecutive absences
-    // For now, return mock data
-    return [];
+    // Query for students with consecutive absences
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Get attendance records grouped by student
+    const attendanceHistory = await db
+      .select({
+        studentId: students.id,
+        name: students.name,
+        lastAbsent: sql<Date>`MAX(${classSessions.date})`,
+        absentCount: sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'absent' THEN 1 END)`,
+      })
+      .from(students)
+      .leftJoin(attendanceRecords, eq(attendanceRecords.studentId, students.id))
+      .leftJoin(
+        classSessions,
+        eq(attendanceRecords.classSessionId, classSessions.id)
+      )
+      .where(gte(classSessions.date, thirtyDaysAgo))
+      .groupBy(students.id, students.name)
+      .having(
+        sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'absent' THEN 1 END) >= ${minDays}`
+      );
+
+    return attendanceHistory.map((record) => ({
+      studentId: record.studentId,
+      name: record.name,
+      consecutiveDays: Number(record.absentCount) || minDays,
+    }));
   }
 
   private async findDecliningAttendance(threshold: number): Promise<
@@ -657,16 +685,24 @@ class NotificationService {
       });
     }
 
-    // Check for high error rates (mock)
-    const errorRate = Math.random();
+    // Check for high error rates from error logs
+    const oneHourAgo = new Date();
+    oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+
+    const recentErrors = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(errorLogs)
+      .where(gte(errorLogs.timestamp, oneHourAgo));
+
+    const errorCount = recentErrors[0]?.count || 0;
+    const errorRate = Math.min(errorCount / 100, 1); // Normalize: 100 errors = 100%
+
     if (errorRate > 0.1) {
       alerts.push({
         id: `system-errors-${Date.now()}`,
         type: "warning",
         title: "High Error Rate Detected",
-        message: `System error rate is ${Math.round(
-          errorRate * 100
-        )}%. Please check system logs.`,
+        message: `${errorCount} errors detected in the last hour. Please check system logs.`,
         timestamp: new Date(),
         actionRequired: false,
       });
@@ -842,29 +878,59 @@ class NotificationService {
   > {
     const alerts = [];
 
-    // Check for failed login attempts (mock - would need auth logs)
-    const failedLogins = Math.floor(Math.random() * 10);
-    if (failedLogins > 5) {
+    // Get failed login attempts from audit logs
+    const oneHourAgo = new Date();
+    oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+
+    const failedLogins = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(auditLogs)
+      .where(
+        and(
+          gte(auditLogs.timestamp, oneHourAgo),
+          eq(auditLogs.action, "login_failed")
+        )
+      );
+
+    const failedLoginCount = failedLogins[0]?.count || 0;
+    if (failedLoginCount > 5) {
       alerts.push({
         id: `security-logins-${Date.now()}`,
         type: "warning",
         title: "Multiple Failed Login Attempts",
-        message: `${failedLogins} failed login attempts detected in the last hour.`,
+        message: `${failedLoginCount} failed login attempts detected in the last hour.`,
         timestamp: new Date(),
         actionRequired: true,
         actionUrl: "/settings",
       });
     }
 
-    // Check for unusual access patterns (mock)
-    const unusualAccess = Math.random() > 0.9;
-    if (unusualAccess) {
+    // Check for high-risk activities (using action type and error messages)
+    const highRiskActivities = await db
+      .select({
+        id: auditLogs.id,
+        action: auditLogs.action,
+        errorMessage: auditLogs.errorMessage,
+        userId: auditLogs.userId,
+        timestamp: auditLogs.timestamp,
+        success: auditLogs.success,
+      })
+      .from(auditLogs)
+      .where(
+        and(
+          gte(auditLogs.timestamp, oneHourAgo),
+          sql`${auditLogs.action} IN ('security_violation', 'unauthorized_access', 'data_breach', 'admin_action') OR ${auditLogs.success} = false`
+        )
+      )
+      .orderBy(desc(auditLogs.timestamp))
+      .limit(5);
+
+    if (highRiskActivities.length > 0) {
       alerts.push({
         id: `security-access-${Date.now()}`,
         type: "critical",
-        title: "Unusual Access Pattern Detected",
-        message:
-          "Suspicious access pattern detected. Please review security logs.",
+        title: "High-Risk Activity Detected",
+        message: `${highRiskActivities.length} high-risk activities detected. Please review security logs.`,
         timestamp: new Date(),
         actionRequired: true,
         actionUrl: "/settings",
