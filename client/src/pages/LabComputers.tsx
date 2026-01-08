@@ -58,8 +58,13 @@ export const LabComputers = () => {
   >(null);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [maintenanceRecords, setMaintenanceRecords] = useState<any[]>([]);
-  const [selectedComputerForMaintenance, setSelectedComputerForMaintenance] =
-    useState<number | null>(null);
+  // Maintenance scheduling state
+  const [maintenanceForm, setMaintenanceForm] = useState({
+    computerId: "",
+    maintenanceType: "preventive",
+    scheduledDate: "",
+    description: "",
+  });
   const dragRef = useRef<HTMLDivElement>(null);
 
   // Bulk operations state
@@ -163,20 +168,16 @@ export const LabComputers = () => {
 
   const fetchSubjects = async () => {
     try {
-      // For now, we'll create some sample subjects since the API might not have this endpoint
-      // In a real implementation, you'd call api.getSubjects()
-      setSubjects([
-        {
-          id: 1,
-          code: "INTECH1100",
-          name: "Introduction to Information Technology",
-        },
-        { id: 2, code: "CS101", name: "Computer Science Fundamentals" },
-        { id: 3, code: "WEBDEV200", name: "Web Development" },
-        { id: 4, code: "DBMS300", name: "Database Management Systems" },
-      ]);
+      const response = await api.getSubjects();
+      if (response.success) {
+        setSubjects((response.data as Subject[]) || []);
+      } else {
+        // Fallback to empty array if API fails
+        setSubjects([]);
+      }
     } catch (error) {
       console.error("Failed to fetch subjects:", error);
+      setSubjects([]);
     }
   };
 
@@ -1216,8 +1217,30 @@ export const LabComputers = () => {
                     ? "Assigning..."
                     : "Assign Next 5 Students"}
                 </button>
-                <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium">
-                  Random Assignment
+                <button
+                  onClick={() => {
+                    const availableComputers = getComputersByClassroom(
+                      selectedLab!
+                    )
+                      .filter((c) => c.status === "available")
+                      .slice(0, 5);
+                    if (availableComputers.length > 0 && smartAssignSessionId) {
+                      handleSmartAssignment("random");
+                    } else if (!smartAssignSessionId) {
+                      addNotification({
+                        type: "warning",
+                        title: "No Session Selected",
+                        message:
+                          "Please open Smart Assign modal and select a session first",
+                      });
+                    }
+                  }}
+                  disabled={processing === "smart-assign-random"}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white px-4 py-2 rounded text-sm font-medium"
+                >
+                  {processing === "smart-assign-random"
+                    ? "Assigning..."
+                    : "Random Assignment"}
                 </button>
                 <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm font-medium">
                   Assign by Row

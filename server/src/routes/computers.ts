@@ -509,6 +509,106 @@ router.post(
   }
 );
 
+// POST /api/computers/release-bulk - Release multiple computers at once (admin or faculty)
+router.post("/release-bulk", requireAdminOrFaculty, async (req, res) => {
+  try {
+    const { assignmentIds } = req.body;
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
+
+    console.log(
+      `[COMPUTER RELEASE BULK] Attempting bulk release: ${
+        assignmentIds?.length || 0
+      } assignments, userRole=${userRole}, userId=${userId}`
+    );
+
+    if (
+      !assignmentIds ||
+      !Array.isArray(assignmentIds) ||
+      assignmentIds.length === 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Assignment IDs array is required",
+      });
+    }
+
+    const results = { released: [], failed: [] };
+
+    for (const assignmentId of assignmentIds) {
+      try {
+        // Get assignment to find computer
+        const assignment = await db
+          .select()
+          .from(computerAssignments)
+          .where(eq(computerAssignments.id, assignmentId))
+          .limit(1);
+
+        if (assignment.length === 0) {
+          results.failed.push({ assignmentId, error: "Assignment not found" });
+          continue;
+        }
+
+        const computerId = assignment[0].computerId;
+
+        // If faculty, check if they have access to this computer
+        if (userRole === "faculty") {
+          const computerCheck = await db
+            .select()
+            .from(computers)
+            .innerJoin(
+              schedules,
+              eq(computers.classroomId, schedules.classroomId)
+            )
+            .where(
+              and(eq(computers.id, computerId), eq(schedules.facultyId, userId))
+            )
+            .limit(1);
+
+          if (computerCheck.length === 0) {
+            results.failed.push({
+              assignmentId,
+              error: "Access denied to this computer",
+            });
+            continue;
+          }
+        }
+
+        // Update computer status to available
+        await db
+          .update(computers)
+          .set({ status: "available", updatedAt: new Date() })
+          .where(eq(computers.id, computerId));
+
+        // Update assignment with release time and status
+        await db
+          .update(computerAssignments)
+          .set({ releasedAt: new Date(), status: "completed" })
+          .where(eq(computerAssignments.id, assignmentId));
+
+        results.released.push(assignmentId);
+      } catch (error) {
+        console.error(`Error releasing assignment ${assignmentId}:`, error);
+        results.failed.push({ assignmentId, error: error.message });
+      }
+    }
+
+    console.log(
+      `[COMPUTER RELEASE BULK] Bulk release completed: ${results.released.length} released, ${results.failed.length} failed`
+    );
+    res.json({
+      success: true,
+      data: results,
+      message: `Released ${results.released.length} computers, ${results.failed.length} failed`,
+    });
+  } catch (error) {
+    console.error("Error in bulk release:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to perform bulk release" });
+  }
+});
+
 // Smart Assignment Routes
 // POST /api/computers/smart-assign/performance/:sessionId - Assign by performance
 router.post(

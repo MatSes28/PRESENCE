@@ -285,6 +285,20 @@ class ApiClient {
     });
   }
 
+  async releaseAllComputers(sessionId: number) {
+    return this.request(`/computers/release-all`, {
+      method: "POST",
+      body: JSON.stringify({ sessionId }),
+    });
+  }
+
+  async assignNextAvailable(computerIds: number[], sessionId: number) {
+    return this.request(`/computers/assign-next`, {
+      method: "POST",
+      body: JSON.stringify({ computerIds, sessionId }),
+    });
+  }
+
   // Students endpoints
   async getStudents() {
     return this.request("/students");

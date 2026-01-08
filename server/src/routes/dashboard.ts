@@ -9,6 +9,8 @@ import {
   classrooms,
   subjects,
   computerAssignments,
+  auditLogs,
+  errorLogs,
 } from "../schema.js";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { cacheService } from "../services/cacheService.js";
@@ -643,3 +645,305 @@ router.post(
 );
 
 export default router;
+
+// ============================================================
+// SECURITY METRICS API
+// ============================================================
+
+// Get security metrics dashboard data
+router.get(
+  "/security/metrics",
+  requireAuth,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      const { period = "7d" } = req.query;
+
+      // Calculate date range
+      const endDate = new Date();
+      const startDate = new Date();
+
+      switch (period) {
+        case "24h":
+          startDate.setHours(endDate.getHours() - 24);
+          break;
+        case "7d":
+          startDate.setDate(endDate.getDate() - 7);
+          break;
+        case "30d":
+          startDate.setDate(endDate.getDate() - 30);
+          break;
+        default:
+          startDate.setDate(endDate.getDate() - 7);
+      }
+
+      // Get audit logs count by action type
+      const securityEvents = await db
+        .select({
+          action: auditLogs.action,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(auditLogs)
+        .where(
+          and(
+            gte(auditLogs.timestamp, startDate),
+            lte(auditLogs.timestamp, endDate),
+            sql`action IN ('high_risk', 'medium_risk', 'low_risk')`
+          )
+        )
+        .groupBy(auditLogs.action);
+
+      // Get failed login attempts
+      const failedLogins = await db
+        .select({
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(auditLogs)
+        .where(
+          and(
+            gte(auditLogs.timestamp, startDate),
+            lte(auditLogs.timestamp, endDate),
+            eq(auditLogs.action, "login_failed")
+          )
+        );
+
+      // Get successful logins
+      const successfulLogins = await db
+        .select({
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(auditLogs)
+        .where(
+          and(
+            gte(auditLogs.timestamp, startDate),
+            lte(auditLogs.timestamp, endDate),
+            eq(auditLogs.action, "login_success")
+          )
+        );
+
+      // Get suspicious activities (high-risk events)
+      const suspiciousActivities = await db
+        .select({
+          id: auditLogs.id,
+          action: auditLogs.action,
+          description: auditLogs.description,
+          userId: auditLogs.userId,
+          timestamp: auditLogs.timestamp,
+        })
+        .from(auditLogs)
+        .where(
+          and(
+            gte(auditLogs.timestamp, startDate),
+            lte(auditLogs.timestamp, endDate),
+            eq(auditLogs.riskLevel, "high")
+          )
+        )
+        .orderBy(desc(auditLogs.timestamp))
+        .limit(20);
+
+      // Calculate security score (mock calculation based on events)
+      const highEvents =
+        securityEvents.find((e) => e.action === "high_risk")?.count || 0;
+      const mediumEvents =
+        securityEvents.find((e) => e.action === "medium_risk")?.count || 0;
+      const lowEvents =
+        securityEvents.find((e) => e.action === "low_risk")?.count || 0;
+      const totalEvents = highEvents + mediumEvents + lowEvents;
+
+      // Higher score = better security (penalize high severity events)
+      let securityScore = 100;
+      securityScore -= Math.min(highEvents * 5, 40);
+      securityScore -= Math.min(mediumEvents * 2, 20);
+      securityScore -= Math.min(lowEvents * 0.5, 10);
+      securityScore = Math.max(0, securityScore);
+
+      const metrics = {
+        securityScore,
+        totalEvents,
+        bySeverity: {
+          high: highEvents,
+          medium: mediumEvents,
+          low: lowEvents,
+        },
+        failedLogins: failedLogins[0]?.count || 0,
+        successfulLogins: successfulLogins[0]?.count || 0,
+        loginSuccessRate:
+          (successfulLogins[0]?.count || 0) > 0
+            ? Math.round(
+                ((successfulLogins[0]?.count || 0) /
+                  ((successfulLogins[0]?.count || 0) +
+                    (failedLogins[0]?.count || 0))) *
+                  100
+              )
+            : 100,
+        suspiciousActivities: suspiciousActivities.map((activity) => ({
+          id: activity.id,
+          action: activity.action,
+          description: activity.description,
+          riskLevel: "high",
+          timestamp: activity.timestamp,
+        })),
+        period,
+      };
+
+      res.json({
+        success: true,
+        data: metrics,
+      });
+    } catch (error) {
+      console.error("Security metrics error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch security metrics",
+      });
+    }
+  }
+);
+
+// Get performance metrics dashboard data
+router.get(
+  "/performance/metrics",
+  requireAuth,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      const { period = "24h" } = req.query;
+
+      // Calculate date range
+      const endDate = new Date();
+      const startDate = new Date();
+
+      switch (period) {
+        case "1h":
+          startDate.setHours(endDate.getHours() - 1);
+          break;
+        case "24h":
+          startDate.setHours(endDate.getHours() - 24);
+          break;
+        case "7d":
+          startDate.setDate(endDate.getDate() - 7);
+          break;
+        default:
+          startDate.setHours(endDate.getHours() - 24);
+      }
+
+      // Get API response times (from error logs which track response times)
+      const apiResponseTimes = await db
+        .select({
+          avgResponseTime: sql<number>`AVG(${errorLogs.response_time})`,
+          minResponseTime: sql<number>`MIN(${errorLogs.response_time})`,
+          maxResponseTime: sql<number>`MAX(${errorLogs.response_time})`,
+        })
+        .from(errorLogs)
+        .where(
+          and(
+            gte(errorLogs.createdAt, startDate),
+            lte(errorLogs.createdAt, endDate),
+            sql`${errorLogs.response_time} IS NOT NULL`
+          )
+        );
+
+      // Get request counts by endpoint from error logs
+      const requestsByEndpoint = await db
+        .select({
+          endpoint: errorLogs.endpoint,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(errorLogs)
+        .where(
+          and(
+            gte(errorLogs.createdAt, startDate),
+            lte(errorLogs.createdAt, endDate),
+            sql`${errorLogs.endpoint} IS NOT NULL`
+          )
+        )
+        .groupBy(errorLogs.endpoint)
+        .orderBy(desc(sql<number>`COUNT(*)`))
+        .limit(10);
+
+      // Get error counts (4xx and 5xx status codes)
+      const errorCount = await db
+        .select({
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(errorLogs)
+        .where(
+          and(
+            gte(errorLogs.createdAt, startDate),
+            lte(errorLogs.createdAt, endDate),
+            sql`${errorLogs.status_code} >= 400 OR ${errorLogs.status_code} IS NULL`
+          )
+        );
+
+      const totalRequests = await db
+        .select({
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(errorLogs)
+        .where(
+          and(
+            gte(errorLogs.createdAt, startDate),
+            lte(errorLogs.createdAt, endDate)
+          )
+        );
+
+      // Get database query performance (using response time as proxy for query time)
+      const dbQueryStats = await db
+        .select({
+          avgQueryTime: sql<number>`AVG(${errorLogs.response_time})`,
+        })
+        .from(errorLogs)
+        .where(
+          and(
+            gte(errorLogs.createdAt, startDate),
+            lte(errorLogs.createdAt, endDate),
+            sql`${errorLogs.response_time} IS NOT NULL`
+          )
+        );
+
+      // Calculate system health metrics
+      const avgResponseTime = apiResponseTimes[0]?.avgResponseTime || 0;
+      const errorRate =
+        (totalRequests[0]?.count || 0) > 0
+          ? ((errorCount[0]?.count || 0) / (totalRequests[0]?.count || 1)) * 100
+          : 0;
+
+      // Performance score (higher is better)
+      let performanceScore = 100;
+      performanceScore -= Math.min(avgResponseTime / 10, 30); // Penalize slow responses
+      performanceScore -= Math.min(errorRate * 5, 30); // Penalize errors
+      performanceScore = Math.max(0, Math.round(performanceScore));
+
+      const metrics = {
+        performanceScore,
+        api: {
+          avgResponseTime: Math.round(avgResponseTime),
+          minResponseTime: apiResponseTimes[0]?.minResponseTime || 0,
+          maxResponseTime: apiResponseTimes[0]?.maxResponseTime || 0,
+          totalRequests: totalRequests[0]?.count || 0,
+          errorCount: errorCount[0]?.count || 0,
+          errorRate: Math.round(errorRate * 100) / 100,
+        },
+        database: {
+          avgQueryTime: dbQueryStats[0]?.avgQueryTime || 0,
+        },
+        topEndpoints: requestsByEndpoint.map((ep) => ({
+          endpoint: ep.endpoint,
+          requests: ep.count,
+        })),
+        period,
+      };
+
+      res.json({
+        success: true,
+        data: metrics,
+      });
+    } catch (error) {
+      console.error("Performance metrics error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch performance metrics",
+      });
+    }
+  }
+);
