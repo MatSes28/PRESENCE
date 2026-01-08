@@ -8,6 +8,7 @@ import {
   schedules,
   subjects,
   enrollments,
+  reportHistory,
 } from "../schema.js";
 import { eq, and, gte, lte, lt, desc, sql } from "drizzle-orm";
 import { reportSchedulerService } from "../services/reportScheduler.js";
@@ -522,30 +523,25 @@ router.post("/generate-report", requireAuth, async (req, res) => {
   }
 });
 
-// Get report history (mock implementation)
+// Get report history
 router.get("/history", requireAuth, async (req, res) => {
   try {
-    // In a real implementation, you'd store report history in the database
-    const history = [
-      {
-        id: "report_001",
-        name: "Daily Attendance Summary",
-        type: "attendance",
-        generatedAt: new Date(Date.now() - 86400000), // Yesterday
-        status: "completed",
-        recipients: ["admin@clsu.edu.ph"],
-        downloadUrl: "/reports/download/report_001.pdf",
-      },
-      {
-        id: "report_002",
-        name: "Weekly Performance Report",
-        type: "performance",
-        generatedAt: new Date(Date.now() - 604800000), // Last week
-        status: "completed",
-        recipients: ["admin@clsu.edu.ph"],
-        downloadUrl: "/reports/download/report_002.pdf",
-      },
-    ];
+    const { limit = 20, offset = 0 } = req.query;
+
+    const history = await db
+      .select({
+        id: reportHistory.id,
+        name: reportHistory.name,
+        type: reportHistory.type,
+        generatedAt: reportHistory.generatedAt,
+        status: reportHistory.status,
+        recipients: reportHistory.recipients,
+        downloadUrl: reportHistory.downloadUrl,
+      })
+      .from(reportHistory)
+      .orderBy(desc(reportHistory.generatedAt))
+      .limit(parseInt(limit as string))
+      .offset(parseInt(offset as string));
 
     res.json({
       success: true,

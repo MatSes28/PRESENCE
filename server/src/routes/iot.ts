@@ -2,6 +2,7 @@ import { Router } from "express";
 import { iotDeviceManager } from "../services/iotDeviceManager.js";
 import { sendToDevice, broadcastToWebClients } from "../services/websocket.js";
 import { validateRequest, validationRules } from "../middleware/validation.js";
+import { v4 as uuidv4 } from "uuid";
 
 const router = Router();
 
@@ -56,7 +57,7 @@ const requireDeviceAuth = async (req: any, res: any, next: any) => {
   }
 };
 
-// Get all IoT devices
+// Get all IoT devices with classroom info
 router.get("/devices", requireAuth, async (req, res) => {
   try {
     const devices = await iotDeviceManager.getAllDevices();
@@ -506,6 +507,289 @@ router.post("/devices/:deviceId/certificate", requireAuth, async (req, res) => {
   }
 });
 
+// ============================================
+// DEVICE-TO-SERVER COMMUNICATION ENDPOINTS
+// These endpoints are called by IoT devices
+// ============================================
+
+// Device heartbeat endpoint (called by devices)
+router.post("/heartbeat", requireDeviceAuth, async (req: any, res: any) => {
+  try {
+    const {
+      status,
+      batteryLevel,
+      signalStrength,
+      temperature,
+      uptime,
+      metadata,
+    } = req.body;
+
+    const heartbeatData = {
+      deviceId: req.deviceId,
+      timestamp: new Date().toISOString(),
+      status: status || "online",
+      batteryLevel,
+      signalStrength,
+      temperature,
+      uptime,
+      metadata,
+    };
+
+    await iotDeviceManager.recordHeartbeat(req.deviceId, heartbeatData);
+
+    // Broadcast heartbeat to web clients
+    broadcastToWebClients("deviceHeartbeat", heartbeatData);
+
+    res.json({
+      success: true,
+      message: "Heartbeat recorded",
+      serverTime: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Heartbeat error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to record heartbeat",
+    });
+  }
+});
+
+// RFID scan endpoint (called by devices)
+router.post(
+  "/attendance/rfid",
+  requireDeviceAuth,
+  async (req: any, res: any) => {
+    try {
+      const { rfidUid, timestamp } = req.body;
+      const requestId = uuidv4();
+
+      if (!rfidUid) {
+        return res.status(400).json({
+          success: false,
+          message: "RFID UID is required",
+        });
+      }
+
+      // Import attendance monitor dynamically to avoid circular dependencies
+      const { attendanceMonitor } = await import(
+        "../services/attendanceMonitor.js"
+      );
+
+      console.log(
+        `[IoT RFID] Device ${req.deviceId} scanned RFID: ${rfidUid} (Request: ${requestId})`
+      );
+
+      const result = await attendanceMonitor.processRFIDScan({
+        deviceId: req.deviceId,
+        rfidUid,
+        timestamp: timestamp || new Date().toISOString(),
+      });
+
+      // Broadcast to web clients
+      broadcastToWebClients("rfidScan", {
+        requestId,
+        deviceId: req.deviceId,
+        rfidUid,
+        result,
+        timestamp: new Date().toISOString(),
+      });
+
+      res.json({
+        success: true,
+        requestId,
+        message: "RFID scan processed",
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("RFID scan error:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to process RFID scan",
+      });
+    }
+  }
+);
+
+// Ultrasonic sensor data endpoint (called by devices)
+router.post(
+  "/sensor/ultrasonic",
+  requireDeviceAuth,
+  async (req: any, res: any) => {
+    try {
+      const { distance, timestamp } = req.body;
+      const requestId = uuidv4();
+
+      if (distance === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: "Distance value is required",
+        });
+      }
+
+      // Process sensor data for presence detection using processSensorTrigger
+      const { attendanceMonitor } = await import(
+        "../services/attendanceMonitor.js"
+      );
+
+      const result = await attendanceMonitor.processSensorTrigger({
+        deviceId: req.deviceId,
+        sensorType: distance > 100 ? "entry" : "exit",
+        distance,
+        timestamp: timestamp || new Date().toISOString(),
+      });
+
+      // Broadcast to web clients
+      broadcastToWebClients("sensorData", {
+        requestId,
+        deviceId: req.deviceId,
+        sensorType: "ultrasonic",
+        value: distance,
+        result,
+        timestamp: new Date().toISOString(),
+      });
+
+      res.json({
+        success: true,
+        requestId,
+        message: "Sensor data processed",
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("Ultrasonic sensor error:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to process sensor data",
+      });
+    }
+  }
+);
+
+// Combined sensor data endpoint (called by devices with both RFID and ultrasonic)
+router.post(
+  "/attendance/combined",
+  requireDeviceAuth,
+  async (req: any, res: any) => {
+    try {
+      const { rfidUid, distance, timestamp } = req.body;
+      const requestId = uuidv4();
+
+      if (!rfidUid && distance === undefined) {
+        return res.status(400).json({
+          success: false,
+          message: "At least RFID UID or distance value is required",
+        });
+      }
+
+      const { attendanceMonitor } = await import(
+        "../services/attendanceMonitor.js"
+      );
+
+      console.log(
+        `[IoT Combined] Device ${req.deviceId} - RFID: ${rfidUid}, Distance: ${distance}cm (Request: ${requestId})`
+      );
+
+      // Process RFID scan first if present
+      let rfidResult = null;
+      if (rfidUid) {
+        rfidResult = await attendanceMonitor.processRFIDScan({
+          deviceId: req.deviceId,
+          rfidUid,
+          timestamp: timestamp || new Date().toISOString(),
+        });
+      }
+
+      // Process sensor trigger if distance is present
+      let sensorResult = null;
+      if (distance !== undefined) {
+        sensorResult = await attendanceMonitor.processSensorTrigger({
+          deviceId: req.deviceId,
+          sensorType: distance > 100 ? "entry" : "exit",
+          distance,
+          timestamp: timestamp || new Date().toISOString(),
+        });
+      }
+
+      const result = {
+        rfidResult,
+        sensorResult,
+        success: !!(rfidResult?.success || sensorResult?.success),
+      };
+
+      // Broadcast to web clients
+      broadcastToWebClients("combinedSensorData", {
+        requestId,
+        deviceId: req.deviceId,
+        rfidUid,
+        distance,
+        result,
+        timestamp: new Date().toISOString(),
+      });
+
+      res.json({
+        success: true,
+        requestId,
+        message: "Combined sensor data processed",
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("Combined sensor error:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to process combined sensor data",
+      });
+    }
+  }
+);
+
+// Device status update endpoint (called by devices)
+router.post("/status", requireDeviceAuth, async (req: any, res: any) => {
+  try {
+    const { status, config } = req.body;
+
+    await iotDeviceManager.updateDeviceStatus(req.deviceId, status, config);
+
+    // Broadcast status update
+    broadcastToWebClients("deviceStatusUpdate", {
+      deviceId: req.deviceId,
+      status,
+      config,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      message: "Status updated",
+      serverTime: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Device status update error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update device status",
+    });
+  }
+});
+
+// Device diagnostics endpoint (called by devices)
+router.post("/diagnostics", requireDeviceAuth, async (req: any, res: any) => {
+  try {
+    const diagnostics = await iotDeviceManager.performHealthCheck(req.deviceId);
+
+    res.json({
+      success: true,
+      deviceId: req.deviceId,
+      diagnostics,
+      serverTime: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Device diagnostics error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get device diagnostics",
+    });
+  }
+});
+
 // Simulate RFID tap for testing (requires device authentication)
 router.post(
   "/attendance/simulate-rfid",
@@ -549,7 +833,7 @@ router.post(
         console.error(`[SIMULATE RFID] Error processing RFID scan:`, error);
         simulatedData.processingResult = {
           success: false,
-          message: error.message,
+          message: (error as Error).message,
         };
       }
 
@@ -570,5 +854,64 @@ router.post(
     }
   }
 );
+
+// ============================================
+// HEALTH AND MAINTENANCE ENDPOINTS
+// ============================================
+
+// Get maintenance recommendations
+router.get("/maintenance", requireAuth, async (req, res) => {
+  try {
+    const recommendations =
+      await iotDeviceManager.getMaintenanceRecommendations();
+
+    res.json({
+      success: true,
+      recommendations,
+    });
+  } catch (error) {
+    console.error("Get maintenance recommendations error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Perform bulk health check
+router.post("/health-check/bulk", requireAuth, async (req, res) => {
+  try {
+    const result = await iotDeviceManager.performBulkHealthCheck();
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Bulk health check error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
+
+// Get all health metrics
+router.get("/health/all", requireAuth, async (req, res) => {
+  try {
+    const metrics = await iotDeviceManager.getAllHealthMetrics();
+
+    res.json({
+      success: true,
+      metrics,
+    });
+  } catch (error) {
+    console.error("Get all health metrics error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+});
 
 export default router;

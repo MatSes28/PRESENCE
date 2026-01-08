@@ -706,3 +706,20 @@ export type NewSystemSetting = typeof systemSettings.$inferInsert;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
+
+// Report History table - For tracking generated reports
+export const reportHistory = pgTable("report_history", {
+  id: serial("id").primaryKey(),
+  reportType: varchar("report_type", { length: 50 }).notNull(), // attendance, enrollment, summary
+  generatedBy: integer("generated_by").references(() => users.id),
+  filePath: varchar("file_path", { length: 500 }),
+  parameters: jsonb("parameters"), // Filters used for the report
+  recordCount: integer("record_count"),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  status: varchar("status", { length: 20 }).default("completed").notNull(), // completed, failed
+  errorMessage: text("error_message"),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+export type ReportHistory = typeof reportHistory.$inferSelect;
+export type NewReportHistory = typeof reportHistory.$inferInsert;

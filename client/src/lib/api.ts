@@ -727,6 +727,64 @@ class ApiClient {
   async getAnalytics(period: string = "7d") {
     return this.request(`/dashboard/analytics?period=${period}`);
   }
+
+  // Dashboard endpoints
+  async getDashboardStats() {
+    return this.request("/dashboard/stats");
+  }
+
+  async getDashboardActivity() {
+    return this.request("/dashboard/activity");
+  }
+
+  async getActiveSessions() {
+    return this.request("/dashboard/sessions/active");
+  }
+
+  async getDashboardAlerts() {
+    return this.request("/dashboard/alerts");
+  }
+
+  async sendAttendanceAlert(data: {
+    studentId: number;
+    sessionId: number;
+    alertType: string;
+  }) {
+    return this.request("/dashboard/alerts/attendance/send", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async sendParentNotification(data: {
+    studentId: number;
+    message: string;
+    notificationType: string;
+  }) {
+    return this.request("/dashboard/notifications/parent", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async sendBulkParentNotification(data: {
+    studentIds: number[];
+    message: string;
+    notificationType: string;
+  }) {
+    return this.request("/dashboard/notifications/parent/bulk", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getSecurityMetrics() {
+    return this.request("/dashboard/security/metrics");
+  }
+
+  async getPerformanceMetrics() {
+    return this.request("/dashboard/performance/metrics");
+  }
 }
 
 export const api = new ApiClient();
