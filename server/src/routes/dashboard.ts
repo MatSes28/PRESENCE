@@ -726,7 +726,7 @@ router.get(
         .select({
           id: auditLogs.id,
           action: auditLogs.action,
-          description: auditLogs.description,
+          details: auditLogs.metadata,
           userId: auditLogs.userId,
           timestamp: auditLogs.timestamp,
         })
@@ -735,7 +735,7 @@ router.get(
           and(
             gte(auditLogs.timestamp, startDate),
             lte(auditLogs.timestamp, endDate),
-            eq(auditLogs.riskLevel, "high")
+            sql`action LIKE '%high_risk%'`
           )
         )
         .orderBy(desc(auditLogs.timestamp))
@@ -779,7 +779,9 @@ router.get(
         suspiciousActivities: suspiciousActivities.map((activity) => ({
           id: activity.id,
           action: activity.action,
-          description: activity.description,
+          description: activity.details
+            ? JSON.stringify(activity.details)
+            : "High risk activity detected",
           riskLevel: "high",
           timestamp: activity.timestamp,
         })),
@@ -830,16 +832,16 @@ router.get(
       // Get API response times (from error logs which track response times)
       const apiResponseTimes = await db
         .select({
-          avgResponseTime: sql<number>`AVG(${errorLogs.response_time})`,
-          minResponseTime: sql<number>`MIN(${errorLogs.response_time})`,
-          maxResponseTime: sql<number>`MAX(${errorLogs.response_time})`,
+          avgResponseTime: sql<number>`AVG(${errorLogs.responseTime})`,
+          minResponseTime: sql<number>`MIN(${errorLogs.responseTime})`,
+          maxResponseTime: sql<number>`MAX(${errorLogs.responseTime})`,
         })
         .from(errorLogs)
         .where(
           and(
-            gte(errorLogs.createdAt, startDate),
-            lte(errorLogs.createdAt, endDate),
-            sql`${errorLogs.response_time} IS NOT NULL`
+            gte(errorLogs.timestamp, startDate),
+            lte(errorLogs.timestamp, endDate),
+            sql`${errorLogs.responseTime} IS NOT NULL`
           )
         );
 
@@ -852,8 +854,8 @@ router.get(
         .from(errorLogs)
         .where(
           and(
-            gte(errorLogs.createdAt, startDate),
-            lte(errorLogs.createdAt, endDate),
+            gte(errorLogs.timestamp, startDate),
+            lte(errorLogs.timestamp, endDate),
             sql`${errorLogs.endpoint} IS NOT NULL`
           )
         )
@@ -869,9 +871,9 @@ router.get(
         .from(errorLogs)
         .where(
           and(
-            gte(errorLogs.createdAt, startDate),
-            lte(errorLogs.createdAt, endDate),
-            sql`${errorLogs.status_code} >= 400 OR ${errorLogs.status_code} IS NULL`
+            gte(errorLogs.timestamp, startDate),
+            lte(errorLogs.timestamp, endDate),
+            sql`${errorLogs.statusCode} >= 400 OR ${errorLogs.statusCode} IS NULL`
           )
         );
 
@@ -882,22 +884,22 @@ router.get(
         .from(errorLogs)
         .where(
           and(
-            gte(errorLogs.createdAt, startDate),
-            lte(errorLogs.createdAt, endDate)
+            gte(errorLogs.timestamp, startDate),
+            lte(errorLogs.timestamp, endDate)
           )
         );
 
       // Get database query performance (using response time as proxy for query time)
       const dbQueryStats = await db
         .select({
-          avgQueryTime: sql<number>`AVG(${errorLogs.response_time})`,
+          avgQueryTime: sql<number>`AVG(${errorLogs.responseTime})`,
         })
         .from(errorLogs)
         .where(
           and(
-            gte(errorLogs.createdAt, startDate),
-            lte(errorLogs.createdAt, endDate),
-            sql`${errorLogs.response_time} IS NOT NULL`
+            gte(errorLogs.timestamp, startDate),
+            lte(errorLogs.timestamp, endDate),
+            sql`${errorLogs.responseTime} IS NOT NULL`
           )
         );
 
