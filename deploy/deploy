@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# Production Deployment Script for PRESENCE Attendance System
+# This script handles the complete deployment process
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}🚀 Starting PRESENCE Production Deployment${NC}"
+echo "=============================================="
+
+# Step 1: Environment Check
+echo -e "${YELLOW}📋 Step 1: Checking environment...${NC}"
+node --version
+npm --version
+
+# Step 2: Install dependencies
+echo -e "${YELLOW}📦 Step 2: Installing server dependencies...${NC}"
+cd server
+npm ci --only=production
+cd ..
+
+echo -e "${YELLOW}📦 Step 3: Installing client dependencies...${NC}"
+cd client
+npm ci --only=production
+cd ..
+
+# Step 4: Build client
+echo -e "${YELLOW}🏗️ Step 4: Building client...${NC}"
+cd client
+npm run build
+cd ..
+
+# Step 5: Run database migrations
+echo -e "${YELLOW}🗄️ Step 5: Running database migrations...${NC}"
+cd server
+npm run db:migrate
+cd ..
+
+# Step 6: Seed initial data (optional)
+echo -e "${YELLOW}🌱 Step 6: Seeding initial data...${NC}"
+read -p "Do you want to seed initial data? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    cd server
+    npm run db:seed
+    cd ..
+fi
+
+# Step 7: Start the application
+echo -e "${GREEN}✅ Deployment complete!${NC}"
+echo -e "${YELLOW}🚀 Starting production server...${NC}"
+cd server
+npm start

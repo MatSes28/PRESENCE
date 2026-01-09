@@ -16,89 +16,36 @@ alerting:
             - alertmanager:9093
 
 scrape_configs:
-  # Main CLIRDEC:PRESENCE Application
+  # Main PRESENCE Application (Docker Compose)
   - job_name: "presence-app"
     static_configs:
-      - targets: ["app:3000"]
-    metrics_path: "/api/metrics"
+      - targets: ["server:3000"]
+    metrics_path: "/metrics"
     scrape_interval: 15s
     scrape_timeout: 10s
-    http_config:
-      basic_auth:
-        username: "prometheus"
-        password: "secure_password"
 
-  # Load Balancer (HAProxy)
-  - job_name: "haproxy"
+  # Node Exporter for system metrics
+  - job_name: "node"
     static_configs:
-      - targets: ["load-balancer:8404"]
-    scrape_interval: 15s
-    scrape_timeout: 10s
+      - targets: ["node-exporter:9100"]
+    scrape_interval: 30s
+    scrape_timeout: 15s
 
-  # Database (PostgreSQL)
+  # PostgreSQL Exporter (if available)
   - job_name: "postgres"
     static_configs:
-      - targets: ["database:5432"]
+      - targets: ["postgres-exporter:9187"]
     scrape_interval: 30s
     scrape_timeout: 15s
 
-  # Redis Cache
+  # Redis Exporter (if available)
   - job_name: "redis"
     static_configs:
-      - targets: ["redis:6379"]
+      - targets: ["redis-exporter:9121"]
     scrape_interval: 15s
     scrape_timeout: 10s
 
-  # MQTT Broker
-  - job_name: "mqtt"
+  # Self-monitoring
+  - job_name: "prometheus"
     static_configs:
-      - targets: ["mqtt:1883"]
-    scrape_interval: 30s
-    scrape_timeout: 15s
-
-  # Service Registry (Consul)
-  - job_name: "consul"
-    static_configs:
-      - targets: ["service-registry:8500"]
-    metrics_path: "/v1/agent/metrics"
-    params:
-      format: ["prometheus"]
-    scrape_interval: 30s
-    scrape_timeout: 15s
-
-  # Node Exporters (for system metrics)
-  - job_name: "node-exporters"
-    static_configs:
-      - targets:
-          - "presence-app-1:9100"
-          - "presence-app-2:9100"
-          - "presence-app-3:9100"
-          - "database:9100"
-          - "redis:9100"
-    scrape_interval: 30s
-    scrape_timeout: 15s
-
-  # CDN Metrics (if using external CDN)
-  - job_name: "cdn-metrics"
-    static_configs:
-      - targets: ["cdn-monitor:8080"]
-    scrape_interval: 60s # Less frequent for CDN
-    scrape_timeout: 30s
-
-# Remote write configuration (for long-term storage)
-remote_write:
-  - url: "http://victoriametrics:8428/api/v1/write"
-    remote_timeout: 30s
-    queue_config:
-      capacity: 10000
-      max_shards: 30
-      min_shards: 1
-      max_samples_per_send: 1000
-      batch_send_deadline: 5s
-      min_backoff: 30ms
-      max_backoff: 5s
-
-# Remote read configuration
-remote_read:
-  - url: "http://victoriametrics:8428/api/v1/read"
-    remote_timeout: 30s
+      - targets: ["localhost:9090"]

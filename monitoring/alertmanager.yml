@@ -1,150 +1,99 @@
-# Alertmanager configuration for CLIRDEC:PRESENCE System
-# Handles routing and notification of alerts from Prometheus
+# Alertmanager Configuration for CLIRDEC:PRESENCE System
 
 global:
+  resolve_timeout: 5m
   smtp_smarthost: "smtp.gmail.com:587"
-  smtp_from: "alerts@presence.clirdec.edu"
-  smtp_auth_username: "alerts@presence.clirdec.edu"
-  smtp_auth_password: "your-app-password"
+  smtp_from: "clirdecpresence@gmail.com"
+  smtp_auth_username: "clirdecpresence@gmail.com"
+  smtp_auth_password: "${SMTP_PASSWORD}"
   smtp_require_tls: true
 
-templates:
-  - "/etc/alertmanager/templates/*.tmpl"
-
 route:
-  group_by: ["alertname", "cluster", "service"]
-  group_wait: 10s
-  group_interval: 10s
-  repeat_interval: 1h
-  receiver: "team-email"
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: "default-receiver"
   routes:
     # Critical alerts - immediate notification
     - match:
         severity: critical
-      receiver: "critical-pager"
+      receiver: "critical-receiver"
       continue: true
 
-    # Database alerts - immediate notification
+    # Warning alerts - during business hours
+    - match:
+        severity: warning
+      receiver: "warning-receiver"
+      group_interval: 10m
+
+    # Database alerts
     - match:
         category: database
-      receiver: "database-team"
+      receiver: "database-receiver"
       continue: true
 
-    # IoT device alerts - immediate notification
+    # IoT device alerts
     - match:
         category: iot
-      receiver: "iot-team"
+      receiver: "iot-receiver"
       continue: true
-
-    # System alerts - immediate notification
-    - match:
-        category: system
-      receiver: "system-team"
-      continue: true
-
-    # Business logic alerts - daily summary
-    - match:
-        category: business
-      receiver: "business-daily"
-      group_interval: 24h
-      repeat_interval: 24h
 
 receivers:
-  # Primary team email for general alerts
-  - name: "team-email"
+  # Default receiver - email all alerts
+  - name: "default-receiver"
     email_configs:
-      - to: "team@clirdec.edu"
-        subject: "{{ .GroupLabels.alertname }} - {{ .Status | title }}"
-        body: |
-          {{ range .Alerts }}
-          Alert: {{ .Annotations.summary }}
-          Description: {{ .Annotations.description }}
-          Severity: {{ .Labels.severity }}
-          Status: {{ .Status }}
-          Started: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
-          {{ if .EndsAt }}Ended: {{ .EndsAt.Format "2006-01-02 15:04:05" }}{{ end }}
-          {{ end }}
+      - to: "admin@clirdec.edu"
+        send_resolved: true
+        headers:
+          Subject: "[PRESENCE Alert] {{ .Status }} - {{ .AlertName }}"
 
-  # Critical alerts - immediate SMS/pager
-  - name: "critical-pager"
-    pagerduty_configs:
-      - service_key: "your-pagerduty-service-key"
-        description: "{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}"
-        severity: "{{ .Labels.severity }}"
-    slack_configs:
-      - api_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
-        channel: "#alerts-critical"
-        title: "🚨 CRITICAL ALERT: {{ .GroupLabels.alertname }}"
-        text: "{{ .CommonAnnotations.description }}"
-        color: "danger"
-
-  # Database team notifications
-  - name: "database-team"
+  # Critical alerts - SMS + Email
+  - name: "critical-receiver"
     email_configs:
-      - to: "dba@clirdec.edu"
-        subject: "🚨 Database Alert: {{ .GroupLabels.alertname }}"
-        body: |
-          Database Alert Details:
-          {{ range .Alerts }}
-          Alert: {{ .Annotations.summary }}
-          Description: {{ .Annotations.description }}
-          Instance: {{ .Labels.instance }}
-          Started: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
-          {{ end }}
-    slack_configs:
-      - api_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
-        channel: "#database-alerts"
-        title: "🗄️ Database Alert: {{ .GroupLabels.alertname }}"
-        color: "warning"
+      - to: "admin@clirdec.edu,director@clirdec.edu"
+        send_resolved: true
+        headers:
+          Subject: "[CRITICAL] PRESENCE System Alert"
+    webhook_configs:
+      - url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+        send_resolved: true
 
-  # IoT team notifications
-  - name: "iot-team"
+  # Warning alerts - Email only during business hours
+  - name: "warning-receiver"
     email_configs:
-      - to: "iot@clirdec.edu"
-        subject: "📡 IoT Alert: {{ .GroupLabels.alertname }}"
-    slack_configs:
-      - api_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
-        channel: "#iot-alerts"
-        title: "📡 IoT Alert: {{ .GroupLabels.alertname }}"
-        color: "good"
+      - to: "admin@clirdec.edu"
+        send_resolved: true
+        headers:
+          Subject: "[WARNING] PRESENCE System Alert"
 
-  # System team notifications
-  - name: "system-team"
+  # Database alerts - DBA team
+  - name: "database-receiver"
     email_configs:
-      - to: "sysadmin@clirdec.edu"
-        subject: "⚙️ System Alert: {{ .GroupLabels.alertname }}"
-    slack_configs:
-      - api_url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
-        channel: "#system-alerts"
-        title: "⚙️ System Alert: {{ .GroupLabels.alertname }}"
-        color: "warning"
+      - to: "dba-team@clirdec.edu"
+        send_resolved: true
+        headers:
+          Subject: "[DB ALERT] PRESENCE Database"
 
-  # Business logic alerts - daily summary
-  - name: "business-daily"
+  # IoT alerts - Lab technicians
+  - name: "iot-receiver"
     email_configs:
-      - to: "management@clirdec.edu"
-        subject: '📊 Daily Business Metrics Summary - {{ .StartsAt.Format "2006-01-02" }}'
-        body: |
-          Daily Business Metrics Summary:
-          {{ range .Alerts }}
-          Alert: {{ .Annotations.summary }}
-          Description: {{ .Annotations.description }}
-          Started: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
-          {{ end }}
+      - to: "lab-tech@clirdec.edu"
+        send_resolved: true
+        headers:
+          Subject: "[IoT ALERT] Device Status Change"
 
-# Inhibition rules to prevent alert spam
 inhibit_rules:
-  # Don't send database alerts if the entire system is down
+  # Suppress warning alerts when critical alert is active
   - source_match:
-      alertname: ServiceDown
-      service: database
+      severity: "critical"
     target_match:
-      category: database
-    equal: ["cluster", "service"]
+      severity: "warning"
+    equal: ["alertname", "instance"]
 
-  # Don't send IoT alerts if network is down
+  # Suppress duplicate alerts for same instance
   - source_match:
-      alertname: NetworkDown
+      severity: "critical"
     target_match:
-      category: iot
-    equal: ["cluster"]
+      severity: "critical"
+    equal: ["instance"]
