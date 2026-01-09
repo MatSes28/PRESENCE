@@ -531,12 +531,13 @@ router.get("/history", requireAuth, async (req, res) => {
     const history = await db
       .select({
         id: reportHistory.id,
-        name: reportHistory.name,
-        type: reportHistory.type,
+        reportType: reportHistory.reportType,
         generatedAt: reportHistory.generatedAt,
         status: reportHistory.status,
-        recipients: reportHistory.recipients,
-        downloadUrl: reportHistory.downloadUrl,
+        recordCount: reportHistory.recordCount,
+        filePath: reportHistory.filePath,
+        errorMessage: reportHistory.errorMessage,
+        parameters: reportHistory.parameters,
       })
       .from(reportHistory)
       .orderBy(desc(reportHistory.generatedAt))
