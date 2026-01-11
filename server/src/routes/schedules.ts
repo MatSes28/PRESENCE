@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { schedules, subjects, classrooms, users } from "../schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
 import multer from "multer";

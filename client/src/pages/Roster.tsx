@@ -73,7 +73,7 @@ export const Roster: React.FC = () => {
     try {
       // Load enrolled students
       const enrolledResponse = await api.get(
-        `/subjects/${selectedSubject}/students`
+        `/enrollments/subject/${selectedSubject}/students`
       );
       let enrolled: Student[] = [];
       if (enrolledResponse.success) {

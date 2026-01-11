@@ -1,4 +1,4 @@
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { errorLogs, errorRecoveryAttempts } from "../shared-schema.js";
 import { monitoringService } from "./monitoringService.js";
 import { alertingService } from "./alertingService.js";

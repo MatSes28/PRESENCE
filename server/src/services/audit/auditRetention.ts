@@ -1,4 +1,4 @@
-import { db } from "../../storage.js";
+import db from "../../storage.js";
 import { auditLogs } from "../../schema.js";
 import { lte, sql } from "drizzle-orm";
 import { auditEventLogger } from "./auditEvents.js";

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import {
   enrollments,
   students,

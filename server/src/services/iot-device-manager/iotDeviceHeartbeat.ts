@@ -1,4 +1,4 @@
-import { db } from "../../storage.js";
+import db from "../../storage.js";
 import { iotDeviceHeartbeats } from "../../schema.js";
 import { eq, desc } from "drizzle-orm";
 

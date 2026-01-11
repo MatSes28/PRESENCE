@@ -1,4 +1,4 @@
-import { db } from "../../storage.js";
+import db from "../../storage.js";
 import { iotDevices } from "../../schema.js";
 import { eq } from "drizzle-orm";
 import { sendToDevice } from "../websocket.js";

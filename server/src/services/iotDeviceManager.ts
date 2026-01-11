@@ -6,7 +6,7 @@
 
 import { randomBytes, createHmac, timingSafeEqual } from "crypto";
 import { EventEmitter } from "events";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { iotDevices } from "../schema.js";
 import { eq, desc } from "drizzle-orm";
 

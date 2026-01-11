@@ -1,4 +1,4 @@
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { sql } from "drizzle-orm";
 import { performance } from "perf_hooks";
 import * as fs from "fs";

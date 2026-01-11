@@ -3,7 +3,7 @@ import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { sql } from "drizzle-orm";
 
 const execAsync = promisify(exec);

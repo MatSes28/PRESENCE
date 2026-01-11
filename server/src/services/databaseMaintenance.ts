@@ -1,4 +1,4 @@
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { sql } from "drizzle-orm";
 import { exec } from "child_process";
 import { promisify } from "util";

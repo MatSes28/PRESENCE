@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { users } from "../schema.js";
 import { eq } from "drizzle-orm";
 import { emailService } from "../services/emailService.js";

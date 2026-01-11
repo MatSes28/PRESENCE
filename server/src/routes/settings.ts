@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { users, systemSettings } from "../shared-schema.js";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";

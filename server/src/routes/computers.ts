@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, and, isNull, inArray, desc } from "drizzle-orm";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import {
   computers,
   computerAssignments,
@@ -34,7 +34,9 @@ router.get("/", requireAuth, async (req, res) => {
         .innerJoin(schedules, eq(computers.classroomId, schedules.classroomId))
         .where(eq(schedules.facultyId, userId));
 
-      const computerIds = [...new Set(facultyComputers.map((c) => c.id))];
+      const computerIds = [
+        ...new Set(facultyComputers.map((c) => c.id)),
+      ] as number[];
 
       if (computerIds.length === 0) {
         return res.json({ success: true, data: [] });

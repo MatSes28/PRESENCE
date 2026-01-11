@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import {
   students,
   attendanceRecords,
@@ -44,7 +44,7 @@ router.get("/", requireAuth, async (req, res) => {
         .innerJoin(schedules, eq(subjects.id, schedules.subjectId))
         .where(eq(schedules.facultyId, userId));
 
-      const subjectIds = facultySubjects.map((s) => s.id);
+      const subjectIds = facultySubjects.map((s) => s.id) as number[];
 
       if (subjectIds.length === 0) {
         return res.json({
@@ -60,7 +60,7 @@ router.get("/", requireAuth, async (req, res) => {
 
       const studentIds = [
         ...new Set(enrolledStudentIds.map((e) => e.studentId)),
-      ];
+      ] as number[];
 
       if (studentIds.length === 0) {
         return res.json({

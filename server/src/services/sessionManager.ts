@@ -1,4 +1,4 @@
-import { db } from "../storage.js";
+import db from "../storage.js";
 import {
   classSessions,
   schedules,
@@ -149,8 +149,8 @@ class SessionManager {
     while (currentDate <= endDate) {
       // Check if it's the correct day of week
       if (currentDate.getDay() === dayOfWeek) {
-        // Skip weekends if specified
-        if (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
+        // Skip weekends (0 = Sunday, 6 = Saturday)
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
           currentDate.setDate(currentDate.getDate() + 1);
           continue;
         }

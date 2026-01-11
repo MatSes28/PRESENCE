@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import speakeasy from "speakeasy";
 import qrcode from "qrcode";
 import crypto from "crypto";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { users, userSessions } from "../schema";
 import { eq, and, lt, sql, desc } from "drizzle-orm";
 

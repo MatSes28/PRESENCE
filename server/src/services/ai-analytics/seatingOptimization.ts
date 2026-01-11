@@ -1,4 +1,4 @@
-import { db } from "../../storage.js";
+import db from "../../storage.js";
 import {
   students,
   attendanceRecords,

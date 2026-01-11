@@ -1,4 +1,4 @@
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { students, users } from "../schema.js";
 import { eq, and } from "drizzle-orm";
 import crypto from "crypto";

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { subjects } from "../schema.js";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth.js";

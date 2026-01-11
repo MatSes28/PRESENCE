@@ -11,7 +11,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 
-import { db } from "./storage.js";
+import db from "./storage.js";
 import routes from "./routes.js";
 import { setupWebSocket } from "./services/websocket.js";
 import { sql, eq } from "drizzle-orm";

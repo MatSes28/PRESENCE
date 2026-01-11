@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { students, attendanceRecords } from "../schema.js";
 import { eq, and, sql } from "drizzle-orm";
 

@@ -1,7 +1,7 @@
 // Production seed script for initial data population
 // WARNING: Only run this in a fresh database
 
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { students, users, subjects, classrooms, schedules } from "../schema.js";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";

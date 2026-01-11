@@ -1,4 +1,4 @@
-import { db } from "../../storage.js";
+import db from "../../storage.js";
 import { auditLogs } from "../../schema.js";
 import { desc } from "drizzle-orm";
 import crypto from "crypto";

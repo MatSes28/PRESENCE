@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { notificationService } from "../services/notificationService.js";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import {
   users,
   students,

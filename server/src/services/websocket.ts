@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { IncomingMessage } from "http";
-import { db } from "../storage.js";
+import db from "../storage.js";
 import { iotDevices } from "../schema.js";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
