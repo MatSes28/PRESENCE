@@ -400,6 +400,10 @@ class ApiClient {
   }
 
   // Enrollments endpoints
+  async getEnrollments() {
+    return this.request("/enrollments");
+  }
+
   async createEnrollment(enrollment: {
     studentId: number;
     subjectId: number;
@@ -421,6 +425,12 @@ class ApiClient {
     return this.request("/enrollments/bulk", {
       method: "POST",
       body: JSON.stringify(enrollments),
+    });
+  }
+
+  async deleteEnrollment(id: number) {
+    return this.request(`/enrollments/${id}`, {
+      method: "DELETE",
     });
   }
 

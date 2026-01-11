@@ -20,6 +20,7 @@ import { UserManagement } from "./pages/UserManagement";
 import { ResetPassword } from "./pages/ResetPassword";
 import { AIAnalytics } from "./pages/AIAnalytics";
 import { Subjects } from "./pages/Subjects";
+import { EnrollmentManagement } from "./pages/EnrollmentManagement";
 import { useEffect } from "react";
 
 function AppContent() {
@@ -160,6 +161,14 @@ function AppContent() {
         component={() => (
           <Layout>
             <Subjects />
+          </Layout>
+        )}
+      />
+      <Route
+        path="/enrollments"
+        component={() => (
+          <Layout>
+            <EnrollmentManagement />
           </Layout>
         )}
       />
