@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { mobileApi } from "../lib/mobileApi";
-import { api } from "../lib/api";
 
 interface User {
   id: number;

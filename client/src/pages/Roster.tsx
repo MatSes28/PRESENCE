@@ -19,14 +19,6 @@ interface Student {
   isEnrolled?: boolean;
 }
 
-interface Enrollment {
-  id: number;
-  studentId: number;
-  subjectId: number;
-  semester: string;
-  academicYear: string;
-}
-
 export const Roster: React.FC = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
@@ -188,46 +180,6 @@ export const Roster: React.FC = () => {
       });
     } finally {
       setUnenrolling(null);
-    }
-  };
-
-  const bulkEnrollStudents = async (studentIds: number[]) => {
-    if (!selectedSubject || studentIds.length === 0) return;
-
-    try {
-      const enrollments = studentIds.map((studentId) => ({
-        studentId,
-        subjectId: parseInt(selectedSubject),
-        semester: "1st Semester",
-        academicYear: new Date().getFullYear().toString(),
-      }));
-
-      const response = await api.post(`/enrollments/bulk`, { enrollments });
-
-      if (response.success) {
-        addNotification({
-          type: "success",
-          title: "Bulk Enrollment Successful",
-          message: `${
-            (response.data as any)?.enrollments?.length || studentIds.length
-          } students enrolled successfully`,
-        });
-        loadRoster();
-        setShowEnrollModal(false);
-      } else {
-        addNotification({
-          type: "error",
-          title: "Bulk Enrollment Failed",
-          message: response.message || "Failed to enroll students",
-        });
-      }
-    } catch (error) {
-      console.error("Bulk enrollment error:", error);
-      addNotification({
-        type: "error",
-        title: "Bulk Enrollment Error",
-        message: "Failed to enroll students. Please try again.",
-      });
     }
   };
 

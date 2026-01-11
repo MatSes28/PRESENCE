@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { api } from "../lib/api";
 import { useNotifications } from "../components/NotificationSystem";
 
 interface ReportParams {
@@ -14,7 +13,6 @@ interface ReportParams {
 export const Reports = () => {
   const { addNotification } = useNotifications();
   const [generating, setGenerating] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [statistics, setStatistics] = useState({
     totalRecords: 0,
@@ -69,8 +67,6 @@ export const Reports = () => {
 
   const loadPreviewData = async (page = pagination.page, filters = {}) => {
     try {
-      setLoading(true);
-
       const offset = (page - 1) * pagination.limit;
       const queryParams = new URLSearchParams({
         limit: pagination.limit.toString(),
@@ -130,8 +126,6 @@ export const Reports = () => {
         absent: 0,
       });
       setPagination((prev) => ({ ...prev, total: 0 }));
-    } finally {
-      setLoading(false);
     }
   };
 
