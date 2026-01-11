@@ -204,12 +204,20 @@ export const computerAssignments = pgTable("computer_assignments", {
 export const iotDevices = pgTable("iot_devices", {
   id: serial("id").primaryKey(),
   deviceId: varchar("device_id", { length: 100 }).notNull().unique(),
+  name: varchar("name", { length: 255 }),
+  location: varchar("location", { length: 255 }),
   classroomId: integer("classroom_id")
     .references(() => classrooms.id)
     .notNull(),
   deviceType: varchar("device_type", { length: 50 }).notNull(), // esp32_s3
+  sensorType: varchar("sensor_type", { length: 50 }), // fingerprint, rfid, face_recognition, dual_sensor
+  mqttTopic: varchar("mqtt_topic", { length: 255 }),
+  macAddress: varchar("mac_address", { length: 17 }),
+  firmwareVersion: varchar("firmware_version", { length: 50 }),
   status: varchar("status", { length: 20 }).default("offline").notNull(), // online, offline, maintenance
   lastSeen: timestamp("last_seen"),
+  batteryLevel: integer("battery_level"),
+  signalStrength: integer("signal_strength"),
   config: jsonb("config"),
   // Security fields
   apiKey: varchar("api_key", { length: 128 }).notNull().unique(), // Generated API key for device authentication
