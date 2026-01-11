@@ -10,7 +10,12 @@ interface IoTDevice {
     deviceType: string;
     status: "online" | "offline" | "maintenance";
     lastSeen: string | null;
-    config: any;
+    config: {
+      rfidEnabled: boolean;
+      ultrasonicEnabled: boolean;
+      heartbeatInterval: number;
+      sensorThreshold: number;
+    };
     apiKey?: string;
     certificateFingerprint?: string;
     isActive: boolean;
