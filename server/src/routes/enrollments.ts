@@ -13,6 +13,11 @@ import {
   requireAdmin,
   requireAdminOrFaculty,
 } from "../middleware/auth.js";
+import {
+  handleRouteError,
+  handleValidationError,
+  handleAuthError,
+} from "../middleware/errorLogging.js";
 
 const router = Router();
 
@@ -188,11 +193,25 @@ router.post("/", requireAdmin, async (req, res) => {
     const { studentId, subjectId, semester, academicYear } = req.body;
 
     if (!studentId || !subjectId || !semester || !academicYear) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Student ID, subject ID, semester, and academic year are required",
-      });
+      return await handleValidationError(
+        req,
+        res,
+        "Student ID, subject ID, semester, and academic year are required"
+      );
+    }
+
+    // Validate studentId and subjectId are numbers
+    if (
+      typeof studentId !== "number" ||
+      isNaN(studentId) ||
+      typeof subjectId !== "number" ||
+      isNaN(subjectId)
+    ) {
+      return await handleValidationError(
+        req,
+        res,
+        "Student ID and Subject ID must be valid numbers"
+      );
     }
 
     // Check if student exists
@@ -245,27 +264,29 @@ router.post("/", requireAdmin, async (req, res) => {
       });
     }
 
-    const [newEnrollment] = await db
-      .insert(enrollments)
-      .values({
-        studentId,
-        subjectId,
-        semester,
-        academicYear,
-      })
-      .returning();
+    try {
+      const [newEnrollment] = await db
+        .insert(enrollments)
+        .values({
+          studentId,
+          subjectId,
+          semester,
+          academicYear,
+        })
+        .returning();
 
-    res.status(201).json({
-      success: true,
-      message: "Enrollment created successfully",
-      enrollment: newEnrollment,
-    });
+      res.status(201).json({
+        success: true,
+        message: "Enrollment created successfully",
+        enrollment: newEnrollment,
+      });
+    } catch (error) {
+      console.error("Create enrollment database error:", error);
+      await handleRouteError(error, req, res, "create_enrollment");
+    }
   } catch (error) {
     console.error("Create enrollment error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    await handleRouteError(error, req, res, "create_enrollment");
   }
 });
 
@@ -348,11 +369,23 @@ router.post("/bulk", requireAdmin, async (req, res) => {
       !semester ||
       !academicYear
     ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Student IDs array, subject ID, semester, and academic year are required",
-      });
+      return await handleValidationError(
+        req,
+        res,
+        "Student IDs array, subject ID, semester, and academic year are required"
+      );
+    }
+
+    // Validate student IDs are numbers
+    const invalidStudentIds = studentIds.filter(
+      (id: any) => typeof id !== "number" || isNaN(id)
+    );
+    if (invalidStudentIds.length > 0) {
+      return await handleValidationError(
+        req,
+        res,
+        "All student IDs must be valid numbers"
+      );
     }
 
     // Check if subject exists
@@ -366,6 +399,25 @@ router.post("/bulk", requireAdmin, async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Subject not found",
+      });
+    }
+
+    // Check if all students exist
+    const studentsCheck = await db
+      .select({ id: students.id })
+      .from(students)
+      .where(inArray(students.id, studentIds));
+
+    const nonExistentStudentIds = studentIds.filter(
+      (id: number) => !studentsCheck.some((s) => s.id === id)
+    );
+
+    if (nonExistentStudentIds.length > 0) {
+      return res.status(404).json({
+        success: false,
+        message: `Students with IDs ${nonExistentStudentIds.join(
+          ", "
+        )} not found`,
       });
     }
 
@@ -397,7 +449,7 @@ router.post("/bulk", requireAdmin, async (req, res) => {
       });
     }
 
-    const enrollmentsData = studentIds.map((studentId) => ({
+    const enrollmentsData = studentIds.map((studentId: number) => ({
       studentId,
       subjectId,
       semester,
@@ -417,27 +469,11 @@ router.post("/bulk", requireAdmin, async (req, res) => {
       });
     } catch (error) {
       console.error("Bulk enrollment database error:", error);
-
-      // Handle specific database errors
-      if (error.message && error.message.includes("duplicate key")) {
-        res.status(409).json({
-          success: false,
-          message:
-            "One or more students are already enrolled in this subject for the specified semester and academic year",
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: "Internal server error",
-        });
-      }
+      await handleRouteError(error, req, res, "bulk_enrollment");
     }
   } catch (error) {
     console.error("Bulk enrollment error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    await handleRouteError(error, req, res, "bulk_enrollment");
   }
 });
 
