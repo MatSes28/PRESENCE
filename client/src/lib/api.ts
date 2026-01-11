@@ -444,6 +444,10 @@ class ApiClient {
     return this.request(`/enrollments/subject/${subjectId}/students`);
   }
 
+  async getEnrollmentsForStudent(studentId: number) {
+    return this.request(`/enrollments/student/${studentId}`);
+  }
+
   async simulateRFID(rfidUid: string) {
     return this.request("/attendance/simulate-rfid", {
       method: "POST",

@@ -301,6 +301,39 @@ export const Students = () => {
     studentValidation.clearErrors();
   };
 
+  const handleContactParent = async (studentId: number) => {
+    const message = prompt(
+      "Enter your message to the parent:",
+      `Hello, I'm contacting you regarding your child's academic progress.`
+    );
+
+    if (!message) return;
+
+    try {
+      const response = await api.contactParent(studentId, message);
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Message Sent",
+          message: "Your message has been sent to the parent successfully!",
+        });
+      } else {
+        addNotification({
+          type: "error",
+          title: "Failed to Send Message",
+          message: response.message || "Failed to send message to parent.",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to contact parent:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message: "Failed to send message. Please check your connection.",
+      });
+    }
+  };
+
   const handleCsvUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -937,7 +970,10 @@ export const Students = () => {
                         >
                           View
                         </button>
-                        <button className="text-blue-400 hover:text-blue-300">
+                        <button
+                          onClick={() => handleContactParent(student.id)}
+                          className="text-blue-400 hover:text-blue-300"
+                        >
                           Contact
                         </button>
                         <button
@@ -1023,7 +1059,10 @@ export const Students = () => {
                 >
                   View
                 </button>
-                <button className="text-blue-400 hover:text-blue-300 text-sm">
+                <button
+                  onClick={() => handleContactParent(student.id)}
+                  className="text-blue-400 hover:text-blue-300 text-sm"
+                >
                   Contact
                 </button>
                 {user?.role === "admin" && (

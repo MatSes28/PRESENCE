@@ -62,6 +62,12 @@ const navigationItems: NavItem[] = [
     roles: ["admin", "faculty"],
   },
   {
+    path: "/subject-enrollment",
+    label: "Subject Enrollment",
+    icon: "📋",
+    roles: ["admin"],
+  },
+  {
     path: "/settings",
     label: "Settings",
     icon: "⚙️",
