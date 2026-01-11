@@ -1,69 +1,34 @@
 #!/usr/bin/env node
 
 /**
- * CLIRDEC:PRESENCE - Secure Secret Generation Utility
- *
- * This script generates cryptographically secure random strings
- * for JWT secrets and other sensitive configuration values.
- *
- * Usage:
- *   node generate-secrets.js
- *   node generate-secrets.js --length 64
- *   node generate-secrets.js --count 3
+ * Generate secure secrets for production environment
+ * Usage: node generate-secrets.js
  */
 
-const crypto = require("crypto");
+import crypto from "crypto";
 
-function generateSecret(length = 32) {
-  return crypto.randomBytes(length).toString("hex");
-}
+console.log("🔐 Generating secure secrets for production...\n");
 
-function generateBase64Secret(length = 32) {
-  return crypto.randomBytes(length).toString("base64");
-}
+// Generate JWT secrets (64 characters hex)
+const jwtSecret = crypto.randomBytes(32).toString("hex");
+const jwtRefreshSecret = crypto.randomBytes(32).toString("hex");
 
-function generateUrlSafeSecret(length = 32) {
-  return crypto.randomBytes(length).toString("base64url");
-}
+// Generate session secret (32+ characters)
+const sessionSecret = crypto.randomBytes(32).toString("base64");
 
-// Parse command line arguments
-const args = process.argv.slice(2);
-const length =
-  args.find((arg) => arg.startsWith("--length="))?.split("=")[1] || 32;
-const count =
-  args.find((arg) => arg.startsWith("--count="))?.split("=")[1] || 1;
-const format =
-  args.find((arg) => arg.startsWith("--format="))?.split("=")[1] || "hex";
+// Generate IoT API key (32+ characters)
+const iotApiKey = crypto.randomBytes(32).toString("hex");
 
-console.log("🔐 CLIRDEC:PRESENCE - Secure Secret Generator");
-console.log("=".repeat(50));
-console.log(
-  `Generating ${count} secret(s) with ${length} bytes (${length * 2} hex chars)`
-);
-console.log("");
+// Generate database password (16+ characters)
+const dbPassword = crypto.randomBytes(16).toString("base64");
 
-for (let i = 0; i < count; i++) {
-  let secret;
-  switch (format) {
-    case "base64":
-      secret = generateBase64Secret(parseInt(length));
-      break;
-    case "base64url":
-      secret = generateUrlSafeSecret(parseInt(length));
-      break;
-    case "hex":
-    default:
-      secret = generateSecret(parseInt(length));
-      break;
-  }
+console.log("📋 Generated Secrets:");
+console.log("===================");
+console.log(`JWT_SECRET="${jwtSecret}"`);
+console.log(`JWT_REFRESH_SECRET="${jwtRefreshSecret}"`);
+console.log(`SESSION_SECRET="${sessionSecret}"`);
+console.log(`IOT_API_KEY="${iotApiKey}"`);
+console.log(`DB_PASSWORD="${dbPassword}"`);
 
-  console.log(`JWT_SECRET_${i + 1}=${secret}`);
-  console.log(
-    `JWT_REFRESH_SECRET_${i + 1}=${generateSecret(parseInt(length))}`
-  );
-  console.log("");
-}
-
-console.log("📋 Copy these values to your .env file");
-console.log("⚠️  Never commit secrets to version control");
-console.log("🔄 Regenerate secrets for production deployment");
+console.log("\n💡 Copy these values to your .env.production file");
+console.log("🔒 Keep these secrets secure - do not commit to version control!");

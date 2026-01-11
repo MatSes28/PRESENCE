@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { db } from "../../storage.js";
+import db from "../../storage.js";
 import { sql } from "drizzle-orm";
 import { loggerService } from "./logger.js";
 
