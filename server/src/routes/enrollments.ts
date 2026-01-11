@@ -369,6 +369,34 @@ router.post("/bulk", requireAdmin, async (req, res) => {
       });
     }
 
+    // Check for existing enrollments to provide better error messages
+    const existingEnrollments = await db
+      .select()
+      .from(enrollments)
+      .where(
+        and(
+          inArray(enrollments.studentId, studentIds),
+          eq(enrollments.subjectId, subjectId),
+          eq(enrollments.semester, semester),
+          eq(enrollments.academicYear, academicYear)
+        )
+      );
+
+    if (existingEnrollments.length > 0) {
+      const existingStudentIds = existingEnrollments.map((e) => e.studentId);
+      const existingStudentNames = await db
+        .select({ id: students.id, name: students.name })
+        .from(students)
+        .where(inArray(students.id, existingStudentIds));
+
+      const studentNames = existingStudentNames.map((s) => s.name).join(", ");
+      return res.status(409).json({
+        success: false,
+        message: `The following students are already enrolled in this subject for ${semester} ${academicYear}: ${studentNames}`,
+        alreadyEnrolled: existingStudentIds,
+      });
+    }
+
     const enrollmentsData = studentIds.map((studentId) => ({
       studentId,
       subjectId,
@@ -376,16 +404,34 @@ router.post("/bulk", requireAdmin, async (req, res) => {
       academicYear,
     }));
 
-    const newEnrollments = await db
-      .insert(enrollments)
-      .values(enrollmentsData)
-      .returning();
+    try {
+      const newEnrollments = await db
+        .insert(enrollments)
+        .values(enrollmentsData)
+        .returning();
 
-    res.status(201).json({
-      success: true,
-      message: `${newEnrollments.length} students enrolled successfully`,
-      enrollments: newEnrollments,
-    });
+      res.status(201).json({
+        success: true,
+        message: `${newEnrollments.length} students enrolled successfully`,
+        enrollments: newEnrollments,
+      });
+    } catch (error) {
+      console.error("Bulk enrollment database error:", error);
+
+      // Handle specific database errors
+      if (error.message && error.message.includes("duplicate key")) {
+        res.status(409).json({
+          success: false,
+          message:
+            "One or more students are already enrolled in this subject for the specified semester and academic year",
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: "Internal server error",
+        });
+      }
+    }
   } catch (error) {
     console.error("Bulk enrollment error:", error);
     res.status(500).json({

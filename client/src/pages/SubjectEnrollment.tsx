@@ -134,11 +134,28 @@ export const SubjectEnrollment = () => {
         setSelectedStudents([]);
         setShowEnrollForm(false);
       } else {
-        addNotification({
-          type: "error",
-          title: "Enrollment Failed",
-          message: response.message || "Failed to enroll students.",
-        });
+        // Handle specific error cases
+        if (response.message && response.message.includes("already enrolled")) {
+          addNotification({
+            type: "error",
+            title: "Enrollment Failed",
+            message: response.message,
+          });
+          // Remove already enrolled students from selection
+          if (response.alreadyEnrolled) {
+            setSelectedStudents((prev) =>
+              prev.filter((id) => !response.alreadyEnrolled.includes(id))
+            );
+          }
+        } else {
+          addNotification({
+            type: "error",
+            title: "Enrollment Failed",
+            message:
+              response.message ||
+              "Failed to enroll students. Please try again.",
+          });
+        }
       }
     } catch (error) {
       console.error("Failed to enroll students:", error);
