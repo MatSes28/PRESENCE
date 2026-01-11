@@ -6,7 +6,12 @@
 import { EventEmitter } from "events";
 import * as mqtt from "mqtt";
 import db from "../storage";
-import { attendanceSessions, deviceAttendanceLogs, devices } from "../schema";
+import {
+  iotDevices as devices,
+  classSessions as attendanceSessions,
+  attendanceRecords as deviceAttendanceLogs,
+  type AttendanceRecord,
+} from "../schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 
 export interface IoTDeviceConfig {
