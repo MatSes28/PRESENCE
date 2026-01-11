@@ -120,7 +120,7 @@ class SessionManager {
             const updatedSchedules = await db
               .update(schedules)
               .set({ facultyId: operation.facultyId })
-              .where(inArray(schedules.id, scheduleIds))
+              .where(inArray(schedules.id, scheduleIds as number[]))
               .returning();
 
             results.push({ action: "assign_faculty", data: updatedSchedules });

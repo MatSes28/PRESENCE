@@ -10,7 +10,7 @@ import {
   iotDevices as devices,
   classSessions as attendanceSessions,
   attendanceRecords as deviceAttendanceLogs,
-  type AttendanceRecord,
+  type AttendanceRecord as DatabaseAttendanceRecord,
 } from "../schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 
@@ -22,9 +22,10 @@ export interface IoTDeviceConfig {
   sensorType: "fingerprint" | "rfid" | "face_recognition" | "dual_sensor";
 }
 
-export interface AttendanceRecord {
+export interface IoTAttendanceRecord {
   deviceId: string;
   studentId: string;
+  sessionId?: string;
   timestamp: Date;
   status: "present" | "absent" | "late";
   confidence?: number;
@@ -222,18 +223,40 @@ class MQTTIoTService extends EventEmitter {
    */
   private async handleAttendanceRecord(
     deviceId: string,
-    payload: AttendanceRecord
+    payload: IoTAttendanceRecord
   ): Promise<void> {
     try {
+      // Find student by studentId
+      const student = await db.query.students.findFirst({
+        where: (students, { eq }) => eq(students.studentId, payload.studentId),
+      });
+
+      if (!student) {
+        console.error(`[IoT] Student not found: ${payload.studentId}`);
+        return;
+      }
+
+      // Find active class session for this device
+      const activeSession = await db.query.classSessions.findFirst({
+        where: (sessions, { eq }) => eq(sessions.status, "active"),
+      });
+
       const record: typeof deviceAttendanceLogs.$inferInsert = {
-        deviceId: payload.deviceId || deviceId,
-        studentId: payload.studentId,
-        sessionId: payload.sessionId || null,
-        timestamp: new Date(payload.timestamp),
+        studentId: student.id,
+        classSessionId: activeSession?.id || 1, // Default to session 1 if none active
+        entryTime: new Date(payload.timestamp),
         status: payload.status || "present",
-        confidence: payload.confidence || null,
-        method: payload.method || "rfid",
-        synced: true,
+        rfidDetected:
+          payload.method === "rfid" || payload.method === "dual_sensor",
+        sensorDetected:
+          payload.method === "fingerprint" ||
+          payload.method === "face_recognition" ||
+          payload.method === "dual_sensor",
+        isValid: true,
+        discrepancyFlag: false,
+        notes: `Recorded by ${deviceId} with ${
+          payload.confidence || 100
+        }% confidence`,
       };
 
       await db.insert(deviceAttendanceLogs).values(record);
@@ -242,7 +265,7 @@ class MQTTIoTService extends EventEmitter {
       this.emit("attendanceRecorded", {
         deviceId,
         studentId: payload.studentId,
-        timestamp: record.timestamp,
+        timestamp: new Date(payload.timestamp),
         status: record.status,
       });
 
@@ -262,13 +285,6 @@ class MQTTIoTService extends EventEmitter {
     payload: DeviceHeartbeat
   ): Promise<void> {
     try {
-      const heartbeat: typeof deviceAttendanceLogs.$inferInsert = {
-        deviceId: payload.deviceId || deviceId,
-        timestamp: new Date(payload.timestamp || Date.now()),
-        status: payload.status || "online",
-        synced: true,
-      };
-
       // Update device status in database
       await db
         .update(devices)
@@ -278,7 +294,7 @@ class MQTTIoTService extends EventEmitter {
           batteryLevel: payload.batteryLevel || null,
           signalStrength: payload.signalStrength || null,
         })
-        .where(eq(devices.id, deviceId));
+        .where(eq(devices.deviceId, deviceId));
 
       this.emit("deviceHeartbeat", payload);
       console.log(`[IoT] Heartbeat from ${deviceId}: ${payload.status}`);
@@ -301,7 +317,7 @@ class MQTTIoTService extends EventEmitter {
           config: JSON.stringify(payload),
           updatedAt: new Date(),
         })
-        .where(eq(devices.id, deviceId));
+        .where(eq(devices.deviceId, deviceId));
 
       this.emit("configUpdated", { deviceId, config: payload });
       console.log(`[IoT] Configuration updated for ${deviceId}`);
@@ -338,16 +354,19 @@ class MQTTIoTService extends EventEmitter {
   private async handleDeviceRegistration(payload: any): Promise<void> {
     try {
       const deviceData: typeof devices.$inferInsert = {
-        id: payload.deviceId,
+        deviceId: payload.deviceId,
         name: payload.deviceName || `Device ${payload.deviceId}`,
         location: payload.location || "Unassigned",
-        roomId: payload.roomId || null,
+        classroomId: payload.roomId || 1, // Default to classroom 1
         deviceType: payload.deviceType || "esp32",
         sensorType: payload.sensorType || "rfid",
         mqttTopic: `presence/devices/${payload.deviceId}`,
         macAddress: payload.macAddress || null,
         firmwareVersion: payload.firmwareVersion || "1.0.0",
         status: "pending",
+        apiKey: `device_${payload.deviceId}_${Math.random()
+          .toString(36)
+          .substring(2, 10)}`,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -358,7 +377,7 @@ class MQTTIoTService extends EventEmitter {
       await db
         .update(devices)
         .set({ status: "active" })
-        .where(eq(devices.id, payload.deviceId));
+        .where(eq(devices.deviceId, payload.deviceId));
 
       this.emit("deviceRegistered", payload);
       console.log(`[IoT] New device registered: ${payload.deviceId}`);
@@ -375,17 +394,20 @@ class MQTTIoTService extends EventEmitter {
       const timeoutThreshold = new Date(Date.now() - 5 * 60 * 1000); // 5 minutes
 
       try {
-        await db.update(devices).set({ status: "offline" });
-        and(
-          eq.where(
-            (devices.status, "active"),
-            lte(devices.lastSeen, timeoutThreshold)
-          )
-        );
+        // Update devices that haven't sent heartbeat recently
+        await db
+          .update(devices)
+          .set({ status: "offline" })
+          .where(
+            and(
+              eq(devices.status, "active"),
+              lte(devices.lastSeen, timeoutThreshold)
+            )
+          );
 
         // Find devices that haven't sent heartbeat recently
         const offlineDevices = await db.query.devices.findMany({
-          where: (devices, { and, eq }) =>
+          where: (devices, { and, eq, lte }) =>
             and(
               eq(devices.status, "active"),
               lte(devices.lastSeen, timeoutThreshold)
@@ -405,7 +427,7 @@ class MQTTIoTService extends EventEmitter {
   /**
    * Publish message to device or topic
    */
-  publish(topic: string, message: object, qos: number = 1): void {
+  publish(topic: string, message: object, qos: 0 | 1 | 2 = 1): void {
     if (!this.client || !this.client.connected) {
       console.error("[IoT] Cannot publish: MQTT client not connected");
       return;

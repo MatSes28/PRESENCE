@@ -566,9 +566,11 @@ class IoTDeviceManagerService extends EventEmitter {
    */
   async validateAndAuthorizeCommand(
     deviceId: string,
-    command: string
-  ): Promise<boolean> {
-    return true;
+    command: string,
+    payload?: any
+  ): Promise<{ authorized: boolean; reason?: string }> {
+    // Basic validation - all commands are authorized for now
+    return { authorized: true };
   }
 
   /**
