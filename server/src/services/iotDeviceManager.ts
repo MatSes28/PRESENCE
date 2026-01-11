@@ -13,7 +13,8 @@ import { eq, desc } from "drizzle-orm";
 // Device interface definitions
 export interface IoTDevice {
   id: string;
-  device_id: string;
+  deviceId: string;
+  classroomId: number;
   name: string;
   type: DeviceType;
   location: string;
@@ -57,25 +58,27 @@ export interface DeviceConfig {
 }
 
 export interface DeviceRegistrationRequest {
-  device_id: string;
-  name: string;
-  type: DeviceType;
-  location: string;
-  room_id?: string;
-  firmware_version: string;
+  deviceId: string;
+  classroomId: number;
+  deviceType: DeviceType;
+  config?: DeviceConfig;
+  name?: string;
+  firmware_version?: string;
   mac_address?: string;
   ip_address?: string;
 }
 
 export interface DeviceHeartbeat {
-  device_id: string;
-  timestamp: Date;
-  uptime: number;
-  free_heap: number;
-  temperature: number;
-  wifi_signal: number;
-  battery_level?: number;
-  firmware_version?: string;
+  deviceId: string;
+  timestamp: string;
+  status: string;
+  batteryLevel?: number;
+  signalStrength?: number;
+  temperature?: number;
+  uptime?: number;
+  metadata?: any;
+  free_heap?: number;
+  wifi_signal?: number;
 }
 
 export interface AttendanceRecord {
@@ -118,12 +121,12 @@ class IoTDeviceManagerService extends EventEmitter {
     const result = await db
       .insert(iotDevices)
       .values({
-        deviceId: request.device_id,
-        classroomId: 1, // Default, should be from request
-        deviceType: request.type,
+        deviceId: request.deviceId,
+        classroomId: request.classroomId,
+        deviceType: request.deviceType,
         apiKey: apiKey,
         status: "pending",
-        config: JSON.stringify(this.getDefaultConfig(request.type)),
+        config: JSON.stringify(this.getDefaultConfig(request.deviceType)),
         lastHeartbeat: new Date(),
         lastSeen: new Date(),
       })
@@ -134,17 +137,18 @@ class IoTDeviceManagerService extends EventEmitter {
 
     return {
       id: String(device.id),
-      device_id: device.deviceId,
-      name: request.name,
-      type: request.type,
-      location: request.location,
+      deviceId: device.deviceId,
+      classroomId: device.classroomId,
+      name: request.name || request.deviceId,
+      type: request.deviceType,
+      location: "CLIRDEC Building",
       api_key: apiKey,
       secret_key: secretKey,
       status: device.status as DeviceStatus,
-      firmware_version: request.firmware_version,
+      firmware_version: request.firmware_version || "",
       last_heartbeat: device.lastHeartbeat,
       last_seen: device.lastSeen,
-      config: this.getDefaultConfig(request.type),
+      config: this.getDefaultConfig(request.deviceType),
       created_at: device.createdAt,
       updated_at: device.updatedAt,
     };
@@ -167,7 +171,8 @@ class IoTDeviceManagerService extends EventEmitter {
     const device = result[0];
     return {
       id: String(device.id),
-      device_id: device.deviceId,
+      deviceId: device.deviceId,
+      classroomId: device.classroomId,
       name: device.deviceId,
       type: device.deviceType as DeviceType,
       location: "CLIRDEC Building",
@@ -194,7 +199,8 @@ class IoTDeviceManagerService extends EventEmitter {
 
     return result.map((device) => ({
       id: String(device.id),
-      device_id: device.deviceId,
+      deviceId: device.deviceId,
+      classroomId: device.classroomId,
       name: device.deviceId,
       type: device.deviceType as DeviceType,
       location: "CLIRDEC Building",
@@ -225,7 +231,8 @@ class IoTDeviceManagerService extends EventEmitter {
     const device = result[0];
     return {
       id: String(device.id),
-      device_id: device.deviceId,
+      deviceId: device.deviceId,
+      classroomId: device.classroomId,
       name: device.deviceId,
       type: device.deviceType as DeviceType,
       location: "CLIRDEC Building",
@@ -253,7 +260,8 @@ class IoTDeviceManagerService extends EventEmitter {
 
     return result.map((device) => ({
       id: String(device.id),
-      device_id: device.deviceId,
+      deviceId: device.deviceId,
+      classroomId: device.classroomId,
       name: device.deviceId,
       type: device.deviceType as DeviceType,
       location: "CLIRDEC Building",
@@ -380,7 +388,6 @@ class IoTDeviceManagerService extends EventEmitter {
       .set({
         status: "online",
         lastHeartbeat: new Date(),
-        lastSeen: new Date(),
         lastSeen: new Date(),
       })
       .where(eq(iotDevices.deviceId, deviceId));
