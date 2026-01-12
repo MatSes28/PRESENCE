@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import db from "../storage.js";
+import db, { safeExecute } from "../storage.js";
 
 const router = Router();
 
@@ -19,7 +19,7 @@ router.get("/", async (req: Request, res: Response) => {
   try {
     // Check database connection
     const dbStart = Date.now();
-    await db.execute("SELECT 1");
+    await safeExecute("SELECT 1");
     health.checks.database = {
       status: "healthy",
       latency: Date.now() - dbStart,
@@ -71,7 +71,7 @@ router.get("/live", (req: Request, res: Response) => {
 router.get("/ready", async (req: Request, res: Response) => {
   try {
     // Check database
-    await db.execute("SELECT 1");
+    await safeExecute("SELECT 1");
 
     res.status(200).json({
       status: "ready",
