@@ -11,7 +11,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 
-import db, { dbClient } from "./storage.js";
+import db, { dbClient, safeExecute } from "./storage.js";
 import routes from "./routes.js";
 import { setupWebSocket } from "./services/websocket.js";
 import { sql, eq } from "drizzle-orm";
@@ -189,7 +189,7 @@ app.get("/health", async (req, res) => {
 
     // Check database connectivity
     try {
-      await dbClient.execute(sql`SELECT 1`);
+      await safeExecute("SELECT 1");
       healthChecks.database = true;
     } catch (error) {
       console.error("Database health check failed:", error);
@@ -432,7 +432,7 @@ let isDatabaseAvailable = false;
 // Function to check database connectivity
 async function checkDatabaseConnection() {
   try {
-    await dbClient.execute(sql`SELECT 1`);
+    await safeExecute("SELECT 1");
     isDatabaseAvailable = true;
     console.log(`✅ Database connected successfully`);
     return true;

@@ -161,3 +161,23 @@ export default db;
 
 // Export connection pool/client for monitoring
 export { dbClient };
+
+// Safe database execute wrapper to handle errors gracefully
+export async function safeExecute(
+  query: any,
+  params: any[] = []
+): Promise<any> {
+  try {
+    // Use dbClient for raw SQL execution
+    if (useSqlite) {
+      // For SQLite, use the raw database connection
+      return await dbClient.prepare(query).run(params);
+    } else {
+      // For PostgreSQL, use the client directly
+      return await dbClient.query(query, params);
+    }
+  } catch (error) {
+    console.error("Database execution error:", error);
+    throw new Error("Database operation failed");
+  }
+}
