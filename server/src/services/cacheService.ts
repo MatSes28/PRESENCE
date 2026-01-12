@@ -18,7 +18,7 @@ class CacheService {
   private keyPrefix = "clirdec_presence:";
 
   constructor() {
-    const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+    const redisUrl = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 
     // Redis configuration with production optimizations
     this.client = createClient({
