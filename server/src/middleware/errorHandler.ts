@@ -198,8 +198,16 @@ export const notFoundHandler = (
 
 // Unhandled promise rejection handler
 process.on("unhandledRejection", (reason: any, promise: Promise<any>) => {
+  const errorMessage =
+    reason instanceof Error ? reason.message : String(reason);
+  const error = new Error(`Unhandled Promise Rejection: ${errorMessage}`);
+
+  // Check if this is a SQL error
+  const isSqlError =
+    errorMessage.includes("SQL") || errorMessage.includes("sqlite");
+
   monitoringService.logError(
-    new Error(`Unhandled Promise Rejection: ${reason}`),
+    error,
     {
       endpoint: "system",
       requestId: "system",
@@ -208,10 +216,18 @@ process.on("unhandledRejection", (reason: any, promise: Promise<any>) => {
       reason: reason?.toString(),
       promise: promise?.toString(),
       stack: reason?.stack,
+      isSqlError: isSqlError,
+      errorType: isSqlError ? "SQL_ERROR" : "GENERIC_ERROR",
     }
   );
 
   console.error("Unhandled Promise Rejection:", reason);
+
+  // Exit on SQL errors to prevent data corruption
+  if (isSqlError) {
+    console.error("🚨 SQL error detected, exiting to prevent data corruption");
+    process.exit(1);
+  }
 });
 
 // Uncaught exception handler
