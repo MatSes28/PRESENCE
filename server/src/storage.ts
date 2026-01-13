@@ -169,7 +169,8 @@ export async function safeExecute(
 ): Promise<any> {
   try {
     // Use dbClient for raw SQL execution
-    if (useSqlite) {
+    // Check if we're using SQLite by checking the dbClient type
+    if (dbClient.prepare && dbClient.exec) {
       // For SQLite, use the raw database connection
       if (params.length > 0) {
         return await dbClient.prepare(query).run(params);
