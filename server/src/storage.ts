@@ -171,7 +171,11 @@ export async function safeExecute(
     // Use dbClient for raw SQL execution
     if (useSqlite) {
       // For SQLite, use the raw database connection
-      return await dbClient.prepare(query).run(params);
+      if (params.length > 0) {
+        return await dbClient.prepare(query).run(params);
+      } else {
+        return await dbClient.exec(query);
+      }
     } else {
       // For PostgreSQL, use the client directly
       return await dbClient.query(query, params);
