@@ -21,6 +21,8 @@ import { ResetPassword } from "./pages/ResetPassword";
 import { AIAnalytics } from "./pages/AIAnalytics";
 import { Subjects } from "./pages/Subjects";
 import { EnrollmentManagement } from "./pages/EnrollmentManagement";
+import { StudentDetail } from "./pages/StudentDetail";
+import { StudentEdit } from "./pages/StudentEdit";
 import { useEffect } from "react";
 
 function AppContent() {
@@ -81,6 +83,22 @@ function AppContent() {
         component={() => (
           <Layout>
             <Students />
+          </Layout>
+        )}
+      />
+      <Route
+        path="/students/:id"
+        component={() => (
+          <Layout>
+            <StudentDetail />
+          </Layout>
+        )}
+      />
+      <Route
+        path="/students/:id/edit"
+        component={() => (
+          <Layout>
+            <StudentEdit />
           </Layout>
         )}
       />
