@@ -179,7 +179,13 @@ export async function safeExecute(
       }
     } else {
       // For PostgreSQL, use the client directly
-      return await dbClient.query(query, params);
+      if (typeof dbClient.query === "function") {
+        return await dbClient.query(query, params);
+      } else {
+        // Fallback for PostgreSQL client that doesn't have query method
+        const result = await dbClient.unsafe(query, params);
+        return result;
+      }
     }
   } catch (error) {
     console.error("Database execution error:", error);
