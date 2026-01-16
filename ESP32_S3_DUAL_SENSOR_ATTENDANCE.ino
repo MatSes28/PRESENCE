@@ -346,21 +346,35 @@ void sendSensorData(const char* sensorType, long distance) {
   Serial.printf("Sensor trigger sent: %s, distance: %ld cm\n", sensorType, distance);
 }
 
+String encryptRFIDData(String rfidUid) {
+  // Simple XOR encryption for demonstration
+  // In production, use proper encryption like AES
+  String encrypted = "";
+  for (int i = 0; i < rfidUid.length(); i++) {
+    encrypted += char(rfidUid[i] ^ 0x55); // Simple XOR with 0x55
+  }
+  return encrypted;
+}
+
 void sendRFIDData(String rfidUid) {
   if (!deviceRegistered) return;
+
+  // Encrypt the RFID UID before sending
+  String encryptedUid = encryptRFIDData(rfidUid);
 
   DynamicJsonDocument doc(256);
   doc["type"] = "rfid_scan";
   doc["deviceId"] = DEVICE_ID;
-  doc["rfidUid"] = rfidUid;
+  doc["rfidUid"] = encryptedUid;
+  doc["encrypted"] = true;
   doc["timestamp"] = String(millis());
 
   String message;
   serializeJson(doc, message);
   webSocket.sendTXT(message);
 
-  Serial.print("RFID data sent: ");
-  Serial.println(rfidUid);
+  Serial.print("Encrypted RFID data sent: ");
+  Serial.println(encryptedUid);
 }
 
 void syncTimeWithNTP() {
