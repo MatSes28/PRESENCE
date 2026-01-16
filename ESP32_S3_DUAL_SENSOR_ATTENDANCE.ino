@@ -107,6 +107,9 @@ void setup() {
   // Connect to WiFi
   connectWiFi();
 
+  // Sync time with NTP server
+  syncTimeWithNTP();
+
   // Connect to WebSocket server
   connectWebSocket();
 
@@ -274,6 +277,21 @@ void handleRFIDScan() {
   }
   rfidUid.toUpperCase();
 
+  // RFID collision handling - check if multiple cards are detected
+  if (rfid.PICC_IsNewCardPresent()) {
+    // Multiple cards detected - implement collision avoidance
+    Serial.println("RFID collision detected! Multiple cards present.");
+    
+    // Simple collision resolution: wait and retry
+    delay(100);
+    if (rfid.PICC_IsNewCardPresent()) {
+      Serial.println("Collision persists - skipping this scan");
+      rfid.PICC_HaltA();
+      rfid.PCD_StopCrypto1();
+      return;
+    }
+  }
+
   // Avoid duplicate scans
   if (rfidUid == lastRFIDTag) {
     return;
@@ -343,6 +361,13 @@ void sendRFIDData(String rfidUid) {
 
   Serial.print("RFID data sent: ");
   Serial.println(rfidUid);
+}
+
+void syncTimeWithNTP() {
+  // This is a placeholder for NTP time synchronization
+  // In a real implementation, you would use WiFiUdp and NTPClient
+  // For now, we'll just use the device's internal time
+  Serial.println("Time synchronization: Using device time (NTP would be implemented here)");
 }
 
 void handleCommand(String command, JsonVariant params) {

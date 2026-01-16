@@ -78,9 +78,39 @@ class AttendanceMonitor {
         return { success: false, message: "No active class session" };
       }
 
-      // Check for duplicate attendance within cooldown period
+      // Anti-passback validation
       const attendanceKey = `${studentData.id}-${currentSession.id}`;
       const lastAttendance = this.recentAttendance.get(attendanceKey);
+
+      // Check if student has already entered but not exited
+      if (lastAttendance) {
+        const existingRecord = await db
+          .select()
+          .from(attendanceRecords)
+          .where(
+            and(
+              eq(attendanceRecords.studentId, studentData.id),
+              eq(attendanceRecords.classSessionId, currentSession.id)
+            )
+          )
+          .limit(1);
+
+        if (
+          existingRecord.length &&
+          existingRecord[0].entryTime &&
+          !existingRecord[0].exitTime
+        ) {
+          console.log(
+            `Anti-passback violation: Student ${studentData.id} already entered without exiting`
+          );
+          return {
+            success: false,
+            message: "Anti-passback violation: Already entered without exiting",
+          };
+        }
+      }
+
+      // Check for duplicate attendance within cooldown period
       if (
         lastAttendance &&
         now.getTime() - lastAttendance.getTime() < this.attendanceCooldown
@@ -144,6 +174,18 @@ class AttendanceMonitor {
         return { success: false, message: "No active class session" };
       }
 
+      // Enhanced sensor validation logic
+      // Check for minimum distance threshold to filter out false triggers
+      const MIN_DISTANCE_CM = 5;
+      const MAX_DISTANCE_CM = 100;
+      if (
+        trigger.distance < MIN_DISTANCE_CM ||
+        trigger.distance > MAX_DISTANCE_CM
+      ) {
+        console.log(`Invalid sensor distance: ${trigger.distance}cm`);
+        return { success: false, message: "Invalid sensor distance" };
+      }
+
       // Look for recent RFID scans within validation window
       const recentScans = await this.findRecentRFIDScans(trigger.deviceId, now);
 
@@ -171,7 +213,8 @@ class AttendanceMonitor {
         return { success: false, message: "Student not found" };
       }
 
-      // Update or create attendance record
+      // Anti-passback validation for sensor triggers
+      const attendanceKey = `${student[0].id}-${currentSession.id}`;
       const existingRecord = await db
         .select()
         .from(attendanceRecords)
@@ -182,6 +225,32 @@ class AttendanceMonitor {
           )
         )
         .limit(1);
+
+      if (existingRecord.length) {
+        if (
+          trigger.sensorType === "entry" &&
+          existingRecord[0].entryTime &&
+          !existingRecord[0].exitTime
+        ) {
+          console.log(
+            `Anti-passback violation: Student ${student[0].id} already entered without exiting`
+          );
+          return {
+            success: false,
+            message: "Anti-passback violation: Already entered without exiting",
+          };
+        }
+
+        if (trigger.sensorType === "exit" && !existingRecord[0].entryTime) {
+          console.log(
+            `Invalid exit: Student ${student[0].id} has no entry record`
+          );
+          return {
+            success: false,
+            message: "Invalid exit: No entry record found",
+          };
+        }
+      }
 
       if (existingRecord.length) {
         await this.updateAttendanceRecord(
