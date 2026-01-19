@@ -60,7 +60,7 @@ const requiredEnvVars = [
 ];
 
 const missingEnvVars = requiredEnvVars.filter(
-  (varName) => !process.env[varName] || process.env[varName]?.trim() === ""
+  (varName) => !process.env[varName]
 );
 
 // In Railway/production, don't exit - allow deployment to succeed with warnings
@@ -218,8 +218,8 @@ app.get("/health", async (req, res) => {
     const status = allHealthy
       ? "healthy"
       : healthChecks.database && healthChecks.filesystem
-        ? "degraded"
-        : "unhealthy";
+      ? "degraded"
+      : "unhealthy";
 
     const response = {
       status,

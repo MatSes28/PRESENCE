@@ -49,11 +49,6 @@
             "date": 1768536039352,
             "name": "logs\\combined-2026-01-16.log",
             "hash": "5b2d4c5bc1e04577c2a079fc0e7c986a8e72df738a1df37de6c58d347394873a"
-        },
-        {
-            "date": 1768783067263,
-            "name": "logs\\combined-2026-01-19.log",
-            "hash": "43c6e8fde627b940333ef6939df197a36fc989a85baf7b535a4db5c2714a8f77"
         }
     ],
     "hashType": "sha256"
