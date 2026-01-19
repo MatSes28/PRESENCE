@@ -31,27 +31,27 @@ router.use(monitoringService.createRequestMiddleware());
 // Health and monitoring routes
 router.use("/", healthRoutes);
 
-// Mount route modules with API versioning
-router.use("/api/v1/auth", authRoutes);
-router.use("/api/v1/students", studentRoutes);
-router.use("/api/v1/attendance", attendanceRoutes);
-router.use("/api/v1/classrooms", classroomRoutes);
-router.use("/api/v1/schedules", scheduleRoutes);
-router.use("/api/v1/sessions", classSessionRoutes);
-router.use("/api/v1/reports", reportRoutes);
-router.use("/api/v1/users", userRoutes);
-router.use("/api/v1/computers", computerRoutes);
-router.use("/api/v1/notifications", notificationRoutes);
-router.use("/api/v1/iot", iotRoutes);
-router.use("/api/v1/dashboard", dashboardRoutes);
-router.use("/api/v1/subjects", subjectRoutes);
-router.use("/api/v1/enrollments", enrollmentRoutes);
-router.use("/api/v1/ai-analytics", aiAnalyticsRoutes);
-router.use("/api/v1/mobile", mobileRoutes);
-router.use("/api/v1/integrations", integrationRoutes);
-router.use("/api/v1/settings", settingsRoutes);
-router.use("/api/v1/gdpr", gdprRoutes);
-router.use("/api/v1/privacy", privacyRoutes);
-router.use("/api/v1/audit", auditRoutes);
+// Mount route modules
+router.use("/auth", authRoutes);
+router.use("/students", studentRoutes);
+router.use("/attendance", attendanceRoutes);
+router.use("/classrooms", classroomRoutes);
+router.use("/schedules", scheduleRoutes);
+router.use("/sessions", classSessionRoutes);
+router.use("/reports", reportRoutes);
+router.use("/users", userRoutes);
+router.use("/computers", computerRoutes);
+router.use("/notifications", notificationRoutes);
+router.use("/iot", iotRoutes);
+router.use("/dashboard", dashboardRoutes);
+router.use("/subjects", subjectRoutes);
+router.use("/enrollments", enrollmentRoutes);
+router.use("/ai-analytics", aiAnalyticsRoutes);
+router.use("/mobile", mobileRoutes);
+router.use("/integrations", integrationRoutes);
+router.use("/settings", settingsRoutes);
+router.use("/gdpr", gdprRoutes);
+router.use("/privacy", privacyRoutes);
+router.use("/audit", auditRoutes);
 
 export default router;
