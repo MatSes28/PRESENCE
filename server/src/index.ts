@@ -397,12 +397,6 @@ app.use(
   })
 );
 
-// Initialize session secret if not set
-if (!process.env.SESSION_SECRET) {
-  console.warn("⚠️  SESSION_SECRET not set, generating a fallback secret");
-  process.env.SESSION_SECRET = "fallback-secret-change-in-production";
-}
-
 // Serve static files from client build
 const publicPath = path.join(__dirname, "../../../public");
 console.log("Serving static files from:", publicPath);
@@ -414,18 +408,6 @@ if (!fs.existsSync(publicPath)) {
 }
 
 app.use(express.static(publicPath));
-
-// Session initialization check
-app.use((req, res, next) => {
-  if (!req.session) {
-    console.error("Session not initialized");
-    return res.status(500).json({
-      success: false,
-      message: "Session initialization failed",
-    });
-  }
-  next();
-});
 
 // Routes
 app.use("/api", routes);

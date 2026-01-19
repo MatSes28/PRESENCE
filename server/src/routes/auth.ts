@@ -147,7 +147,6 @@ router.post(
           data: userWithName,
         });
       } else {
-        console.error("Session not available for user:", user.id);
         res.status(500).json({
           success: false,
           message: "Session not available",
