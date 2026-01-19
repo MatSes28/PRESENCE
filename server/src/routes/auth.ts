@@ -252,7 +252,6 @@ router.get("/me", meRateLimit, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });
@@ -403,7 +402,6 @@ router.put("/profile", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });
@@ -482,7 +480,6 @@ router.put("/change-password", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });
@@ -517,7 +514,6 @@ router.put("/settings", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });
@@ -600,7 +596,6 @@ router.post("/forgot-password", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });
@@ -685,7 +680,6 @@ router.post("/reset-password", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });
@@ -739,7 +733,6 @@ router.post("/force-reset-defaults", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });
