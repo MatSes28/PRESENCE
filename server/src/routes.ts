@@ -31,27 +31,27 @@ router.use(monitoringService.createRequestMiddleware());
 // Health and monitoring routes
 router.use("/", healthRoutes);
 
-// Mount route modules without API versioning
-router.use("/api/auth", authRoutes);
-router.use("/api/students", studentRoutes);
-router.use("/api/attendance", attendanceRoutes);
-router.use("/api/classrooms", classroomRoutes);
-router.use("/api/schedules", scheduleRoutes);
-router.use("/api/sessions", classSessionRoutes);
-router.use("/api/reports", reportRoutes);
-router.use("/api/users", userRoutes);
-router.use("/api/computers", computerRoutes);
-router.use("/api/notifications", notificationRoutes);
-router.use("/api/iot", iotRoutes);
-router.use("/api/dashboard", dashboardRoutes);
-router.use("/api/subjects", subjectRoutes);
-router.use("/api/enrollments", enrollmentRoutes);
-router.use("/api/ai-analytics", aiAnalyticsRoutes);
-router.use("/api/mobile", mobileRoutes);
-router.use("/api/integrations", integrationRoutes);
-router.use("/api/settings", settingsRoutes);
-router.use("/api/gdpr", gdprRoutes);
-router.use("/api/privacy", privacyRoutes);
-router.use("/api/audit", auditRoutes);
+// Mount route modules with API versioning
+router.use("/api/v1/auth", authRoutes);
+router.use("/api/v1/students", studentRoutes);
+router.use("/api/v1/attendance", attendanceRoutes);
+router.use("/api/v1/classrooms", classroomRoutes);
+router.use("/api/v1/schedules", scheduleRoutes);
+router.use("/api/v1/sessions", classSessionRoutes);
+router.use("/api/v1/reports", reportRoutes);
+router.use("/api/v1/users", userRoutes);
+router.use("/api/v1/computers", computerRoutes);
+router.use("/api/v1/notifications", notificationRoutes);
+router.use("/api/v1/iot", iotRoutes);
+router.use("/api/v1/dashboard", dashboardRoutes);
+router.use("/api/v1/subjects", subjectRoutes);
+router.use("/api/v1/enrollments", enrollmentRoutes);
+router.use("/api/v1/ai-analytics", aiAnalyticsRoutes);
+router.use("/api/v1/mobile", mobileRoutes);
+router.use("/api/v1/integrations", integrationRoutes);
+router.use("/api/v1/settings", settingsRoutes);
+router.use("/api/v1/gdpr", gdprRoutes);
+router.use("/api/v1/privacy", privacyRoutes);
+router.use("/api/v1/audit", auditRoutes);
 
 export default router;
