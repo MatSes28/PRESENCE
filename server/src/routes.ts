@@ -31,27 +31,27 @@ router.use(monitoringService.createRequestMiddleware());
 // Health and monitoring routes
 router.use("/", healthRoutes);
 
-// Mount route modules
-router.use("/auth", authRoutes);
-router.use("/students", studentRoutes);
-router.use("/attendance", attendanceRoutes);
-router.use("/classrooms", classroomRoutes);
-router.use("/schedules", scheduleRoutes);
-router.use("/sessions", classSessionRoutes);
-router.use("/reports", reportRoutes);
-router.use("/users", userRoutes);
-router.use("/computers", computerRoutes);
-router.use("/notifications", notificationRoutes);
-router.use("/iot", iotRoutes);
-router.use("/dashboard", dashboardRoutes);
-router.use("/subjects", subjectRoutes);
-router.use("/enrollments", enrollmentRoutes);
-router.use("/ai-analytics", aiAnalyticsRoutes);
-router.use("/mobile", mobileRoutes);
-router.use("/integrations", integrationRoutes);
-router.use("/settings", settingsRoutes);
-router.use("/gdpr", gdprRoutes);
-router.use("/privacy", privacyRoutes);
-router.use("/audit", auditRoutes);
+// Mount route modules without API versioning
+router.use("/api/auth", authRoutes);
+router.use("/api/students", studentRoutes);
+router.use("/api/attendance", attendanceRoutes);
+router.use("/api/classrooms", classroomRoutes);
+router.use("/api/schedules", scheduleRoutes);
+router.use("/api/sessions", classSessionRoutes);
+router.use("/api/reports", reportRoutes);
+router.use("/api/users", userRoutes);
+router.use("/api/computers", computerRoutes);
+router.use("/api/notifications", notificationRoutes);
+router.use("/api/iot", iotRoutes);
+router.use("/api/dashboard", dashboardRoutes);
+router.use("/api/subjects", subjectRoutes);
+router.use("/api/enrollments", enrollmentRoutes);
+router.use("/api/ai-analytics", aiAnalyticsRoutes);
+router.use("/api/mobile", mobileRoutes);
+router.use("/api/integrations", integrationRoutes);
+router.use("/api/settings", settingsRoutes);
+router.use("/api/gdpr", gdprRoutes);
+router.use("/api/privacy", privacyRoutes);
+router.use("/api/audit", auditRoutes);
 
 export default router;
