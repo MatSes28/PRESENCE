@@ -18,6 +18,16 @@ class CacheService {
   private keyPrefix = "clirdec_presence:";
 
   constructor() {
+    // Only connect to Redis in production or if explicitly enabled
+    const isRedisEnabled =
+      process.env.REDIS_ENABLED === "true" ||
+      process.env.NODE_ENV === "production";
+
+    if (!isRedisEnabled) {
+      this.isConnected = false;
+      return;
+    }
+
     const redisUrl = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 
     // Redis configuration with production optimizations
@@ -77,7 +87,7 @@ class CacheService {
   async set<T>(
     key: string,
     data: T,
-    options: CacheOptions = {}
+    options: CacheOptions = {},
   ): Promise<boolean> {
     if (!this.isConnected) return false;
 
@@ -178,7 +188,7 @@ class CacheService {
   async setUserData(
     userId: number,
     data: any,
-    ttl: number = 600
+    ttl: number = 600,
   ): Promise<boolean> {
     return this.set(`user:${userId}`, data, { ttl });
   }
@@ -190,7 +200,7 @@ class CacheService {
   async setStudentData(
     studentId: string,
     data: any,
-    ttl: number = 600
+    ttl: number = 600,
   ): Promise<boolean> {
     return this.set(`student:${studentId}`, data, { ttl });
   }
@@ -205,7 +215,7 @@ class CacheService {
     schedules: any[],
     facultyId?: number,
     date?: string,
-    ttl: number = 300
+    ttl: number = 300,
   ): Promise<boolean> {
     const key = facultyId ? `schedules:faculty:${facultyId}` : `schedules:all`;
     const dateKey = date ? `:${date}` : "";
@@ -227,7 +237,7 @@ class CacheService {
   async setAttendanceStats(
     sessionId: number,
     stats: any,
-    ttl: number = 120
+    ttl: number = 120,
   ): Promise<boolean> {
     return this.set(`attendance:stats:${sessionId}`, stats, { ttl });
   }
@@ -239,7 +249,7 @@ class CacheService {
   async setAnalyticsData(
     period: string,
     data: any,
-    ttl: number = 600
+    ttl: number = 600,
   ): Promise<boolean> {
     return this.set(`analytics:${period}`, data, { ttl });
   }
@@ -251,7 +261,7 @@ class CacheService {
   async setComputerAssignments(
     sessionId: number,
     assignments: any[],
-    ttl: number = 180
+    ttl: number = 180,
   ): Promise<boolean> {
     return this.set(`computer_assignments:${sessionId}`, assignments, { ttl });
   }
@@ -266,7 +276,7 @@ class CacheService {
   async setIoTDevices(
     devices: any[],
     classroomId?: number,
-    ttl: number = 300
+    ttl: number = 300,
   ): Promise<boolean> {
     const key = classroomId
       ? `iot_devices:classroom:${classroomId}`
@@ -276,7 +286,7 @@ class CacheService {
 
   async getEnrollments(
     studentId?: number,
-    subjectId?: number
+    subjectId?: number,
   ): Promise<any[] | null> {
     let key = "enrollments";
     if (studentId) key += `:student:${studentId}`;
@@ -288,7 +298,7 @@ class CacheService {
     enrollments: any[],
     studentId?: number,
     subjectId?: number,
-    ttl: number = 1800
+    ttl: number = 1800,
   ): Promise<boolean> {
     let key = "enrollments";
     if (studentId) key += `:student:${studentId}`;
@@ -348,7 +358,7 @@ class CacheService {
 
   async invalidateEnrollments(
     studentId?: number,
-    subjectId?: number
+    subjectId?: number,
   ): Promise<void> {
     if (studentId || subjectId) {
       let pattern = "enrollments";

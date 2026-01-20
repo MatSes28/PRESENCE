@@ -33,7 +33,7 @@ if (useSqlite) {
 
   if (!connectionString) {
     throw new Error(
-      "DATABASE_URL environment variable is required for PostgreSQL"
+      "DATABASE_URL environment variable is required for PostgreSQL",
     );
   }
 
@@ -95,7 +95,7 @@ if (useSqlite) {
     onerror: (err: Error, conn: any) => {
       console.error(
         `🚨 Database connection error (PID: ${conn?.pid}):`,
-        err.message
+        err.message,
       );
     },
 
@@ -123,7 +123,7 @@ if (useSqlite) {
     onpoolconnect: (client: any) => {
       if (process.env.DB_POOL_DEBUG === "true") {
         console.log(
-          `🔗 Connection added to pool (total: ${client.totalCount})`
+          `🔗 Connection added to pool (total: ${client.totalCount})`,
         );
       }
     },
@@ -131,7 +131,7 @@ if (useSqlite) {
     onpoolremove: (client: any) => {
       if (process.env.DB_POOL_DEBUG === "true") {
         console.log(
-          `🔌 Connection removed from pool (total: ${client.totalCount})`
+          `🔌 Connection removed from pool (total: ${client.totalCount})`,
         );
       }
     },
@@ -165,7 +165,7 @@ export { dbClient };
 // Safe database execute wrapper to handle errors gracefully
 export async function safeExecute(
   query: any,
-  params: any[] = []
+  params: any[] = [],
 ): Promise<any> {
   try {
     // Use dbClient for raw SQL execution
@@ -190,5 +190,41 @@ export async function safeExecute(
   } catch (error) {
     console.error("Database execution error:", error);
     throw new Error("Database operation failed");
+  }
+}
+
+// Add db.execute method for compatibility with existing code
+export function addExecuteMethod() {
+  if (!db.execute) {
+    db.execute = async function (sqlQuery: any) {
+      try {
+        // Check if we're using SQLite
+        if (dbClient.prepare && dbClient.exec) {
+          // For SQLite, use prepare/run for queries that return results
+          // or exec for queries that don't
+          let queryString;
+          if (typeof sqlQuery === "object" && sqlQuery.sql) {
+            // Handle drizzle SQL object
+            queryString = sqlQuery.sql;
+          } else if (typeof sqlQuery === "string") {
+            queryString = sqlQuery;
+          } else {
+            queryString = sqlQuery.toString();
+          }
+
+          if (queryString.toLowerCase().startsWith("select")) {
+            return dbClient.prepare(queryString).all();
+          } else {
+            return dbClient.exec(queryString);
+          }
+        } else {
+          // For PostgreSQL, use the existing safeExecute
+          return safeExecute(sqlQuery);
+        }
+      } catch (error) {
+        console.error("db.execute error:", error);
+        throw error;
+      }
+    };
   }
 }

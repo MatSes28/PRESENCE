@@ -11,7 +11,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import bcrypt from "bcryptjs";
 
-import db, { dbClient, safeExecute } from "./storage.js";
+import db, { dbClient, safeExecute, addExecuteMethod } from "./storage.js";
 import routes from "./routes.js";
 import { setupWebSocket } from "./services/websocket.js";
 import { sql, eq } from "drizzle-orm";
@@ -60,7 +60,7 @@ const requiredEnvVars = [
 ];
 
 const missingEnvVars = requiredEnvVars.filter(
-  (varName) => !process.env[varName]
+  (varName) => !process.env[varName],
 );
 
 // In Railway/production, don't exit - allow deployment to succeed with warnings
@@ -71,12 +71,12 @@ if (missingEnvVars.length > 0) {
   console.error("❌ Missing required environment variables:", missingEnvVars);
   if (!isRailway && !isProduction) {
     console.error(
-      "Please set these variables in your .env file or environment"
+      "Please set these variables in your .env file or environment",
     );
     process.exit(1);
   } else {
     console.warn(
-      "⚠️  Running in Railway with missing environment variables - some features may not work"
+      "⚠️  Running in Railway with missing environment variables - some features may not work",
     );
   }
 }
@@ -95,7 +95,7 @@ for (const secret of secretsToValidate) {
       process.exit(1);
     } else {
       console.warn(
-        `⚠️  ${secret.name} is too short - using fallback for Railway deployment`
+        `⚠️  ${secret.name} is too short - using fallback for Railway deployment`,
       );
     }
   }
@@ -108,7 +108,7 @@ if (
   console.log("✅ Environment variables validated successfully");
 } else if (isRailway || isProduction) {
   console.log(
-    "⚠️  Environment validation completed with warnings (Railway deployment)"
+    "⚠️  Environment validation completed with warnings (Railway deployment)",
   );
 }
 
@@ -218,8 +218,8 @@ app.get("/health", async (req, res) => {
     const status = allHealthy
       ? "healthy"
       : healthChecks.database && healthChecks.filesystem
-      ? "degraded"
-      : "unhealthy";
+        ? "degraded"
+        : "unhealthy";
 
     const response = {
       status,
@@ -307,7 +307,7 @@ app.use(
       includeSubDomains: true,
       preload: true,
     },
-  })
+  }),
 );
 app.use(corsOptimization);
 
@@ -394,7 +394,7 @@ app.use(
       maxAge: 8 * 60 * 60 * 1000, // 8 hours (reduced for security)
       path: "/",
     },
-  })
+  }),
 );
 
 // Serve static files from client build
@@ -447,7 +447,7 @@ async function checkDatabaseConnection() {
 async function logTableCounts() {
   if (!isDatabaseAvailable) {
     console.log(
-      "⚠️  Skipping table count logging due to database unavailability"
+      "⚠️  Skipping table count logging due to database unavailability",
     );
     return;
   }
@@ -480,7 +480,7 @@ async function logTableCounts() {
       console.log(
         `  ${name}: ERROR - ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -499,6 +499,9 @@ server.listen({ port: PORT, host: HOST }, () => {
     databaseBackupService.startAutomatedBackup();
     console.log("Automated database backup enabled");
   }
+
+  // Add db.execute method for compatibility
+  addExecuteMethod();
 
   // Check database and create admin user if needed
   checkDatabaseConnection().then(async (dbAvailable) => {
@@ -531,7 +534,7 @@ server.listen({ port: PORT, host: HOST }, () => {
             .set({ password: hashedPassword, isActive: true })
             .where(eq(users.email, "admin@clsu.edu.ph"));
           console.log(
-            "✅ Admin user password updated: admin@clsu.edu.ph / admin123"
+            "✅ Admin user password updated: admin@clsu.edu.ph / admin123",
           );
         }
       } catch (error) {
