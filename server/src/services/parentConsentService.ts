@@ -47,7 +47,7 @@ class ParentConsentService {
   async requestParentConsent(
     studentId: number,
     consentType: ParentConsent["consentType"],
-    requestedBy: number
+    requestedBy: number,
   ): Promise<string> {
     // Get student and parent information
     const student = await db
@@ -79,9 +79,21 @@ class ParentConsentService {
       requestedBy,
     };
 
+    // Log the consent request for GDPR compliance
+    await gdprService.logPrivacyEvent(
+      studentId,
+      `parent_consent_requested`,
+      consentType,
+      "system",
+      "parent_consent_service",
+      `Parent consent requested for ${consentType} by user ${requestedBy}`,
+    );
+
     console.log("Parent Consent Request Created:", consentRequest);
 
-    // TODO: Store in parent_consent_requests table
+    // Store in parent_consent_requests table (when implemented)
+    // For now, we'll log it and return the ID
+    // TODO: Implement database storage for consent requests
     // TODO: Send email to parent with consent link
 
     return consentRequest.id;
@@ -92,7 +104,7 @@ class ParentConsentService {
     token: string,
     consented: boolean,
     ipAddress: string,
-    userAgent: string
+    userAgent: string,
   ): Promise<boolean> {
     // TODO: Find consent request by token from database
     // For now, log the consent request for debugging
@@ -110,12 +122,12 @@ class ParentConsentService {
   // Check if parent consent is valid
   async checkParentConsent(
     studentId: number,
-    consentType: ParentConsent["consentType"]
+    consentType: ParentConsent["consentType"],
   ): Promise<boolean> {
     // TODO: Check database for valid consent
     // For development, log and return false to require actual consent
     console.log(
-      `[GDPR] Checking consent for student ${studentId}, type: ${consentType}`
+      `[GDPR] Checking consent for student ${studentId}, type: ${consentType}`,
     );
     // Return false until database storage is implemented
     return false;
@@ -155,7 +167,7 @@ class ParentConsentService {
   async revokeParentConsent(
     studentId: number,
     consentType: ParentConsent["consentType"],
-    requestedBy: number
+    requestedBy: number,
   ): Promise<void> {
     console.log("Parent Consent Revoked:", {
       studentId,
@@ -184,7 +196,7 @@ class ParentConsentService {
     studentId: number,
     operation: "attendance_tracking" | "email_notification" | "data_access",
     ipAddress: string,
-    userAgent: string
+    userAgent: string,
   ): Promise<boolean> {
     let consentType: ParentConsent["consentType"];
 
@@ -212,7 +224,7 @@ class ParentConsentService {
         `operation: ${operation}, consent_type: ${consentType}`,
         ipAddress,
         userAgent,
-        "Data operation attempted without valid parent consent"
+        "Data operation attempted without valid parent consent",
       );
     }
 
@@ -242,7 +254,7 @@ class ParentConsentService {
       consentStatus,
       reportDate: new Date(),
       validUntil: new Date(
-        Date.now() + this.consentValidityDays * 24 * 60 * 60 * 1000
+        Date.now() + this.consentValidityDays * 24 * 60 * 60 * 1000,
       ),
       privacyPolicy: {
         version: this.consentVersion,
@@ -277,20 +289,29 @@ class ParentConsentService {
 
     if (isProduction) {
       // Send renewal reminders weekly (7 days)
-      setInterval(() => {
-        this.sendConsentRenewalReminders();
-      }, 7 * 24 * 60 * 60 * 1000); // 7 days in milliseconds
+      setInterval(
+        () => {
+          this.sendConsentRenewalReminders();
+        },
+        7 * 24 * 60 * 60 * 1000,
+      ); // 7 days in milliseconds
 
       // Clean up expired consents monthly (30 days) - split into weekly checks
-      setInterval(() => {
-        this.cleanupExpiredConsents();
-      }, 7 * 24 * 60 * 60 * 1000); // Weekly cleanup in production
+      setInterval(
+        () => {
+          this.cleanupExpiredConsents();
+        },
+        7 * 24 * 60 * 60 * 1000,
+      ); // Weekly cleanup in production
     } else {
       // Development: run daily for testing
-      setInterval(() => {
-        this.sendConsentRenewalReminders();
-        this.cleanupExpiredConsents();
-      }, 24 * 60 * 60 * 1000); // Daily in development
+      setInterval(
+        () => {
+          this.sendConsentRenewalReminders();
+          this.cleanupExpiredConsents();
+        },
+        24 * 60 * 60 * 1000,
+      ); // Daily in development
     }
   }
 

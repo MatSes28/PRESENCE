@@ -248,8 +248,12 @@ async function seed() {
     console.log("   Admin: admin@clirdec.edu / Admin123!");
     console.log("   Faculty: faculty@clirdec.edu / Faculty123!");
     console.log(
-      "\n⚠️  IMPORTANT: Change these passwords immediately after first login!"
+      "\n⚠️  IMPORTANT: Change these passwords immediately after first login!",
     );
+    console.log(
+      "\n🔒 SECURITY WARNING: These credentials are for initial setup only.",
+    );
+    console.log("   Remove this seed script from production deployments!");
   } catch (error) {
     console.error("❌ Seed failed:", error);
     throw error;

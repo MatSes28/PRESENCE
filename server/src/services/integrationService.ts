@@ -107,7 +107,7 @@ class IntegrationService {
   // Sync attendance data to external LMS
   async syncAttendanceToLMS(
     integrationId: string,
-    sessionId: number
+    sessionId: number,
   ): Promise<SyncResult> {
     const result: SyncResult = {
       success: false,
@@ -135,7 +135,7 @@ class IntegrationService {
         .innerJoin(students, eq(attendanceRecords.studentId, students.id))
         .innerJoin(
           classSessions,
-          eq(attendanceRecords.classSessionId, classSessions.id)
+          eq(attendanceRecords.classSessionId, classSessions.id),
         )
         .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
         .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
@@ -167,18 +167,25 @@ class IntegrationService {
     };
 
     try {
-      // Google Classroom API integration would go here
+      // Check if Google Classroom API credentials are configured
+      const googleConfig = process.env.GOOGLE_CLASSROOM_API_KEY;
+      if (!googleConfig) {
+        result.errors.push("Google Classroom API credentials not configured");
+        return result;
+      }
+
       console.log(`[GOOGLE_CLASSROOM] Syncing classroom ${classroomId}`);
 
       // TODO: Implement actual Google Classroom API integration
-      // 1. Set up OAuth2 client with credentials
-      // 2. List courses using classroomId
-      // 3. Fetch students from courses
-      // 4. Sync with local database
+      // 1. Set up OAuth2 client with credentials from environment variables
+      // 2. Authenticate using service account or OAuth2 flow
+      // 3. List courses using classroomId
+      // 4. Fetch students from courses
+      // 5. Sync with local database
 
-      // For now, log that integration is pending
+      // For now, log that integration is pending implementation
       result.errors.push(
-        "Google Classroom integration requires API credentials and OAuth setup"
+        "Google Classroom integration requires API implementation",
       );
       return result;
     } catch (error) {
@@ -209,7 +216,7 @@ class IntegrationService {
 
       // For now, log that integration is pending
       result.errors.push(
-        "Microsoft Teams integration requires API credentials and OAuth setup"
+        "Microsoft Teams integration requires API credentials and OAuth setup",
       );
       return result;
     } catch (error) {
@@ -222,7 +229,7 @@ class IntegrationService {
   // Webhook handler for real-time integrations
   async handleWebhook(
     provider: string,
-    payload: any
+    payload: any,
   ): Promise<{ success: boolean; message: string }> {
     try {
       console.log(`[WEBHOOK] Received ${provider} webhook:`, payload);
@@ -246,7 +253,7 @@ class IntegrationService {
   // Export data for external systems
   async exportData(
     format: "csv" | "json" | "xml",
-    dataType: "students" | "attendance" | "sessions"
+    dataType: "students" | "attendance" | "sessions",
   ): Promise<string> {
     try {
       let data: any[] = [];
@@ -267,7 +274,7 @@ class IntegrationService {
             .innerJoin(students, eq(attendanceRecords.studentId, students.id))
             .innerJoin(
               classSessions,
-              eq(attendanceRecords.classSessionId, classSessions.id)
+              eq(attendanceRecords.classSessionId, classSessions.id),
             )
             .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
             .innerJoin(subjects, eq(schedules.subjectId, subjects.id));
@@ -303,7 +310,7 @@ class IntegrationService {
 
   // Private helper methods
   private async syncFromMoodle(
-    integration: IntegrationConfig
+    integration: IntegrationConfig,
   ): Promise<SyncResult> {
     const result: SyncResult = {
       success: false,
@@ -323,7 +330,7 @@ class IntegrationService {
 
       // For now, log that integration is pending
       result.errors.push(
-        "Moodle integration requires API endpoint and token configuration"
+        "Moodle integration requires API endpoint and token configuration",
       );
       return result;
     } catch (error) {
@@ -334,7 +341,7 @@ class IntegrationService {
   }
 
   private async syncFromCanvas(
-    integration: IntegrationConfig
+    integration: IntegrationConfig,
   ): Promise<SyncResult> {
     // Similar implementation for Canvas LMS
     const result: SyncResult = {
@@ -348,14 +355,14 @@ class IntegrationService {
     // 1. Call Canvas API to get users and enrollments
     // 2. Process and sync with local database
     result.errors.push(
-      "Canvas LMS integration requires API endpoint and token configuration"
+      "Canvas LMS integration requires API endpoint and token configuration",
     );
     return result;
   }
 
   private async syncAttendanceToMoodle(
     integration: IntegrationConfig,
-    attendanceData: any[]
+    attendanceData: any[],
   ): Promise<SyncResult> {
     const result: SyncResult = {
       success: false,
@@ -367,13 +374,13 @@ class IntegrationService {
     try {
       // Moodle attendance API calls would go here
       console.log(
-        `[MOODLE] Syncing ${attendanceData.length} attendance records to Moodle`
+        `[MOODLE] Syncing ${attendanceData.length} attendance records to Moodle`,
       );
 
       for (const record of attendanceData) {
         // Simulate API call to Moodle
         console.log(
-          `Marking ${record.student.name} as ${record.record.status} in Moodle`
+          `Marking ${record.student.name} as ${record.record.status} in Moodle`,
         );
         result.syncedRecords++;
       }
@@ -389,7 +396,7 @@ class IntegrationService {
 
   private async syncAttendanceToCanvas(
     integration: IntegrationConfig,
-    attendanceData: any[]
+    attendanceData: any[],
   ): Promise<SyncResult> {
     // Similar implementation for Canvas
     const result: SyncResult = {
@@ -402,7 +409,7 @@ class IntegrationService {
   }
 
   private async handleMoodleWebhook(
-    payload: any
+    payload: any,
   ): Promise<{ success: boolean; message: string }> {
     // Handle Moodle webhook events (enrollment changes, grade updates, etc.)
     console.log("Processing Moodle webhook:", payload.event_type);
@@ -420,14 +427,14 @@ class IntegrationService {
   }
 
   private async handleCanvasWebhook(
-    payload: any
+    payload: any,
   ): Promise<{ success: boolean; message: string }> {
     // Handle Canvas webhook events
     return { success: true, message: "Canvas webhook processed" };
   }
 
   private async handleGoogleClassroomWebhook(
-    payload: any
+    payload: any,
   ): Promise<{ success: boolean; message: string }> {
     // Handle Google Classroom webhook events
     return { success: true, message: "Google Classroom webhook processed" };
@@ -440,9 +447,9 @@ class IntegrationService {
     const rows = data.map((item) =>
       Object.values(item)
         .map((value) =>
-          typeof value === "object" ? JSON.stringify(value) : String(value)
+          typeof value === "object" ? JSON.stringify(value) : String(value),
         )
-        .join(",")
+        .join(","),
     );
 
     return [headers, ...rows].join("\n");
