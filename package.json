@@ -15,7 +15,8 @@
     "check": "npm run check --workspace=client && npm run check --workspace=server"
   },
   "devDependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.0",
+    "pg": "^8.18.0"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
