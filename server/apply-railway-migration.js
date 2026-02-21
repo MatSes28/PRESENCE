@@ -1,11 +1,11 @@
-// Script to check and create session tables in Railway PostgreSQL
+// Script to fix all database issues for Railway PostgreSQL
 import postgres from "postgres";
 
 const connectionString =
   process.env.DATABASE_URL ||
   "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
 
-async function checkAndCreateSessionTable() {
+async function fixDatabase() {
   console.log("🔌 Connecting to Railway PostgreSQL...");
 
   const sql = postgres(connectionString, {
@@ -16,22 +16,17 @@ async function checkAndCreateSessionTable() {
   });
 
   try {
-    // Check what tables exist
-    console.log("\n📋 Checking existing tables...");
-    const tables = await sql`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public'
+    // 1. Check and create session table
+    console.log("\n📋 Checking 'session' table...");
+    const sessionTableExists = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'session'
+      ) as exists
     `;
 
-    console.log("Existing tables:", tables.map((t) => t.table_name).join(", "));
-
-    // Check if 'session' table exists
-    const sessionTableExists = tables.some((t) => t.table_name === "session");
-
-    if (!sessionTableExists) {
-      console.log("\n➕ Creating 'session' table for connect-pg-simple...");
-
+    if (!sessionTableExists[0].exists) {
+      console.log("➕ Creating 'session' table...");
       await sql`
         CREATE TABLE "session" (
           "sid" varchar NOT NULL COLLATE "default",
@@ -42,67 +37,67 @@ async function checkAndCreateSessionTable() {
       `;
       console.log("✅ Created 'session' table");
 
-      // Create index
-      await sql`
-        CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")
-      `;
-      console.log("✅ Created index on expire");
+      await sql`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")`;
+      console.log("✅ Created index");
     } else {
       console.log("✅ 'session' table already exists");
     }
 
-    // Check user_sessions table columns
-    console.log("\n📋 Checking user_sessions columns...");
-    const userSessionsColumns = await sql`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'user_sessions'
-    `;
-
-    const columnNames = userSessionsColumns.map((c) => c.column_name);
-    console.log("user_sessions columns:", columnNames.join(", "));
-
-    // Add missing columns to user_sessions if needed
-    if (!columnNames.includes("user_id")) {
-      console.log("➕ Adding user_id column to user_sessions...");
-      await sql`ALTER TABLE user_sessions ADD COLUMN user_id INTEGER`;
-      console.log("✅ Added user_id column");
-    }
-
-    if (!columnNames.includes("is_active")) {
-      console.log("➕ Adding is_active column to user_sessions...");
-      await sql`ALTER TABLE user_sessions ADD COLUMN is_active BOOLEAN DEFAULT true`;
-      console.log("✅ Added is_active column");
-    }
-
-    // Enable pg_stat_statements extension
-    console.log("\n➕ Enabling pg_stat_statements extension...");
-    try {
-      await sql`CREATE EXTENSION IF NOT EXISTS pg_stat_statements`;
-      console.log("✅ pg_stat_statements enabled");
-    } catch (e) {
-      console.log("⚠️  pg_stat_statements:", e.message);
-    }
-
-    // Check error_logs table
+    // 2. Check current error_logs structure
     console.log("\n📋 Checking error_logs columns...");
     const errorLogsColumns = await sql`
-      SELECT column_name 
+      SELECT column_name, data_type 
       FROM information_schema.columns 
       WHERE table_name = 'error_logs'
     `;
 
-    const errorLogCols = errorLogsColumns.map((c) => c.column_name);
-    console.log("error_logs columns:", errorLogCols.join(", "));
+    const columnNames = errorLogsColumns.map((c) => c.column_name);
+    console.log("Current columns:", columnNames.join(", "));
 
-    // Add level column if missing
-    if (!errorLogCols.includes("level")) {
-      console.log("➕ Adding level column to error_logs...");
-      await sql`ALTER TABLE error_logs ADD COLUMN level varchar(20) NOT NULL DEFAULT 'error'`;
-      console.log("✅ Added level column");
+    // Add missing columns to error_logs
+    if (!columnNames.includes("message")) {
+      console.log("➕ Adding message column...");
+      await sql`ALTER TABLE error_logs ADD COLUMN message TEXT NOT NULL DEFAULT ''`;
     }
 
-    console.log("\n✅ Migration verification completed!");
+    if (!columnNames.includes("stack")) {
+      console.log("➕ Adding stack column...");
+      await sql`ALTER TABLE error_logs ADD COLUMN stack TEXT`;
+    }
+
+    if (!columnNames.includes("level")) {
+      console.log("➕ Adding level column...");
+      await sql`ALTER TABLE error_logs ADD COLUMN level VARCHAR(20) NOT NULL DEFAULT 'error'`;
+    }
+
+    if (!columnNames.includes("category")) {
+      console.log("➕ Adding category column...");
+      await sql`ALTER TABLE error_logs ADD COLUMN category VARCHAR(50) NOT NULL DEFAULT 'system'`;
+    }
+
+    console.log("✅ error_logs table updated");
+
+    // 3. Verify audit_logs table structure
+    console.log("\n📋 Checking audit_logs columns...");
+    const auditLogsColumns = await sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'audit_logs'
+    `;
+
+    const auditCols = auditLogsColumns.map((c) => c.column_name);
+    console.log("audit_logs columns:", auditCols.join(", "));
+
+    if (!auditCols.includes("timestamp")) {
+      console.log("➕ Adding timestamp column to audit_logs...");
+      try {
+        await sql`ALTER TABLE audit_logs ADD COLUMN timestamp TIMESTAMP DEFAULT NOW()`;
+      } catch (e) {
+        console.log("Note:", e.message);
+      }
+    }
+
+    console.log("\n✅ All database fixes applied!");
   } catch (error) {
     console.error("❌ Error:", error);
   } finally {
@@ -110,4 +105,4 @@ async function checkAndCreateSessionTable() {
   }
 }
 
-checkAndCreateSessionTable();
+fixDatabase();
