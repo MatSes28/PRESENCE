@@ -178,7 +178,7 @@ export class MetricsCollector {
         // Windows: Use PowerShell to get drive information
         try {
           const { stdout } = await execAsync(
-            'powershell -Command "Get-WmiObject Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 } | Select-Object DeviceID, Size, FreeSpace | ConvertTo-Json"'
+            'powershell -Command "Get-WmiObject Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 } | Select-Object DeviceID, Size, FreeSpace | ConvertTo-Json"',
           );
 
           const drives = JSON.parse(stdout.trim());
@@ -306,7 +306,7 @@ export class MetricsCollector {
         // Windows: Use PowerShell to get network interface statistics
         try {
           const { stdout } = await execAsync(
-            "powershell -Command \"Get-NetAdapterStatistics | Where-Object { $_.Name -notlike '*Loopback*' -and $_.Name -notlike '*isatap*' -and $_.Name -notlike '*teredo*' } | Select-Object Name, ReceivedBytes, SentBytes, ReceivedPacketsDropped, SentPacketsDropped | ConvertTo-Json\""
+            "powershell -Command \"Get-NetAdapterStatistics | Where-Object { $_.Name -notlike '*Loopback*' -and $_.Name -notlike '*isatap*' -and $_.Name -notlike '*teredo*' } | Select-Object Name, ReceivedBytes, SentBytes, ReceivedPacketsDropped, SentPacketsDropped | ConvertTo-Json\"",
           );
 
           const interfaces = os.networkInterfaces();
@@ -322,7 +322,7 @@ export class MetricsCollector {
           } catch (parseError) {
             // If JSON parsing fails, fall back to basic interface listing
             console.warn(
-              "Failed to parse network statistics JSON, using basic interface info"
+              "Failed to parse network statistics JSON, using basic interface info",
             );
           }
 
@@ -338,7 +338,7 @@ export class MetricsCollector {
                   stat.Name &&
                   name
                     .toLowerCase()
-                    .includes(stat.Name.toLowerCase().replace(/\s+/g, ""))
+                    .includes(stat.Name.toLowerCase().replace(/\s+/g, "")),
               );
 
               stats.push({
@@ -363,7 +363,7 @@ export class MetricsCollector {
         } catch (error) {
           console.warn(
             "PowerShell network stats failed, using basic interface info:",
-            error
+            error,
           );
           // Fallback to basic interface listing
           const interfaces = os.networkInterfaces();
@@ -412,7 +412,7 @@ export class MetricsCollector {
         } catch (error) {
           console.warn(
             "All network stats collection methods failed, using basic interface info:",
-            error
+            error,
           );
           return this.getBasicNetworkStats();
         }
@@ -425,7 +425,7 @@ export class MetricsCollector {
 
   // Parse standard ip link output
   private parseIpLinkOutput(
-    output: string
+    output: string,
   ): SystemMetrics["network"]["interfaces"] {
     const lines = output.trim().split("\n");
     const interfaces = os.networkInterfaces();
@@ -483,7 +483,7 @@ export class MetricsCollector {
 
   // Parse BusyBox ip link output (simpler format)
   private parseBusyBoxIpOutput(
-    output: string
+    output: string,
   ): SystemMetrics["network"]["interfaces"] {
     const lines = output.trim().split("\n");
     const interfaces = os.networkInterfaces();
@@ -647,35 +647,44 @@ export class MetricsCollector {
             "pg_stat_activity not accessible, using basic connection info",
             {
               error: error.message,
-            }
+            },
           );
         // Keep the basic connection info we set earlier
       }
 
       // Try performance stats if pg_stat_statements is available
+      // Note: pg_stat_statements extension must be enabled in PostgreSQL
+      // Run: CREATE EXTENSION pg_stat_statements;
       try {
-        const perfStats = await db.execute(sql`
-          SELECT
-            COALESCE(sum(blks_hit) * 100.0 / NULLIF((sum(blks_hit) + sum(blks_read)), 0), 0) as cache_hit_ratio,
-            COALESCE(avg(total_time / NULLIF(calls, 0)), 0) as avg_query_time
-          FROM pg_stat_statements
-          WHERE calls > 0
+        // Check if extension exists first
+        const extCheck = await db.execute(sql`
+          SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'
         `);
 
-        if (perfStats[0]) {
-          const result = perfStats[0] as any;
-          performance.cache_hit_ratio = Number(result.cache_hit_ratio) || 0;
-          performance.avg_query_time = Number(result.avg_query_time) || 0;
+        if (extCheck.length === 0) {
+          // Extension not enabled, skip performance stats silently
+          loggerService
+            .getLogger()
+            .debug(
+              "pg_stat_statements extension not enabled. Run 'CREATE EXTENSION pg_stat_statements;' to enable performance metrics",
+            );
+        } else {
+          const perfStats = await db.execute(sql`
+            SELECT
+              COALESCE(sum(blks_hit) * 100.0 / NULLIF((sum(blks_hit) + sum(blks_read)), 0), 0) as cache_hit_ratio,
+              COALESCE(avg(total_time / NULLIF(calls, 0)), 0) as avg_query_time
+            FROM pg_stat_statements
+            WHERE calls > 0
+          `);
+
+          if (perfStats[0]) {
+            const result = perfStats[0] as any;
+            performance.cache_hit_ratio = Number(result.cache_hit_ratio) || 0;
+            performance.avg_query_time = Number(result.avg_query_time) || 0;
+          }
         }
       } catch (error) {
-        loggerService
-          .getLogger()
-          .debug(
-            "pg_stat_statements not available, performance metrics disabled",
-            {
-              error: error.message,
-            }
-          );
+        // Silently skip - extension may not be available
       }
 
       // Get additional database metrics
@@ -888,12 +897,27 @@ export class MetricsCollector {
       // Note: This query may fail if user_sessions table doesn't exist or has different structure
       let activeUsersCount = 0;
       try {
-        const activeUsersResult = await db.execute(sql`
-          SELECT COUNT(DISTINCT user_id) as count
-          FROM user_sessions
-          WHERE is_active = true AND expires_at > NOW()
+        // Check if table exists first
+        const tableCheck = await db.execute(sql`
+          SELECT 1 FROM information_schema.tables 
+          WHERE table_name = 'user_sessions' AND table_schema = 'public'
         `);
-        activeUsersCount = parseInt((activeUsersResult[0] as any).count) || 0;
+
+        if (tableCheck.length === 0) {
+          // Table doesn't exist, skip silently
+          loggerService
+            .getLogger()
+            .debug(
+              "user_sessions table not found. Run migrations to create it.",
+            );
+        } else {
+          const activeUsersResult = await db.execute(sql`
+            SELECT COUNT(DISTINCT user_id) as count
+            FROM user_sessions
+            WHERE is_active = true AND expires_at > NOW()
+          `);
+          activeUsersCount = parseInt((activeUsersResult[0] as any).count) || 0;
+        }
       } catch (error) {
         // Silently fail if table doesn't exist or query fails
         activeUsersCount = 0;

@@ -187,7 +187,7 @@ router.post("/logout", async (req, res) => {
         );
       }
 
-      res.clearCookie("connect.sid");
+      res.clearCookie("presence.sid");
       res.json({
         success: true,
         message: "Logout successful",

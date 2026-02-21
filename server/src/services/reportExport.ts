@@ -146,7 +146,7 @@ class ReportExportService {
   async exportReport(
     reportType: string,
     options: ExportOptions,
-    userId: number
+    userId: number,
   ): Promise<ExportResult> {
     try {
       // Get template if specified
@@ -158,7 +158,7 @@ class ReportExportService {
       const data = await this.getReportData(
         reportType,
         options.filters || {},
-        options.dateRange
+        options.dateRange,
       );
 
       // Apply template formatting if available
@@ -189,7 +189,7 @@ class ReportExportService {
   private async getReportData(
     reportType: string,
     filters: any,
-    dateRange?: { start: Date; end: Date }
+    dateRange?: { start: Date; end: Date },
   ): Promise<any[]> {
     const conditions = [];
 
@@ -238,7 +238,7 @@ class ReportExportService {
       .innerJoin(students, eq(attendanceRecords.studentId, students.id))
       .innerJoin(
         classSessions,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
@@ -259,7 +259,7 @@ class ReportExportService {
         presentCount: sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 END)`,
         absentCount: sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'absent' THEN 1 END)`,
         lateCount: sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'late' THEN 1 END)`,
-        onTimeCount: sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'present' AND ${attendanceRecords.entryTime} <= ${schedules.startTime} THEN 1 END)`,
+        onTimeCount: sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'present' AND TO_CHAR(${attendanceRecords.entryTime}, 'HH24:MI') <= ${schedules.startTime} THEN 1 END)`,
         attendanceRate: sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 ELSE 0 END)`,
         lastAttendance: sql<Date>`MAX(${attendanceRecords.createdAt})`,
       })
@@ -267,15 +267,15 @@ class ReportExportService {
       .innerJoin(students, eq(attendanceRecords.studentId, students.id))
       .innerJoin(
         classSessions,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .groupBy(students.id, students.name, students.studentId)
       .orderBy(
         desc(
-          sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 ELSE 0 END)`
-        )
+          sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 ELSE 0 END)`,
+        ),
       );
 
     return data.map((row) => ({
@@ -311,12 +311,12 @@ class ReportExportService {
         and(
           eq(enrollments.subjectId, schedules.subjectId),
           eq(enrollments.semester, schedules.semester),
-          eq(enrollments.academicYear, schedules.academicYear)
-        )
+          eq(enrollments.academicYear, schedules.academicYear),
+        ),
       )
       .leftJoin(
         attendanceRecords,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .groupBy(classSessions.date, subjects.name, users.name)
@@ -385,7 +385,7 @@ class ReportExportService {
   private async exportToPDF(
     data: any[],
     options: ExportOptions,
-    template?: ReportTemplate
+    template?: ReportTemplate,
   ): Promise<ExportResult> {
     const fileName = `report_${Date.now()}.pdf`;
     const filePath = join(process.cwd(), "exports", fileName);
@@ -423,7 +423,7 @@ class ReportExportService {
           {
             width: colWidth - 10,
             align: "left",
-          }
+          },
         );
       });
       doc.moveDown();
@@ -470,7 +470,7 @@ class ReportExportService {
   private async exportToExcel(
     data: any[],
     options: ExportOptions,
-    template?: ReportTemplate
+    template?: ReportTemplate,
   ): Promise<ExportResult> {
     const fileName = `report_${Date.now()}.xlsx`;
     const filePath = join(process.cwd(), "exports", fileName);
@@ -522,7 +522,7 @@ class ReportExportService {
   private async exportToCSV(
     data: any[],
     options: ExportOptions,
-    template?: ReportTemplate
+    template?: ReportTemplate,
   ): Promise<ExportResult> {
     const fileName = `report_${Date.now()}.csv`;
     const filePath = join(process.cwd(), "exports", fileName);
@@ -545,9 +545,9 @@ class ReportExportService {
         .map((value) =>
           typeof value === "string" && value.includes(",")
             ? `"${value.replace(/"/g, '""')}"`
-            : String(value || "")
+            : String(value || ""),
         )
-        .join(",")
+        .join(","),
     );
 
     const csv = [headers, ...rows].join("\n");
@@ -566,7 +566,7 @@ class ReportExportService {
   private async exportToJSON(
     data: any[],
     options: ExportOptions,
-    template?: ReportTemplate
+    template?: ReportTemplate,
   ): Promise<ExportResult> {
     const fileName = `report_${Date.now()}.json`;
     const filePath = join(process.cwd(), "exports", fileName);
@@ -637,7 +637,7 @@ class ReportExportService {
       .from(attendanceRecords)
       .innerJoin(
         classSessions,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .where(conditions.length > 0 ? and(...conditions) : undefined);
     return result[0]?.count || 0;
@@ -651,7 +651,7 @@ class ReportExportService {
       .from(attendanceRecords)
       .innerJoin(
         classSessions,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .where(conditions.length > 0 ? and(...conditions) : undefined);
 
@@ -668,7 +668,7 @@ class ReportExportService {
       .from(attendanceRecords)
       .innerJoin(
         classSessions,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
@@ -676,8 +676,8 @@ class ReportExportService {
       .groupBy(subjects.name)
       .orderBy(
         desc(
-          sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 ELSE 0 END)`
-        )
+          sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 ELSE 0 END)`,
+        ),
       )
       .limit(5);
 

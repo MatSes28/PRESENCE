@@ -49,7 +49,7 @@ class ReportSchedulerService {
 
   // Create a new report schedule
   async createSchedule(
-    schedule: Omit<ReportSchedule, "id" | "lastRun" | "nextRun">
+    schedule: Omit<ReportSchedule, "id" | "lastRun" | "nextRun">,
   ): Promise<string> {
     const id = `schedule_${Date.now()}_${Math.random()
       .toString(36)
@@ -69,7 +69,7 @@ class ReportSchedulerService {
   // Update an existing schedule
   async updateSchedule(
     id: string,
-    updates: Partial<ReportSchedule>
+    updates: Partial<ReportSchedule>,
   ): Promise<boolean> {
     const schedule = this.schedules.get(id);
     if (!schedule) return false;
@@ -78,7 +78,7 @@ class ReportSchedulerService {
     if (updates.type || updates.scheduleTime) {
       updatedSchedule.nextRun = this.calculateNextRun(
         updatedSchedule.type,
-        updatedSchedule.scheduleTime
+        updatedSchedule.scheduleTime,
       );
     }
 
@@ -109,7 +109,7 @@ class ReportSchedulerService {
       schedule.lastRun = new Date();
       schedule.nextRun = this.calculateNextRun(
         schedule.type,
-        schedule.scheduleTime
+        schedule.scheduleTime,
       );
       this.schedules.set(scheduleId, schedule);
 
@@ -136,25 +136,25 @@ class ReportSchedulerService {
       case "attendance":
         ({ data, summary, title } = await this.generateAttendanceReport(
           filters,
-          dateRange
+          dateRange,
         ));
         break;
       case "performance":
         ({ data, summary, title } = await this.generatePerformanceReport(
           filters,
-          dateRange
+          dateRange,
         ));
         break;
       case "analytics":
         ({ data, summary, title } = await this.generateAnalyticsReport(
           filters,
-          dateRange
+          dateRange,
         ));
         break;
       case "summary":
         ({ data, summary, title } = await this.generateSummaryReport(
           filters,
-          dateRange
+          dateRange,
         ));
         break;
     }
@@ -171,7 +171,7 @@ class ReportSchedulerService {
   // Deliver report via email
   private async deliverReport(
     schedule: ReportSchedule,
-    reportData: ReportData
+    reportData: ReportData,
   ): Promise<void> {
     const htmlContent = this.generateReportHTML(schedule, reportData);
 
@@ -191,7 +191,7 @@ class ReportSchedulerService {
   // Generate attendance report
   private async generateAttendanceReport(
     filters: any,
-    dateRange: { start: Date; end: Date }
+    dateRange: { start: Date; end: Date },
   ): Promise<{ data: any[]; summary: any; title: string }> {
     const conditions = [
       gte(classSessions.date, dateRange.start),
@@ -222,12 +222,12 @@ class ReportSchedulerService {
         and(
           eq(enrollments.subjectId, schedules.subjectId),
           eq(enrollments.semester, schedules.semester),
-          eq(enrollments.academicYear, schedules.academicYear)
-        )
+          eq(enrollments.academicYear, schedules.academicYear),
+        ),
       )
       .leftJoin(
         attendanceRecords,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .where(and(...conditions))
       .groupBy(subjects.name, users.name);
@@ -238,20 +238,20 @@ class ReportSchedulerService {
         attendanceData.length > 0
           ? attendanceData.reduce(
               (sum, item) => sum + (item.averageAttendance || 0),
-              0
+              0,
             ) / attendanceData.length
           : 0,
       totalSessions: attendanceData.reduce(
         (sum, item) => sum + item.totalEnrolled,
-        0
+        0,
       ),
       totalPresent: attendanceData.reduce(
         (sum, item) => sum + item.totalPresent,
-        0
+        0,
       ),
       totalAbsent: attendanceData.reduce(
         (sum, item) => sum + item.totalAbsent,
-        0
+        0,
       ),
       totalLate: attendanceData.reduce((sum, item) => sum + item.totalLate, 0),
     };
@@ -266,7 +266,7 @@ class ReportSchedulerService {
   // Generate performance report
   private async generatePerformanceReport(
     filters: any,
-    dateRange: { start: Date; end: Date }
+    dateRange: { start: Date; end: Date },
   ): Promise<{ data: any[]; summary: any; title: string }> {
     // Similar to attendance report but focused on performance metrics
     const performanceData = await db
@@ -276,27 +276,27 @@ class ReportSchedulerService {
         subjectName: subjects.name,
         attendanceRate: sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 ELSE 0 END)`,
         totalSessions: sql<number>`COUNT(${attendanceRecords.id})`,
-        onTimeRate: sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' AND ${attendanceRecords.entryTime} <= ${schedules.startTime} THEN 1 ELSE 0 END)`,
+        onTimeRate: sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' AND TO_CHAR(${attendanceRecords.entryTime}, 'HH24:MI') <= ${schedules.startTime} THEN 1 ELSE 0 END)`,
       })
       .from(attendanceRecords)
       .innerJoin(students, eq(attendanceRecords.studentId, students.id))
       .innerJoin(
         classSessions,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
       .where(
         and(
           gte(classSessions.date, dateRange.start),
-          lte(classSessions.date, dateRange.end)
-        )
+          lte(classSessions.date, dateRange.end),
+        ),
       )
       .groupBy(students.name, students.studentId, subjects.name)
       .orderBy(
         desc(
-          sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 ELSE 0 END)`
-        )
+          sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 ELSE 0 END)`,
+        ),
       );
 
     const summary = {
@@ -305,14 +305,14 @@ class ReportSchedulerService {
         performanceData.length > 0
           ? performanceData.reduce(
               (sum, item) => sum + (item.attendanceRate || 0),
-              0
+              0,
             ) / performanceData.length
           : 0,
       topPerformers: performanceData.filter(
-        (p) => (p.attendanceRate || 0) >= 0.9
+        (p) => (p.attendanceRate || 0) >= 0.9,
       ).length,
       needsAttention: performanceData.filter(
-        (p) => (p.attendanceRate || 0) < 0.7
+        (p) => (p.attendanceRate || 0) < 0.7,
       ).length,
     };
 
@@ -326,7 +326,7 @@ class ReportSchedulerService {
   // Generate analytics report
   private async generateAnalyticsReport(
     filters: any,
-    dateRange: { start: Date; end: Date }
+    dateRange: { start: Date; end: Date },
   ): Promise<{ data: any[]; summary: any; title: string }> {
     // Generate comprehensive analytics
     const analytics = {
@@ -351,7 +351,7 @@ class ReportSchedulerService {
   // Generate summary report
   private async generateSummaryReport(
     filters: any,
-    dateRange: { start: Date; end: Date }
+    dateRange: { start: Date; end: Date },
   ): Promise<{ data: any[]; summary: any; title: string }> {
     const summary = {
       totalStudents: await this.getTotalStudents(),
@@ -424,7 +424,7 @@ class ReportSchedulerService {
         if (schedule.isActive && schedule.nextRun <= now) {
           // Trigger report asynchronously
           this.triggerReport(id).catch((error) =>
-            console.error(`Failed to run scheduled report ${id}:`, error)
+            console.error(`Failed to run scheduled report ${id}:`, error),
           );
         }
       }
@@ -519,8 +519,8 @@ class ReportSchedulerService {
       .where(
         and(
           gte(classSessions.date, dateRange.start),
-          lte(classSessions.date, dateRange.end)
-        )
+          lte(classSessions.date, dateRange.end),
+        ),
       );
     return result[0]?.count || 0;
   }
@@ -544,7 +544,7 @@ class ReportSchedulerService {
 
   private generateReportHTML(
     schedule: ReportSchedule,
-    reportData: ReportData
+    reportData: ReportData,
   ): string {
     return `
       <!DOCTYPE html>
@@ -568,7 +568,7 @@ class ReportSchedulerService {
                 <pre style="margin: 0; white-space: pre-wrap;">${JSON.stringify(
                   reportData.summary,
                   null,
-                  2
+                  2,
                 )}</pre>
               </div>
 
@@ -577,7 +577,7 @@ class ReportSchedulerService {
                 <pre style="margin: 0; white-space: pre-wrap; font-size: 12px;">${JSON.stringify(
                   reportData.data,
                   null,
-                  2
+                  2,
                 )}</pre>
               </div>
 
