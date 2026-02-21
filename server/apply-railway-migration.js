@@ -88,13 +88,36 @@ async function fixDatabase() {
     const auditCols = auditLogsColumns.map((c) => c.column_name);
     console.log("audit_logs columns:", auditCols.join(", "));
 
+    // Add missing columns to audit_logs
     if (!auditCols.includes("timestamp")) {
       console.log("➕ Adding timestamp column to audit_logs...");
-      try {
-        await sql`ALTER TABLE audit_logs ADD COLUMN timestamp TIMESTAMP DEFAULT NOW()`;
-      } catch (e) {
-        console.log("Note:", e.message);
-      }
+      await sql`ALTER TABLE audit_logs ADD COLUMN timestamp TIMESTAMP DEFAULT NOW()`;
+    }
+
+    if (!auditCols.includes("resource")) {
+      console.log("➕ Adding resource column to audit_logs...");
+      await sql`ALTER TABLE audit_logs ADD COLUMN resource VARCHAR(100)`;
+    }
+
+    // 4. Verify user_sessions columns
+    console.log("\n📋 Checking user_sessions columns...");
+    const userSessionsColumns = await sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'user_sessions'
+    `;
+
+    const userSessCols = userSessionsColumns.map((c) => c.column_name);
+    console.log("user_sessions columns:", userSessCols.join(", "));
+
+    if (!userSessCols.includes("user_id")) {
+      console.log("➕ Adding user_id column...");
+      await sql`ALTER TABLE user_sessions ADD COLUMN user_id INTEGER REFERENCES users(id)`;
+    }
+
+    if (!userSessCols.includes("is_active")) {
+      console.log("➕ Adding is_active column...");
+      await sql`ALTER TABLE user_sessions ADD COLUMN is_active BOOLEAN DEFAULT true`;
     }
 
     console.log("\n✅ All database fixes applied!");
