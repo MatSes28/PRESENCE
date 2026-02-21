@@ -16,7 +16,7 @@ async function fixDatabase() {
   });
 
   try {
-    // 1. Check and create session table
+    // 1. Check and create session table with correct schema for connect-pg-simple
     console.log("\n📋 Checking 'session' table...");
     const sessionTableExists = await sql`
       SELECT EXISTS (
@@ -41,6 +41,25 @@ async function fixDatabase() {
       console.log("✅ Created index");
     } else {
       console.log("✅ 'session' table already exists");
+
+      // Check if sess and expire columns exist
+      const sessionColumns = await sql`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'session'
+      `;
+      const sessionCols = sessionColumns.map((c) => c.column_name);
+      console.log("Session columns:", sessionCols.join(", "));
+
+      if (!sessionCols.includes("sess")) {
+        console.log("➕ Adding 'sess' column...");
+        await sql`ALTER TABLE "session" ADD COLUMN "sess" json NOT NULL DEFAULT '{}'`;
+      }
+
+      if (!sessionCols.includes("expire")) {
+        console.log("➕ Adding 'expire' column...");
+        await sql`ALTER TABLE "session" ADD COLUMN "expire" timestamp(6) NOT NULL DEFAULT NOW()`;
+      }
     }
 
     // 2. Check current error_logs structure
@@ -75,6 +94,11 @@ async function fixDatabase() {
       await sql`ALTER TABLE error_logs ADD COLUMN category VARCHAR(50) NOT NULL DEFAULT 'system'`;
     }
 
+    if (!columnNames.includes("endpoint")) {
+      console.log("➕ Adding endpoint column...");
+      await sql`ALTER TABLE error_logs ADD COLUMN endpoint VARCHAR(255)`;
+    }
+
     console.log("✅ error_logs table updated");
 
     // 3. Verify audit_logs table structure
@@ -97,6 +121,11 @@ async function fixDatabase() {
     if (!auditCols.includes("resource")) {
       console.log("➕ Adding resource column to audit_logs...");
       await sql`ALTER TABLE audit_logs ADD COLUMN resource VARCHAR(100)`;
+    }
+
+    if (!auditCols.includes("resource_id")) {
+      console.log("➕ Adding resource_id column to audit_logs...");
+      await sql`ALTER TABLE audit_logs ADD COLUMN resource_id INTEGER`;
     }
 
     // 4. Verify user_sessions columns
