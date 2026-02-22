@@ -522,6 +522,20 @@ async function initializeDatabaseColumns() {
       )
       .catch(() => {});
 
+    // Add unique constraint on sid for connect-pg-simple
+    await pool
+      .query(
+        "ALTER TABLE user_sessions ADD CONSTRAINT IF NOT EXISTS session_sid_key UNIQUE (sid)",
+      )
+      .catch(() => {});
+
+    // Add index on expire for better query performance
+    await pool
+      .query(
+        "CREATE INDEX IF NOT EXISTS user_sessions_expire_idx ON user_sessions (expire)",
+      )
+      .catch(() => {});
+
     // Add columns to error_logs table
     await pool
       .query(
