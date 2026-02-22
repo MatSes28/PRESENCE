@@ -409,6 +409,29 @@ if (!fs.existsSync(publicPath)) {
 
 app.use(express.static(publicPath));
 
+// TEMPORARY: Fix session constraint endpoint
+app.get("/api/admin/fix-session", async (req, res) => {
+  try {
+    const { Pool } = await import("pg");
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+
+    await pool.query(
+      "ALTER TABLE user_sessions ADD CONSTRAINT IF NOT EXISTS session_sid_key UNIQUE (sid)",
+    );
+    await pool.query(
+      "CREATE INDEX IF NOT EXISTS user_sessions_expire_idx ON user_sessions (expire)",
+    );
+
+    await pool.end();
+    res.json({ success: true, message: "Session constraints fixed" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: String(error) });
+  }
+});
+
 // Routes
 app.use("/api", routes);
 
