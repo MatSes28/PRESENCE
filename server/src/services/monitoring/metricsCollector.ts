@@ -652,40 +652,15 @@ export class MetricsCollector {
         // Keep the basic connection info we set earlier
       }
 
-      // Try performance stats if pg_stat_statements is available
-      // Note: pg_stat_statements extension must be enabled in PostgreSQL
-      // Run: CREATE EXTENSION pg_stat_statements;
-      try {
-        // Check if extension exists first
-        const extCheck = await db.execute(sql`
-          SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'
-        `);
-
-        if (extCheck.length === 0) {
-          // Extension not enabled, skip performance stats silently
-          loggerService
-            .getLogger()
-            .debug(
-              "pg_stat_statements extension not enabled. Run 'CREATE EXTENSION pg_stat_statements;' to enable performance metrics",
-            );
-        } else {
-          const perfStats = await db.execute(sql`
-            SELECT
-              COALESCE(sum(blks_hit) * 100.0 / NULLIF((sum(blks_hit) + sum(blks_read)), 0), 0) as cache_hit_ratio,
-              COALESCE(avg(total_time / NULLIF(calls, 0)), 0) as avg_query_time
-            FROM pg_stat_statements
-            WHERE calls > 0
-          `);
-
-          if (perfStats[0]) {
-            const result = perfStats[0] as any;
-            performance.cache_hit_ratio = Number(result.cache_hit_ratio) || 0;
-            performance.avg_query_time = Number(result.avg_query_time) || 0;
-          }
-        }
-      } catch (error) {
-        // Silently skip - extension may not be available
-      }
+      // Skip pg_stat_statements queries entirely on Railway
+      // Railway's PostgreSQL doesn't support pg_stat_statements properly
+      // (requires shared_preload_libraries configuration that isn't available on Railway)
+      // Performance metrics will show as 0
+      loggerService
+        .getLogger()
+        .debug(
+          "pg_stat_statements skipped - not supported on Railway PostgreSQL",
+        );
 
       // Get additional database metrics
       let vacuumStats = {

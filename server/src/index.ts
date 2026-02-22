@@ -538,8 +538,10 @@ async function initializeDatabaseColumns() {
 
     console.log("🔧 Running database column migrations...");
 
-    // Enable pg_stat_statements extension
-    await pool.query("CREATE EXTENSION IF NOT EXISTS pg_stat_statements");
+    // Note: pg_stat_statements extension is NOT supported on Railway PostgreSQL
+    // It requires shared_preload_libraries configuration which isn't available on Railway
+    // Performance metrics will show as 0
+    console.log("ℹ️ pg_stat_statements not available on Railway - skipping");
 
     // Add columns to user_sessions table for connect-pg-simple
     await pool
