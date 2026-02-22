@@ -581,6 +581,9 @@ async function initializeDatabaseColumns() {
       .query("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS new_values JSONB")
       .catch(() => {});
     await pool
+      .query("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS metadata JSONB")
+      .catch(() => {});
+    await pool
       .query("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS hash VARCHAR")
       .catch(() => {});
     await pool
