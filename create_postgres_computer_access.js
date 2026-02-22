@@ -2,7 +2,7 @@ const { Client } = require("pg");
 
 // PostgreSQL connection URL
 const connectionString =
-  "postgresql://postgres:XcHxhpIlNzRbviwtaqaJQiayKtudQbxM@hopper.proxy.rlwy.net:14374/railway";
+  "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
 
 // Create a new PostgreSQL client
 const client = new Client({

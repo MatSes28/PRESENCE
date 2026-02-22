@@ -3,7 +3,7 @@ const fs = require("fs");
 
 const connectionString =
   process.env.DATABASE_URL ||
-  "postgresql://postgres:XcHxhpIlNzRbviwtaqaJQiayKtudQbxM@hopper.proxy.rlwy.net:14374/railway";
+  "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
 
 async function runSQL() {
   const sql = postgres(connectionString, {

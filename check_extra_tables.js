@@ -32,7 +32,7 @@ async function checkAllTables() {
   console.log("\n=== PostgreSQL Database ===");
   const client = new Client({
     connectionString:
-      "postgresql://postgres:XcHxhpIlNzRbviwtaqaJQiayKtudQbxM@hopper.proxy.rlwy.net:14374/railway",
+      "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway",
   });
 
   try {
