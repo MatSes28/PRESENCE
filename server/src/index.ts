@@ -555,6 +555,10 @@ async function initializeDatabaseColumns() {
       .catch(() => {});
 
     // Add unique constraint on sid for connect-pg-simple
+    // First, make session_id nullable to avoid conflict with connect-pg-simple
+    await pool
+      .query("ALTER TABLE user_sessions ALTER COLUMN session_id DROP NOT NULL")
+      .catch(() => {});
     await pool
       .query(
         "ALTER TABLE user_sessions DROP CONSTRAINT IF EXISTS session_sid_key",
@@ -587,6 +591,11 @@ async function initializeDatabaseColumns() {
       .catch(() => {});
     await pool
       .query("ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS method VARCHAR")
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS ip_address VARCHAR",
+      )
       .catch(() => {});
     await pool
       .query("ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS url VARCHAR")
