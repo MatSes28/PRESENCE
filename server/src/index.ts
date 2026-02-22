@@ -418,11 +418,20 @@ app.get("/api/admin/fix-session", async (req, res) => {
       ssl: { rejectUnauthorized: false },
     });
 
+    // Drop existing constraint if exists, then add new one
+    await pool
+      .query(
+        "ALTER TABLE user_sessions DROP CONSTRAINT IF EXISTS session_sid_key",
+      )
+      .catch(() => {});
     await pool.query(
-      "ALTER TABLE user_sessions ADD CONSTRAINT IF NOT EXISTS session_sid_key UNIQUE (sid)",
+      "ALTER TABLE user_sessions ADD CONSTRAINT session_sid_key UNIQUE (sid)",
     );
+    await pool
+      .query("DROP INDEX IF EXISTS user_sessions_expire_idx")
+      .catch(() => {});
     await pool.query(
-      "CREATE INDEX IF NOT EXISTS user_sessions_expire_idx ON user_sessions (expire)",
+      "CREATE INDEX user_sessions_expire_idx ON user_sessions (expire)",
     );
 
     await pool.end();
@@ -548,15 +557,21 @@ async function initializeDatabaseColumns() {
     // Add unique constraint on sid for connect-pg-simple
     await pool
       .query(
-        "ALTER TABLE user_sessions ADD CONSTRAINT IF NOT EXISTS session_sid_key UNIQUE (sid)",
+        "ALTER TABLE user_sessions DROP CONSTRAINT IF EXISTS session_sid_key",
+      )
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE user_sessions ADD CONSTRAINT session_sid_key UNIQUE (sid)",
       )
       .catch(() => {});
 
     // Add index on expire for better query performance
     await pool
-      .query(
-        "CREATE INDEX IF NOT EXISTS user_sessions_expire_idx ON user_sessions (expire)",
-      )
+      .query("DROP INDEX IF EXISTS user_sessions_expire_idx")
+      .catch(() => {});
+    await pool
+      .query("CREATE INDEX user_sessions_expire_idx ON user_sessions (expire)")
       .catch(() => {});
 
     // Add columns to error_logs table
