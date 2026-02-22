@@ -488,8 +488,12 @@ async function logTableCounts() {
 
 // Database initialization for Railway (ephemeral PostgreSQL)
 async function initializeDatabaseColumns() {
-  // Only run on Railway production
-  if (!process.env.RAILWAY_ENVIRONMENT) {
+  // Run on Railway or if DATABASE_URL contains railway
+  const isRailway =
+    process.env.RAILWAY_ENVIRONMENT ||
+    (process.env.DATABASE_URL && process.env.DATABASE_URL.includes("railway"));
+
+  if (!isRailway) {
     return;
   }
 
