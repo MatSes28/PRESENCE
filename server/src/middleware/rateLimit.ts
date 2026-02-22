@@ -99,7 +99,7 @@ export const apiOptimization = (req: Request, res: Response, next: any) => {
     // Log slow requests (>500ms)
     if (duration > 500) {
       console.warn(
-        `Slow request: ${method} ${url} - ${duration}ms - Status: ${statusCode}`
+        `Slow request: ${method} ${url} - ${duration}ms - Status: ${statusCode}`,
       );
     }
 
@@ -225,14 +225,14 @@ export const requestLogging = (req: Request, res: Response, next: any) => {
         req.originalUrl
       } - ${statusCode} - ${duration}ms - User: ${userId} - UA: ${userAgent.substring(
         0,
-        50
-      )}`
+        50,
+      )}`,
     );
 
     // Log errors for debugging
     if (statusCode >= 400) {
       console.error(
-        `API Error: ${req.method} ${req.originalUrl} - ${statusCode} - ${duration}ms - User: ${userId}`
+        `API Error: ${req.method} ${req.originalUrl} - ${statusCode} - ${duration}ms - User: ${userId}`,
       );
     }
   });
@@ -242,19 +242,42 @@ export const requestLogging = (req: Request, res: Response, next: any) => {
 
 // CORS optimization
 export const corsOptimization = (req: Request, res: Response, next: any) => {
-  // Set CORS headers for API optimization
-  res.setHeader(
-    "Access-Control-Allow-Origin",
-    process.env.FRONTEND_URL || "http://localhost:5173"
-  );
+  // Get the origin from the request
+  const origin = req.headers.origin;
+
+  // Allow the origin if it's set and we're in production, or allow all origins in development
+  const allowedOrigins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    process.env.FRONTEND_URL,
+    process.env.RAILWAY_STATIC_URL,
+  ].filter(Boolean);
+
+  // In production, allow the request's origin if it matches our allowed origins
+  const isProduction =
+    process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT;
+
+  if (isProduction && origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else if (!isProduction) {
+    // In development, allow any origin
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  } else {
+    // Fallback: use the FRONTEND_URL or allow credentials with explicit origin
+    res.setHeader(
+      "Access-Control-Allow-Origin",
+      process.env.FRONTEND_URL || "http://localhost:5173",
+    );
+  }
+
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader(
     "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS"
+    "GET, POST, PUT, DELETE, OPTIONS",
   );
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With"
+    "Content-Type, Authorization, X-Requested-With",
   );
 
   // Handle preflight requests
@@ -270,7 +293,7 @@ export const corsOptimization = (req: Request, res: Response, next: any) => {
 export const dbConnectionOptimization = async (
   req: Request,
   res: Response,
-  next: any
+  next: any,
 ) => {
   // Add database connection pooling hints
   res.setHeader("X-Database-Pool", "optimized");
