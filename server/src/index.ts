@@ -486,70 +486,187 @@ async function logTableCounts() {
   }
 }
 
+// Database initialization for Railway (ephemeral PostgreSQL)
+async function initializeDatabaseColumns() {
+  // Only run on Railway production
+  if (!process.env.RAILWAY_ENVIRONMENT) {
+    return;
+  }
+
+  try {
+    const { Pool } = await import("pg");
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    });
+
+    console.log("🔧 Running database column migrations...");
+
+    // Enable pg_stat_statements extension
+    await pool.query("CREATE EXTENSION IF NOT EXISTS pg_stat_statements");
+
+    // Add columns to user_sessions table for connect-pg-simple
+    await pool
+      .query("ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS sid VARCHAR")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS sess JSONB")
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS expire TIMESTAMP",
+      )
+      .catch(() => {});
+
+    // Add columns to error_logs table
+    await pool
+      .query(
+        "ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS request_id VARCHAR",
+      )
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS user_agent VARCHAR",
+      )
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS method VARCHAR")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS url VARCHAR")
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS status_code INTEGER",
+      )
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS response_time INTEGER",
+      )
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS metadata JSONB")
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS resolved BOOLEAN DEFAULT false",
+      )
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP",
+      )
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS resolved_by VARCHAR",
+      )
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true",
+      )
+      .catch(() => {});
+
+    // Add columns to audit_logs table
+    await pool
+      .query("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS old_values JSONB")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS new_values JSONB")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS hash VARCHAR")
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS previous_hash VARCHAR",
+      )
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true",
+      )
+      .catch(() => {});
+
+    await pool.end();
+    console.log("✅ Database column migrations completed");
+  } catch (err) {
+    console.error(
+      "❌ Database column migration error:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
 const PORT = process.env.PORT || 3000;
 
 const HOST = process.env.HOST || "0.0.0.0";
 
-server.listen({ port: PORT, host: HOST }, () => {
-  console.log(`🚀 Server running on ${HOST}:${PORT}`);
-  console.log(`🌐 WebSocket server ready`);
+// Initialize database columns before starting server
+initializeDatabaseColumns().then(() => {
+  server.listen({ port: PORT, host: HOST }, () => {
+    console.log(`🚀 Server running on ${HOST}:${PORT}`);
+    console.log(`🌐 WebSocket server ready`);
 
-  // Start automated database backup (only in production)
-  if (process.env.NODE_ENV === "production") {
-    databaseBackupService.startAutomatedBackup();
-    console.log("Automated database backup enabled");
-  }
-
-  // Add db.execute method for compatibility
-  addExecuteMethod();
-
-  // Check database and create admin user if needed
-  checkDatabaseConnection().then(async (dbAvailable) => {
-    if (dbAvailable) {
-      await logTableCounts();
-
-      // Create admin user if it doesn't exist
-      try {
-        const existingAdmin = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, "admin@clsu.edu.ph"))
-          .limit(1);
-
-        if (existingAdmin.length === 0) {
-          const hashedPassword = await bcrypt.hash("admin123", 12);
-          await db.insert(users).values({
-            email: "admin@clsu.edu.ph",
-            password: hashedPassword,
-            name: "System Administrator",
-            role: "admin",
-            isActive: true,
-          });
-          console.log("✅ Admin user created: admin@clsu.edu.ph / admin123");
-        } else {
-          // Update password to ensure it's correct
-          const hashedPassword = await bcrypt.hash("admin123", 12);
-          await db
-            .update(users)
-            .set({ password: hashedPassword, isActive: true })
-            .where(eq(users.email, "admin@clsu.edu.ph"));
-          console.log(
-            "✅ Admin user password updated: admin@clsu.edu.ph / admin123",
-          );
-        }
-      } catch (error) {
-        console.error("❌ Failed to setup admin user:", error);
-        console.error("Error details:", error.message);
-        // Don't exit - admin can be created manually if needed
-      }
+    // Start automated database backup (only in production)
+    if (process.env.NODE_ENV === "production") {
+      databaseBackupService.startAutomatedBackup();
+      console.log("Automated database backup enabled");
     }
-  });
 
-  console.log("Server started successfully");
+    // Add db.execute method for compatibility
+    addExecuteMethod();
 
-  // Mark app as fully initialized for health checks
-  (global as any).appInitialized = true;
-});
+    // Check database and create admin user if needed
+    checkDatabaseConnection().then(async (dbAvailable) => {
+      if (dbAvailable) {
+        await logTableCounts();
+
+        // Create admin user if it doesn't exist
+        try {
+          const existingAdmin = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, "admin@clsu.edu.ph"))
+            .limit(1);
+
+          if (existingAdmin.length === 0) {
+            const hashedPassword = await bcrypt.hash("admin123", 12);
+            await db.insert(users).values({
+              email: "admin@clsu.edu.ph",
+              password: hashedPassword,
+              name: "System Administrator",
+              role: "admin",
+              isActive: true,
+            });
+            console.log("✅ Admin user created: admin@clsu.edu.ph / admin123");
+          } else {
+            // Update password to ensure it's correct
+            const hashedPassword = await bcrypt.hash("admin123", 12);
+            await db
+              .update(users)
+              .set({ password: hashedPassword, isActive: true })
+              .where(eq(users.email, "admin@clsu.edu.ph"));
+            console.log(
+              "✅ Admin user password updated: admin@clsu.edu.ph / admin123",
+            );
+          }
+        } catch (error) {
+          console.error("❌ Failed to setup admin user:", error);
+          console.error("Error details:", error.message);
+          // Don't exit - admin can be created manually if needed
+        }
+      }
+    });
+
+    console.log("Server started successfully");
+
+    // Mark app as fully initialized for health checks
+    (global as any).appInitialized = true;
+  }); // End of server.listen callback
+}); // End of initializeDatabaseColumns().then()
 
 // Graceful shutdown handler
 async function gracefulShutdown(signal: string) {
