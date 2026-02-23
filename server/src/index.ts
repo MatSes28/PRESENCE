@@ -418,6 +418,11 @@ app.get("/api/admin/fix-session", async (req, res) => {
       ssl: { rejectUnauthorized: false },
     });
 
+    // Make user_id nullable to allow connect-pg-simple to create sessions
+    await pool
+      .query("ALTER TABLE user_sessions ALTER COLUMN user_id DROP NOT NULL")
+      .catch(() => {});
+
     // Drop existing constraint if exists, then add new one
     await pool
       .query(
@@ -435,7 +440,10 @@ app.get("/api/admin/fix-session", async (req, res) => {
     );
 
     await pool.end();
-    res.json({ success: true, message: "Session constraints fixed" });
+    res.json({
+      success: true,
+      message: "Session constraints and user_id fixed",
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: String(error) });
   }

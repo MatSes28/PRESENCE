@@ -1,8 +1,11 @@
--- Fix for connect-pg-simple session store
--- Run this in Railway SQL console to fix the session error
+-- Fix for session creation issue: make user_id nullable in user_sessions table
+-- This is needed because connect-pg-simple uses sid/sess/expire columns
+-- but the original schema has user_id as NOT NULL
+-- Run this SQL in your PostgreSQL database (e.g., via Railway dashboard)
 
--- Add unique constraint on sid for connect-pg-simple
-ALTER TABLE user_sessions ADD CONSTRAINT IF NOT EXISTS session_sid_key UNIQUE (sid);
+ALTER TABLE user_sessions ALTER COLUMN user_id DROP NOT NULL;
 
--- Add index on expire for better query performance
-CREATE INDEX IF NOT EXISTS user_sessions_expire_idx ON user_sessions (expire);
+-- Verify the change
+SELECT column_name, is_nullable 
+FROM information_schema.columns 
+WHERE table_name = 'user_sessions' AND column_name = 'user_id';
