@@ -58,12 +58,12 @@ router.get("/stats", dashboardRateLimit, async (req, res) => {
     const startOfDay = new Date(
       today.getFullYear(),
       today.getMonth(),
-      today.getDate()
+      today.getDate(),
     );
     const endOfDay = new Date(
       today.getFullYear(),
       today.getMonth(),
-      today.getDate() + 1
+      today.getDate() + 1,
     );
 
     // Use optimized queries with proper indexing
@@ -83,8 +83,8 @@ router.get("/stats", dashboardRateLimit, async (req, res) => {
         .where(
           and(
             gte(classSessions.date, startOfDay),
-            lte(classSessions.date, endOfDay)
-          )
+            lte(classSessions.date, endOfDay),
+          ),
         ),
 
       // Present students today
@@ -95,14 +95,14 @@ router.get("/stats", dashboardRateLimit, async (req, res) => {
         .from(attendanceRecords)
         .innerJoin(
           classSessions,
-          eq(attendanceRecords.classSessionId, classSessions.id)
+          eq(attendanceRecords.classSessionId, classSessions.id),
         )
         .where(
           and(
             gte(classSessions.date, startOfDay),
             lte(classSessions.date, endOfDay),
-            eq(attendanceRecords.status, "present")
-          )
+            eq(attendanceRecords.status, "present"),
+          ),
         ),
 
       // Absent students today
@@ -113,14 +113,14 @@ router.get("/stats", dashboardRateLimit, async (req, res) => {
         .from(attendanceRecords)
         .innerJoin(
           classSessions,
-          eq(attendanceRecords.classSessionId, classSessions.id)
+          eq(attendanceRecords.classSessionId, classSessions.id),
         )
         .where(
           and(
             gte(classSessions.date, startOfDay),
             lte(classSessions.date, endOfDay),
-            eq(attendanceRecords.status, "absent")
-          )
+            eq(attendanceRecords.status, "absent"),
+          ),
         ),
 
       // Total students
@@ -135,13 +135,13 @@ router.get("/stats", dashboardRateLimit, async (req, res) => {
         .from(attendanceRecords)
         .innerJoin(
           classSessions,
-          eq(attendanceRecords.classSessionId, classSessions.id)
+          eq(attendanceRecords.classSessionId, classSessions.id),
         )
         .where(
           and(
             gte(classSessions.date, startOfDay),
-            lte(classSessions.date, endOfDay)
-          )
+            lte(classSessions.date, endOfDay),
+          ),
         ),
 
       // Active devices
@@ -152,14 +152,14 @@ router.get("/stats", dashboardRateLimit, async (req, res) => {
         .from(computerAssignments)
         .innerJoin(
           classSessions,
-          eq(computerAssignments.classSessionId, classSessions.id)
+          eq(computerAssignments.classSessionId, classSessions.id),
         )
         .where(
           and(
             gte(classSessions.date, startOfDay),
             lte(classSessions.date, endOfDay),
-            eq(computerAssignments.status, "active")
-          )
+            eq(computerAssignments.status, "active"),
+          ),
         ),
 
       // Error rate (discrepancies)
@@ -168,14 +168,14 @@ router.get("/stats", dashboardRateLimit, async (req, res) => {
         .from(attendanceRecords)
         .innerJoin(
           classSessions,
-          eq(attendanceRecords.classSessionId, classSessions.id)
+          eq(attendanceRecords.classSessionId, classSessions.id),
         )
         .where(
           and(
             gte(classSessions.date, startOfDay),
             lte(classSessions.date, endOfDay),
-            eq(attendanceRecords.discrepancyFlag, true)
-          )
+            eq(attendanceRecords.discrepancyFlag, true),
+          ),
         ),
     ]);
 
@@ -196,10 +196,10 @@ router.get("/stats", dashboardRateLimit, async (req, res) => {
     const uptimeMs = today.getTime() - systemStartDate.getTime();
     const uptimeDays = Math.floor(uptimeMs / (1000 * 60 * 60 * 24));
     const uptimeHours = Math.floor(
-      (uptimeMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+      (uptimeMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
     );
     const uptimeMinutes = Math.floor(
-      (uptimeMs % (1000 * 60 * 60)) / (1000 * 60)
+      (uptimeMs % (1000 * 60 * 60)) / (1000 * 60),
     );
     const systemUptime = `${uptimeDays}d ${uptimeHours}h ${uptimeMinutes}m`;
 
@@ -278,12 +278,12 @@ router.get(
       const startOfDay = new Date(
         today.getFullYear(),
         today.getMonth(),
-        today.getDate()
+        today.getDate(),
       );
       const endOfDay = new Date(
         today.getFullYear(),
         today.getMonth(),
-        today.getDate() + 1
+        today.getDate() + 1,
       );
 
       const activeSessions = await db
@@ -302,21 +302,21 @@ router.get(
         .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
         .leftJoin(
           attendanceRecords,
-          eq(attendanceRecords.classSessionId, classSessions.id)
+          eq(attendanceRecords.classSessionId, classSessions.id),
         )
         .where(
           and(
             gte(classSessions.date, startOfDay),
             lte(classSessions.date, endOfDay),
-            eq(classSessions.status, "active")
-          )
+            eq(classSessions.status, "active"),
+          ),
         )
         .groupBy(
           classSessions.id,
           subjects.name,
           classrooms.name,
           schedules.startTime,
-          classSessions.status
+          classSessions.status,
         );
 
       res.json({
@@ -330,7 +330,7 @@ router.get(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Get analytics data for charts and trends
@@ -368,8 +368,8 @@ router.get("/analytics", requireAuth, dashboardRateLimit, async (req, res) => {
       .where(
         and(
           gte(attendanceRecords.createdAt, startDate),
-          lte(attendanceRecords.createdAt, endDate)
-        )
+          lte(attendanceRecords.createdAt, endDate),
+        ),
       )
       .groupBy(sql`DATE(${attendanceRecords.createdAt})`)
       .orderBy(sql`DATE(${attendanceRecords.createdAt})`);
@@ -377,18 +377,22 @@ router.get("/analytics", requireAuth, dashboardRateLimit, async (req, res) => {
     // Hourly attendance patterns
     const hourlyPatterns = await db
       .select({
-        hour: sql<number>`EXTRACT(HOUR FROM ${attendanceRecords.createdAt})`,
+        hour: sql<number>`EXTRACT(HOUR FROM ${attendanceRecords.createdAt}::timestamp)`,
         count: sql<number>`COUNT(*)`,
       })
       .from(attendanceRecords)
       .where(
         and(
           gte(attendanceRecords.createdAt, startDate),
-          lte(attendanceRecords.createdAt, endDate)
-        )
+          lte(attendanceRecords.createdAt, endDate),
+        ),
       )
-      .groupBy(sql`EXTRACT(HOUR FROM ${attendanceRecords.createdAt})`)
-      .orderBy(sql`EXTRACT(HOUR FROM ${attendanceRecords.createdAt})`);
+      .groupBy(
+        sql`EXTRACT(HOUR FROM ${attendanceRecords.createdAt}::timestamp)`,
+      )
+      .orderBy(
+        sql`EXTRACT(HOUR FROM ${attendanceRecords.createdAt}::timestamp)`,
+      );
 
     // Subject-wise attendance
     const subjectAttendance = await db
@@ -400,15 +404,15 @@ router.get("/analytics", requireAuth, dashboardRateLimit, async (req, res) => {
       .from(attendanceRecords)
       .innerJoin(
         classSessions,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
       .where(
         and(
           gte(attendanceRecords.createdAt, startDate),
-          lte(attendanceRecords.createdAt, endDate)
-        )
+          lte(attendanceRecords.createdAt, endDate),
+        ),
       )
       .groupBy(subjects.name)
       .orderBy(desc(sql<number>`COUNT(*)`))
@@ -424,15 +428,15 @@ router.get("/analytics", requireAuth, dashboardRateLimit, async (req, res) => {
       .from(attendanceRecords)
       .innerJoin(
         classSessions,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .innerJoin(users, eq(schedules.facultyId, users.id))
       .where(
         and(
           gte(attendanceRecords.createdAt, startDate),
-          lte(attendanceRecords.createdAt, endDate)
-        )
+          lte(attendanceRecords.createdAt, endDate),
+        ),
       )
       .groupBy(users.name)
       .orderBy(desc(sql<number>`COUNT(*)`))
@@ -534,7 +538,7 @@ router.post(
         message: "Failed to send attendance alerts",
       });
     }
-  }
+  },
 );
 
 // Send parent notification (admin only)
@@ -571,7 +575,7 @@ router.post(
         studentId,
         notificationType,
         message,
-        additionalData
+        additionalData,
       );
 
       if (success) {
@@ -592,7 +596,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Bulk parent notifications (admin only)
@@ -625,9 +629,8 @@ router.post(
         });
       }
 
-      const result = await notificationService.sendBulkParentNotifications(
-        notifications
-      );
+      const result =
+        await notificationService.sendBulkParentNotifications(notifications);
 
       res.json({
         success: true,
@@ -641,7 +644,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 export default router;
@@ -688,8 +691,8 @@ router.get(
           and(
             gte(auditLogs.timestamp, startDate),
             lte(auditLogs.timestamp, endDate),
-            sql`action IN ('high_risk', 'medium_risk', 'low_risk')`
-          )
+            sql`action IN ('high_risk', 'medium_risk', 'low_risk')`,
+          ),
         )
         .groupBy(auditLogs.action);
 
@@ -703,8 +706,8 @@ router.get(
           and(
             gte(auditLogs.timestamp, startDate),
             lte(auditLogs.timestamp, endDate),
-            eq(auditLogs.action, "login_failed")
-          )
+            eq(auditLogs.action, "login_failed"),
+          ),
         );
 
       // Get successful logins
@@ -717,8 +720,8 @@ router.get(
           and(
             gte(auditLogs.timestamp, startDate),
             lte(auditLogs.timestamp, endDate),
-            eq(auditLogs.action, "login_success")
-          )
+            eq(auditLogs.action, "login_success"),
+          ),
         );
 
       // Get suspicious activities (high-risk events)
@@ -735,8 +738,8 @@ router.get(
           and(
             gte(auditLogs.timestamp, startDate),
             lte(auditLogs.timestamp, endDate),
-            sql`action LIKE '%high_risk%'`
-          )
+            sql`action LIKE '%high_risk%'`,
+          ),
         )
         .orderBy(desc(auditLogs.timestamp))
         .limit(20);
@@ -773,7 +776,7 @@ router.get(
                 ((successfulLogins[0]?.count || 0) /
                   ((successfulLogins[0]?.count || 0) +
                     (failedLogins[0]?.count || 0))) *
-                  100
+                  100,
               )
             : 100,
         suspiciousActivities: suspiciousActivities.map((activity) => ({
@@ -799,7 +802,7 @@ router.get(
         message: "Failed to fetch security metrics",
       });
     }
-  }
+  },
 );
 
 // Get performance metrics dashboard data
@@ -841,8 +844,8 @@ router.get(
           and(
             gte(errorLogs.timestamp, startDate),
             lte(errorLogs.timestamp, endDate),
-            sql`${errorLogs.responseTime} IS NOT NULL`
-          )
+            sql`${errorLogs.responseTime} IS NOT NULL`,
+          ),
         );
 
       // Get request counts by endpoint from error logs
@@ -856,8 +859,8 @@ router.get(
           and(
             gte(errorLogs.timestamp, startDate),
             lte(errorLogs.timestamp, endDate),
-            sql`${errorLogs.endpoint} IS NOT NULL`
-          )
+            sql`${errorLogs.endpoint} IS NOT NULL`,
+          ),
         )
         .groupBy(errorLogs.endpoint)
         .orderBy(desc(sql<number>`COUNT(*)`))
@@ -873,8 +876,8 @@ router.get(
           and(
             gte(errorLogs.timestamp, startDate),
             lte(errorLogs.timestamp, endDate),
-            sql`${errorLogs.statusCode} >= 400 OR ${errorLogs.statusCode} IS NULL`
-          )
+            sql`${errorLogs.statusCode} >= 400 OR ${errorLogs.statusCode} IS NULL`,
+          ),
         );
 
       const totalRequests = await db
@@ -885,8 +888,8 @@ router.get(
         .where(
           and(
             gte(errorLogs.timestamp, startDate),
-            lte(errorLogs.timestamp, endDate)
-          )
+            lte(errorLogs.timestamp, endDate),
+          ),
         );
 
       // Get database query performance (using response time as proxy for query time)
@@ -899,8 +902,8 @@ router.get(
           and(
             gte(errorLogs.timestamp, startDate),
             lte(errorLogs.timestamp, endDate),
-            sql`${errorLogs.responseTime} IS NOT NULL`
-          )
+            sql`${errorLogs.responseTime} IS NOT NULL`,
+          ),
         );
 
       // Calculate system health metrics
@@ -947,5 +950,5 @@ router.get(
         message: "Failed to fetch performance metrics",
       });
     }
-  }
+  },
 );
