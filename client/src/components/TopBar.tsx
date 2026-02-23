@@ -9,7 +9,6 @@ const pageTitles: Record<string, string> = {
   "/schedule": "Schedule",
   "/students": "Students",
   "/roster": "Class Roster",
-  "/lab-computers": "Lab Computers",
   "/monitor": "Monitor",
   "/iot": "IoT Devices",
   "/health": "System Health",
