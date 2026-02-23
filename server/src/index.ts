@@ -612,6 +612,19 @@ async function initializeDatabaseColumns() {
       );
     }
 
+    // Make expires_at nullable - critical for connect-pg-simple
+    try {
+      await pool.query(
+        "ALTER TABLE user_sessions ALTER COLUMN expires_at DROP NOT NULL",
+      );
+      console.log("✅ Made expires_at nullable");
+    } catch (err: any) {
+      console.log(
+        "ℹ️ expires_at:",
+        err?.message?.substring(0, 50) || "already nullable",
+      );
+    }
+
     // Add unique constraint on sid for connect-pg-simple
     // First, make session_id nullable to avoid conflict with connect-pg-simple
     await pool

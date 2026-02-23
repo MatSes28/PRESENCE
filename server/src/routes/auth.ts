@@ -164,7 +164,8 @@ router.post(
       console.error("Login error:", error);
       res.status(500).json({
         success: false,
-        message: "Internal server error",
+        message:
+          error instanceof Error ? error.message : "Internal server error",
       });
     }
   },
