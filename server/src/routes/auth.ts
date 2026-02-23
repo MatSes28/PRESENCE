@@ -88,7 +88,7 @@ router.post(
           null,
           req.ip || req.connection.remoteAddress || "unknown",
           req.get("User-Agent") || "unknown",
-          "User not found"
+          "User not found",
         );
 
         return res.status(401).json({
@@ -109,7 +109,7 @@ router.post(
           user.id,
           req.ip || req.connection.remoteAddress || "unknown",
           req.get("User-Agent") || "unknown",
-          "Invalid password"
+          "Invalid password",
         );
 
         return res.status(401).json({
@@ -123,13 +123,21 @@ router.post(
         req.session.userId = user.id;
         req.session.userRole = user.role;
 
+        // Save session explicitly before sending response
+        await new Promise<void>((resolve, reject) => {
+          req.session!.save((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+
         // Log successful login
         await auditService.logUserLogin(
           user.id,
           req.ip || req.connection.remoteAddress || "unknown",
           req.get("User-Agent") || "unknown",
           req.sessionID || "unknown",
-          true
+          true,
         );
 
         // Return user info (without password)
@@ -159,7 +167,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Logout route
@@ -183,7 +191,7 @@ router.post("/logout", async (req, res) => {
           userId,
           req.ip || req.connection.remoteAddress || "unknown",
           req.get("User-Agent") || "unknown",
-          sessionId || "unknown"
+          sessionId || "unknown",
         );
       }
 
@@ -334,7 +342,7 @@ router.post(
         { email, name, role, facultyId, department, gender },
         req.ip || req.connection.remoteAddress || "unknown",
         req.get("User-Agent") || "unknown",
-        req.sessionID || "unknown"
+        req.sessionID || "unknown",
       );
 
       const { password: _, ...userWithoutPassword } = newUser;
@@ -351,7 +359,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Update profile
@@ -444,7 +452,7 @@ router.put("/change-password", async (req, res) => {
     // Verify current password
     const isValidPassword = await bcrypt.compare(
       currentPassword,
-      user.password
+      user.password,
     );
     if (!isValidPassword) {
       return res.status(401).json({
@@ -468,7 +476,7 @@ router.put("/change-password", async (req, res) => {
       user.id,
       req.ip || req.connection.remoteAddress || "unknown",
       req.get("User-Agent") || "unknown",
-      req.sessionID || "unknown"
+      req.sessionID || "unknown",
     );
 
     res.json({
@@ -566,7 +574,7 @@ router.post("/forgot-password", async (req, res) => {
       const emailSent = await emailService.sendPasswordResetEmail(
         email,
         userName,
-        resetLink
+        resetLink,
       );
       if (emailSent) {
         console.log(`[AUTH] Password reset email sent to ${email}`);
