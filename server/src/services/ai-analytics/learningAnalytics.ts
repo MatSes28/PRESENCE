@@ -14,44 +14,44 @@ export class LearningAnalyticsService {
   async generateLearningAnalytics(
     facultyId?: number,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<any> {
     try {
       const analytics = {
         performanceTrends: await this.analyzePerformanceTrends(
           facultyId,
           startDate,
-          endDate
+          endDate,
         ),
         attendancePatterns: await this.analyzeAttendancePatterns(
           facultyId,
           startDate,
-          endDate
+          endDate,
         ),
         seatingEffectiveness: await this.analyzeSeatingEffectiveness(
           facultyId,
           startDate,
-          endDate
+          endDate,
         ),
         engagementMetrics: await this.calculateEngagementMetrics(
           facultyId,
           startDate,
-          endDate
+          endDate,
         ),
         predictiveInsights: await this.generatePredictiveInsights(
           facultyId,
           startDate,
-          endDate
+          endDate,
         ),
         attendancePredictions: await this.predictAttendancePatterns(
           facultyId,
           startDate,
-          endDate
+          endDate,
         ),
         anomalyDetection: await this.detectAttendanceAnomalies(
           facultyId,
           startDate,
-          endDate
+          endDate,
         ),
       };
 
@@ -65,7 +65,7 @@ export class LearningAnalyticsService {
   private async analyzePerformanceTrends(
     facultyId?: number,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<any> {
     const conditions = [];
     if (facultyId) conditions.push(eq(schedules.facultyId, facultyId));
@@ -84,15 +84,15 @@ export class LearningAnalyticsService {
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
       .leftJoin(
         attendanceRecords,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .leftJoin(
         enrollments,
         and(
           eq(enrollments.subjectId, schedules.subjectId),
           eq(enrollments.semester, schedules.semester),
-          eq(enrollments.academicYear, schedules.academicYear)
-        )
+          eq(enrollments.academicYear, schedules.academicYear),
+        ),
       )
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .groupBy(subjects.name, classSessions.date);
@@ -106,13 +106,14 @@ export class LearningAnalyticsService {
   private async analyzeAttendancePatterns(
     facultyId?: number,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<any> {
     // Analyze attendance patterns by time, day, subject
+    // Using explicit casts to handle potential type mismatches
     const patterns = await db
       .select({
-        dayOfWeek: sql<number>`EXTRACT(DOW FROM ${classSessions.date})`,
-        hour: sql<number>`EXTRACT(HOUR FROM ${schedules.startTime})`,
+        dayOfWeek: sql<number>`EXTRACT(DOW FROM ${classSessions.date}::timestamp)`,
+        hour: sql<number>`EXTRACT(HOUR FROM ${schedules.startTime}::time)`,
         attendanceRate: sql<number>`AVG(CASE WHEN ${attendanceRecords.id} IS NOT NULL THEN 1 ELSE 0 END)`,
         subject: subjects.name,
       })
@@ -121,13 +122,13 @@ export class LearningAnalyticsService {
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
       .leftJoin(
         attendanceRecords,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .where(facultyId ? eq(schedules.facultyId, facultyId) : undefined)
       .groupBy(
-        sql`EXTRACT(DOW FROM ${classSessions.date})`,
-        sql`EXTRACT(HOUR FROM ${schedules.startTime})`,
-        subjects.name
+        sql`EXTRACT(DOW FROM ${classSessions.date}::timestamp)`,
+        sql`EXTRACT(HOUR FROM ${schedules.startTime}::time)`,
+        subjects.name,
       );
 
     return {
@@ -139,7 +140,7 @@ export class LearningAnalyticsService {
   private async analyzeSeatingEffectiveness(
     facultyId?: number,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<any> {
     // Analyze how seating arrangements affect performance
     const seatingData = await db
@@ -151,15 +152,15 @@ export class LearningAnalyticsService {
       .from(computerAssignments)
       .innerJoin(
         attendanceRecords,
-        eq(attendanceRecords.studentId, computerAssignments.studentId)
+        eq(attendanceRecords.studentId, computerAssignments.studentId),
       )
       .where(
         facultyId
           ? eq(
               computerAssignments.classSessionId,
-              sql`ANY(SELECT id FROM class_sessions WHERE schedule_id IN (SELECT id FROM schedules WHERE faculty_id = ${facultyId}))`
+              sql`ANY(SELECT id FROM class_sessions WHERE schedule_id IN (SELECT id FROM schedules WHERE faculty_id = ${facultyId}))`,
             )
-          : undefined
+          : undefined,
       )
       .groupBy(computerAssignments.computerId);
 
@@ -172,7 +173,7 @@ export class LearningAnalyticsService {
   private async calculateEngagementMetrics(
     facultyId?: number,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<any> {
     // Calculate engagement based on various factors
     const engagement = {
@@ -188,7 +189,7 @@ export class LearningAnalyticsService {
   private async generatePredictiveInsights(
     facultyId?: number,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<any[]> {
     const insights = [
       {
@@ -222,7 +223,7 @@ export class LearningAnalyticsService {
   private async predictAttendancePatterns(
     facultyId?: number,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<any> {
     // Simplified prediction - would delegate to predictive analytics service
     return {
@@ -238,7 +239,7 @@ export class LearningAnalyticsService {
   private async detectAttendanceAnomalies(
     facultyId?: number,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<any> {
     // Simplified anomaly detection - would delegate to predictive analytics service
     return {
