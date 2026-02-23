@@ -415,14 +415,40 @@ app.get("/api/admin/fix-session", async (req, res) => {
     });
 
     // Make user_id nullable to allow connect-pg-simple to create sessions
-    await pool
-      .query("ALTER TABLE user_sessions ALTER COLUMN user_id DROP NOT NULL")
-      .catch(() => {});
+    try {
+      await pool.query(
+        "ALTER TABLE user_sessions ALTER COLUMN user_id DROP NOT NULL",
+      );
+      console.log("✅ Made user_id nullable");
+    } catch (err: any) {
+      console.log(
+        "ℹ️ user_id nullable:",
+        err?.message || "already nullable or error",
+      );
+    }
 
-    // Make ip_address nullable to allow connect-pg-simple to create sessions
-    await pool
-      .query("ALTER TABLE user_sessions ALTER COLUMN ip_address DROP NOT NULL")
-      .catch(() => {});
+    // Make ip_address nullable - try multiple approaches
+    try {
+      // First try: simple ALTER
+      await pool.query(
+        "ALTER TABLE user_sessions ALTER COLUMN ip_address DROP NOT NULL",
+      );
+      console.log("✅ Made ip_address nullable (method 1)");
+    } catch (err: any) {
+      console.log("ℹ️ ip_address method 1:", err?.message?.substring(0, 80));
+      try {
+        // Second try: drop column and recreate
+        await pool.query(
+          "ALTER TABLE user_sessions DROP COLUMN IF EXISTS ip_address",
+        );
+        await pool.query(
+          "ALTER TABLE user_sessions ADD COLUMN ip_address VARCHAR(45)",
+        );
+        console.log("✅ Made ip_address nullable (method 2 - recreate)");
+      } catch (err2: any) {
+        console.log("ℹ️ ip_address method 2:", err2?.message?.substring(0, 80));
+      }
+    }
 
     // Drop existing constraint if exists, then add new one
     await pool
@@ -566,9 +592,25 @@ async function initializeDatabaseColumns() {
       .catch(() => {});
 
     // Make user_id nullable to allow connect-pg-simple to create sessions
-    await pool
-      .query("ALTER TABLE user_sessions ALTER COLUMN user_id DROP NOT NULL")
-      .catch(() => {});
+    try {
+      await pool.query(
+        "ALTER TABLE user_sessions ALTER COLUMN user_id DROP NOT NULL",
+      );
+      console.log("✅ Made user_id nullable");
+    } catch {}
+
+    // Make ip_address nullable to allow connect-pg-simple to create sessions
+    try {
+      await pool.query(
+        "ALTER TABLE user_sessions ALTER COLUMN ip_address DROP NOT NULL",
+      );
+      console.log("✅ Made ip_address nullable");
+    } catch (err: any) {
+      console.log(
+        "ℹ️ ip_address:",
+        err?.message?.substring(0, 50) || "already nullable",
+      );
+    }
 
     // Add unique constraint on sid for connect-pg-simple
     // First, make session_id nullable to avoid conflict with connect-pg-simple
