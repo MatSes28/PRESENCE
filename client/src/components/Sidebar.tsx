@@ -18,7 +18,7 @@ interface NavSection {
   defaultOpen?: boolean;
 }
 
-// Define navigation hierarchy
+// Define navigation hierarchy - Enterprise-grade university attendance system
 const navigationSections: NavSection[] = [
   {
     title: "Dashboard",
@@ -62,7 +62,7 @@ const navigationSections: NavSection[] = [
       { path: "/faculty", label: "Faculty", icon: "👨‍🏫", roles: ["admin"] },
       {
         path: "/subjects",
-        label: "Subjects",
+        label: "Courses",
         icon: "📚",
         roles: ["admin", "faculty"],
       },
@@ -92,22 +92,15 @@ const navigationSections: NavSection[] = [
         roles: ["admin", "faculty"],
       },
       {
+        path: "/reports/export",
+        label: "Export",
+        icon: "📤",
+        roles: ["admin", "faculty"],
+      },
+      {
         path: "/ai-analytics",
         label: "Analytics",
         icon: "🤖",
-        roles: ["admin", "faculty"],
-      },
-    ],
-  },
-  {
-    title: "Lab Computers",
-    icon: "💻",
-    roles: ["admin", "faculty"],
-    items: [
-      {
-        path: "/lab-computers",
-        label: "Lab Status",
-        icon: "🖥️",
         roles: ["admin", "faculty"],
       },
     ],
@@ -127,6 +120,12 @@ const navigationSections: NavSection[] = [
         path: "/users",
         label: "User Management",
         icon: "👤",
+        roles: ["admin"],
+      },
+      {
+        path: "/roles",
+        label: "Roles & Permissions",
+        icon: "🔐",
         roles: ["admin"],
       },
     ],
@@ -178,10 +177,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     }))
     .filter((section) => section.items.length > 0);
 
-  // Check if a path is active (including subpaths)
+  // Check if a path is active (improved logic for exact and prefix matching)
   const isActive = (path: string) => {
+    // Exact match for root
     if (path === "/") return location === "/";
-    return location.startsWith(path);
+    // Exact match or child route
+    return location === path || location.startsWith(path + "/");
   };
 
   const handleLogout = async () => {

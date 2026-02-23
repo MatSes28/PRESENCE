@@ -6,10 +6,10 @@ import {
 } from "./components/NotificationSystem";
 import { LoginForm } from "./components/LoginForm";
 import { Layout } from "./components/Layout";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Dashboard } from "./pages/Dashboard";
 import { Students } from "./pages/Students";
 import { Reports } from "./pages/Reports";
-import { LabComputers } from "./pages/LabComputers";
 import { LiveAttendance } from "./pages/LiveAttendance";
 import { Schedule } from "./pages/Schedule";
 import { ForgotPassword } from "./pages/ForgotPassword";
@@ -62,6 +62,7 @@ function AppContent() {
   console.log("User authenticated, showing dashboard");
   return (
     <Router>
+      {/* Dashboard - Single route for overview */}
       <Route
         path="/"
         component={() => (
@@ -70,83 +71,15 @@ function AppContent() {
           </Layout>
         )}
       />
-      <Route
-        path="/dashboard"
-        component={() => (
-          <Layout>
-            <Dashboard />
-          </Layout>
-        )}
-      />
-      <Route
-        path="/students"
-        component={() => (
-          <Layout>
-            <Students />
-          </Layout>
-        )}
-      />
-      <Route
-        path="/students/:id"
-        component={() => (
-          <Layout>
-            <StudentDetail />
-          </Layout>
-        )}
-      />
-      <Route
-        path="/students/:id/edit"
-        component={() => (
-          <Layout>
-            <StudentEdit />
-          </Layout>
-        )}
-      />
-      <Route
-        path="/reports"
-        component={() => (
-          <Layout>
-            <Reports />
-          </Layout>
-        )}
-      />
-      <Route
-        path="/lab-computers"
-        component={() => (
-          <Layout>
-            <LabComputers />
-          </Layout>
-        )}
-      />
+
+      {/* Attendance Module */}
       <Route
         path="/attendance"
         component={() => (
           <Layout>
-            <LiveAttendance />
-          </Layout>
-        )}
-      />
-      <Route
-        path="/schedule"
-        component={() => (
-          <Layout>
-            <Schedule />
-          </Layout>
-        )}
-      />
-      <Route
-        path="/faculty"
-        component={() => (
-          <Layout>
-            <FacultyManagement />
-          </Layout>
-        )}
-      />
-      <Route
-        path="/settings"
-        component={() => (
-          <Layout>
-            <Settings />
+            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+              <LiveAttendance />
+            </ProtectedRoute>
           </Layout>
         )}
       />
@@ -154,23 +87,51 @@ function AppContent() {
         path="/roster"
         component={() => (
           <Layout>
-            <Roster />
+            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+              <Roster />
+            </ProtectedRoute>
+          </Layout>
+        )}
+      />
+
+      {/* Management Module */}
+      <Route
+        path="/students"
+        component={() => (
+          <Layout>
+            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+              <Students />
+            </ProtectedRoute>
           </Layout>
         )}
       />
       <Route
-        path="/users"
+        path="/students/:id"
         component={() => (
           <Layout>
-            <UserManagement />
+            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+              <StudentDetail />
+            </ProtectedRoute>
           </Layout>
         )}
       />
       <Route
-        path="/ai-analytics"
+        path="/students/:id/edit"
         component={() => (
           <Layout>
-            <AIAnalytics />
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <StudentEdit />
+            </ProtectedRoute>
+          </Layout>
+        )}
+      />
+      <Route
+        path="/faculty"
+        component={() => (
+          <Layout>
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <FacultyManagement />
+            </ProtectedRoute>
           </Layout>
         )}
       />
@@ -178,7 +139,19 @@ function AppContent() {
         path="/subjects"
         component={() => (
           <Layout>
-            <Subjects />
+            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+              <Subjects />
+            </ProtectedRoute>
+          </Layout>
+        )}
+      />
+      <Route
+        path="/schedule"
+        component={() => (
+          <Layout>
+            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+              <Schedule />
+            </ProtectedRoute>
           </Layout>
         )}
       />
@@ -186,7 +159,73 @@ function AppContent() {
         path="/enrollments"
         component={() => (
           <Layout>
-            <EnrollmentManagement />
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <EnrollmentManagement />
+            </ProtectedRoute>
+          </Layout>
+        )}
+      />
+
+      {/* Reports Module */}
+      <Route
+        path="/reports"
+        component={() => (
+          <Layout>
+            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+              <Reports />
+            </ProtectedRoute>
+          </Layout>
+        )}
+      />
+      <Route
+        path="/reports/export"
+        component={() => (
+          <Layout>
+            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+              <Reports />
+            </ProtectedRoute>
+          </Layout>
+        )}
+      />
+      <Route
+        path="/ai-analytics"
+        component={() => (
+          <Layout>
+            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+              <AIAnalytics />
+            </ProtectedRoute>
+          </Layout>
+        )}
+      />
+
+      {/* Settings Module */}
+      <Route
+        path="/settings"
+        component={() => (
+          <Layout>
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <Settings />
+            </ProtectedRoute>
+          </Layout>
+        )}
+      />
+      <Route
+        path="/users"
+        component={() => (
+          <Layout>
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <UserManagement />
+            </ProtectedRoute>
+          </Layout>
+        )}
+      />
+      <Route
+        path="/roles"
+        component={() => (
+          <Layout>
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <UserManagement />
+            </ProtectedRoute>
           </Layout>
         )}
       />
