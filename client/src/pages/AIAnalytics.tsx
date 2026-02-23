@@ -24,7 +24,7 @@ export const AIAnalytics = () => {
   const [error, setError] = useState<string | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(
-    null
+    null,
   );
   const { addNotification } = useNotifications();
 
@@ -57,7 +57,7 @@ export const AIAnalytics = () => {
         setSessions(data.sessions || []);
         // Set the first active session as default if available
         const activeSession = data.sessions?.find(
-          (s: any) => s.session.status === "active"
+          (s: any) => s.session.status === "active",
         );
         if (activeSession) {
           setSelectedSessionId(activeSession.session.id);
@@ -156,7 +156,7 @@ export const AIAnalytics = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <h1 className="text-3xl font-bold text-white mb-2">
           AI Analytics Dashboard
         </h1>
         <p className="text-gray-600">
@@ -169,7 +169,7 @@ export const AIAnalytics = () => {
         {analytics?.predictiveInsights?.map((insight, index) => (
           <div
             key={index}
-            className="bg-white rounded-lg shadow-md p-6 border-l-4 border-teal-500"
+            className="bg-gray-800 rounded-lg shadow-md p-6 border-l-4 border-teal-500"
           >
             <div className="flex items-center justify-between mb-3">
               <span
@@ -177,8 +177,8 @@ export const AIAnalytics = () => {
                   insight.type === "performance"
                     ? "bg-blue-100 text-blue-800"
                     : insight.type === "engagement"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-yellow-100 text-yellow-800"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-yellow-100 text-yellow-800"
                 }`}
               >
                 {insight.type}
@@ -187,9 +187,7 @@ export const AIAnalytics = () => {
                 {Math.round(insight.confidence * 100)}% confidence
               </span>
             </div>
-            <h3 className="font-semibold text-gray-900 mb-2">
-              {insight.title}
-            </h3>
+            <h3 className="font-semibold text-white mb-2">{insight.title}</h3>
             <p className="text-gray-600 text-sm mb-3">{insight.description}</p>
             <div className="text-sm text-teal-600 font-medium">
               {insight.recommendation}
@@ -200,8 +198,8 @@ export const AIAnalytics = () => {
 
       {/* Performance Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        <div className="bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold text-white mb-4">
             Engagement Metrics
           </h2>
           <div className="space-y-3">
@@ -210,7 +208,7 @@ export const AIAnalytics = () => {
               <span className="font-medium">
                 {Math.round(
                   (analytics?.engagementMetrics?.attendanceConsistency || 0) *
-                    100
+                    100,
                 )}
                 %
               </span>
@@ -219,7 +217,7 @@ export const AIAnalytics = () => {
               <span className="text-gray-600">Participation Rate</span>
               <span className="font-medium">
                 {Math.round(
-                  (analytics?.engagementMetrics?.participationRate || 0) * 100
+                  (analytics?.engagementMetrics?.participationRate || 0) * 100,
                 )}
                 %
               </span>
@@ -228,7 +226,8 @@ export const AIAnalytics = () => {
               <span className="text-gray-600">Computer Utilization</span>
               <span className="font-medium">
                 {Math.round(
-                  (analytics?.engagementMetrics?.computerUtilization || 0) * 100
+                  (analytics?.engagementMetrics?.computerUtilization || 0) *
+                    100,
                 )}
                 %
               </span>
@@ -237,7 +236,8 @@ export const AIAnalytics = () => {
               <span className="text-gray-600">Interaction Patterns</span>
               <span className="font-medium">
                 {Math.round(
-                  (analytics?.engagementMetrics?.interactionPatterns || 0) * 100
+                  (analytics?.engagementMetrics?.interactionPatterns || 0) *
+                    100,
                 )}
                 %
               </span>
@@ -245,32 +245,30 @@ export const AIAnalytics = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        <div className="bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold text-white mb-4">
             Seating Effectiveness
           </h2>
           <div className="space-y-3">
             {analytics?.seatingEffectiveness?.optimization?.map(
               (item: any, index: number) => (
                 <div key={index} className="text-sm">
-                  <div className="font-medium text-gray-900">
-                    {item.message}
-                  </div>
-                  <div className="text-gray-600">{item.detail}</div>
+                  <div className="font-medium text-white">{item.message}</div>
+                  <div className="text-gray-300">{item.detail}</div>
                 </div>
-              )
+              ),
             )}
           </div>
         </div>
       </div>
 
       {/* Session Selector */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+      <div className="bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <h2 className="text-xl font-semibold text-white mb-4">
           Select Session
         </h2>
         <div className="flex items-center space-x-4">
-          <label htmlFor="session-select" className="text-gray-600">
+          <label htmlFor="session-select" className="text-gray-300">
             Active Session:
           </label>
           <select
@@ -298,8 +296,8 @@ export const AIAnalytics = () => {
       </div>
 
       {/* AI Actions */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+      <div className="bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold text-white mb-4">
           AI-Powered Actions
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -345,8 +343,8 @@ export const AIAnalytics = () => {
 
       {/* Performance Trends */}
       {analytics?.performanceTrends?.insights && (
-        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        <div className="mt-8 bg-gray-800 rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold text-white mb-4">
             Performance Insights
           </h2>
           <div className="space-y-3">
@@ -358,15 +356,15 @@ export const AIAnalytics = () => {
                     insight.impact === "positive"
                       ? "bg-green-50 border-l-4 border-green-500"
                       : insight.impact === "negative"
-                      ? "bg-red-50 border-l-4 border-red-500"
-                      : "bg-yellow-50 border-l-4 border-yellow-500"
+                        ? "bg-red-50 border-l-4 border-red-500"
+                        : "bg-yellow-50 border-l-4 border-yellow-500"
                   }`}
                 >
-                  <div className="font-medium text-gray-900">
+                  <div className="font-medium text-white">
                     {insight.message}
                   </div>
                 </div>
-              )
+              ),
             )}
           </div>
         </div>
