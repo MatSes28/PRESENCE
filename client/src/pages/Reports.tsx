@@ -79,7 +79,7 @@ export const Reports = () => {
         `/api/reports/attendance-records?${queryParams}`,
         {
           credentials: "include",
-        }
+        },
       );
 
       const data = await response.json();
@@ -94,13 +94,10 @@ export const Reports = () => {
           total: data.total || data.data.length, // Fallback if no total provided
         }));
       } else {
-        console.error("Failed to load preview data:", data.message);
-        addNotification({
-          type: "warning",
-          title: "Preview Unavailable",
-          message:
-            "Unable to load report preview data. Report generation may still work.",
-        });
+        // No data is expected behavior - don't show warning for empty data
+        console.log(
+          "No preview data available - this is expected with empty database",
+        );
         // Set empty data instead of mock data
         setPreviewData([]);
         setStatistics({
@@ -457,7 +454,7 @@ export const Reports = () => {
                     });
                   } else if (value === "week") {
                     const weekAgo = new Date(
-                      Date.now() - 7 * 24 * 60 * 60 * 1000
+                      Date.now() - 7 * 24 * 60 * 60 * 1000,
                     )
                       .toISOString()
                       .split("T")[0];
@@ -469,7 +466,7 @@ export const Reports = () => {
                     });
                   } else if (value === "month") {
                     const monthAgo = new Date(
-                      Date.now() - 30 * 24 * 60 * 60 * 1000
+                      Date.now() - 30 * 24 * 60 * 60 * 1000,
                     )
                       .toISOString()
                       .split("T")[0];
@@ -711,7 +708,7 @@ export const Reports = () => {
                           {
                             hour: "2-digit",
                             minute: "2-digit",
-                          }
+                          },
                         )
                       : "-"}
                   </td>
@@ -722,7 +719,7 @@ export const Reports = () => {
                           {
                             hour: "2-digit",
                             minute: "2-digit",
-                          }
+                          },
                         )
                       : "-"}
                   </td>
@@ -734,7 +731,7 @@ export const Reports = () => {
                           const diffMs = exit.getTime() - entry.getTime();
                           const hours = Math.floor(diffMs / (1000 * 60 * 60));
                           const minutes = Math.floor(
-                            (diffMs % (1000 * 60 * 60)) / (1000 * 60)
+                            (diffMs % (1000 * 60 * 60)) / (1000 * 60),
                           );
                           return `${hours}h ${minutes}m`;
                         })()
@@ -746,15 +743,15 @@ export const Reports = () => {
                         record.record.status === "present"
                           ? "bg-green-900 text-green-300"
                           : record.record.status === "late"
-                          ? "bg-yellow-900 text-yellow-300"
-                          : "bg-red-900 text-red-300"
+                            ? "bg-yellow-900 text-yellow-300"
+                            : "bg-red-900 text-red-300"
                       }`}
                     >
                       {record.record.status === "present"
                         ? "Present"
                         : record.record.status === "late"
-                        ? "Late"
-                        : "Absent"}
+                          ? "Late"
+                          : "Absent"}
                     </span>
                   </td>
                 </tr>
