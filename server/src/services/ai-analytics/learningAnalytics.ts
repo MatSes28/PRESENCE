@@ -16,50 +16,94 @@ export class LearningAnalyticsService {
     startDate?: Date,
     endDate?: Date,
   ): Promise<any> {
-    try {
-      const analytics = {
-        performanceTrends: await this.analyzePerformanceTrends(
-          facultyId,
-          startDate,
-          endDate,
-        ),
-        attendancePatterns: await this.analyzeAttendancePatterns(
-          facultyId,
-          startDate,
-          endDate,
-        ),
-        seatingEffectiveness: await this.analyzeSeatingEffectiveness(
-          facultyId,
-          startDate,
-          endDate,
-        ),
-        engagementMetrics: await this.calculateEngagementMetrics(
-          facultyId,
-          startDate,
-          endDate,
-        ),
-        predictiveInsights: await this.generatePredictiveInsights(
-          facultyId,
-          startDate,
-          endDate,
-        ),
-        attendancePredictions: await this.predictAttendancePatterns(
-          facultyId,
-          startDate,
-          endDate,
-        ),
-        anomalyDetection: await this.detectAttendanceAnomalies(
-          facultyId,
-          startDate,
-          endDate,
-        ),
-      };
+    // Wrap each analytics method in try-catch for resilience
+    // This ensures that if one method fails, others still return data
 
-      return analytics;
-    } catch (error) {
-      console.error("Learning analytics error:", error);
-      throw error;
+    let performanceTrends,
+      attendancePatterns,
+      seatingEffectiveness,
+      engagementMetrics,
+      predictiveInsights,
+      attendancePredictions;
+
+    try {
+      performanceTrends = await this.analyzePerformanceTrends(
+        facultyId,
+        startDate,
+        endDate,
+      );
+    } catch (err) {
+      console.error("Performance trends analysis error:", err);
+      performanceTrends = { trends: [], summary: null };
     }
+
+    try {
+      attendancePatterns = await this.analyzeAttendancePatterns(
+        facultyId,
+        startDate,
+        endDate,
+      );
+    } catch (err) {
+      console.error("Attendance patterns analysis error:", err);
+      attendancePatterns = { patterns: [], summary: null };
+    }
+
+    try {
+      seatingEffectiveness = await this.analyzeSeatingEffectiveness(
+        facultyId,
+        startDate,
+        endDate,
+      );
+    } catch (err) {
+      console.error("Seating effectiveness analysis error:", err);
+      seatingEffectiveness = { effectiveness: [], optimization: null };
+    }
+
+    try {
+      engagementMetrics = await this.calculateEngagementMetrics(
+        facultyId,
+        startDate,
+        endDate,
+      );
+    } catch (err) {
+      console.error("Engagement metrics analysis error:", err);
+      engagementMetrics = {
+        attendanceConsistency: 0,
+        participationRate: 0,
+        avgSessionDuration: 0,
+      };
+    }
+
+    try {
+      predictiveInsights = await this.generatePredictiveInsights(
+        facultyId,
+        startDate,
+        endDate,
+      );
+    } catch (err) {
+      console.error("Predictive insights analysis error:", err);
+      predictiveInsights = [];
+    }
+
+    try {
+      attendancePredictions = await this.predictAttendancePatterns(
+        facultyId,
+        startDate,
+        endDate,
+      );
+    } catch (err) {
+      console.error("Attendance predictions analysis error:", err);
+      attendancePredictions = { predictions: [], confidence: 0 };
+    }
+
+    return {
+      performanceTrends,
+      attendancePatterns,
+      seatingEffectiveness,
+      engagementMetrics,
+      predictiveInsights,
+      attendancePredictions,
+    };
   }
 
   private async analyzePerformanceTrends(
@@ -146,7 +190,7 @@ export class LearningAnalyticsService {
     const seatingData = await db
       .select({
         computerId: computerAssignments.computerId,
-        studentPerformance: sql<number>`AVG(${attendanceRecords.isValid})`, // Simplified metric
+        studentPerformance: sql<number>`AVG(${attendanceRecords.isValid}::int)`, // Simplified metric
         sessionCount: count(computerAssignments.id),
       })
       .from(computerAssignments)
