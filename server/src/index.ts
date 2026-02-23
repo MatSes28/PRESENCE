@@ -423,6 +423,11 @@ app.get("/api/admin/fix-session", async (req, res) => {
       .query("ALTER TABLE user_sessions ALTER COLUMN user_id DROP NOT NULL")
       .catch(() => {});
 
+    // Make ip_address nullable to allow connect-pg-simple to create sessions
+    await pool
+      .query("ALTER TABLE user_sessions ALTER COLUMN ip_address DROP NOT NULL")
+      .catch(() => {});
+
     // Drop existing constraint if exists, then add new one
     await pool
       .query(
@@ -442,7 +447,7 @@ app.get("/api/admin/fix-session", async (req, res) => {
     await pool.end();
     res.json({
       success: true,
-      message: "Session constraints and user_id fixed",
+      message: "Session constraints, user_id and ip_address fixed",
     });
   } catch (error) {
     res.status(500).json({ success: false, error: String(error) });
