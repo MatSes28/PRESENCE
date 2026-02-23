@@ -120,7 +120,7 @@ router.put("/schedules/:id", requireAdmin, async (req, res) => {
 
     const success = await reportSchedulerService.updateSchedule(
       scheduleId,
-      updates
+      updates,
     );
 
     if (!success) {
@@ -322,13 +322,13 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
 
     if (studentId) {
       conditions.push(
-        eq(attendanceRecords.studentId, parseInt(studentId as string))
+        eq(attendanceRecords.studentId, parseInt(studentId as string)),
       );
     }
 
     if (sessionId) {
       conditions.push(
-        eq(attendanceRecords.classSessionId, parseInt(sessionId as string))
+        eq(attendanceRecords.classSessionId, parseInt(sessionId as string)),
       );
     }
 
@@ -413,7 +413,7 @@ router.post("/generate-report", requireAuth, async (req, res) => {
           .leftJoin(students, eq(attendanceRecords.studentId, students.id))
           .leftJoin(
             classSessions,
-            eq(attendanceRecords.classSessionId, classSessions.id)
+            eq(attendanceRecords.classSessionId, classSessions.id),
           )
           .leftJoin(schedules, eq(classSessions.scheduleId, schedules.id))
           .leftJoin(subjects, eq(schedules.subjectId, subjects.id));
@@ -422,7 +422,7 @@ router.post("/generate-report", requireAuth, async (req, res) => {
         const conditions = [];
         if (startDate) {
           conditions.push(
-            gte(attendanceRecords.createdAt, new Date(startDate))
+            gte(attendanceRecords.createdAt, new Date(startDate)),
           );
         }
         if (endDate) {
@@ -470,7 +470,7 @@ router.post("/generate-report", requireAuth, async (req, res) => {
           .leftJoin(schedules, eq(classSessions.scheduleId, schedules.id))
           .leftJoin(
             attendanceRecords,
-            eq(classSessions.id, attendanceRecords.classSessionId)
+            eq(classSessions.id, attendanceRecords.classSessionId),
           )
           .groupBy(classSessions.id, schedules.id);
 
@@ -478,12 +478,12 @@ router.post("/generate-report", requireAuth, async (req, res) => {
         const sessionConditions = [];
         if (startDate) {
           sessionConditions.push(
-            gte(classSessions.createdAt, new Date(startDate))
+            gte(classSessions.createdAt, new Date(startDate)),
           );
         }
         if (endDate) {
           sessionConditions.push(
-            lte(classSessions.createdAt, new Date(endDate))
+            lte(classSessions.createdAt, new Date(endDate)),
           );
         }
 
@@ -501,8 +501,26 @@ router.post("/generate-report", requireAuth, async (req, res) => {
         });
     }
 
-    // For now, return the data directly
-    // In a real implementation, you'd generate a file and return a download URL
+    // Generate CSV or return JSON data
+    if (format === "csv" && data.length > 0) {
+      // Convert data to CSV
+      const headers = Object.keys(data[0]).join(",");
+      const rows = data.map((row: any) =>
+        Object.values(row)
+          .map((val) => `"${val || ""}"`)
+          .join(","),
+      );
+      const csv = [headers, ...rows].join("\n");
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="attendance_report_${new Date().toISOString().split("T")[0]}.csv"`,
+      );
+      return res.send(csv);
+    }
+
+    // For JSON format or empty data, return the data directly
     res.json({
       success: true,
       message: "Report data retrieved successfully",
@@ -575,8 +593,8 @@ router.get("/real-time-stats", requireAuth, async (req, res) => {
       .where(
         and(
           gte(attendanceRecords.createdAt, today),
-          lt(attendanceRecords.createdAt, tomorrow)
-        )
+          lt(attendanceRecords.createdAt, tomorrow),
+        ),
       )
       .groupBy(attendanceRecords.status);
 
@@ -590,8 +608,8 @@ router.get("/real-time-stats", requireAuth, async (req, res) => {
         and(
           gte(classSessions.date, today),
           lt(classSessions.date, tomorrow),
-          eq(classSessions.status, "active")
-        )
+          eq(classSessions.status, "active"),
+        ),
       );
 
     // Process stats

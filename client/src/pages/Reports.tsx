@@ -254,29 +254,68 @@ export const Reports = () => {
   const handleGenerateReport = async () => {
     setGenerating(true);
     try {
-      const response = await fetch("/api/reports/generate-report", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(reportParams),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        addNotification({
-          type: "success",
-          title: "Report Generated",
-          message: "Your report has been generated successfully.",
+      // For CSV format, we need to handle the response as a blob
+      if (reportParams.format === "csv") {
+        const response = await fetch("/api/reports/generate-report", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(reportParams),
         });
+
+        if (response.ok) {
+          // Handle CSV file download
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `attendance_report_${new Date().toISOString().split("T")[0]}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+
+          addNotification({
+            type: "success",
+            title: "Report Exported",
+            message: "Your CSV report has been downloaded.",
+          });
+        } else {
+          const data = await response.json();
+          addNotification({
+            type: "error",
+            title: "Export Failed",
+            message: data.message || "Failed to export report",
+          });
+        }
       } else {
-        addNotification({
-          type: "error",
-          title: "Report Generation Failed",
-          message: data.message || "Failed to generate report",
+        // For PDF or other formats, use JSON response
+        const response = await fetch("/api/reports/generate-report", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(reportParams),
         });
+
+        const data = await response.json();
+
+        if (data.success) {
+          addNotification({
+            type: "success",
+            title: "Report Generated",
+            message: "Your report has been generated successfully.",
+          });
+        } else {
+          addNotification({
+            type: "error",
+            title: "Report Generation Failed",
+            message: data.message || "Failed to generate report",
+          });
+        }
       }
     } catch (error) {
       console.error("Failed to generate report:", error);
