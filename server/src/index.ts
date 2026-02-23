@@ -384,13 +384,9 @@ app.use(
     cookie: {
       secure:
         process.env.NODE_ENV === "production" ||
-        !!process.env.RAILWAY_ENVIRONMENT, // Railway sets RAILWAY_ENVIRONMENT
+        !!process.env.RAILWAY_ENVIRONMENT,
       httpOnly: true,
-      sameSite:
-        process.env.NODE_ENV === "production" ||
-        !!process.env.RAILWAY_ENVIRONMENT
-          ? "none"
-          : "lax",
+      sameSite: "lax", // Use lax for better compatibility
       maxAge: 8 * 60 * 60 * 1000, // 8 hours (reduced for security)
       path: "/",
     },
