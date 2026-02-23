@@ -564,6 +564,11 @@ async function initializeDatabaseColumns() {
       )
       .catch(() => {});
 
+    // Make user_id nullable to allow connect-pg-simple to create sessions
+    await pool
+      .query("ALTER TABLE user_sessions ALTER COLUMN user_id DROP NOT NULL")
+      .catch(() => {});
+
     // Add unique constraint on sid for connect-pg-simple
     // First, make session_id nullable to avoid conflict with connect-pg-simple
     await pool
