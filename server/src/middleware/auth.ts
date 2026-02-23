@@ -5,9 +5,14 @@ import jwt from "jsonwebtoken";
 export const requireAuth = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
-  // Check for JWT token in Authorization header
+  // First, check for session-based authentication
+  if (req.session?.userId) {
+    return next();
+  }
+
+  // Second, check for JWT token in Authorization header
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
 
@@ -22,7 +27,7 @@ export const requireAuth = (
     // Verify JWT token
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || "default-secret"
+      process.env.JWT_SECRET || "default-secret",
     );
 
     // Attach user information to request
@@ -56,11 +61,11 @@ export const requireAuth = (
 export const requireAdmin = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   if (!req.session?.userId || req.session?.userRole !== "admin") {
     console.log(
-      `Unauthorized admin access attempt by user ${req.session?.userId}`
+      `Unauthorized admin access attempt by user ${req.session?.userId}`,
     );
     return res.status(403).json({
       success: false,
@@ -76,14 +81,14 @@ export const requireAdmin = (
 export const requireAdminOrFaculty = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   if (
     !req.session?.userId ||
     (req.session?.userRole !== "admin" && req.session?.userRole !== "faculty")
   ) {
     console.log(
-      `Unauthorized faculty access attempt by user ${req.session?.userId}`
+      `Unauthorized faculty access attempt by user ${req.session?.userId}`,
     );
     return res.status(403).json({
       success: false,
@@ -99,11 +104,11 @@ export const requireAdminOrFaculty = (
 export const requireFaculty = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   if (!req.session?.userId || req.session?.userRole !== "faculty") {
     console.log(
-      `Unauthorized faculty access attempt by user ${req.session?.userId}`
+      `Unauthorized faculty access attempt by user ${req.session?.userId}`,
     );
     return res.status(403).json({
       success: false,
