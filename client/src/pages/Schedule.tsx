@@ -81,7 +81,9 @@ export const Schedule = () => {
     try {
       // Fetch subjects, classrooms, and faculty for dropdowns
       const [subjectsRes, classroomsRes, usersRes] = await Promise.all([
-        fetch("/api/subjects").then((r) => r.json()),
+        fetch("/api/subjects", { credentials: "include" }).then((r) =>
+          r.json(),
+        ),
         api.getClassrooms(),
         api.getUsers(),
       ]);
@@ -173,7 +175,7 @@ export const Schedule = () => {
     start1: string,
     end1: string,
     start2: string,
-    end2: string
+    end2: string,
   ): boolean => {
     const start1Minutes =
       parseInt(start1.split(":")[0]) * 60 + parseInt(start1.split(":")[1]);
@@ -190,7 +192,7 @@ export const Schedule = () => {
   // Client-side conflict detection
   const checkScheduleConflicts = (
     newSchedule: any,
-    excludeId?: number
+    excludeId?: number,
   ): any[] => {
     const conflicts: any[] = [];
 
@@ -209,7 +211,7 @@ export const Schedule = () => {
             schedule.startTime,
             schedule.endTime,
             newSchedule.startTime,
-            newSchedule.endTime
+            newSchedule.endTime,
           )
         ) {
           // Check classroom conflict
@@ -219,7 +221,7 @@ export const Schedule = () => {
               message: `Classroom ${
                 schedule.classroomName
               } is already booked for ${schedule.subjectName} (${formatTime(
-                schedule.startTime
+                schedule.startTime,
               )} - ${formatTime(schedule.endTime)})`,
               existingSchedule: schedule,
             });
@@ -232,7 +234,7 @@ export const Schedule = () => {
               message: `Faculty member ${
                 schedule.facultyName
               } is already scheduled for ${schedule.subjectName} (${formatTime(
-                schedule.startTime
+                schedule.startTime,
               )} - ${formatTime(schedule.endTime)})`,
               existingSchedule: schedule,
             });
@@ -281,7 +283,7 @@ export const Schedule = () => {
 
     const clientConflicts = checkScheduleConflicts(
       newScheduleData,
-      editingSchedule?.id
+      editingSchedule?.id,
     );
     if (clientConflicts.length > 0) {
       setConflicts(clientConflicts);
@@ -332,7 +334,7 @@ export const Schedule = () => {
       if (editingSchedule) {
         response = await api.updateSchedule(
           editingSchedule.id,
-          newScheduleData
+          newScheduleData,
         );
       } else {
         response = await api.createSchedule(newScheduleData);
@@ -360,7 +362,7 @@ export const Schedule = () => {
     } catch (error) {
       console.error(
         `Failed to ${editingSchedule ? "update" : "create"} schedule:`,
-        error
+        error,
       );
       addNotification({
         type: "error",
@@ -406,7 +408,7 @@ export const Schedule = () => {
   const handleDelete = async (id: number) => {
     if (
       !confirm(
-        "Are you sure you want to delete this schedule? This action cannot be undone."
+        "Are you sure you want to delete this schedule? This action cannot be undone.",
       )
     ) {
       return;
@@ -446,7 +448,7 @@ export const Schedule = () => {
   };
 
   const handleCsvUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -797,8 +799,8 @@ export const Schedule = () => {
                   checkingConflicts
                     ? "Checking conflicts..."
                     : editingSchedule
-                    ? "Updating..."
-                    : "Adding..."
+                      ? "Updating..."
+                      : "Adding..."
                 }
                 className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-4 py-2 rounded-md text-sm font-medium"
               >
@@ -853,7 +855,7 @@ export const Schedule = () => {
                       const daySchedules = getSchedulesForDay(dayIndex);
                       const hourSchedules = daySchedules.filter((schedule) => {
                         const startHour = parseInt(
-                          schedule.startTime.split(":")[0]
+                          schedule.startTime.split(":")[0],
                         );
                         return startHour === hour;
                       });
@@ -971,8 +973,8 @@ export const Schedule = () => {
                       isSelected
                         ? "bg-cyan-900 border-cyan-600"
                         : isToday
-                        ? "bg-gray-700 border-gray-600"
-                        : "bg-gray-800 border-gray-700 hover:bg-gray-700"
+                          ? "bg-gray-700 border-gray-600"
+                          : "bg-gray-800 border-gray-700 hover:bg-gray-700"
                     }`}
                   >
                     <div
