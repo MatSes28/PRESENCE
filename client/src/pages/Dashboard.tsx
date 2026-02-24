@@ -61,6 +61,20 @@ export const Dashboard = () => {
     action: "create", // create or activate
   });
 
+  // Security tab
+  const [securityMetrics, setSecurityMetrics] = useState<any>(null);
+  const [securityLoading, setSecurityLoading] = useState(false);
+
+  // Performance tab
+  const [performanceMetrics, setPerformanceMetrics] = useState<any>(null);
+  const [performanceLoading, setPerformanceLoading] = useState(false);
+
+  // RFID Tools tab
+  const [rfidSimulateUid, setRfidSimulateUid] = useState("");
+  const [rfidSimulateLoading, setRfidSimulateLoading] = useState(false);
+  const [rfidActivityList, setRfidActivityList] = useState<any[]>([]);
+  const [rfidActivityLoading, setRfidActivityLoading] = useState(false);
+
   // Data persistence keys
   const STORAGE_KEYS = {
     DASHBOARD_STATS: "dashboard_stats",
@@ -226,6 +240,70 @@ export const Dashboard = () => {
       fetchAnalytics(analyticsPeriod);
     }
   }, [activeTab, analyticsData, analyticsPeriod]);
+
+  // Load security metrics when Security tab is selected
+  useEffect(() => {
+    if (activeTab !== "security") return;
+    const load = async () => {
+      setSecurityLoading(true);
+      try {
+        const res = await api.getSecurityMetrics();
+        if (res.success && res.data) setSecurityMetrics(res.data);
+        else setSecurityMetrics(null);
+      } catch {
+        setSecurityMetrics(null);
+      } finally {
+        setSecurityLoading(false);
+      }
+    };
+    load();
+  }, [activeTab]);
+
+  // Load performance metrics when Performance tab is selected
+  useEffect(() => {
+    if (activeTab !== "performance") return;
+    const load = async () => {
+      setPerformanceLoading(true);
+      try {
+        const res = await api.getPerformanceMetrics();
+        if (res.success && res.data) setPerformanceMetrics(res.data);
+        else setPerformanceMetrics(null);
+      } catch {
+        setPerformanceMetrics(null);
+      } finally {
+        setPerformanceLoading(false);
+      }
+    };
+    load();
+  }, [activeTab]);
+
+  // Load activity for RFID Tools tab
+  useEffect(() => {
+    if (activeTab !== "rfid-tools") return;
+    const load = async () => {
+      setRfidActivityLoading(true);
+      try {
+        const res = await api.getDashboardActivity();
+        if (res.success && Array.isArray(res.data)) {
+          setRfidActivityList(
+            res.data.map((a: any) => ({
+              type: "success",
+              message: a.message || "Attendance event",
+              time: a.timestamp
+                ? new Date(a.timestamp).toLocaleString()
+                : "",
+              device: "System",
+            }))
+          );
+        } else setRfidActivityList([]);
+      } catch {
+        setRfidActivityList([]);
+      } finally {
+        setRfidActivityLoading(false);
+      }
+    };
+    load();
+  }, [activeTab]);
 
   // Fetch available schedules for session management
   const fetchAvailableSchedules = async () => {
@@ -740,13 +818,18 @@ export const Dashboard = () => {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
         </div>
-      ) : analyticsData && analyticsData.dailyTrends ? (
+      ) : analyticsData ? (
         <>
           {/* Daily Attendance Trends Chart */}
           <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
             <h4 className="text-lg font-medium text-cyan-400 mb-4">
               Daily Attendance Trends
             </h4>
+            {(!analyticsData.dailyTrends || analyticsData.dailyTrends.length === 0) ? (
+              <div className="h-[300px] flex items-center justify-center text-gray-400">
+                No attendance data in this period. Record attendance to see trends.
+              </div>
+            ) : (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={analyticsData.dailyTrends}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -793,6 +876,7 @@ export const Dashboard = () => {
                 />
               </LineChart>
             </ResponsiveContainer>
+            )}
           </div>
 
           {/* Hourly Patterns and Subject Performance */}
@@ -801,6 +885,11 @@ export const Dashboard = () => {
               <h4 className="text-lg font-medium text-cyan-400 mb-4">
                 Hourly Attendance Patterns
               </h4>
+              {(!analyticsData.hourlyPatterns || analyticsData.hourlyPatterns.length === 0) ? (
+                <div className="h-[250px] flex items-center justify-center text-gray-400 text-sm">
+                  No hourly data in this period.
+                </div>
+              ) : (
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={analyticsData.hourlyPatterns}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -826,6 +915,7 @@ export const Dashboard = () => {
                   />
                 </BarChart>
               </ResponsiveContainer>
+              )}
             </div>
 
             <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
@@ -833,7 +923,9 @@ export const Dashboard = () => {
                 Subject Performance
               </h4>
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {analyticsData.subjectPerformance.map(
+                {(!analyticsData.subjectPerformance || analyticsData.subjectPerformance.length === 0) ? (
+                  <p className="text-gray-400 text-sm">No subject data in this period.</p>
+                ) : analyticsData.subjectPerformance.map(
                   (subject: any, index: number) => (
                     <div
                       key={index}
@@ -865,6 +957,9 @@ export const Dashboard = () => {
             <h4 className="text-lg font-medium text-cyan-400 mb-4">
               Faculty Performance
             </h4>
+            {(!analyticsData.facultyPerformance || analyticsData.facultyPerformance.length === 0) ? (
+              <p className="text-gray-400 text-sm">No faculty data in this period.</p>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {analyticsData.facultyPerformance.map(
                 (faculty: any, index: number) => (
@@ -890,11 +985,19 @@ export const Dashboard = () => {
                 )
               )}
             </div>
+            )}
           </div>
         </>
       ) : (
         <div className="text-center py-12">
-          <p className="text-gray-400">No analytics data available</p>
+          <p className="text-gray-400 mb-4">Analytics data could not be loaded.</p>
+          <button
+            type="button"
+            onClick={() => fetchAnalytics(analyticsPeriod)}
+            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-medium"
+          >
+            Retry
+          </button>
         </div>
       )}
     </div>
@@ -903,54 +1006,43 @@ export const Dashboard = () => {
   // Security Tab Content
   const securityContent = (
     <div className="space-y-6">
-      <div className="bg-yellow-900 border border-yellow-600 rounded-lg p-4 mb-6">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <span className="text-yellow-400 text-lg">⚠️</span>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-yellow-400">
-              Security Monitoring Not Available
-            </h3>
-            <p className="text-sm text-yellow-200 mt-1">
-              Real-time security metrics require backend implementation.
-              Currently showing placeholder data.
-            </p>
-          </div>
+      {securityLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
         </div>
-      </div>
-
+      ) : (
+        <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="Active Sessions"
-          value="N/A"
-          icon="🔐"
+          title="Security Score"
+          value={securityMetrics?.securityScore != null ? `${Math.round(securityMetrics.securityScore)}%` : "—"}
+          icon="🛡️"
           trend="neutral"
-          trendValue="Pending"
+          trendValue={securityMetrics ? "Live" : "No data"}
           color="gray"
         />
         <StatCard
           title="Failed Logins"
-          value="N/A"
+          value={securityMetrics?.failedLogins != null ? String(securityMetrics.failedLogins) : "—"}
           icon="🚫"
           trend="neutral"
-          trendValue="Pending"
+          trendValue={securityMetrics ? "7d" : "—"}
           color="gray"
         />
         <StatCard
-          title="Security Alerts"
-          value="N/A"
-          icon="⚠️"
+          title="Successful Logins"
+          value={securityMetrics?.successfulLogins != null ? String(securityMetrics.successfulLogins) : "—"}
+          icon="🔐"
           trend="neutral"
-          trendValue="Pending"
+          trendValue={securityMetrics ? "7d" : "—"}
           color="gray"
         />
         <StatCard
-          title="System Integrity"
-          value="N/A"
-          icon="🛡️"
+          title="Login Success Rate"
+          value={securityMetrics?.loginSuccessRate != null ? `${securityMetrics.loginSuccessRate}%` : "—"}
+          icon="✅"
           trend="neutral"
-          trendValue="Pending"
+          trendValue={securityMetrics ? "Live" : "—"}
           color="gray"
         />
       </div>
@@ -961,54 +1053,19 @@ export const Dashboard = () => {
             Recent Security Events
           </h4>
           <div className="space-y-3 max-h-64 overflow-y-auto">
-            {[
-              {
-                type: "success",
-                message: "Successful login - Admin",
-                time: "2 minutes ago",
-              },
-              {
-                type: "info",
-                message: "RFID card validated",
-                time: "5 minutes ago",
-              },
-              {
-                type: "warning",
-                message: "Sensor calibration completed",
-                time: "1 hour ago",
-              },
-              {
-                type: "success",
-                message: "Database backup completed",
-                time: "2 hours ago",
-              },
-              {
-                type: "info",
-                message: "User session expired",
-                time: "3 hours ago",
-              },
-              {
-                type: "warning",
-                message: "High CPU usage detected",
-                time: "4 hours ago",
-              },
-            ].map((event, index) => (
+            {securityMetrics?.suspiciousActivities?.length > 0 ? securityMetrics.suspiciousActivities.slice(0, 10).map((event: any, index: number) => (
               <div key={index} className="flex items-center space-x-3">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    event.type === "success"
-                      ? "bg-green-500"
-                      : event.type === "warning"
-                      ? "bg-yellow-500"
-                      : "bg-blue-500"
-                  }`}
-                ></div>
-                <div className="flex-1">
-                  <p className="text-sm text-white">{event.message}</p>
-                  <p className="text-xs text-gray-400">{event.time}</p>
+                <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{event.action || event.description}</p>
+                  <p className="text-xs text-gray-400">
+                    {event.timestamp ? new Date(event.timestamp).toLocaleString() : ""}
+                  </p>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-gray-400 text-sm">No security events in this period. System is secure.</p>
+            )}
           </div>
         </div>
 
@@ -1018,196 +1075,88 @@ export const Dashboard = () => {
           </h4>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-300">Multi-factor Authentication</span>
+              <span className="text-gray-300">Session-based auth</span>
               <span className="text-green-400">Enabled</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-300">Session Timeout</span>
-              <span className="text-white">30 min</span>
+              <span className="text-gray-300">Password hashing</span>
+              <span className="text-green-400">bcrypt</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-300">Failed Login Lockout</span>
-              <span className="text-green-400">5 attempts</span>
+              <span className="text-gray-300">Rate limiting</span>
+              <span className="text-green-400">Enabled</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-300">IP Whitelisting</span>
-              <span className="text-yellow-400">Partial</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-300">Password Complexity</span>
-              <span className="text-green-400">Enforced</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-300">Data Encryption</span>
-              <span className="text-green-400">AES-256</span>
+              <span className="text-gray-300">Audit logging</span>
+              <span className="text-green-400">Active</span>
             </div>
           </div>
         </div>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
-            Threat Detection
+            Security Alerts (by severity)
           </h4>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-300">Suspicious IPs</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Brute Force Attempts</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Anomaly Detections</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-          <h4 className="text-lg font-medium text-cyan-400 mb-4">
-            Data Protection
-          </h4>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-300">Encrypted Fields</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Backup Frequency</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Last Backup</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-          <h4 className="text-lg font-medium text-cyan-400 mb-4">
-            Compliance Status
-          </h4>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-300">GDPR Compliance</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Data Retention</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Audit Logging</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
+          <div className="space-y-2 text-sm text-gray-400">
+            {securityMetrics ? (
+              <>High: {securityMetrics.bySeverity?.high ?? 0} · Medium: {securityMetrics.bySeverity?.medium ?? 0} · Low: {securityMetrics.bySeverity?.low ?? 0}</>
+            ) : (
+              <p>No alert data for this period.</p>
+            )}
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 
   // Performance Tab Content
   const performanceContent = (
     <div className="space-y-6">
-      <div className="bg-yellow-900 border border-yellow-600 rounded-lg p-4 mb-6">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <span className="text-yellow-400 text-lg">⚠️</span>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-yellow-400">
-              Performance Monitoring Not Available
-            </h3>
-            <p className="text-sm text-yellow-200 mt-1">
-              Real-time performance metrics require backend implementation.
-              Currently showing placeholder data.
-            </p>
-          </div>
+      {performanceLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
         </div>
-      </div>
-
+      ) : (
+        <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="Response Time"
-          value="N/A"
-          icon="⚡"
-          trend="neutral"
-          trendValue="Pending"
-          color="gray"
-        />
-        <StatCard
-          title="Uptime"
-          value="N/A"
+          title="Performance Score"
+          value={performanceMetrics?.performanceScore != null ? `${performanceMetrics.performanceScore}%` : "—"}
           icon="📈"
           trend="neutral"
-          trendValue="Pending"
+          trendValue={performanceMetrics ? "Live" : "No data"}
           color="gray"
         />
         <StatCard
-          title="CPU Usage"
-          value="N/A"
-          icon="💻"
+          title="Avg Response Time"
+          value={performanceMetrics?.api?.avgResponseTime != null ? `${performanceMetrics.api.avgResponseTime}ms` : "—"}
+          icon="⚡"
           trend="neutral"
-          trendValue="Pending"
+          trendValue={performanceMetrics ? "24h" : "—"}
           color="gray"
         />
         <StatCard
-          title="Memory Usage"
-          value="N/A"
-          icon="🧠"
+          title="Total Requests"
+          value={performanceMetrics?.api?.totalRequests != null ? String(performanceMetrics.api.totalRequests) : "—"}
+          icon="📡"
           trend="neutral"
-          trendValue="Pending"
+          trendValue={performanceMetrics ? "24h" : "—"}
+          color="gray"
+        />
+        <StatCard
+          title="Error Rate"
+          value={performanceMetrics?.api?.errorRate != null ? `${performanceMetrics.api.errorRate}%` : "—"}
+          icon="⚠️"
+          trend="neutral"
+          trendValue={performanceMetrics ? "24h" : "—"}
           color="gray"
         />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-          <h4 className="text-lg font-medium text-cyan-400 mb-4">
-            System Resources
-          </h4>
-          <div className="space-y-4">
-            {[
-              {
-                name: "CPU",
-                value: 0,
-                color: "gray",
-              },
-              {
-                name: "Memory",
-                value: 0,
-                color: "gray",
-              },
-              {
-                name: "Storage",
-                value: 0,
-                color: "gray",
-              },
-              {
-                name: "Network",
-                value: 0,
-                color: "gray",
-              },
-            ].map((resource) => (
-              <div key={resource.name}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-300">{resource.name}</span>
-                  <span className="text-gray-400">N/A</span>
-                </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
-                  <div
-                    className={`bg-${resource.color}-600 h-2 rounded-full`}
-                    style={{ width: `${resource.value}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             API Performance
@@ -1215,108 +1164,56 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">Average Response</span>
-              <span className="text-gray-400">N/A</span>
+              <span className="text-gray-400">{performanceMetrics?.api?.avgResponseTime != null ? `${performanceMetrics.api.avgResponseTime}ms` : "—"}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-300">Requests/min</span>
-              <span className="text-gray-400">N/A</span>
+              <span className="text-gray-300">Total Requests</span>
+              <span className="text-gray-400">{performanceMetrics?.api?.totalRequests != null ? performanceMetrics.api.totalRequests : "—"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-300">Error Count</span>
+              <span className="text-gray-400">{performanceMetrics?.api?.errorCount != null ? performanceMetrics.api.errorCount : "—"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Error Rate</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Cache Hit Rate</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Active Connections</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Database Queries/sec</span>
-              <span className="text-gray-400">N/A</span>
+              <span className="text-gray-400">{performanceMetrics?.api?.errorRate != null ? `${performanceMetrics.api.errorRate}%` : "—"}</span>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             Database Performance
           </h4>
           <div className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-gray-300">Query Execution Time</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Connection Pool Usage</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Cache Efficiency</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Index Usage</span>
-              <span className="text-gray-400">N/A</span>
+              <span className="text-gray-300">Avg Query Time</span>
+              <span className="text-gray-400">{performanceMetrics?.database?.avgQueryTime != null ? `${Math.round(Number(performanceMetrics.database.avgQueryTime))}ms` : "—"}</span>
             </div>
           </div>
+          {performanceMetrics?.topEndpoints?.length > 0 ? (
+            <div className="mt-4">
+              <h5 className="text-sm font-medium text-cyan-400 mb-2">Top Endpoints</h5>
+              <div className="space-y-1 text-sm">
+                {performanceMetrics.topEndpoints.slice(0, 5).map((ep: any, i: number) => (
+                  <div key={i} className="flex justify-between text-gray-300">
+                    <span className="truncate max-w-[180px]">{ep.endpoint}</span>
+                    <span>{ep.requests}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
+      </div>
 
+      {(!performanceMetrics || (performanceMetrics?.api?.totalRequests == null && performanceMetrics?.api?.avgResponseTime == null)) ? (
         <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-          <h4 className="text-lg font-medium text-cyan-400 mb-4">
-            Application Metrics
-          </h4>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-300">Active Users</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Page Load Time</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">JavaScript Errors</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Memory Leaks</span>
-              <span className="text-gray-400">N/A</span>
-            </div>
-          </div>
+          <p className="text-gray-400 text-center py-4">No performance data in this period. Metrics are collected from request logging.</p>
         </div>
-      </div>
-
-      <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-        <h4 className="text-lg font-medium text-cyan-400 mb-4">
-          Performance Trends (Last 24 Hours)
-        </h4>
-        <div className="h-48 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-4xl mb-4">📊</div>
-            <p className="text-gray-400">
-              Performance monitoring data not available
-            </p>
-            <p className="text-sm text-gray-500 mt-2">
-              Real-time performance trends require backend implementation
-            </p>
-          </div>
-        </div>
-        <div className="flex justify-center space-x-4 mt-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-gray-600 rounded"></div>
-            <span className="text-xs text-gray-400">CPU Usage</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-gray-600 rounded"></div>
-            <span className="text-xs text-gray-400">Memory Usage</span>
-          </div>
-        </div>
-      </div>
+      ) : null}
+        </>
+      )}
     </div>
   );
 
@@ -1353,32 +1250,16 @@ export const Dashboard = () => {
           </h4>
           <div className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-gray-300">Readers Online</span>
-              <span className="text-green-400">
-                {Math.floor(6 + Math.random() * 4)}/10
-              </span>
+              <span className="text-gray-300">Active devices (today)</span>
+              <span className="text-white">{dashboardStats.activeDevices ?? 0}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-300">Sensors Active</span>
-              <span className="text-green-400">
-                {Math.floor(8 + Math.random() * 4)}/12
-              </span>
+              <span className="text-gray-300">Total events (today)</span>
+              <span className="text-white">{dashboardStats.totalEvents ?? 0}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-300">Cards Registered</span>
-              <span className="text-white">
-                {Math.floor(200 + Math.random() * 100)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Active Sessions</span>
-              <span className="text-cyan-400">
-                {Math.floor(Math.random() * 8)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Signal Strength</span>
-              <span className="text-green-400">Excellent</span>
+              <span className="text-gray-300">Today’s classes</span>
+              <span className="text-cyan-400">{dashboardStats.todayClasses ?? 0}</span>
             </div>
           </div>
         </div>
@@ -1390,18 +1271,48 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <input
               type="text"
-              placeholder="Enter RFID UID"
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+              placeholder="Enter RFID UID (e.g. card ID or student RFID)"
+              value={rfidSimulateUid}
+              onChange={(e) => setRfidSimulateUid(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm placeholder-gray-400"
             />
-            <button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded text-sm">
-              Simulate Scan
+            <button
+              type="button"
+              onClick={async () => {
+                if (!rfidSimulateUid.trim()) {
+                  addNotification({ type: "error", title: "RFID Simulate", message: "Enter an RFID UID." });
+                  return;
+                }
+                setRfidSimulateLoading(true);
+                try {
+                  const res = await api.simulateRFID(rfidSimulateUid.trim());
+                  if (res.success) {
+                    addNotification({ type: "success", title: "RFID Simulate", message: res.message || "Scan simulated successfully." });
+                    setRfidSimulateUid("");
+                    const activityRes = await api.getDashboardActivity();
+                    if (activityRes.success && Array.isArray(activityRes.data)) {
+                      setRfidActivityList(activityRes.data.map((a: any) => ({
+                        type: "success",
+                        message: a.message || "Attendance event",
+                        time: a.timestamp ? new Date(a.timestamp).toLocaleString() : "",
+                        device: "System",
+                      })));
+                    }
+                  } else {
+                    addNotification({ type: "error", title: "RFID Simulate", message: res.message || "Simulation failed." });
+                  }
+                } catch (err: any) {
+                  addNotification({ type: "error", title: "RFID Simulate", message: err?.message || "Request failed." });
+                } finally {
+                  setRfidSimulateLoading(false);
+                }
+              }}
+              disabled={rfidSimulateLoading}
+              className="w-full min-h-[44px] bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white px-4 py-2 rounded text-sm font-medium"
+            >
+              {rfidSimulateLoading ? "Simulating…" : "Simulate Scan"}
             </button>
-            <button className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded text-sm">
-              Simulate Entry Sensor
-            </button>
-            <button className="w-full bg-pink-600 hover:bg-pink-700 text-white px-4 py-2 rounded text-sm">
-              Simulate Exit Sensor
-            </button>
+            <p className="text-xs text-gray-400">Admin only. Uses a student’s registered RFID UID to test attendance flow.</p>
           </div>
         </div>
       </div>
@@ -1461,75 +1372,21 @@ export const Dashboard = () => {
           RFID Activity Log
         </h4>
         <div className="space-y-3 max-h-64 overflow-y-auto">
-          {[
-            {
-              type: "success",
-              message: "RFID scan successful - Student ID: 2021001",
-              time: "2 minutes ago",
-              device: "Reader 1",
-            },
-            {
-              type: "info",
-              message: "Sensor triggered - Entry detected",
-              time: "5 minutes ago",
-              device: "Sensor A",
-            },
-            {
-              type: "warning",
-              message: "RFID read error - Card not recognized",
-              time: "8 minutes ago",
-              device: "Reader 2",
-            },
-            {
-              type: "success",
-              message: "Attendance recorded successfully",
-              time: "10 minutes ago",
-              device: "System",
-            },
-            {
-              type: "info",
-              message: "Device calibration completed",
-              time: "15 minutes ago",
-              device: "Reader 3",
-            },
-            {
-              type: "warning",
-              message: "Low signal strength detected",
-              time: "20 minutes ago",
-              device: "Sensor B",
-            },
-            {
-              type: "success",
-              message: "Bulk card validation completed",
-              time: "25 minutes ago",
-              device: "System",
-            },
-            {
-              type: "info",
-              message: "Sensor recalibration triggered",
-              time: "30 minutes ago",
-              device: "Sensor A",
-            },
-          ].map((event, index) => (
+          {rfidActivityLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+            </div>
+          ) : rfidActivityList.length > 0 ? rfidActivityList.map((event: any, index: number) => (
             <div key={index} className="flex items-center space-x-3">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  event.type === "success"
-                    ? "bg-green-500"
-                    : event.type === "warning"
-                    ? "bg-yellow-500"
-                    : "bg-blue-500"
-                }`}
-              ></div>
-              <div className="flex-1">
-                <p className="text-sm text-white">{event.message}</p>
-                <div className="flex justify-between text-xs text-gray-400">
-                  <span>{event.device}</span>
-                  <span>{event.time}</span>
-                </div>
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${event.type === "warning" ? "bg-amber-500" : "bg-green-500"}`}></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white truncate">{event.message}</p>
+                <p className="text-xs text-gray-400">{event.time}</p>
               </div>
             </div>
-          ))}
+          )) : (
+            <p className="text-gray-400 text-sm py-4">No recent attendance activity. Use Simulate Scan or record attendance to see events.</p>
+          )}
         </div>
       </div>
     </div>
