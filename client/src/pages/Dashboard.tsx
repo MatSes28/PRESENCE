@@ -78,6 +78,7 @@ export const Dashboard = () => {
   const [rfidActivityLoading, setRfidActivityLoading] = useState(false);
   const [rfidDevices, setRfidDevices] = useState<any[]>([]);
   const [notificationSending, setNotificationSending] = useState(false);
+  const [activeSessionsList, setActiveSessionsList] = useState<any[]>([]);
 
   // Data persistence keys
   const STORAGE_KEYS = {
@@ -158,18 +159,29 @@ export const Dashboard = () => {
         if (!isRetry) setLoading(true);
         setError(null);
 
-        const response = await api.get("/dashboard/stats");
-        if (response.success && response.data) {
+        const [statsResponse, sessionsResponse] = await Promise.all([
+          api.get("/dashboard/stats"),
+          api.getActiveSessions().catch(() => ({ success: false, data: [] })),
+        ]);
+        if (statsResponse.success && statsResponse.data) {
+          const data = statsResponse.data as Partial<DashboardStats>;
           setDashboardStats((prev) => ({
             ...prev,
-            ...(response.data as Partial<DashboardStats>),
-            activeDevices: deviceStatus.filter((d) => d.status === "online")
-              .length,
+            ...data,
+            activeDevices: deviceStatus.length > 0
+              ? deviceStatus.filter((d) => d.status === "online").length
+              : (data.activeDevices ?? prev.activeDevices),
           }));
           setRetryCount(0); // Reset retry count on success
+        }
+        if (sessionsResponse.success && Array.isArray(sessionsResponse.data)) {
+          setActiveSessionsList(sessionsResponse.data);
         } else {
+          setActiveSessionsList([]);
+        }
+        if (!statsResponse.success || !statsResponse.data) {
           throw new Error(
-            response.message || "Failed to load dashboard statistics"
+            statsResponse.message || "Failed to load dashboard statistics"
           );
         }
       } catch (error) {
@@ -685,8 +697,8 @@ export const Dashboard = () => {
           title="Today's Classes"
           value={dashboardStats.todayClasses}
           icon="📚"
-          trend="up"
-          trendValue="+2"
+          trend="neutral"
+          trendValue="Live"
           color="blue"
           loading={loading}
         />
@@ -694,8 +706,8 @@ export const Dashboard = () => {
           title="Present Students"
           value={dashboardStats.presentStudents}
           icon="✅"
-          trend="up"
-          trendValue="+15"
+          trend="neutral"
+          trendValue="Live"
           color="green"
           loading={loading}
         />
@@ -703,8 +715,8 @@ export const Dashboard = () => {
           title="Absent Students"
           value={dashboardStats.absentStudents}
           icon="❌"
-          trend="down"
-          trendValue="-3"
+          trend="neutral"
+          trendValue="Live"
           color="red"
           loading={loading}
         />
@@ -712,8 +724,8 @@ export const Dashboard = () => {
           title="Attendance Rate"
           value={`${dashboardStats.attendanceRate}%`}
           icon="📊"
-          trend="up"
-          trendValue="+1.2%"
+          trend="neutral"
+          trendValue="Live"
           color="purple"
           loading={loading}
         />
@@ -726,14 +738,18 @@ export const Dashboard = () => {
             Active Sessions
           </h4>
           <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-300">CS101 - Lecture</span>
-              <span className="text-green-400">Active</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-300">Lab 201 - Practical</span>
-              <span className="text-green-400">Active</span>
-            </div>
+            {activeSessionsList.length > 0 ? (
+              activeSessionsList.map((s: any) => (
+                <div key={s.id} className="flex justify-between items-center">
+                  <span className="text-gray-300 truncate">
+                    {s.subjectName ?? "Session"} — {s.classroomName ?? ""}
+                  </span>
+                  <span className="text-green-400 flex-shrink-0 capitalize">{s.status ?? "Active"}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-400 text-sm">No active sessions right now.</p>
+            )}
           </div>
           <button
             onClick={() => setShowSessionModal(true)}

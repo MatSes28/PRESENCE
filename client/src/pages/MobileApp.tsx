@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { api } from "../lib/api";
 import { mobileApi } from "../lib/mobileApi";
 
 interface User {
@@ -24,6 +25,7 @@ export const MobileApp = () => {
   const [attendanceStatus, setAttendanceStatus] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState("");
 
   useEffect(() => {
     checkConnectivity();
@@ -37,22 +39,27 @@ export const MobileApp = () => {
 
   const loadUserData = async () => {
     try {
-      // In a real mobile app, this would come from stored credentials
-      const mockUser = {
-        id: 1,
-        name: "Faculty Member",
-        email: "faculty@clsu.edu.ph",
-        role: "faculty",
-      };
-      setUser(mockUser);
-
-      // Load dashboard data
-      const dashboardResponse = await mobileApi.getMobileDashboard(mockUser.id);
-      if (dashboardResponse.success) {
-        setDashboard(dashboardResponse.data);
+      const userResponse = await api.getCurrentUser();
+      if (userResponse.success && userResponse.data) {
+        const u = userResponse.data as User;
+        setUser({
+          id: u.id,
+          name: u.name ?? u.email ?? "User",
+          email: u.email ?? "",
+          role: u.role ?? "faculty",
+        });
+        const dashboardResponse = await mobileApi.getMobileDashboard(u.id);
+        if (dashboardResponse.success && dashboardResponse.data) {
+          setDashboard(dashboardResponse.data);
+        }
+      } else {
+        setUser(null);
+        setDashboard(null);
       }
     } catch (error) {
       console.error("Failed to load user data:", error);
+      setUser(null);
+      setDashboard(null);
     }
   };
 
@@ -76,10 +83,13 @@ export const MobileApp = () => {
 
   const simulateStudentCheckIn = async () => {
     if (!currentSession) return;
-
+    const studentId = selectedStudentId.trim();
+    if (!studentId) {
+      setAttendanceStatus("❌ Enter a student ID first");
+      return;
+    }
     try {
       setLoading(true);
-      // Simulate a student checking in with QR code
       const response = await mobileApi.recordQRAttendance({
         qrData: JSON.stringify({
           sessionId: currentSession.id,
@@ -87,7 +97,7 @@ export const MobileApp = () => {
           timestamp: new Date().toISOString(),
           expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         }),
-        studentId: "1", // Mock student ID
+        studentId,
         rfidDetected: false,
       });
 
@@ -115,9 +125,14 @@ export const MobileApp = () => {
     if (!user) return;
 
     try {
+      let deviceToken = typeof localStorage !== "undefined" ? localStorage.getItem("mobile_device_id") : null;
+      if (!deviceToken) {
+        deviceToken = `web-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        if (typeof localStorage !== "undefined") localStorage.setItem("mobile_device_id", deviceToken);
+      }
       const response = await mobileApi.registerDevice({
         userId: user.id.toString(),
-        deviceToken: `mobile-device-${Date.now()}`, // Mock device token
+        deviceToken,
         deviceType: "mobile",
         platform: "web-mobile",
       });
@@ -154,8 +169,13 @@ export const MobileApp = () => {
 
       {/* Main Content */}
       <div className="p-4 space-y-4">
+        {!user && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center text-amber-800">
+            Please log in to view the mobile dashboard.
+          </div>
+        )}
         {/* Dashboard Cards */}
-        {dashboard && (
+        {dashboard && user && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Notifications */}
             <div className="bg-white rounded-lg shadow-md p-4">
@@ -227,6 +247,16 @@ export const MobileApp = () => {
               </div>
 
               <div className="flex-1 space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
+                  <input
+                    type="text"
+                    value={selectedStudentId}
+                    onChange={(e) => setSelectedStudentId(e.target.value)}
+                    placeholder="Enter student ID"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  />
+                </div>
                 <div className="text-center">
                   <button
                     onClick={simulateStudentCheckIn}
