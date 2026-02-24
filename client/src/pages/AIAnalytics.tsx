@@ -130,7 +130,7 @@ export const AIAnalytics = () => {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Analyzing data with AI...</p>
+          <p className="mt-4 text-gray-300">Analyzing data with AI...</p>
         </div>
       </div>
     );
@@ -141,7 +141,7 @@ export const AIAnalytics = () => {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="text-red-500 text-xl mb-4">⚠️ Error</div>
-          <p className="text-gray-600">{error}</p>
+          <p className="text-gray-300">{error}</p>
           <button
             onClick={loadAnalytics}
             className="mt-4 px-4 py-2 bg-teal-500 text-white rounded hover:bg-teal-600"
@@ -159,7 +159,7 @@ export const AIAnalytics = () => {
         <h1 className="text-3xl font-bold text-white mb-2">
           AI Analytics Dashboard
         </h1>
-        <p className="text-gray-600">
+        <p className="text-gray-300">
           Machine learning-powered insights for educational optimization
         </p>
       </div>
@@ -169,7 +169,7 @@ export const AIAnalytics = () => {
         {analytics?.predictiveInsights?.map((insight, index) => (
           <div
             key={index}
-            className="bg-gray-800 rounded-lg shadow-md p-6 border-l-4 border-teal-500"
+            className="bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700 border-l-4 border-teal-500"
           >
             <div className="flex items-center justify-between mb-3">
               <span
@@ -183,13 +183,13 @@ export const AIAnalytics = () => {
               >
                 {insight.type}
               </span>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-400">
                 {Math.round(insight.confidence * 100)}% confidence
               </span>
             </div>
             <h3 className="font-semibold text-white mb-2">{insight.title}</h3>
-            <p className="text-gray-600 text-sm mb-3">{insight.description}</p>
-            <div className="text-sm text-teal-600 font-medium">
+            <p className="text-gray-300 text-sm mb-3">{insight.description}</p>
+            <div className="text-sm text-teal-400 font-medium">
               {insight.recommendation}
             </div>
           </div>
@@ -198,13 +198,13 @@ export const AIAnalytics = () => {
 
       {/* Performance Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-gray-800 rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">
+        <div className="bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700">
+          <h2 className="text-xl font-semibold text-cyan-400 mb-4">
             Engagement Metrics
           </h2>
           <div className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-gray-600">Attendance Consistency</span>
+              <span className="text-gray-300">Attendance Consistency</span>
               <span className="font-medium">
                 {Math.round(
                   (analytics?.engagementMetrics?.attendanceConsistency || 0) *
@@ -214,7 +214,7 @@ export const AIAnalytics = () => {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Participation Rate</span>
+              <span className="text-gray-300">Participation Rate</span>
               <span className="font-medium">
                 {Math.round(
                   (analytics?.engagementMetrics?.participationRate || 0) * 100,
@@ -223,7 +223,7 @@ export const AIAnalytics = () => {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Computer Utilization</span>
+              <span className="text-gray-300">Computer Utilization</span>
               <span className="font-medium">
                 {Math.round(
                   (analytics?.engagementMetrics?.computerUtilization || 0) *
@@ -233,7 +233,7 @@ export const AIAnalytics = () => {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Interaction Patterns</span>
+              <span className="text-gray-300">Interaction Patterns</span>
               <span className="font-medium">
                 {Math.round(
                   (analytics?.engagementMetrics?.interactionPatterns || 0) *
@@ -245,8 +245,8 @@ export const AIAnalytics = () => {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">
+        <div className="bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700">
+          <h2 className="text-xl font-semibold text-cyan-400 mb-4">
             Seating Effectiveness
           </h2>
           <div className="space-y-3">
@@ -263,8 +263,8 @@ export const AIAnalytics = () => {
       </div>
 
       {/* Session Selector */}
-      <div className="bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold text-white mb-4">
+      <div className="bg-gray-800 rounded-lg shadow-md p-6 mb-6 border border-gray-700">
+        <h2 className="text-xl font-semibold text-cyan-400 mb-4">
           Select Session
         </h2>
         <div className="flex items-center space-x-4">
@@ -296,8 +296,8 @@ export const AIAnalytics = () => {
       </div>
 
       {/* AI Actions */}
-      <div className="bg-gray-800 rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-white mb-4">
+      <div className="bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700">
+        <h2 className="text-xl font-semibold text-cyan-400 mb-4">
           AI-Powered Actions
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -343,8 +343,8 @@ export const AIAnalytics = () => {
 
       {/* Performance Trends */}
       {analytics?.performanceTrends?.insights && (
-        <div className="mt-8 bg-gray-800 rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">
+        <div className="mt-8 bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700">
+          <h2 className="text-xl font-semibold text-cyan-400 mb-4">
             Performance Insights
           </h2>
           <div className="space-y-3">
