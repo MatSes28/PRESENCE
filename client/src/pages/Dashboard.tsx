@@ -64,16 +64,20 @@ export const Dashboard = () => {
   // Security tab
   const [securityMetrics, setSecurityMetrics] = useState<any>(null);
   const [securityLoading, setSecurityLoading] = useState(false);
+  const [securityError, setSecurityError] = useState<string | null>(null);
 
   // Performance tab
   const [performanceMetrics, setPerformanceMetrics] = useState<any>(null);
   const [performanceLoading, setPerformanceLoading] = useState(false);
+  const [performanceError, setPerformanceError] = useState<string | null>(null);
 
   // RFID Tools tab
   const [rfidSimulateUid, setRfidSimulateUid] = useState("");
   const [rfidSimulateLoading, setRfidSimulateLoading] = useState(false);
   const [rfidActivityList, setRfidActivityList] = useState<any[]>([]);
   const [rfidActivityLoading, setRfidActivityLoading] = useState(false);
+  const [rfidDevices, setRfidDevices] = useState<any[]>([]);
+  const [notificationSending, setNotificationSending] = useState(false);
 
   // Data persistence keys
   const STORAGE_KEYS = {
@@ -242,51 +246,66 @@ export const Dashboard = () => {
   }, [activeTab, analyticsData, analyticsPeriod]);
 
   // Load security metrics when Security tab is selected
-  useEffect(() => {
-    if (activeTab !== "security") return;
-    const load = async () => {
-      setSecurityLoading(true);
-      try {
-        const res = await api.getSecurityMetrics();
-        if (res.success && res.data) setSecurityMetrics(res.data);
-        else setSecurityMetrics(null);
-      } catch {
+  const fetchSecurityMetrics = useCallback(async () => {
+    setSecurityError(null);
+    setSecurityLoading(true);
+    try {
+      const res = await api.getSecurityMetrics();
+      if (res.success && res.data) {
+        setSecurityMetrics(res.data);
+        setSecurityError(null);
+      } else {
         setSecurityMetrics(null);
-      } finally {
-        setSecurityLoading(false);
+        setSecurityError(res.message || "Failed to load security metrics");
       }
-    };
-    load();
-  }, [activeTab]);
+    } catch (error: any) {
+      setSecurityMetrics(null);
+      setSecurityError(error?.message || "Failed to load security metrics");
+    } finally {
+      setSecurityLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (activeTab === "security") fetchSecurityMetrics();
+  }, [activeTab, fetchSecurityMetrics]);
 
   // Load performance metrics when Performance tab is selected
-  useEffect(() => {
-    if (activeTab !== "performance") return;
-    const load = async () => {
-      setPerformanceLoading(true);
-      try {
-        const res = await api.getPerformanceMetrics();
-        if (res.success && res.data) setPerformanceMetrics(res.data);
-        else setPerformanceMetrics(null);
-      } catch {
+  const fetchPerformanceMetrics = useCallback(async () => {
+    setPerformanceError(null);
+    setPerformanceLoading(true);
+    try {
+      const res = await api.getPerformanceMetrics();
+      if (res.success && res.data) {
+        setPerformanceMetrics(res.data);
+        setPerformanceError(null);
+      } else {
         setPerformanceMetrics(null);
-      } finally {
-        setPerformanceLoading(false);
+        setPerformanceError((res as any).message || "Failed to load performance metrics");
       }
-    };
-    load();
-  }, [activeTab]);
+    } catch (error: any) {
+      setPerformanceMetrics(null);
+      setPerformanceError(error?.message || "Failed to load performance metrics");
+    } finally {
+      setPerformanceLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (activeTab === "performance") fetchPerformanceMetrics();
+  }, [activeTab, fetchPerformanceMetrics]);
 
-  // Load activity for RFID Tools tab
+  // Load activity and devices for RFID Tools tab
   useEffect(() => {
     if (activeTab !== "rfid-tools") return;
     const load = async () => {
       setRfidActivityLoading(true);
       try {
-        const res = await api.getDashboardActivity();
-        if (res.success && Array.isArray(res.data)) {
+        const [activityRes, devicesRes] = await Promise.all([
+          api.getDashboardActivity(),
+          api.getIoTDevices(),
+        ]);
+        if (activityRes.success && Array.isArray(activityRes.data)) {
           setRfidActivityList(
-            res.data.map((a: any) => ({
+            activityRes.data.map((a: any) => ({
               type: "success",
               message: a.message || "Attendance event",
               time: a.timestamp
@@ -296,8 +315,12 @@ export const Dashboard = () => {
             }))
           );
         } else setRfidActivityList([]);
+        if (devicesRes.success && Array.isArray((devicesRes as any).devices)) {
+          setRfidDevices((devicesRes as any).devices);
+        } else setRfidDevices([]);
       } catch {
         setRfidActivityList([]);
+        setRfidDevices([]);
       } finally {
         setRfidActivityLoading(false);
       }
@@ -322,24 +345,34 @@ export const Dashboard = () => {
     }
   };
 
-  // Handle sending notifications
+  // Handle sending notifications (calls backend to send automated attendance alerts)
   const handleSendNotifications = async () => {
+    setNotificationSending(true);
     try {
-      // This would typically send notifications to absent students
-      // For now, we'll show a placeholder
-      addNotification({
-        type: "info",
-        title: "Notifications Sent",
-        message:
-          "Attendance notifications have been sent to parents of absent students.",
-      });
-    } catch (error) {
-      console.error("Failed to send notifications:", error);
+      const res = await api.sendAutomatedAttendanceAlerts();
+      if (res.success) {
+        addNotification({
+          type: "success",
+          title: "Notifications Sent",
+          message:
+            res.message ||
+            "Attendance notifications have been sent to parents of absent students.",
+        });
+      } else {
+        addNotification({
+          type: "error",
+          title: "Notification Failed",
+          message: (res as any).message || "Failed to send notifications.",
+        });
+      }
+    } catch (error: any) {
       addNotification({
         type: "error",
         title: "Notification Failed",
-        message: "Failed to send notifications. Please try again.",
+        message: error?.message || "Failed to send notifications. Please try again.",
       });
+    } finally {
+      setNotificationSending(false);
     }
   };
 
@@ -728,10 +761,12 @@ export const Dashboard = () => {
               📊 View Reports
             </button>
             <button
+              type="button"
               onClick={handleSendNotifications}
-              className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded"
+              disabled={notificationSending}
+              className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
             >
-              📢 Send Notifications
+              {notificationSending ? "⏳ Sending…" : "📢 Send Notifications"}
             </button>
           </div>
         </div>
@@ -1010,6 +1045,17 @@ export const Dashboard = () => {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
         </div>
+      ) : securityError ? (
+        <div className="text-center py-12">
+          <p className="text-gray-400 mb-4">{securityError}</p>
+          <button
+            type="button"
+            onClick={fetchSecurityMetrics}
+            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-medium min-h-[44px]"
+          >
+            Retry
+          </button>
+        </div>
       ) : (
         <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1118,6 +1164,17 @@ export const Dashboard = () => {
       {performanceLoading ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500"></div>
+        </div>
+      ) : performanceError ? (
+        <div className="text-center py-12">
+          <p className="text-gray-400 mb-4">{performanceError}</p>
+          <button
+            type="button"
+            onClick={fetchPerformanceMetrics}
+            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-medium min-h-[44px]"
+          >
+            Retry
+          </button>
         </div>
       ) : (
         <>
@@ -1323,22 +1380,25 @@ export const Dashboard = () => {
             Device Health Monitor
           </h4>
           <div className="space-y-4">
-            {["Reader 1", "Reader 2", "Reader 3", "Sensor A", "Sensor B"].map(
-              (device) => (
-                <div key={device} className="flex items-center justify-between">
-                  <span className="text-gray-300">{device}</span>
-                  <div className="flex items-center space-x-2">
+            {rfidDevices.length > 0 ? (
+              rfidDevices.map((device: any) => (
+                <div key={device.deviceId || device.id} className="flex items-center justify-between">
+                  <span className="text-gray-300 truncate">{device.name || device.deviceId || "Device"}</span>
+                  <div className="flex items-center space-x-2 flex-shrink-0">
                     <div
                       className={`w-2 h-2 rounded-full ${
-                        Math.random() > 0.1 ? "bg-green-500" : "bg-red-500"
+                        device.status === "online" ? "bg-green-500" : "bg-red-500"
                       }`}
-                    ></div>
-                    <span className="text-sm text-white">
-                      {Math.floor(90 + Math.random() * 10)}%
+                      title={device.status || "unknown"}
+                    />
+                    <span className="text-sm text-white capitalize">
+                      {device.status ?? "—"}
                     </span>
                   </div>
                 </div>
-              )
+              ))
+            ) : (
+              <p className="text-gray-400 text-sm">No devices registered. Data from IoT API.</p>
             )}
           </div>
         </div>
@@ -1350,18 +1410,18 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">Last Calibration</span>
-              <span className="text-white">2 hours ago</span>
+              <span className="text-white">—</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Calibration Status</span>
-              <span className="text-green-400">Optimal</span>
+              <span className="text-gray-400">No data</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Accuracy Rate</span>
-              <span className="text-green-400">99.2%</span>
+              <span className="text-gray-400">—</span>
             </div>
-            <button className="w-full bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded text-sm">
-              Run Calibration Test
+            <button type="button" disabled className="w-full bg-gray-600 text-gray-400 px-4 py-2 rounded text-sm cursor-not-allowed min-h-[44px]">
+              Run Calibration Test (not implemented)
             </button>
           </div>
         </div>

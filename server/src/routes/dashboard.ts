@@ -791,19 +791,9 @@ router.get(
       });
     } catch (error) {
       console.error("Security metrics error:", error);
-      // Return safe defaults so dashboard still shows a working Security tab
-      res.status(200).json({
-        success: true,
-        data: {
-          securityScore: 100,
-          totalEvents: 0,
-          bySeverity: { high: 0, medium: 0, low: 0 },
-          failedLogins: 0,
-          successfulLogins: 0,
-          loginSuccessRate: 100,
-          suspiciousActivities: [],
-          period: "7d",
-        },
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch security metrics",
       });
     }
   },

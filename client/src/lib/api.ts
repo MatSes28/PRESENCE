@@ -770,6 +770,14 @@ class ApiClient {
     });
   }
 
+  /** Send automated attendance alerts to parents of absent students (admin only). */
+  async sendAutomatedAttendanceAlerts() {
+    return this.request("/dashboard/alerts/attendance/send", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  }
+
   async sendParentNotification(data: {
     studentId: number;
     message: string;
