@@ -175,10 +175,10 @@ export const AIAnalytics = () => {
               <span
                 className={`px-2 py-1 rounded text-xs font-medium ${
                   insight.type === "performance"
-                    ? "bg-blue-100 text-blue-800"
+                    ? "bg-blue-900/50 text-blue-300"
                     : insight.type === "engagement"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-yellow-100 text-yellow-800"
+                      ? "bg-green-900/50 text-green-300"
+                      : "bg-amber-900/50 text-amber-300"
                 }`}
               >
                 {insight.type}
@@ -267,8 +267,11 @@ export const AIAnalytics = () => {
         <h2 className="text-xl font-semibold text-cyan-400 mb-4">
           Select Session
         </h2>
-        <div className="flex items-center space-x-4">
-          <label htmlFor="session-select" className="text-gray-300">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+          <label
+            htmlFor="session-select"
+            className="text-sm font-medium text-gray-300 shrink-0"
+          >
             Active Session:
           </label>
           <select
@@ -277,7 +280,7 @@ export const AIAnalytics = () => {
             onChange={(e) =>
               setSelectedSessionId(Number(e.target.value) || null)
             }
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full sm:w-auto min-w-0 px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-colors text-sm font-medium"
           >
             <option value="">Select a session...</option>
             {sessions.map((sessionData) => (
@@ -302,41 +305,48 @@ export const AIAnalytics = () => {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
+            type="button"
             onClick={() =>
               selectedSessionId && runSeatingOptimization(selectedSessionId)
             }
             disabled={!selectedSessionId}
-            className={`px-4 py-3 rounded-lg transition-all duration-200 transform hover:scale-105 ${
+            className={`min-h-[44px] px-4 py-3 rounded-lg transition-all duration-200 text-left ${
               selectedSessionId
-                ? "bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:from-teal-600 hover:to-cyan-700"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                ? "bg-cyan-600 hover:bg-cyan-500 text-white"
+                : "bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600"
             }`}
           >
             <div className="font-medium">Optimize Seating</div>
-            <div className="text-sm opacity-90">AI-powered arrangement</div>
+            <div className={`text-sm mt-0.5 ${selectedSessionId ? "text-cyan-100" : "text-gray-400"}`}>
+              AI-powered arrangement
+            </div>
           </button>
 
           <button
+            type="button"
             onClick={() =>
               selectedSessionId && detectConflicts(selectedSessionId)
             }
             disabled={!selectedSessionId}
-            className={`px-4 py-3 rounded-lg transition-all duration-200 transform hover:scale-105 ${
+            className={`min-h-[44px] px-4 py-3 rounded-lg transition-all duration-200 text-left ${
               selectedSessionId
-                ? "bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                ? "bg-cyan-600 hover:bg-cyan-500 text-white"
+                : "bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-600"
             }`}
           >
             <div className="font-medium">Detect Conflicts</div>
-            <div className="text-sm opacity-90">Automated resolution</div>
+            <div className={`text-sm mt-0.5 ${selectedSessionId ? "text-cyan-100" : "text-gray-400"}`}>
+              Automated resolution
+            </div>
           </button>
 
           <button
+            type="button"
             onClick={loadAnalytics}
-            className="px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-200 transform hover:scale-105"
+            className="min-h-[44px] px-4 py-3 rounded-lg transition-all duration-200 text-left bg-cyan-600 hover:bg-cyan-500 text-white"
           >
             <div className="font-medium">Refresh Analytics</div>
-            <div className="text-sm opacity-90">Update insights</div>
+            <div className="text-sm text-cyan-100 mt-0.5">Update insights</div>
           </button>
         </div>
       </div>
@@ -347,26 +357,26 @@ export const AIAnalytics = () => {
           <h2 className="text-xl font-semibold text-cyan-400 mb-4">
             Performance Insights
           </h2>
-          <div className="space-y-3">
-            {analytics.performanceTrends.insights.map(
-              (insight: any, index: number) => (
-                <div
-                  key={index}
-                  className={`p-3 rounded-lg ${
-                    insight.impact === "positive"
-                      ? "bg-green-50 border-l-4 border-green-500"
-                      : insight.impact === "negative"
-                        ? "bg-red-50 border-l-4 border-red-500"
-                        : "bg-yellow-50 border-l-4 border-yellow-500"
-                  }`}
-                >
-                  <div className="font-medium text-white">
-                    {insight.message}
+            <div className="space-y-3">
+              {analytics.performanceTrends.insights.map(
+                (insight: any, index: number) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg border-l-4 ${
+                      insight.impact === "positive"
+                        ? "bg-green-900/30 border-green-500 text-gray-200"
+                        : insight.impact === "negative"
+                        ? "bg-red-900/30 border-red-500 text-gray-200"
+                        : "bg-amber-900/30 border-amber-500 text-gray-200"
+                    }`}
+                  >
+                    <div className="font-medium">
+                      {insight.message}
+                    </div>
                   </div>
-                </div>
-              ),
-            )}
-          </div>
+                ),
+              )}
+            </div>
         </div>
       )}
     </div>
