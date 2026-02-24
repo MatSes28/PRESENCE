@@ -44,7 +44,7 @@ class AttendanceMonitor {
 
   async processRFIDScan(scan: RFIDScan) {
     try {
-      if (isEmergencyStopActive()) {
+      if (await isEmergencyStopActive()) {
         return { success: false, message: "RFID processing paused (emergency stop active)." };
       }
       // Store recent RFID scan for sensor validation

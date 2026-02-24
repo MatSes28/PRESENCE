@@ -1,14 +1,36 @@
 /**
- * In-memory emergency stop flag for RFID processing.
- * When set, processRFIDScan returns immediately without processing.
+ * Emergency stop flag for RFID processing.
+ * Uses Redis when available (multi-server); falls back to in-memory.
  */
 
-let emergencyStopActive = false;
+import { cacheService } from "./cacheService.js";
 
-export function isEmergencyStopActive(): boolean {
-  return emergencyStopActive;
+const REDIS_KEY = "rfid_emergency_stop";
+const REDIS_TTL = 86400; // 24 hours
+
+let inMemoryFlag = false;
+
+export async function isEmergencyStopActive(): Promise<boolean> {
+  try {
+    const cached = await cacheService.get<string>(REDIS_KEY);
+    if (cached !== null && cached !== undefined) {
+      return cached === "1" || cached === true;
+    }
+  } catch {
+    // Redis down: use in-memory
+  }
+  return inMemoryFlag;
 }
 
-export function setEmergencyStop(active: boolean): void {
-  emergencyStopActive = active;
+export async function setEmergencyStop(active: boolean): Promise<void> {
+  inMemoryFlag = active;
+  try {
+    if (active) {
+      await cacheService.set(REDIS_KEY, "1", { ttl: REDIS_TTL });
+    } else {
+      await cacheService.delete(REDIS_KEY);
+    }
+  } catch {
+    // Redis down: in-memory still updated
+  }
 }

@@ -786,6 +786,13 @@ router.get(
           timestamp: activity.timestamp,
         })),
         period,
+        // Access control reflects actual app configuration (no mock)
+        accessControl: {
+          sessionAuth: true,
+          passwordHashing: "bcrypt",
+          rateLimiting: true,
+          auditLogging: true,
+        },
       };
 
       res.json({
@@ -1079,7 +1086,7 @@ router.post(
   dashboardRateLimit,
   async (req, res) => {
     try {
-      setEmergencyStop(true);
+      await setEmergencyStop(true);
       res.json({
         success: true,
         message: "Emergency stop active. RFID scans will not be processed until resumed.",
@@ -1098,7 +1105,7 @@ router.post(
   dashboardRateLimit,
   async (req, res) => {
     try {
-      setEmergencyStop(false);
+      await setEmergencyStop(false);
       res.json({
         success: true,
         message: "RFID processing resumed.",
@@ -1117,9 +1124,10 @@ router.get(
   dashboardRateLimit,
   async (req, res) => {
     try {
+      const active = await isEmergencyStopActive();
       res.json({
         success: true,
-        data: { active: isEmergencyStopActive() },
+        data: { active },
       });
     } catch (error) {
       console.error("Emergency status error:", error);

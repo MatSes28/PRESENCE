@@ -554,6 +554,53 @@ router.post("/heartbeat", requireDeviceAuth, async (req: any, res: any) => {
   }
 });
 
+// Get pending commands for this device (poll from device/firmware)
+router.get("/commands", requireDeviceAuth, async (req: any, res: any) => {
+  try {
+    const pending = iotDeviceManager.getPendingCommandsForDevice(req.deviceId);
+    res.json({
+      success: true,
+      commands: pending.map((c) => ({
+        id: c.id,
+        command: c.command,
+        payload: c.payload,
+        created_at: c.created_at,
+      })),
+      serverTime: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Get commands error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get commands",
+    });
+  }
+});
+
+// Acknowledge a command (device received and will execute it)
+router.post("/commands/:commandId/ack", requireDeviceAuth, async (req: any, res: any) => {
+  try {
+    const { commandId } = req.params;
+    const ok = iotDeviceManager.markCommandAcknowledged(commandId, req.deviceId);
+    if (!ok) {
+      return res.status(404).json({
+        success: false,
+        message: "Command not found or not for this device",
+      });
+    }
+    res.json({
+      success: true,
+      message: "Command acknowledged",
+    });
+  } catch (error) {
+    console.error("Ack command error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to acknowledge command",
+    });
+  }
+});
+
 // RFID scan endpoint (called by devices)
 router.post(
   "/attendance/rfid",

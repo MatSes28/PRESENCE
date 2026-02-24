@@ -417,6 +417,32 @@ class IoTDeviceManagerService extends EventEmitter {
   }
 
   /**
+   * Get pending commands for a device (for device polling).
+   */
+  getPendingCommandsForDevice(deviceId: string): DeviceCommand[] {
+    const pending: DeviceCommand[] = [];
+    for (const cmd of this.commandQueue.values()) {
+      if (cmd.device_id === deviceId && cmd.status === "pending") {
+        pending.push({ ...cmd });
+      }
+    }
+    return pending.sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  }
+
+  /**
+   * Mark a command as acknowledged (device received it).
+   */
+  markCommandAcknowledged(commandId: string, deviceId: string): boolean {
+    const cmd = this.commandQueue.get(commandId);
+    if (!cmd || cmd.device_id !== deviceId) return false;
+    cmd.status = "acknowledged";
+    cmd.executed_at = new Date();
+    return true;
+  }
+
+  /**
    * Restart device
    */
   async restartDevice(deviceId: string): Promise<boolean> {

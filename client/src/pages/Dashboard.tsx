@@ -749,41 +749,41 @@ export const Dashboard = () => {
         <ErrorState message={error} onRetry={() => fetchDashboardStats()} />
       )}
 
-      {/* Statistics Cards */}
+      {/* Statistics Cards – show — when API failed so we never display 0 as fake data */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Today's Classes"
-          value={dashboardStats.todayClasses}
+          value={error ? "—" : dashboardStats.todayClasses}
           icon="📚"
           trend="neutral"
-          trendValue="Live"
+          trendValue={error ? "Error" : "Live"}
           color="blue"
           loading={loading}
         />
         <StatCard
           title="Present Students"
-          value={dashboardStats.presentStudents}
+          value={error ? "—" : dashboardStats.presentStudents}
           icon="✅"
           trend="neutral"
-          trendValue="Live"
+          trendValue={error ? "Error" : "Live"}
           color="green"
           loading={loading}
         />
         <StatCard
           title="Absent Students"
-          value={dashboardStats.absentStudents}
+          value={error ? "—" : dashboardStats.absentStudents}
           icon="❌"
           trend="neutral"
-          trendValue="Live"
+          trendValue={error ? "Error" : "Live"}
           color="red"
           loading={loading}
         />
         <StatCard
           title="Attendance Rate"
-          value={`${dashboardStats.attendanceRate}%`}
+          value={error ? "—" : `${dashboardStats.attendanceRate}%`}
           icon="📊"
           trend="neutral"
-          trendValue="Live"
+          trendValue={error ? "Error" : "Live"}
           color="purple"
           loading={loading}
         />
@@ -852,11 +852,11 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Total Events</span>
-              <span className="text-white">{dashboardStats.totalEvents}</span>
+              <span className="text-white">{error ? "—" : (dashboardStats.totalEvents ?? 0)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Active Devices</span>
-              <span className="text-white">{dashboardStats.activeDevices}</span>
+              <span className="text-white">{error ? "—" : (dashboardStats.activeDevices ?? 0)}</span>
             </div>
           </div>
         </div>
@@ -1194,22 +1194,28 @@ export const Dashboard = () => {
             Access Control
           </h4>
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-300">Session-based auth</span>
-              <span className="text-green-400">Enabled</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-300">Password hashing</span>
-              <span className="text-green-400">bcrypt</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-300">Rate limiting</span>
-              <span className="text-green-400">Enabled</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-300">Audit logging</span>
-              <span className="text-green-400">Active</span>
-            </div>
+            {securityMetrics?.accessControl ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300">Session-based auth</span>
+                  <span className="text-green-400">{securityMetrics.accessControl.sessionAuth ? "Enabled" : "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300">Password hashing</span>
+                  <span className="text-green-400">{securityMetrics.accessControl.passwordHashing || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300">Rate limiting</span>
+                  <span className="text-green-400">{securityMetrics.accessControl.rateLimiting ? "Enabled" : "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300">Audit logging</span>
+                  <span className="text-green-400">{securityMetrics.accessControl.auditLogging ? "Active" : "—"}</span>
+                </div>
+              </>
+            ) : (
+              <p className="text-gray-400 text-sm">Load security metrics to see access control status.</p>
+            )}
           </div>
         </div>
       </div>
@@ -1411,6 +1417,9 @@ export const Dashboard = () => {
               {rfidDiagnosticLoading === "emergency-stop" ? "Stopping…" : "Emergency Stop"}
             </button>
           </div>
+          <p className="text-xs text-gray-400 mt-4 pt-4 border-t border-gray-700">
+            <strong className="text-gray-300">What each does:</strong> Test Reader sends a test command to RFID/ESP32 devices. Calibrate sends a calibrate command to sensors. Check Card Database queries the DB for students with/without RFID. Reset Device Cache clears the IoT device cache and refreshes the list. Emergency Stop pauses all RFID scan processing until you click Resume.
+          </p>
         </div>
 
         <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
