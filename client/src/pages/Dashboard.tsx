@@ -4,6 +4,7 @@ import { getWebSocketClient } from "../lib/websocket";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
 import { useNotifications } from "../components/NotificationSystem";
+import { ConfirmationDialog } from "../components/ConfirmationDialog";
 import {
   LineChart,
   Line,
@@ -79,6 +80,10 @@ export const Dashboard = () => {
   const [rfidDevices, setRfidDevices] = useState<any[]>([]);
   const [notificationSending, setNotificationSending] = useState(false);
   const [activeSessionsList, setActiveSessionsList] = useState<any[]>([]);
+  const [rfidDiagnosticLoading, setRfidDiagnosticLoading] = useState<string | null>(null);
+  const [rfidEmergencyActive, setRfidEmergencyActive] = useState(false);
+  const [rfidCalibrationLast, setRfidCalibrationLast] = useState<string | null>(null);
+  const [showEmergencyStopConfirm, setShowEmergencyStopConfirm] = useState(false);
 
   // Data persistence keys
   const STORAGE_KEYS = {
@@ -305,15 +310,17 @@ export const Dashboard = () => {
     if (activeTab === "performance") fetchPerformanceMetrics();
   }, [activeTab, fetchPerformanceMetrics]);
 
-  // Load activity and devices for RFID Tools tab
+  // Load activity, devices, emergency status, and calibration for RFID Tools tab
   useEffect(() => {
     if (activeTab !== "rfid-tools") return;
     const load = async () => {
       setRfidActivityLoading(true);
       try {
-        const [activityRes, devicesRes] = await Promise.all([
+        const [activityRes, devicesRes, emergencyRes, calibrationRes] = await Promise.all([
           api.getDashboardActivity(),
           api.getIoTDevices(),
+          api.getRfidEmergencyStatus().catch(() => ({ success: false, data: { active: false } })),
+          api.getRfidCalibrationStatus().catch(() => ({ success: false, data: { lastCalibration: null } })),
         ]);
         if (activityRes.success && Array.isArray(activityRes.data)) {
           setRfidActivityList(
@@ -330,6 +337,9 @@ export const Dashboard = () => {
         if (devicesRes.success && Array.isArray((devicesRes as any).devices)) {
           setRfidDevices((devicesRes as any).devices);
         } else setRfidDevices([]);
+        if (emergencyRes.success && emergencyRes.data) setRfidEmergencyActive(!!(emergencyRes.data as any).active);
+        if (calibrationRes.success && (calibrationRes.data as any)?.lastCalibration) setRfidCalibrationLast((calibrationRes.data as any).lastCalibration);
+        else setRfidCalibrationLast(null);
       } catch {
         setRfidActivityList([]);
         setRfidDevices([]);
@@ -385,6 +395,54 @@ export const Dashboard = () => {
       });
     } finally {
       setNotificationSending(false);
+    }
+  };
+
+  const runRfidDiagnostic = async (action: string, apiCall: () => Promise<any>, successTitle: string) => {
+    setRfidDiagnosticLoading(action);
+    try {
+      const res = await apiCall();
+      if (res.success) {
+        addNotification({ type: "success", title: successTitle, message: (res as any).message || "Done." });
+        if (action === "reset-cache") {
+          const devicesRes = await api.getIoTDevices();
+          if (devicesRes.success && Array.isArray((devicesRes as any).devices)) setRfidDevices((devicesRes as any).devices);
+        }
+        if (action === "emergency-stop") setRfidEmergencyActive(true);
+        if (action === "resume") setRfidEmergencyActive(false);
+        if (action === "run-calibration") {
+          setRfidCalibrationLast((res as any).data?.ranAt || new Date().toISOString());
+          const devicesRes = await api.getIoTDevices();
+          if (devicesRes.success && Array.isArray((devicesRes as any).devices)) setRfidDevices((devicesRes as any).devices);
+        }
+      } else {
+        addNotification({ type: "error", title: successTitle, message: (res as any).message || "Request failed." });
+      }
+    } catch (err: any) {
+      addNotification({ type: "error", title: successTitle, message: err?.message || "Request failed." });
+    } finally {
+      setRfidDiagnosticLoading(null);
+    }
+  };
+
+  const handleCheckCardDatabase = async () => {
+    setRfidDiagnosticLoading("check-cards");
+    try {
+      const res = await api.checkCardDatabase();
+      if (res.success && res.data) {
+        const d = res.data as { studentsWithRfid: number; totalStudents: number; withoutRfid: number };
+        addNotification({
+          type: "info",
+          title: "Card Database",
+          message: `${d.studentsWithRfid} students with RFID, ${d.withoutRfid} without. Total: ${d.totalStudents}.`,
+        });
+      } else {
+        addNotification({ type: "error", title: "Card Database", message: (res as any).message || "Failed." });
+      }
+    } catch (err: any) {
+      addNotification({ type: "error", title: "Card Database", message: err?.message || "Failed." });
+    } finally {
+      setRfidDiagnosticLoading(null);
     }
   };
 
@@ -1293,26 +1351,64 @@ export const Dashboard = () => {
   // RFID Tools Tab Content
   const rfidToolsContent = (
     <div className="space-y-6">
+      {rfidEmergencyActive && (
+        <div className="bg-red-900/40 border border-red-600 rounded-lg p-4 flex items-center justify-between flex-wrap gap-2">
+          <span className="text-red-200 font-medium">Emergency stop active — RFID scans are not being processed.</span>
+          <button
+            type="button"
+            onClick={() => runRfidDiagnostic("resume", api.resumeRfid.bind(api), "Resume RFID")}
+            disabled={rfidDiagnosticLoading === "resume"}
+            className="min-h-[44px] px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded text-sm font-medium disabled:opacity-50"
+          >
+            {rfidDiagnosticLoading === "resume" ? "Resuming…" : "Resume RFID"}
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             RFID Diagnostics
           </h4>
           <div className="space-y-3">
-            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
-              Test RFID Reader
+            <button
+              type="button"
+              onClick={() => runRfidDiagnostic("test-reader", api.testRfidReader.bind(api), "Test RFID Reader")}
+              disabled={!!rfidDiagnosticLoading}
+              className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded text-sm font-medium"
+            >
+              {rfidDiagnosticLoading === "test-reader" ? "Running…" : "Test RFID Reader"}
             </button>
-            <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm">
-              Calibrate Sensors
+            <button
+              type="button"
+              onClick={() => runRfidDiagnostic("calibrate", api.calibrateRfidSensors.bind(api), "Calibrate Sensors")}
+              disabled={!!rfidDiagnosticLoading}
+              className="w-full min-h-[44px] bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded text-sm font-medium"
+            >
+              {rfidDiagnosticLoading === "calibrate" ? "Sending…" : "Calibrate Sensors"}
             </button>
-            <button className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm">
-              Check Card Database
+            <button
+              type="button"
+              onClick={handleCheckCardDatabase}
+              disabled={!!rfidDiagnosticLoading}
+              className="w-full min-h-[44px] bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded text-sm font-medium"
+            >
+              {rfidDiagnosticLoading === "check-cards" ? "Checking…" : "Check Card Database"}
             </button>
-            <button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded text-sm">
-              Reset Device Cache
+            <button
+              type="button"
+              onClick={() => runRfidDiagnostic("reset-cache", api.resetDeviceCache.bind(api), "Reset Device Cache")}
+              disabled={!!rfidDiagnosticLoading}
+              className="w-full min-h-[44px] bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 text-white px-4 py-2 rounded text-sm font-medium"
+            >
+              {rfidDiagnosticLoading === "reset-cache" ? "Resetting…" : "Reset Device Cache"}
             </button>
-            <button className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm">
-              Emergency Stop
+            <button
+              type="button"
+              onClick={() => setShowEmergencyStopConfirm(true)}
+              disabled={!!rfidDiagnosticLoading || rfidEmergencyActive}
+              className="w-full min-h-[44px] bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-4 py-2 rounded text-sm font-medium"
+            >
+              {rfidDiagnosticLoading === "emergency-stop" ? "Stopping…" : "Emergency Stop"}
             </button>
           </div>
         </div>
@@ -1426,18 +1522,35 @@ export const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-300">Last Calibration</span>
-              <span className="text-white">—</span>
+              <span className="text-white">
+                {rfidCalibrationLast ? (() => {
+                  const d = new Date(rfidCalibrationLast);
+                  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+                  if (mins < 1) return "Just now";
+                  if (mins < 60) return `${mins} min ago`;
+                  const h = Math.floor(mins / 60);
+                  if (h < 24) return `${h} hour(s) ago`;
+                  return d.toLocaleDateString();
+                })() : "—"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-300">Calibration Status</span>
-              <span className="text-gray-400">No data</span>
+              <span className={rfidCalibrationLast ? "text-green-400" : "text-gray-400"}>
+                {rfidCalibrationLast ? "Completed" : "No data"}
+              </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-300">Accuracy Rate</span>
-              <span className="text-gray-400">—</span>
+              <span className="text-gray-300">Devices refreshed</span>
+              <span className="text-gray-400">{rfidDevices.length} device(s)</span>
             </div>
-            <button type="button" disabled className="w-full bg-gray-600 text-gray-400 px-4 py-2 rounded text-sm cursor-not-allowed min-h-[44px]">
-              Run Calibration Test (not implemented)
+            <button
+              type="button"
+              onClick={() => runRfidDiagnostic("run-calibration", api.runRfidCalibration.bind(api), "Run Calibration")}
+              disabled={!!rfidDiagnosticLoading}
+              className="w-full min-h-[44px] bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white px-4 py-2 rounded text-sm font-medium"
+            >
+              {rfidDiagnosticLoading === "run-calibration" ? "Running…" : "Run Calibration Test"}
             </button>
           </div>
         </div>
@@ -1574,6 +1687,19 @@ export const Dashboard = () => {
       <StartSessionModal
         isOpen={showSessionModal}
         onClose={() => setShowSessionModal(false)}
+      />
+      <ConfirmationDialog
+        isOpen={showEmergencyStopConfirm}
+        title="Emergency Stop"
+        message="RFID scans will not be processed until you resume. Continue?"
+        confirmText="Activate Emergency Stop"
+        cancelText="Cancel"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+        onConfirm={() => {
+          setShowEmergencyStopConfirm(false);
+          runRfidDiagnostic("emergency-stop", api.emergencyStopRfid.bind(api), "Emergency Stop");
+        }}
+        onCancel={() => setShowEmergencyStopConfirm(false)}
       />
     </div>
   );

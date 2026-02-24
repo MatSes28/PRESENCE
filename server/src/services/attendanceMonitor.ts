@@ -8,6 +8,7 @@ import {
 import { eq, and, gte, lte } from "drizzle-orm";
 import { sendToDevice } from "./websocket.js";
 import { cacheService } from "./cacheService.js";
+import { isEmergencyStopActive } from "./rfidEmergencyStop.js";
 
 interface RFIDScan {
   deviceId: string;
@@ -43,6 +44,9 @@ class AttendanceMonitor {
 
   async processRFIDScan(scan: RFIDScan) {
     try {
+      if (isEmergencyStopActive()) {
+        return { success: false, message: "RFID processing paused (emergency stop active)." };
+      }
       // Store recent RFID scan for sensor validation
       this.storeRecentRFIDScan(scan);
 

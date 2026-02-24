@@ -455,6 +455,35 @@ class ApiClient {
     });
   }
 
+  // RFID Tools (dashboard admin actions)
+  async testRfidReader() {
+    return this.request("/dashboard/rfid/test-reader", { method: "POST" });
+  }
+  async calibrateRfidSensors() {
+    return this.request("/dashboard/rfid/calibrate-sensors", { method: "POST" });
+  }
+  async checkCardDatabase() {
+    return this.request("/dashboard/rfid/check-card-database");
+  }
+  async resetDeviceCache() {
+    return this.request("/dashboard/rfid/reset-device-cache", { method: "POST" });
+  }
+  async emergencyStopRfid() {
+    return this.request("/dashboard/rfid/emergency-stop", { method: "POST" });
+  }
+  async resumeRfid() {
+    return this.request("/dashboard/rfid/resume", { method: "POST" });
+  }
+  async getRfidEmergencyStatus() {
+    return this.request("/dashboard/rfid/emergency-status");
+  }
+  async runRfidCalibration() {
+    return this.request("/dashboard/rfid/run-calibration", { method: "POST" });
+  }
+  async getRfidCalibrationStatus() {
+    return this.request("/dashboard/rfid/calibration-status");
+  }
+
   async simulateSensor(sensorType: "entry" | "exit", distance?: number) {
     return this.request("/attendance/simulate-sensor", {
       method: "POST",

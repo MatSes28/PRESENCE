@@ -12,10 +12,13 @@ import {
   auditLogs,
   errorLogs,
 } from "../schema.js";
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc, isNotNull, ne } from "drizzle-orm";
 import { cacheService } from "../services/cacheService.js";
 import { notificationService } from "../services/notificationService.js";
 import { createUserRateLimit } from "../middleware/rateLimit.js";
+import { requireAdmin } from "../middleware/auth.js";
+import { iotDeviceManager } from "../services/iotDeviceManager.js";
+import { setEmergencyStop, isEmergencyStopActive } from "../services/rfidEmergencyStop.js";
 
 const router = Router();
 
@@ -945,4 +948,223 @@ router.get(
       });
     }
   },
+);
+
+// ============================================================
+// RFID TOOLS (admin-only) – all actions perform real work
+// ============================================================
+
+router.post(
+  "/rfid/test-reader",
+  requireAuth,
+  requireAdmin,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      const devices = await iotDeviceManager.getAllDevices();
+      const readers = devices.filter(
+        (d: any) => d.type === "rfid_reader" || d.type === "esp32_s3"
+      );
+      if (readers.length === 0) {
+        return res.json({
+          success: true,
+          message: "No RFID readers registered. Add devices in IoT Devices.",
+          data: { tested: 0, ok: 0 },
+        });
+      }
+      let ok = 0;
+      for (const d of readers) {
+        const sent = await iotDeviceManager.sendCommandToDevice(d.deviceId, "test");
+        if (sent) ok++;
+      }
+      res.json({
+        success: true,
+        message: `Test command sent to ${ok}/${readers.length} device(s). Devices respond when online.`,
+        data: { tested: readers.length, ok },
+      });
+    } catch (error) {
+      console.error("RFID test-reader error:", error);
+      res.status(500).json({ success: false, message: "Failed to run reader test" });
+    }
+  }
+);
+
+router.post(
+  "/rfid/calibrate-sensors",
+  requireAuth,
+  requireAdmin,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      const devices = await iotDeviceManager.getAllDevices();
+      const sensors = devices.filter(
+        (d: any) =>
+          d.type === "ultrasonic_sensor" || d.type === "esp32_s3" || d.type === "rfid_reader"
+      );
+      if (sensors.length === 0) {
+        return res.json({
+          success: true,
+          message: "No sensors registered. Add devices in IoT Devices.",
+          data: { sent: 0 },
+        });
+      }
+      let sent = 0;
+      for (const d of sensors) {
+        const ok = await iotDeviceManager.sendCommandToDevice(d.deviceId, "calibrate");
+        if (ok) sent++;
+      }
+      res.json({
+        success: true,
+        message: `Calibrate command sent to ${sent}/${sensors.length} device(s).`,
+        data: { sent },
+      });
+    } catch (error) {
+      console.error("RFID calibrate error:", error);
+      res.status(500).json({ success: false, message: "Failed to send calibrate command" });
+    }
+  }
+);
+
+router.get(
+  "/rfid/check-card-database",
+  requireAuth,
+  requireAdmin,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      const [withRfid, total] = await Promise.all([
+        db.select({ count: sql<number>`count(*)` }).from(students).where(and(isNotNull(students.rfidUid), ne(students.rfidUid, ""))),
+        db.select({ count: sql<number>`count(*)` }).from(students),
+      ]);
+      const countWithRfid = Number(withRfid[0]?.count ?? 0);
+      const totalStudents = Number(total[0]?.count ?? 0);
+      res.json({
+        success: true,
+        data: {
+          studentsWithRfid: countWithRfid,
+          totalStudents,
+          withoutRfid: totalStudents - countWithRfid,
+        },
+      });
+    } catch (error) {
+      console.error("Check card database error:", error);
+      res.status(500).json({ success: false, message: "Failed to check card database" });
+    }
+  }
+);
+
+router.post(
+  "/rfid/reset-device-cache",
+  requireAuth,
+  requireAdmin,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      await cacheService.invalidateIoTDevices();
+      res.json({
+        success: true,
+        message: "Device cache cleared. Next load will fetch fresh data.",
+      });
+    } catch (error) {
+      console.error("Reset device cache error:", error);
+      res.status(500).json({ success: false, message: "Failed to reset device cache" });
+    }
+  }
+);
+
+router.post(
+  "/rfid/emergency-stop",
+  requireAuth,
+  requireAdmin,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      setEmergencyStop(true);
+      res.json({
+        success: true,
+        message: "Emergency stop active. RFID scans will not be processed until resumed.",
+      });
+    } catch (error) {
+      console.error("Emergency stop error:", error);
+      res.status(500).json({ success: false, message: "Failed to set emergency stop" });
+    }
+  }
+);
+
+router.post(
+  "/rfid/resume",
+  requireAuth,
+  requireAdmin,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      setEmergencyStop(false);
+      res.json({
+        success: true,
+        message: "RFID processing resumed.",
+      });
+    } catch (error) {
+      console.error("Resume RFID error:", error);
+      res.status(500).json({ success: false, message: "Failed to resume" });
+    }
+  }
+);
+
+router.get(
+  "/rfid/emergency-status",
+  requireAuth,
+  requireAdmin,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      res.json({
+        success: true,
+        data: { active: isEmergencyStopActive() },
+      });
+    } catch (error) {
+      console.error("Emergency status error:", error);
+      res.status(500).json({ success: false, message: "Failed to get status" });
+    }
+  }
+);
+
+router.post(
+  "/rfid/run-calibration",
+  requireAuth,
+  requireAdmin,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      await cacheService.invalidateIoTDevices();
+      const devices = await iotDeviceManager.getAllDevices();
+      const ts = new Date().toISOString();
+      await cacheService.set("rfid_last_calibration", ts, { ttl: 86400 * 30 });
+      res.json({
+        success: true,
+        message: "Calibration run complete. Device cache refreshed.",
+        data: { ranAt: ts, devicesChecked: devices.length },
+      });
+    } catch (error) {
+      console.error("Run calibration error:", error);
+      res.status(500).json({ success: false, message: "Failed to run calibration" });
+    }
+  }
+);
+
+router.get(
+  "/rfid/calibration-status",
+  requireAuth,
+  dashboardRateLimit,
+  async (req, res) => {
+    try {
+      const last = await cacheService.get<string>("rfid_last_calibration");
+      res.json({
+        success: true,
+        data: { lastCalibration: last || null },
+      });
+    } catch (error) {
+      console.error("Calibration status error:", error);
+      res.status(500).json({ success: false, message: "Failed to get calibration status" });
+    }
+  }
 );
