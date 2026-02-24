@@ -14,7 +14,7 @@ export async function isEmergencyStopActive(): Promise<boolean> {
   try {
     const cached = await cacheService.get<string>(REDIS_KEY);
     if (cached !== null && cached !== undefined) {
-      return cached === "1" || cached === true;
+      return cached === "1";
     }
   } catch {
     // Redis down: use in-memory
