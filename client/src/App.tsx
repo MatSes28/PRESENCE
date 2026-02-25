@@ -1,9 +1,12 @@
 import { Router, Route, useLocation } from "wouter";
 import { lazy, Suspense, useEffect } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { useInactivityLogout } from "./hooks/useInactivityLogout";
+import { setOn401 } from "./lib/onUnauthorized";
 import {
   NotificationProvider,
   NotificationContainer,
+  useNotifications,
 } from "./components/NotificationSystem";
 import { LoginForm } from "./components/LoginForm";
 import { Layout } from "./components/Layout";
@@ -36,10 +39,37 @@ function PageFallback() {
 }
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
+  const { addNotification } = useNotifications();
   const [, setLocation] = useLocation();
 
   console.log("AppContent render - user:", user, "loading:", loading);
+
+  // 10-minute inactivity auto-logout: show message then logout
+  const handleInactivityLogout = () => {
+    addNotification({
+      type: "info",
+      title: "Session expired",
+      message: "You have been logged out due to 10 minutes of inactivity. Please sign in again.",
+    });
+    logout();
+  };
+  useInactivityLogout(!!user, handleInactivityLogout);
+
+  // On 401 from API: show session expired message and logout
+  useEffect(() => {
+    if (user) {
+      setOn401(() => {
+        addNotification({
+          type: "info",
+          title: "Session expired",
+          message: "Your session has expired. Please sign in again.",
+        });
+        logout();
+      });
+    }
+    return () => setOn401(null);
+  }, [user, logout, addNotification]);
 
   // Handle redirect after successful login
   useEffect(() => {

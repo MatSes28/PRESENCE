@@ -55,6 +55,10 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401) {
+          const { triggerOn401 } = await import("./onUnauthorized");
+          triggerOn401();
+        }
         const error = new Error(
           data.message || `Request failed with status ${response.status}`
         );
