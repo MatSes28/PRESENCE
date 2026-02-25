@@ -371,6 +371,8 @@ class AttendanceMonitor {
   private async createAttendanceRecord(
     record: Partial<typeof attendanceRecords.$inferInsert>
   ) {
+    const isValid =
+      (record.rfidDetected && record.sensorDetected) || false;
     const [newRecord] = await db
       .insert(attendanceRecords)
       .values({
@@ -378,11 +380,11 @@ class AttendanceMonitor {
         classSessionId: record.classSessionId!,
         entryTime: record.entryTime || null,
         exitTime: record.exitTime || null,
+        status: isValid ? "present" : "absent",
         rfidDetected: record.rfidDetected || false,
         sensorDetected: record.sensorDetected || false,
-        isValid: (record.rfidDetected && record.sensorDetected) || false,
-        discrepancyFlag:
-          !(record.rfidDetected && record.sensorDetected) || false,
+        isValid,
+        discrepancyFlag: !isValid,
         notes: record.notes || null,
       })
       .returning();

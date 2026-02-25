@@ -499,7 +499,7 @@ class ApiClient {
   }
 
   async contactParent(studentId: number, message: string) {
-    return this.request(`/students/${studentId}/contact`, {
+    return this.request(`/attendance/${studentId}/contact`, {
       method: "POST",
       body: JSON.stringify({ message }),
     });

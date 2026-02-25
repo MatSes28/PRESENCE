@@ -174,6 +174,7 @@ router.post("/manual", requireAuth, async (req, res) => {
         classSessionId,
         entryTime: entryTime ? new Date(entryTime) : null,
         exitTime: exitTime ? new Date(exitTime) : null,
+        status: "present",
         rfidDetected: false,
         sensorDetected: false,
         isValid: true,
@@ -365,48 +366,8 @@ router.post("/simulate-rfid", requireAuth, async (req, res) => {
   }
 });
 
-// Simulate RFID tap for testing (admin only)
-router.post("/simulate-rfid", requireAdmin, async (req, res) => {
-  try {
-    const { rfidUid } = req.body;
-
-    if (!rfidUid) {
-      return res.status(400).json({
-        success: false,
-        message: "RFID UID is required",
-      });
-    }
-
-    // Process the RFID scan using the attendance monitor
-    const result = await attendanceMonitor.processRFIDScan({
-      deviceId: "simulator",
-      rfidUid,
-      timestamp: new Date().toISOString(),
-    });
-
-    if (result.success) {
-      res.json({
-        success: true,
-        message: "RFID simulation successful",
-        data: result,
-      });
-    } else {
-      res.status(400).json({
-        success: false,
-        message: result.message || "RFID simulation failed",
-      });
-    }
-  } catch (error) {
-    console.error("Simulate RFID error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-});
-
-// Simulate sensor trigger for testing (admin only)
-router.post("/simulate-sensor", requireAdmin, async (req, res) => {
+// Simulate sensor trigger for testing (faculty or admin)
+router.post("/simulate-sensor", requireAuth, async (req, res) => {
   try {
     const { sensorType, distance = 50 } = req.body;
 
@@ -446,8 +407,8 @@ router.post("/simulate-sensor", requireAdmin, async (req, res) => {
   }
 });
 
-// Excuse attendance record (admin only)
-router.post("/:id/excuse", requireAdmin, async (req, res) => {
+// Excuse attendance record (faculty or admin)
+router.post("/:id/excuse", requireAuth, async (req, res) => {
   try {
     const recordId = parseInt(req.params.id);
     const { reason } = req.body;
@@ -483,8 +444,8 @@ router.post("/:id/excuse", requireAdmin, async (req, res) => {
   }
 });
 
-// Contact parent (admin only)
-router.post("/:studentId/contact", requireAdmin, async (req, res) => {
+// Contact parent (faculty or admin)
+router.post("/:studentId/contact", requireAuth, async (req, res) => {
   try {
     const studentId = parseInt(req.params.studentId);
     const { message } = req.body;

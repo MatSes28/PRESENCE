@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getWebSocketClient } from "../lib/websocket";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
+import { useNotifications } from "../components/NotificationSystem";
 
 interface AttendanceEvent {
   id: string;
@@ -19,6 +20,7 @@ interface AttendanceEvent {
 
 export const LiveAttendance = () => {
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
   const [, setLocation] = useLocation();
   const [events, setEvents] = useState<AttendanceEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -74,6 +76,8 @@ export const LiveAttendance = () => {
     key: string;
     direction: "asc" | "desc";
   }>({ key: "entryTime", direction: "desc" });
+
+  const refreshAttendanceDataRef = useRef<() => void>(() => {});
 
   // Normalize server response: server returns { records: [{ record, student, session }] }
   const normalizeAttendanceRecords = (raw: any[]) => {
@@ -200,8 +204,8 @@ export const LiveAttendance = () => {
             status: data.isValid ? "valid" : "discrepancy",
           });
           updateStats(data);
-          // Update attendance data safely
-          setAttendanceData((prev) => [data, ...prev.slice(0, 99)]);
+          // Refetch so the table shows the new record with full DB shape (student, session)
+          refreshAttendanceDataRef.current();
         });
 
         wsClient.on("deviceStatus", (data: any) => {
@@ -288,7 +292,7 @@ export const LiveAttendance = () => {
           title: "RFID Simulated",
           message: `RFID scan simulated for card: ${rfidInput.trim()}`,
         });
-        // The WebSocket will handle updating the UI
+        refreshAttendanceData();
       } else {
         addNotification({
           type: "error",
@@ -318,7 +322,7 @@ export const LiveAttendance = () => {
             sensorType.charAt(0).toUpperCase() + sensorType.slice(1)
           } sensor trigger simulated`,
         });
-        // The WebSocket will handle updating the UI
+        refreshAttendanceData();
       } else {
         addNotification({
           type: "error",
@@ -356,6 +360,8 @@ export const LiveAttendance = () => {
       setLoading(false);
     }
   };
+
+  refreshAttendanceDataRef.current = refreshAttendanceData;
 
   // Advanced filtering function
   const filteredAttendanceData = attendanceData.filter((record) => {
@@ -689,11 +695,6 @@ export const LiveAttendance = () => {
     setShowContactModal(true);
   };
 
-  // Add notification helper - using console for now since NotificationSystem is not imported
-  const addNotification = (notification: any) => {
-    console.log("Notification:", notification);
-    // TODO: Import and use proper notification system
-  };
 
   // Load students and sessions for manual entry (real API, no mock)
   const loadManualEntryData = async () => {
