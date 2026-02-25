@@ -45,11 +45,15 @@ export const Roster: React.FC = () => {
   const loadSubjects = async () => {
     try {
       const response = await api.get("/subjects");
-      if (response.success) {
-        setSubjects((response.data as Subject[]) || []);
+      const raw = (response as any)?.data;
+      if (response.success && Array.isArray(raw)) {
+        setSubjects(raw as Subject[]);
+      } else {
+        setSubjects([]);
       }
     } catch (error) {
       console.error("Failed to load subjects:", error);
+      setSubjects([]);
       addNotification({
         type: "error",
         title: "Failed to Load Subjects",
@@ -63,35 +67,31 @@ export const Roster: React.FC = () => {
 
     setLoading(true);
     try {
-      // Load enrolled students
+      // Load enrolled students (real API, no mock)
       const enrolledResponse = await api.get(
         `/enrollments/subject/${selectedSubject}/students`
       );
-      let enrolled: Student[] = [];
-      if (enrolledResponse.success) {
-        enrolled = ((enrolledResponse.data as Student[]) || []).map(
-          (student: Student) => ({
-            ...student,
-            isEnrolled: true,
-          })
-        );
-        setEnrolledStudents(enrolled);
-      }
+      const enrolledRaw = (enrolledResponse as any)?.data;
+      const enrolled: Student[] = Array.isArray(enrolledRaw)
+        ? enrolledRaw.map((s: Student) => ({ ...s, isEnrolled: true }))
+        : [];
+      setEnrolledStudents(enrolled);
 
-      // Load available students (not enrolled in this subject)
+      // Load all students (real API), then filter to available = not in enrolled
       const availableResponse = await api.get("/students");
-      if (availableResponse.success) {
-        const enrolledIds = new Set(enrolled.map((s) => s.id));
-        const available = ((availableResponse.data as Student[]) || [])
-          .filter((student: Student) => !enrolledIds.has(student.id))
-          .map((student: Student) => ({
-            ...student,
-            isEnrolled: false,
-          }));
-        setAvailableStudents(available);
-      }
+      const allStudentsRaw = (availableResponse as any)?.data;
+      const allStudents: Student[] = Array.isArray(allStudentsRaw)
+        ? allStudentsRaw
+        : [];
+      const enrolledIds = new Set(enrolled.map((s) => s.id));
+      const available = allStudents
+        .filter((s) => !enrolledIds.has(s.id))
+        .map((s) => ({ ...s, isEnrolled: false }));
+      setAvailableStudents(available);
     } catch (error) {
       console.error("Failed to load roster:", error);
+      setEnrolledStudents([]);
+      setAvailableStudents([]);
       addNotification({
         type: "error",
         title: "Failed to Load Roster",
