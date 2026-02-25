@@ -37,13 +37,20 @@ export const AIAnalytics = () => {
     try {
       setLoading(true);
       const response = await api.getAIInsights();
-      if (response.success) {
-        setAnalytics(response.data as AnalyticsData);
+      const data = (response as any).data ?? response;
+      if (response.success && data) {
+        setAnalytics({
+          performanceTrends: data.performanceTrends ?? data.performance,
+          attendancePatterns: data.attendancePatterns ?? data.attendance,
+          seatingEffectiveness: data.seatingEffectiveness ?? data.seating,
+          engagementMetrics: data.engagementMetrics ?? data.engagement,
+          predictiveInsights: data.predictiveInsights ?? data.insights ?? [],
+        } as AnalyticsData);
       } else {
-        setError(response.message || "Failed to load analytics");
+        setError((response as any).message || "Failed to load analytics");
       }
     } catch (err: any) {
-      setError(err.message || "Failed to load analytics");
+      setError(err?.message || "Failed to load analytics");
     } finally {
       setLoading(false);
     }
@@ -52,19 +59,19 @@ export const AIAnalytics = () => {
   const loadSessions = async () => {
     try {
       const response = await api.get("/sessions");
-      if (response.success) {
-        const data = response.data as { sessions: any[] };
-        setSessions(data.sessions || []);
-        // Set the first active session as default if available
-        const activeSession = data.sessions?.find(
-          (s: any) => s.session.status === "active",
+      const sessionsList = (response as any).sessions ?? (response as any).data?.sessions ?? [];
+      if (response.success && Array.isArray(sessionsList)) {
+        setSessions(sessionsList);
+        const activeSession = sessionsList.find(
+          (s: any) => s?.session?.status === "active",
         );
-        if (activeSession) {
+        if (activeSession?.session?.id) {
           setSelectedSessionId(activeSession.session.id);
         }
       }
     } catch (err: any) {
       console.error("Failed to load sessions:", err);
+      setSessions([]);
     }
   };
 
@@ -99,15 +106,14 @@ export const AIAnalytics = () => {
   const detectConflicts = async (sessionId: number) => {
     try {
       const response = await api.detectConflicts(sessionId);
+      const data = (response as any).data ?? response;
+      const conflicts = data?.detectedConflicts ?? [];
+      const resolutions = data?.resolutions ?? [];
       if (response.success) {
-        const data = response.data as {
-          detectedConflicts: any[];
-          resolutions: any[];
-        };
         addNotification({
           type: "info",
           title: "Conflict Detection Complete",
-          message: `Found ${data.detectedConflicts.length} conflicts. ${data.resolutions.length} resolutions suggested.`,
+          message: `Found ${conflicts.length} conflicts. ${resolutions.length} resolutions suggested.`,
         });
       } else {
         addNotification({
