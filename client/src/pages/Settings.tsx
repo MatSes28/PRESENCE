@@ -60,30 +60,34 @@ export const Settings = () => {
   // Load settings on component mount
   useEffect(() => {
     const loadSettings = async () => {
+      if (user?.role !== "admin") return;
       try {
-        if (user?.role === "admin") {
-          const [systemRes, hardwareRes, emailRes] = await Promise.all([
-            api.get("/settings/system"),
-            api.get("/settings/hardware"),
-            api.get("/settings/email"),
-          ]);
+        const [systemRes, hardwareRes, emailRes] = await Promise.all([
+          api.get("/settings/system"),
+          api.get("/settings/hardware"),
+          api.get("/settings/email"),
+        ]);
 
-          if ((systemRes.data as any).success) {
-            setSystemSettings((systemRes.data as any).settings);
-          }
-          if ((hardwareRes.data as any).success) {
-            setHardwareSettings((hardwareRes.data as any).settings);
-          }
-          if ((emailRes.data as any).success) {
-            setEmailSettings((emailRes.data as any).settings);
-          }
+        // API returns { success, settings } directly (no .data wrapper)
+        if (systemRes?.success && (systemRes as any).settings) {
+          setSystemSettings((systemRes as any).settings);
+        }
+        if (hardwareRes?.success && (hardwareRes as any).settings) {
+          setHardwareSettings((hardwareRes as any).settings);
+        }
+        if (emailRes?.success && (emailRes as any).settings) {
+          setEmailSettings((emailRes as any).settings);
         }
       } catch (error) {
         console.error("Failed to load settings:", error);
+        const status = (error as any)?.status;
+        const isForbidden = status === 403;
         addNotification({
           type: "error",
           title: "Settings Load Failed",
-          message: "Could not load current settings from server",
+          message: isForbidden
+            ? "You do not have permission to view settings."
+            : "Could not load current settings from server",
         });
       }
     };
