@@ -75,24 +75,41 @@ export const LiveAttendance = () => {
     direction: "asc" | "desc";
   }>({ key: "entryTime", direction: "desc" });
 
-  // Fetch initial attendance data
+  // Normalize server response: server returns { records: [{ record, student, session }] }
+  const normalizeAttendanceRecords = (raw: any[]) => {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((r: any) => ({
+      ...(r.record ?? r),
+      student: r.student,
+      session: r.session,
+    }));
+  };
+
+  // Fetch initial attendance data (real API, no mock)
   useEffect(() => {
     const fetchAttendanceData = async () => {
       try {
         setLoading(true);
-        const response = await api.get("/attendance");
-        if (response.success && Array.isArray(response.data)) {
-          setAttendanceData(response.data);
+        const params = new URLSearchParams();
+        params.set("limit", "200");
+        if (filters.dateRange.start) params.set("date", filters.dateRange.start);
+        const response = await api.get(`/attendance?${params.toString()}`);
+        const raw = (response as any).records ?? (response as any).data;
+        if (response.success && Array.isArray(raw)) {
+          setAttendanceData(normalizeAttendanceRecords(raw));
+        } else {
+          setAttendanceData([]);
         }
       } catch (error) {
         console.error("Failed to fetch attendance data:", error);
+        setAttendanceData([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchAttendanceData();
-  }, []);
+  }, [filters.dateRange.start]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -321,12 +338,22 @@ export const LiveAttendance = () => {
 
   const refreshAttendanceData = async () => {
     try {
-      const response = await api.get("/attendance");
-      if (response.success && Array.isArray(response.data)) {
-        setAttendanceData(response.data);
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set("limit", "200");
+      if (filters.dateRange.start) params.set("date", filters.dateRange.start);
+      const response = await api.get(`/attendance?${params.toString()}`);
+      const raw = (response as any).records ?? (response as any).data;
+      if (response.success && Array.isArray(raw)) {
+        setAttendanceData(normalizeAttendanceRecords(raw));
+      } else {
+        setAttendanceData([]);
       }
     } catch (error) {
       console.error("Failed to refresh attendance data:", error);
+      setAttendanceData([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -386,10 +413,17 @@ export const LiveAttendance = () => {
     return true;
   });
 
+  // Sort value getter (supports nested keys e.g. student.name)
+  const getSortValue = (record: any, key: string) => {
+    if (key === "student.name") return record.student?.name ?? "";
+    if (key === "student.studentId") return record.student?.studentId ?? "";
+    return record[key];
+  };
+
   // Sorting function
   const sortedAttendanceData = [...filteredAttendanceData].sort((a, b) => {
-    const aValue = a[sortConfig.key as keyof typeof a];
-    const bValue = b[sortConfig.key as keyof typeof b];
+    const aValue = getSortValue(a, sortConfig.key);
+    const bValue = getSortValue(b, sortConfig.key);
 
     if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
     if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
@@ -661,7 +695,7 @@ export const LiveAttendance = () => {
     // TODO: Import and use proper notification system
   };
 
-  // Load students and sessions for manual entry
+  // Load students and sessions for manual entry (real API, no mock)
   const loadManualEntryData = async () => {
     try {
       const [studentsRes, sessionsRes] = await Promise.all([
@@ -669,10 +703,12 @@ export const LiveAttendance = () => {
         api.get("/attendance/sessions/active"),
       ]);
       if (studentsRes.success) {
-        setStudents((studentsRes.data as any[]) || []);
+        setStudents(((studentsRes as any).data as any[]) || []);
       }
-      if (sessionsRes.success) {
-        setSessions(((sessionsRes.data as any)?.sessions as any[]) || []);
+      // Server returns { success, sessions } (not data.sessions)
+      if ((sessionsRes as any).success) {
+        const list = (sessionsRes as any).sessions ?? [];
+        setSessions(Array.isArray(list) ? list : []);
       }
     } catch (error) {
       console.error("Failed to load manual entry data:", error);
@@ -968,9 +1004,8 @@ export const LiveAttendance = () => {
               >
                 <option value="">All Sessions</option>
                 {sessions.map((session: any) => (
-                  <option key={session.session.id} value={session.session.id}>
-                    {session.schedule?.subject?.name} -{" "}
-                    {session.schedule?.classroom?.name}
+                  <option key={session.session?.id ?? session.id} value={session.session?.id ?? session.id}>
+                    {[session.schedule?.subject, session.schedule?.classroom].filter(Boolean).join(" - ") || "Session"}
                   </option>
                 ))}
               </select>
@@ -1140,10 +1175,10 @@ export const LiveAttendance = () => {
                 </tr>
               </thead>
               <tbody className="bg-gray-800 divide-y divide-gray-700">
-                {attendanceData.length === 0 ? (
+                {!loading && sortedAttendanceData.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-6 py-12 text-center text-gray-400"
                     >
                       No attendance records found
@@ -1474,9 +1509,8 @@ export const LiveAttendance = () => {
                 >
                   <option value="">Select Session</option>
                   {sessions.map((session: any) => (
-                    <option key={session.session.id} value={session.session.id}>
-                      {session.schedule?.subject?.name} -{" "}
-                      {session.schedule?.classroom?.name}
+                    <option key={session.session?.id ?? session.id} value={session.session?.id ?? session.id}>
+                      {[session.schedule?.subject, session.schedule?.classroom].filter(Boolean).join(" - ") || "Session"}
                     </option>
                   ))}
                 </select>
