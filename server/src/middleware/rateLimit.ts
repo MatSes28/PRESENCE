@@ -82,7 +82,7 @@ export const generalRateLimit = createUserRateLimit({
     retryAfter: 15 * 60,
   },
   // Skip rate limiting for health checks and auth routes (they have their own limits)
-  skip: (req) => req.path === "/health" || req.path.startsWith("/api/auth"),
+  skip: (req) => req.path === "/health" || req.path === "/api/health" || req.path.startsWith("/api/auth"),
 });
 
 // API optimization middleware
@@ -240,33 +240,35 @@ export const requestLogging = (req: Request, res: Response, next: any) => {
   next();
 };
 
-// CORS optimization
+// CORS optimization – production config via ALLOWED_ORIGINS, FRONTEND_URL, CORS_ORIGIN
 export const corsOptimization = (req: Request, res: Response, next: any) => {
-  // Get the origin from the request
   const origin = req.headers.origin;
 
-  // Allow the origin if it's set and we're in production, or allow all origins in development
+  // Build allowed list: ALLOWED_ORIGINS (comma-separated), FRONTEND_URL, CORS_ORIGIN, Railway
+  const fromEnv = (process.env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
   const allowedOrigins = [
     "http://localhost:5173",
     "http://localhost:3000",
     process.env.FRONTEND_URL,
+    process.env.CORS_ORIGIN,
     process.env.RAILWAY_STATIC_URL,
+    ...fromEnv,
   ].filter(Boolean);
 
-  // In production, allow the request's origin if it matches our allowed origins
   const isProduction =
-    process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT;
+    process.env.NODE_ENV === "production" || !!process.env.RAILWAY_ENVIRONMENT;
 
   if (isProduction && origin && allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
   } else if (!isProduction) {
-    // In development, allow any origin
     res.setHeader("Access-Control-Allow-Origin", "*");
   } else {
-    // Fallback: use the FRONTEND_URL or allow credentials with explicit origin
     res.setHeader(
       "Access-Control-Allow-Origin",
-      process.env.FRONTEND_URL || "http://localhost:5173",
+      process.env.FRONTEND_URL || process.env.CORS_ORIGIN || "http://localhost:5173",
     );
   }
 
@@ -277,7 +279,7 @@ export const corsOptimization = (req: Request, res: Response, next: any) => {
   );
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With",
+    "Content-Type, Authorization, X-Requested-With, X-Device-Api-Key",
   );
 
   // Handle preflight requests

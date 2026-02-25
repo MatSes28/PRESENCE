@@ -1,4 +1,5 @@
 import { Router, Route, useLocation } from "wouter";
+import { lazy, Suspense, useEffect } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import {
   NotificationProvider,
@@ -7,23 +8,32 @@ import {
 import { LoginForm } from "./components/LoginForm";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { Dashboard } from "./pages/Dashboard";
-import { Students } from "./pages/Students";
-import { Reports } from "./pages/Reports";
-import { LiveAttendance } from "./pages/LiveAttendance";
-import { Schedule } from "./pages/Schedule";
-import { ForgotPassword } from "./pages/ForgotPassword";
-import { FacultyManagement } from "./pages/FacultyManagement";
-import { Settings } from "./pages/Settings";
-import { Roster } from "./pages/Roster";
-import { UserManagement } from "./pages/UserManagement";
-import { ResetPassword } from "./pages/ResetPassword";
-import { AIAnalytics } from "./pages/AIAnalytics";
-import { Subjects } from "./pages/Subjects";
-import { EnrollmentManagement } from "./pages/EnrollmentManagement";
-import { StudentDetail } from "./pages/StudentDetail";
-import { StudentEdit } from "./pages/StudentEdit";
-import { useEffect } from "react";
+
+// Code-split route pages to reduce initial bundle size
+const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const Students = lazy(() => import("./pages/Students").then((m) => ({ default: m.Students })));
+const Reports = lazy(() => import("./pages/Reports").then((m) => ({ default: m.Reports })));
+const LiveAttendance = lazy(() => import("./pages/LiveAttendance").then((m) => ({ default: m.LiveAttendance })));
+const Schedule = lazy(() => import("./pages/Schedule").then((m) => ({ default: m.Schedule })));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword").then((m) => ({ default: m.ForgotPassword })));
+const FacultyManagement = lazy(() => import("./pages/FacultyManagement").then((m) => ({ default: m.FacultyManagement })));
+const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
+const Roster = lazy(() => import("./pages/Roster").then((m) => ({ default: m.Roster })));
+const UserManagement = lazy(() => import("./pages/UserManagement").then((m) => ({ default: m.UserManagement })));
+const ResetPassword = lazy(() => import("./pages/ResetPassword").then((m) => ({ default: m.ResetPassword })));
+const AIAnalytics = lazy(() => import("./pages/AIAnalytics").then((m) => ({ default: m.AIAnalytics })));
+const Subjects = lazy(() => import("./pages/Subjects").then((m) => ({ default: m.Subjects })));
+const EnrollmentManagement = lazy(() => import("./pages/EnrollmentManagement").then((m) => ({ default: m.EnrollmentManagement })));
+const StudentDetail = lazy(() => import("./pages/StudentDetail").then((m) => ({ default: m.StudentDetail })));
+const StudentEdit = lazy(() => import("./pages/StudentEdit").then((m) => ({ default: m.StudentEdit })));
+
+function PageFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500" />
+    </div>
+  );
+}
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -51,10 +61,12 @@ function AppContent() {
     console.log("No user, showing login form");
     return (
       <Router>
-        <Route path="/login" component={LoginForm} />
-        <Route path="/forgot-password" component={ForgotPassword} />
-        <Route path="/reset-password" component={ResetPassword} />
-        <Route path="*" component={LoginForm} />
+        <Suspense fallback={<PageFallback />}>
+          <Route path="/login" component={LoginForm} />
+          <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/reset-password" component={ResetPassword} />
+          <Route path="*" component={LoginForm} />
+        </Suspense>
       </Router>
     );
   }
@@ -62,6 +74,7 @@ function AppContent() {
   console.log("User authenticated, showing dashboard");
   return (
     <Router>
+      <Suspense fallback={<PageFallback />}>
       {/* Dashboard - Single route for overview */}
       <Route
         path="/"
@@ -229,6 +242,7 @@ function AppContent() {
           </Layout>
         )}
       />
+      </Suspense>
     </Router>
   );
 }

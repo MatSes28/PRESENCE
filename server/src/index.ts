@@ -162,10 +162,9 @@ const app = express();
 // Trust proxy for accurate IP detection behind reverse proxies
 app.set("trust proxy", 1);
 
-// Health check endpoint (available during startup and after initialization)
-app.get("/health", async (req, res) => {
+// Shared health check handler (used by /health and /api/health for load balancers)
+async function healthCheckHandler(req: express.Request, res: express.Response) {
   try {
-    // If we haven't completed full initialization yet, return basic status
     if (!(global as any).appInitialized) {
       return res.status(200).json({
         status: "starting",
@@ -179,7 +178,6 @@ app.get("/health", async (req, res) => {
       });
     }
 
-    // Full health check after initialization
     const healthChecks = {
       database: false,
       redis: false,
@@ -187,7 +185,6 @@ app.get("/health", async (req, res) => {
       environment: missingEnvVars.length === 0,
     };
 
-    // Check database connectivity
     try {
       await safeExecute("SELECT 1");
       healthChecks.database = true;
@@ -195,7 +192,6 @@ app.get("/health", async (req, res) => {
       console.error("Database health check failed:", error);
     }
 
-    // Check Redis connectivity
     try {
       const isRedisHealthy = await cacheService.ping();
       healthChecks.redis = isRedisHealthy;
@@ -203,7 +199,6 @@ app.get("/health", async (req, res) => {
       console.error("Redis health check failed:", error);
     }
 
-    // Check filesystem access
     try {
       await fs.promises.access(process.cwd(), fs.constants.R_OK);
       healthChecks.filesystem = true;
@@ -211,7 +206,6 @@ app.get("/health", async (req, res) => {
       console.error("Filesystem health check failed:", error);
     }
 
-    // Determine overall health status
     const criticalChecks = [healthChecks.database, healthChecks.filesystem];
     const allHealthy =
       criticalChecks.every(Boolean) && healthChecks.environment;
@@ -244,16 +238,19 @@ app.get("/health", async (req, res) => {
     res
       .status(allHealthy ? 200 : status === "degraded" ? 200 : 503)
       .json(response);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Health check error:", error);
     res.status(503).json({
       status: "unhealthy",
       timestamp: new Date().toISOString(),
       error: "Health check failed",
-      details: error.message,
+      details: error?.message || "Unknown error",
     });
   }
-});
+}
+
+app.get("/health", healthCheckHandler);
+app.get("/api/health", healthCheckHandler);
 
 const server = createSecureServer(app);
 const wss = new WebSocketServer({
