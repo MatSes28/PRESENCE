@@ -59,15 +59,22 @@ export const AIAnalytics = () => {
   const loadSessions = async () => {
     try {
       const response = await api.get("/sessions");
-      const sessionsList = (response as any).sessions ?? (response as any).data?.sessions ?? [];
-      if (response.success && Array.isArray(sessionsList)) {
-        setSessions(sessionsList);
-        const activeSession = sessionsList.find(
-          (s: any) => s?.session?.status === "active",
-        );
-        if (activeSession?.session?.id) {
-          setSelectedSessionId(activeSession.session.id);
+      let sessionsList: any[] = [];
+      if (response != null && typeof response === "object") {
+        const r = response as Record<string, unknown>;
+        if (Array.isArray(r.sessions)) {
+          sessionsList = r.sessions;
+        } else if (r.data != null && typeof r.data === "object") {
+          const d = (r.data as Record<string, unknown>).sessions;
+          if (Array.isArray(d)) sessionsList = d;
         }
+      }
+      setSessions(sessionsList);
+      const activeSession = sessionsList.find(
+        (s: any) => s?.session?.status === "active",
+      );
+      if (activeSession?.session?.id) {
+        setSelectedSessionId(activeSession.session.id);
       }
     } catch (err: any) {
       console.error("Failed to load sessions:", err);
