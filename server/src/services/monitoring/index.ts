@@ -8,7 +8,10 @@ export class MonitoringService {
   private metricsInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    this.startMetricsCollection();
+    // Avoid background intervals during unit tests.
+    if (process.env.NODE_ENV !== "test") {
+      this.startMetricsCollection();
+    }
   }
 
   // Start collecting system and application metrics
@@ -24,16 +27,15 @@ export class MonitoringService {
         // Update performance monitor history
         performanceMonitor.updateMetricsHistory(
           systemMetrics,
-          applicationMetrics
+          applicationMetrics,
         );
 
         // Check Redis connectivity
         let redisConnected = false;
         try {
           // Import cacheService dynamically to avoid circular dependency
-          const { cacheService } = await import(
-            "../../services/cacheService.js"
-          );
+          const { cacheService } =
+            await import("../../services/cacheService.js");
           redisConnected = await cacheService.ping();
         } catch (error) {
           console.warn("Redis health check failed:", error);
@@ -72,13 +74,16 @@ export class MonitoringService {
         });
       }
     }, 30000); // 30 seconds
+
+    // Don't keep the event loop alive just for metrics.
+    this.metricsInterval.unref?.();
   }
 
   // Error logging methods (delegate to logger service)
   public logError(
     error: Error,
     context: Parameters<typeof loggerService.logError>[1] = {},
-    metadata: Parameters<typeof loggerService.logError>[2] = {}
+    metadata: Parameters<typeof loggerService.logError>[2] = {},
   ): void {
     loggerService.logError(error, context, metadata);
   }
@@ -86,7 +91,7 @@ export class MonitoringService {
   public logWarning(
     message: string,
     context: Parameters<typeof loggerService.logWarning>[1] = {},
-    metadata: Parameters<typeof loggerService.logWarning>[2] = {}
+    metadata: Parameters<typeof loggerService.logWarning>[2] = {},
   ): void {
     loggerService.logWarning(message, context, metadata);
   }
@@ -94,7 +99,7 @@ export class MonitoringService {
   public logInfo(
     message: string,
     context: Parameters<typeof loggerService.logInfo>[1] = {},
-    metadata: Parameters<typeof loggerService.logInfo>[2] = {}
+    metadata: Parameters<typeof loggerService.logInfo>[2] = {},
   ): void {
     loggerService.logInfo(message, context, metadata);
   }

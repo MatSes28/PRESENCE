@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { api } from "../lib/api";
 import { useNotifications } from "../components/NotificationSystem";
 import { LoadingButton } from "../components/LoadingSpinner";
-import { useAuth } from "../hooks/useAuth";
 import { useLocation, useRoute } from "wouter";
 import { Link } from "wouter";
 import {
@@ -26,7 +25,6 @@ interface Student {
 
 export const StudentEdit = () => {
   const { addNotification } = useNotifications();
-  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [match, params] = useRoute("/students/:id/edit");
   const [student, setStudent] = useState<Student | null>(null);
@@ -201,7 +199,7 @@ export const StudentEdit = () => {
                   setFormData({ ...formData, studentId: e.target.value });
                   studentValidation.validateSingleField(
                     "studentId",
-                    e.target.value
+                    e.target.value,
                   );
                   studentValidation.setFieldTouched("studentId");
                 }}
@@ -254,7 +252,7 @@ export const StudentEdit = () => {
                   setFormData({ ...formData, email: e.target.value });
                   studentValidation.validateSingleField(
                     "email",
-                    e.target.value
+                    e.target.value,
                   );
                   studentValidation.setFieldTouched("email");
                 }}
@@ -301,7 +299,7 @@ export const StudentEdit = () => {
                   setFormData({ ...formData, parentEmail: e.target.value });
                   studentValidation.validateSingleField(
                     "parentEmail",
-                    e.target.value
+                    e.target.value,
                   );
                   studentValidation.setFieldTouched("parentEmail");
                 }}

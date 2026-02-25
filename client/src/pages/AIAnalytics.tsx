@@ -61,7 +61,9 @@ export const AIAnalytics = () => {
       const response = await api.get("/sessions");
       let sessionsList: any[] = [];
       if (response != null && typeof response === "object") {
-        const r = response as Record<string, unknown>;
+        // api.get() returns ApiResponse<T>; some endpoints may also include extra top-level keys.
+        // Cast through `unknown` to satisfy strict TS without asserting structural compatibility.
+        const r = response as unknown as Record<string, unknown>;
         if (Array.isArray(r.sessions)) {
           sessionsList = r.sessions;
         } else if (r.data != null && typeof r.data === "object") {
@@ -330,7 +332,9 @@ export const AIAnalytics = () => {
             }`}
           >
             <div className="font-medium">Optimize Seating</div>
-            <div className={`text-sm mt-0.5 ${selectedSessionId ? "text-cyan-100" : "text-gray-400"}`}>
+            <div
+              className={`text-sm mt-0.5 ${selectedSessionId ? "text-cyan-100" : "text-gray-400"}`}
+            >
               AI-powered arrangement
             </div>
           </button>
@@ -348,7 +352,9 @@ export const AIAnalytics = () => {
             }`}
           >
             <div className="font-medium">Detect Conflicts</div>
-            <div className={`text-sm mt-0.5 ${selectedSessionId ? "text-cyan-100" : "text-gray-400"}`}>
+            <div
+              className={`text-sm mt-0.5 ${selectedSessionId ? "text-cyan-100" : "text-gray-400"}`}
+            >
               Automated resolution
             </div>
           </button>
@@ -370,26 +376,24 @@ export const AIAnalytics = () => {
           <h2 className="text-xl font-semibold text-cyan-400 mb-4">
             Performance Insights
           </h2>
-            <div className="space-y-3">
-              {analytics.performanceTrends.insights.map(
-                (insight: any, index: number) => (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg border-l-4 ${
-                      insight.impact === "positive"
-                        ? "bg-green-900/30 border-green-500 text-gray-200"
-                        : insight.impact === "negative"
+          <div className="space-y-3">
+            {analytics.performanceTrends.insights.map(
+              (insight: any, index: number) => (
+                <div
+                  key={index}
+                  className={`p-3 rounded-lg border-l-4 ${
+                    insight.impact === "positive"
+                      ? "bg-green-900/30 border-green-500 text-gray-200"
+                      : insight.impact === "negative"
                         ? "bg-red-900/30 border-red-500 text-gray-200"
                         : "bg-amber-900/30 border-amber-500 text-gray-200"
-                    }`}
-                  >
-                    <div className="font-medium">
-                      {insight.message}
-                    </div>
-                  </div>
-                ),
-              )}
-            </div>
+                  }`}
+                >
+                  <div className="font-medium">{insight.message}</div>
+                </div>
+              ),
+            )}
+          </div>
         </div>
       )}
     </div>

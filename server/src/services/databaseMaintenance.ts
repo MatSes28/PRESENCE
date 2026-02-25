@@ -4,11 +4,11 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
-import { fileURLToPath } from "url";
 
 const execAsync = promisify(exec);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Avoid `import.meta.url` to keep this file compatible with Jest/ts-jest environments
+// that may compile as CommonJS.
+const PROJECT_ROOT = process.cwd();
 
 interface MaintenanceTask {
   id: string;
@@ -132,7 +132,7 @@ class DatabaseMaintenanceService {
         try {
           console.log(`  Vacuuming ${tableName}...`);
           const vacuumResult = await db.execute(
-            sql.raw(`VACUUM ANALYZE ${tableName}`)
+            sql.raw(`VACUUM ANALYZE ${tableName}`),
           );
           tableResults.push({ table: tableName, status: "success" });
         } catch (error) {
@@ -210,7 +210,7 @@ class DatabaseMaintenanceService {
             const indexName = indexRow.indexname;
             try {
               await db.execute(
-                sql.raw(`REINDEX INDEX CONCURRENTLY ${indexName}`)
+                sql.raw(`REINDEX INDEX CONCURRENTLY ${indexName}`),
               );
               indexResults.push({
                 table: tableName,
@@ -230,7 +230,7 @@ class DatabaseMaintenanceService {
         } catch (error) {
           console.warn(
             `  Failed to process table ${tableName}:`,
-            error.message
+            error.message,
           );
           indexResults.push({
             table: tableName,
@@ -273,13 +273,13 @@ class DatabaseMaintenanceService {
 
   // Cleanup old data (archive old attendance records)
   async runCleanupOldData(
-    retentionDays: number = 365
+    retentionDays: number = 365,
   ): Promise<MaintenanceResult> {
     const startTime = new Date();
 
     try {
       console.log(
-        `🗑️  Starting cleanup of data older than ${retentionDays} days...`
+        `🗑️  Starting cleanup of data older than ${retentionDays} days...`,
       );
 
       // Archive old attendance records
@@ -323,7 +323,7 @@ class DatabaseMaintenanceService {
       const duration = endTime.getTime() - startTime.getTime();
 
       console.log(
-        `✅ Cleanup completed: ${updatedCount} records archived, ${errorDeletedCount} error logs deleted, ${notificationDeletedCount} notifications deleted`
+        `✅ Cleanup completed: ${updatedCount} records archived, ${errorDeletedCount} error logs deleted, ${notificationDeletedCount} notifications deleted`,
       );
 
       return {
@@ -388,7 +388,7 @@ class DatabaseMaintenanceService {
       const duration = endTime.getTime() - startTime.getTime();
 
       console.log(
-        `✅ Statistics updated for ${analyzedTables.length} tables in ${duration}ms`
+        `✅ Statistics updated for ${analyzedTables.length} tables in ${duration}ms`,
       );
 
       return {
@@ -484,7 +484,7 @@ class DatabaseMaintenanceService {
       const duration = endTime.getTime() - startTime.getTime();
 
       console.log(
-        `✅ Constraint check completed: ${issues.length} issues found`
+        `✅ Constraint check completed: ${issues.length} issues found`,
       );
 
       return {
@@ -520,7 +520,7 @@ class DatabaseMaintenanceService {
     try {
       console.log("💾 Validating recent database backups...");
 
-      const backupDir = path.join(__dirname, "../../../backups");
+      const backupDir = path.resolve(PROJECT_ROOT, "backups");
       if (!fs.existsSync(backupDir)) {
         throw new Error("Backup directory does not exist");
       }
@@ -558,7 +558,7 @@ class DatabaseMaintenanceService {
       const duration = endTime.getTime() - startTime.getTime();
 
       console.log(
-        `✅ Backup validation completed: ${validBackups}/${backupFiles.length} backups are valid`
+        `✅ Backup validation completed: ${validBackups}/${backupFiles.length} backups are valid`,
       );
 
       return {
@@ -623,8 +623,8 @@ class DatabaseMaintenanceService {
           activeConnections < 50
             ? "pass"
             : activeConnections < 80
-            ? "warning"
-            : "fail",
+              ? "warning"
+              : "fail",
         message: `${activeConnections} active connections`,
         recommendation:
           activeConnections > 80
@@ -661,7 +661,7 @@ class DatabaseMaintenanceService {
       `);
 
       const highBloatTables = (bloatResult as any[]).filter(
-        (row) => row.bloat_ratio > 20
+        (row) => row.bloat_ratio > 20,
       );
       checks.push({
         checkName: "table_bloat",
@@ -669,8 +669,8 @@ class DatabaseMaintenanceService {
           highBloatTables.length === 0
             ? "pass"
             : highBloatTables.length < 3
-            ? "warning"
-            : "fail",
+              ? "warning"
+              : "fail",
         message: `${highBloatTables.length} tables with high bloat (>20%)`,
         recommendation:
           highBloatTables.length > 0
@@ -831,8 +831,8 @@ export async function runDatabaseHealthCheck(): Promise<void> {
         check.status === "pass"
           ? "✅"
           : check.status === "warning"
-          ? "⚠️"
-          : "❌";
+            ? "⚠️"
+            : "❌";
       console.log(`${icon} ${check.checkName}: ${check.message}`);
       if (check.recommendation) {
         console.log(`   💡 ${check.recommendation}`);
@@ -844,7 +844,7 @@ export async function runDatabaseHealthCheck(): Promise<void> {
     const failures = checks.filter((c) => c.status === "fail").length;
 
     console.log(
-      `\n📊 Summary: ${passed} passed, ${warnings} warnings, ${failures} failures`
+      `\n📊 Summary: ${passed} passed, ${warnings} warnings, ${failures} failures`,
     );
   } catch (error) {
     console.error("❌ Health check failed:", error);
@@ -862,10 +862,10 @@ export async function showMaintenanceStatus(): Promise<void> {
         task.status === "completed"
           ? "✅"
           : task.status === "running"
-          ? "🔄"
-          : task.status === "failed"
-          ? "❌"
-          : "⏳";
+            ? "🔄"
+            : task.status === "failed"
+              ? "❌"
+              : "⏳";
       const enabled = task.enabled ? "enabled" : "disabled";
       console.log(`${statusIcon} ${task.id} - ${task.name} (${enabled})`);
       if (task.lastRun) {

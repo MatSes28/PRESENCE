@@ -3,7 +3,6 @@ import { api } from "../lib/api";
 import { useNotifications } from "../components/NotificationSystem";
 import { LoadingButton } from "../components/LoadingSpinner";
 import { useAuth } from "../hooks/useAuth";
-import { useLocation } from "wouter";
 
 interface Student {
   id: number;
@@ -36,7 +35,6 @@ interface Enrollment {
 export const SubjectEnrollment = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
-  const [, setLocation] = useLocation();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -142,9 +140,12 @@ export const SubjectEnrollment = () => {
             message: response.message,
           });
           // Remove already enrolled students from selection
-          if (response.alreadyEnrolled) {
+          const alreadyEnrolled = (response as any).alreadyEnrolled as
+            | number[]
+            | undefined;
+          if (alreadyEnrolled) {
             setSelectedStudents((prev) =>
-              prev.filter((id) => !response.alreadyEnrolled.includes(id))
+              prev.filter((id) => !alreadyEnrolled.includes(id)),
             );
           }
         } else {
@@ -174,7 +175,7 @@ export const SubjectEnrollment = () => {
 
     if (
       !confirm(
-        "Are you sure you want to unenroll this student from this subject?"
+        "Are you sure you want to unenroll this student from this subject?",
       )
     ) {
       return;
@@ -210,7 +211,7 @@ export const SubjectEnrollment = () => {
     setSelectedStudents((prev) =>
       prev.includes(studentId)
         ? prev.filter((id) => id !== studentId)
-        : [...prev, studentId]
+        : [...prev, studentId],
     );
   };
 
@@ -224,7 +225,7 @@ export const SubjectEnrollment = () => {
 
   const enrolledStudentIds = enrollments.map((e) => e.studentId);
   const availableStudents = filteredStudents.filter(
-    (student) => !enrolledStudentIds.includes(student.id)
+    (student) => !enrolledStudentIds.includes(student.id),
   );
 
   if (loading) {

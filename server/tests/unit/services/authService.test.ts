@@ -34,8 +34,8 @@ jest.mock("crypto", () => ({
 }));
 
 // Mock database operations
-jest.mock("../../../src/storage.js", () => ({
-  db: {
+jest.mock("../../../src/storage.js", () => {
+  const mockDb = {
     execute: jest.fn(),
     select: jest.fn(() => ({
       from: jest.fn(() => ({
@@ -57,8 +57,14 @@ jest.mock("../../../src/storage.js", () => ({
         returning: jest.fn(() => []),
       })),
     })),
-  },
-}));
+  };
+
+  return {
+    __esModule: true,
+    default: mockDb,
+    db: mockDb,
+  };
+});
 
 describe("AuthService", () => {
   beforeEach(() => {
@@ -98,7 +104,7 @@ describe("AuthService", () => {
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        "Password must be at least 8 characters long"
+        "Password must be at least 8 characters long",
       );
     });
   });
@@ -117,7 +123,7 @@ describe("AuthService", () => {
           type: "access",
         }),
         expect.any(String),
-        { expiresIn: "1h" }
+        { expiresIn: "1h" },
       );
       expect(token).toBe("accessToken");
     });
@@ -134,7 +140,7 @@ describe("AuthService", () => {
           type: "refresh",
         }),
         expect.any(String),
-        { expiresIn: "7d" }
+        { expiresIn: "7d" },
       );
       expect(token).toBe("refreshToken");
     });
@@ -228,7 +234,7 @@ describe("AuthService", () => {
       const sessionId = await authService.createSession(
         1,
         "192.168.1.1",
-        "Chrome"
+        "Chrome",
       );
 
       expect(mockExecute).toHaveBeenCalled();
@@ -289,7 +295,7 @@ describe("AuthService", () => {
       });
 
       await expect(
-        authService.invalidateSession("session-123")
+        authService.invalidateSession("session-123"),
       ).resolves.not.toThrow();
     });
 
@@ -336,7 +342,7 @@ describe("AuthService", () => {
       });
 
       await expect(
-        authService.updatePassword(1, "newPassword")
+        authService.updatePassword(1, "newPassword"),
       ).resolves.not.toThrow();
 
       expect(mockHash).toHaveBeenCalledWith("newPassword", 12);
@@ -348,7 +354,7 @@ describe("AuthService", () => {
     it("should generate device fingerprint", () => {
       const fingerprint = authService.generateDeviceFingerprint(
         "Chrome",
-        "192.168.1.1"
+        "192.168.1.1",
       );
 
       expect(fingerprint).toBe("mockedhash".substring(0, 16));
@@ -361,7 +367,7 @@ describe("AuthService", () => {
       mockExecute.mockRejectedValue(new Error("Database error"));
 
       await expect(
-        authService.createSession(1, "192.168.1.1", "Chrome")
+        authService.createSession(1, "192.168.1.1", "Chrome"),
       ).rejects.toThrow("Database error");
     });
 
@@ -370,7 +376,7 @@ describe("AuthService", () => {
       mockToDataURL.mockRejectedValue(new Error("QR generation failed"));
 
       await expect(authService.generateQRCode("url")).rejects.toThrow(
-        "Failed to generate QR code"
+        "Failed to generate QR code",
       );
     });
   });

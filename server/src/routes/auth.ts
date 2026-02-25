@@ -696,6 +696,23 @@ router.post("/reset-password", async (req, res) => {
 // Force reset admin and faculty passwords (emergency endpoint)
 router.post("/force-reset-defaults", async (req, res) => {
   try {
+    // SECURITY: This endpoint is dangerous for real deployments.
+    // It is disabled by default and MUST NOT be enabled in production.
+    if (process.env.NODE_ENV === "production") {
+      return res.status(404).json({
+        success: false,
+        message: "Not found",
+      });
+    }
+
+    if (process.env.ALLOW_FORCE_RESET_DEFAULTS !== "true") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "force-reset-defaults is disabled (set ALLOW_FORCE_RESET_DEFAULTS=true to enable in non-production)",
+      });
+    }
+
     console.log("[AUTH] Force resetting default passwords...");
 
     // Hash default passwords
@@ -732,10 +749,6 @@ router.post("/force-reset-defaults", async (req, res) => {
     res.json({
       success: true,
       message: "Default passwords reset successfully",
-      credentials: {
-        admin: "admin@clsu.edu.ph / admin123",
-        faculty: "faculty@clsu.edu.ph / faculty123",
-      },
     });
   } catch (error) {
     console.error("Force reset error:", error);

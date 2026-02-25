@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api";
 import { useNotifications } from "../components/NotificationSystem";
-import { useAuth } from "../hooks/useAuth";
-import { getWebSocketClient } from "../lib/websocket";
 
 interface Computer {
   id: number;
@@ -35,7 +33,6 @@ interface Subject {
 
 export const LabComputers = () => {
   const { addNotification } = useNotifications();
-  const { user } = useAuth();
   const [computers, setComputers] = useState<Computer[]>([]);
   const [assignments, setAssignments] = useState<ComputerAssignment[]>([]);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
@@ -43,7 +40,7 @@ export const LabComputers = () => {
   const [loading, setLoading] = useState(true);
   const [showAddComputers, setShowAddComputers] = useState(false);
   const [selectedClassroom, setSelectedClassroom] = useState<number | null>(
-    null
+    null,
   );
   const [selectedLab, setSelectedLab] = useState<number | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
@@ -58,21 +55,13 @@ export const LabComputers = () => {
   >(null);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [maintenanceRecords, setMaintenanceRecords] = useState<any[]>([]);
-  // Maintenance scheduling state
-  const [maintenanceForm, setMaintenanceForm] = useState({
-    computerId: "",
-    maintenanceType: "preventive",
-    scheduledDate: "",
-    description: "",
-  });
   const dragRef = useRef<HTMLDivElement>(null);
 
   // Bulk operations state
   const [selectedComputers, setSelectedComputers] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   const [showBulkActions, setShowBulkActions] = useState(false);
-  const [bulkOperation, setBulkOperation] = useState<string | null>(null);
   const [simpleAssignMode, setSimpleAssignMode] = useState(false);
   const [selectedStudentForSimpleAssign, setSelectedStudentForSimpleAssign] =
     useState<any>(null);
@@ -243,7 +232,7 @@ export const LabComputers = () => {
     const dropTarget = element?.closest("[data-computer-id]");
     if (dropTarget) {
       const computerId = parseInt(
-        dropTarget.getAttribute("data-computer-id") || "0"
+        dropTarget.getAttribute("data-computer-id") || "0",
       );
       handleDrop(e as any, computerId);
     }
@@ -269,13 +258,14 @@ export const LabComputers = () => {
     try {
       const sessionsResponse = await api.getClassSessions();
       const sessionsList = (sessionsResponse as any)?.sessions;
-      const activeItem = Array.isArray(sessionsList) && selectedSubject != null
-        ? sessionsList.find(
-            (item: any) =>
-              item.session?.status === "active" &&
-              item.schedule?.subjectId === selectedSubject
-          )
-        : null;
+      const activeItem =
+        Array.isArray(sessionsList) && selectedSubject != null
+          ? sessionsList.find(
+              (item: any) =>
+                item.session?.status === "active" &&
+                item.schedule?.subjectId === selectedSubject,
+            )
+          : null;
       const sessionId = activeItem?.session?.id;
 
       if (sessionId == null) {
@@ -283,7 +273,8 @@ export const LabComputers = () => {
         addNotification({
           type: "error",
           title: "No Active Session",
-          message: "No active class session for this subject. Start or select an active session first.",
+          message:
+            "No active class session for this subject. Start or select an active session first.",
         });
         return;
       }
@@ -454,7 +445,7 @@ export const LabComputers = () => {
     try {
       const response = await api.createComputers(
         selectedClassroom,
-        computerCount
+        computerCount,
       );
       if (response.success) {
         addNotification({
@@ -490,7 +481,7 @@ export const LabComputers = () => {
     setProcessing(`release-${computerId}`);
     try {
       const assignment = assignments.find(
-        (a) => a.computerId === computerId && !a.releasedAt
+        (a) => a.computerId === computerId && !a.releasedAt,
       );
       if (assignment) {
         const response = await api.releaseComputer(assignment.id);
@@ -540,7 +531,7 @@ export const LabComputers = () => {
   const handleSelectAllComputers = (selected: boolean) => {
     if (selected) {
       const allComputerIds = getComputersByClassroom(selectedLab!).map(
-        (c) => c.id
+        (c) => c.id,
       );
       setSelectedComputers(new Set(allComputerIds));
     } else {
@@ -551,25 +542,24 @@ export const LabComputers = () => {
   const handleBulkRelease = async () => {
     if (selectedComputers.size === 0) return;
 
-    setBulkOperation("bulk-release");
     setProcessing("bulk-release");
 
     try {
       const releasePromises = Array.from(selectedComputers).map(
         async (computerId) => {
           const assignment = assignments.find(
-            (a) => a.computerId === computerId && !a.releasedAt
+            (a) => a.computerId === computerId && !a.releasedAt,
           );
           if (assignment) {
             return api.releaseComputer(assignment.id);
           }
           return null;
-        }
+        },
       );
 
       const results = await Promise.allSettled(releasePromises.filter(Boolean));
       const successCount = results.filter(
-        (result) => result.status === "fulfilled" && result.value?.success
+        (result) => result.status === "fulfilled" && result.value?.success,
       ).length;
 
       addNotification({
@@ -590,35 +580,34 @@ export const LabComputers = () => {
       });
     } finally {
       setProcessing(null);
-      setBulkOperation(null);
     }
   };
 
   const handleBulkAssign = async () => {
     if (selectedComputers.size === 0 || !selectedStudentForSimpleAssign) return;
 
-    setBulkOperation("bulk-assign");
     setProcessing("bulk-assign");
 
     try {
       const sessionsResponse = await api.getClassSessions();
       const sessionsList = (sessionsResponse as any)?.sessions;
-      const activeItem = Array.isArray(sessionsList) && selectedSubject != null
-        ? sessionsList.find(
-            (item: any) =>
-              item.session?.status === "active" &&
-              item.schedule?.subjectId === selectedSubject
-          )
-        : null;
+      const activeItem =
+        Array.isArray(sessionsList) && selectedSubject != null
+          ? sessionsList.find(
+              (item: any) =>
+                item.session?.status === "active" &&
+                item.schedule?.subjectId === selectedSubject,
+            )
+          : null;
       const sessionId = activeItem?.session?.id;
 
       if (sessionId == null) {
         setProcessing(null);
-        setBulkOperation(null);
         addNotification({
           type: "error",
           title: "No Active Session",
-          message: "No active class session for this subject. Start or select an active session first.",
+          message:
+            "No active class session for this subject. Start or select an active session first.",
         });
         return;
       }
@@ -628,12 +617,12 @@ export const LabComputers = () => {
           computerId,
           studentId: selectedStudentForSimpleAssign.id,
           classSessionId: sessionId,
-        })
+        }),
       );
 
       const results = await Promise.allSettled(assignPromises);
       const successCount = results.filter(
-        (result) => result.status === "fulfilled" && result.value?.success
+        (result) => result.status === "fulfilled" && result.value?.success,
       ).length;
 
       addNotification({
@@ -656,7 +645,6 @@ export const LabComputers = () => {
       });
     } finally {
       setProcessing(null);
-      setBulkOperation(null);
     }
   };
 
@@ -668,13 +656,14 @@ export const LabComputers = () => {
     try {
       const sessionsResponse = await api.getClassSessions();
       const sessionsList = (sessionsResponse as any)?.sessions;
-      const activeItem = Array.isArray(sessionsList) && selectedSubject != null
-        ? sessionsList.find(
-            (item: any) =>
-              item.session?.status === "active" &&
-              item.schedule?.subjectId === selectedSubject
-          )
-        : null;
+      const activeItem =
+        Array.isArray(sessionsList) && selectedSubject != null
+          ? sessionsList.find(
+              (item: any) =>
+                item.session?.status === "active" &&
+                item.schedule?.subjectId === selectedSubject,
+            )
+          : null;
       const sessionId = activeItem?.session?.id;
 
       if (sessionId == null) {
@@ -682,7 +671,8 @@ export const LabComputers = () => {
         addNotification({
           type: "error",
           title: "No Active Session",
-          message: "No active class session for this subject. Start or select an active session first.",
+          message:
+            "No active class session for this subject. Start or select an active session first.",
         });
         return;
       }
@@ -720,34 +710,6 @@ export const LabComputers = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "available":
-        return "bg-green-900 text-green-300";
-      case "in_use":
-      case "active":
-        return "bg-blue-900 text-blue-300";
-      case "maintenance":
-        return "bg-yellow-900 text-yellow-300";
-      default:
-        return "bg-gray-900 text-gray-300";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "available":
-        return "🟢";
-      case "in_use":
-      case "active":
-        return "🔵";
-      case "maintenance":
-        return "🟡";
-      default:
-        return "⚫";
-    }
-  };
-
   const getComputersByClassroom = (classroomId: number) => {
     return computers.filter((comp) => comp.classroomId === classroomId);
   };
@@ -755,7 +717,7 @@ export const LabComputers = () => {
   const getAssignmentForComputer = (computerId: number) => {
     return assignments.find(
       (assignment) =>
-        assignment.computerId === computerId && !assignment.releasedAt
+        assignment.computerId === computerId && !assignment.releasedAt,
     );
   };
 
@@ -1116,7 +1078,7 @@ export const LabComputers = () => {
                     <p className="text-2xl font-bold text-green-400">
                       {
                         filteredComputers.filter(
-                          (c) => c.status === "available"
+                          (c) => c.status === "available",
                         ).length
                       }
                     </p>
@@ -1147,7 +1109,7 @@ export const LabComputers = () => {
                     <p className="text-2xl font-bold text-yellow-400">
                       {
                         filteredComputers.filter(
-                          (c) => c.status === "maintenance"
+                          (c) => c.status === "maintenance",
                         ).length
                       }
                     </p>
@@ -1243,7 +1205,7 @@ export const LabComputers = () => {
                 <button
                   onClick={() => {
                     const availableComputers = getComputersByClassroom(
-                      selectedLab!
+                      selectedLab!,
                     )
                       .filter((c) => c.status === "available")
                       .slice(0, 5);
@@ -1301,13 +1263,13 @@ export const LabComputers = () => {
                             isSelected
                               ? "border-indigo-500 bg-indigo-900/30 ring-2 ring-indigo-500"
                               : draggedStudent &&
-                                computer.status === "available"
-                              ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
-                              : computer.status === "available"
-                              ? "border-green-500 hover:border-green-400"
-                              : computer.status === "in_use"
-                              ? "border-blue-500"
-                              : "border-yellow-500"
+                                  computer.status === "available"
+                                ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
+                                : computer.status === "available"
+                                  ? "border-green-500 hover:border-green-400"
+                                  : computer.status === "in_use"
+                                    ? "border-blue-500"
+                                    : "border-yellow-500"
                           }`}
                           onDrop={(e) =>
                             !simpleAssignMode && handleDrop(e, computer.id)
@@ -1330,7 +1292,7 @@ export const LabComputers = () => {
                                 e.stopPropagation();
                                 handleSelectComputer(
                                   computer.id,
-                                  e.target.checked
+                                  e.target.checked,
                                 );
                               }}
                               className="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-2"
@@ -1342,8 +1304,8 @@ export const LabComputers = () => {
                               {computer.status === "available"
                                 ? "💻"
                                 : computer.status === "in_use"
-                                ? "👤"
-                                : "🔧"}
+                                  ? "👤"
+                                  : "🔧"}
                             </div>
                             <div className="font-medium text-white text-sm">
                               {computer.name}
@@ -1362,8 +1324,8 @@ export const LabComputers = () => {
                                 {computer.status === "available"
                                   ? "Available"
                                   : computer.status === "maintenance"
-                                  ? "Maintenance"
-                                  : "Occupied"}
+                                    ? "Maintenance"
+                                    : "Occupied"}
                               </div>
                             )}
                             {computer.status === "in_use" && (
@@ -1414,13 +1376,13 @@ export const LabComputers = () => {
                             isSelected
                               ? "border-indigo-500 bg-indigo-900/30 ring-2 ring-indigo-500"
                               : draggedStudent &&
-                                computer.status === "available"
-                              ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
-                              : computer.status === "available"
-                              ? "border-green-500 hover:border-green-400"
-                              : computer.status === "in_use"
-                              ? "border-blue-500"
-                              : "border-yellow-500"
+                                  computer.status === "available"
+                                ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
+                                : computer.status === "available"
+                                  ? "border-green-500 hover:border-green-400"
+                                  : computer.status === "in_use"
+                                    ? "border-blue-500"
+                                    : "border-yellow-500"
                           }`}
                           onDrop={(e) =>
                             !simpleAssignMode && handleDrop(e, computer.id)
@@ -1443,7 +1405,7 @@ export const LabComputers = () => {
                                 e.stopPropagation();
                                 handleSelectComputer(
                                   computer.id,
-                                  e.target.checked
+                                  e.target.checked,
                                 );
                               }}
                               className="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-2"
@@ -1455,8 +1417,8 @@ export const LabComputers = () => {
                               {computer.status === "available"
                                 ? "💻"
                                 : computer.status === "in_use"
-                                ? "👤"
-                                : "🔧"}
+                                  ? "👤"
+                                  : "🔧"}
                             </div>
                             <div className="font-medium text-white text-sm">
                               {computer.name}
@@ -1475,8 +1437,8 @@ export const LabComputers = () => {
                                 {computer.status === "available"
                                   ? "Available"
                                   : computer.status === "maintenance"
-                                  ? "Maintenance"
-                                  : "Occupied"}
+                                    ? "Maintenance"
+                                    : "Occupied"}
                               </div>
                             )}
                             {computer.status === "in_use" && (
@@ -1527,13 +1489,13 @@ export const LabComputers = () => {
                             isSelected
                               ? "border-indigo-500 bg-indigo-900/30 ring-2 ring-indigo-500"
                               : draggedStudent &&
-                                computer.status === "available"
-                              ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
-                              : computer.status === "available"
-                              ? "border-green-500 hover:border-green-400"
-                              : computer.status === "in_use"
-                              ? "border-blue-500"
-                              : "border-yellow-500"
+                                  computer.status === "available"
+                                ? "border-blue-500 bg-blue-900/30 shadow-lg scale-105"
+                                : computer.status === "available"
+                                  ? "border-green-500 hover:border-green-400"
+                                  : computer.status === "in_use"
+                                    ? "border-blue-500"
+                                    : "border-yellow-500"
                           }`}
                           onDrop={(e) =>
                             !simpleAssignMode && handleDrop(e, computer.id)
@@ -1556,7 +1518,7 @@ export const LabComputers = () => {
                                 e.stopPropagation();
                                 handleSelectComputer(
                                   computer.id,
-                                  e.target.checked
+                                  e.target.checked,
                                 );
                               }}
                               className="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-2"
@@ -1568,8 +1530,8 @@ export const LabComputers = () => {
                               {computer.status === "available"
                                 ? "💻"
                                 : computer.status === "in_use"
-                                ? "👤"
-                                : "🔧"}
+                                  ? "👤"
+                                  : "🔧"}
                             </div>
                             <div className="font-medium text-white text-sm">
                               {computer.name}
@@ -1588,8 +1550,8 @@ export const LabComputers = () => {
                                 {computer.status === "available"
                                   ? "Available"
                                   : computer.status === "maintenance"
-                                  ? "Maintenance"
-                                  : "Occupied"}
+                                    ? "Maintenance"
+                                    : "Occupied"}
                               </div>
                             )}
                             {computer.status === "in_use" && (
@@ -1898,9 +1860,9 @@ export const LabComputers = () => {
                                     record.maintenance.status === "completed"
                                       ? "bg-green-900 text-green-300"
                                       : record.maintenance.status ===
-                                        "in_progress"
-                                      ? "bg-blue-900 text-blue-300"
-                                      : "bg-yellow-900 text-yellow-300"
+                                          "in_progress"
+                                        ? "bg-blue-900 text-blue-300"
+                                        : "bg-yellow-900 text-yellow-300"
                                   }`}
                                 >
                                   {record.maintenance.status}
@@ -1909,14 +1871,14 @@ export const LabComputers = () => {
                               <td className="px-4 py-3 text-sm text-gray-300">
                                 {record.maintenance.scheduledDate
                                   ? new Date(
-                                      record.maintenance.scheduledDate
+                                      record.maintenance.scheduledDate,
                                     ).toLocaleDateString()
                                   : "N/A"}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-300">
                                 {record.maintenance.completedDate
                                   ? new Date(
-                                      record.maintenance.completedDate
+                                      record.maintenance.completedDate,
                                     ).toLocaleDateString()
                                   : "N/A"}
                               </td>
@@ -2017,7 +1979,7 @@ export const LabComputers = () => {
                     <div className="text-lg font-bold text-white">
                       {
                         maintenanceRecords.filter(
-                          (r: any) => r.maintenance.status === "scheduled"
+                          (r: any) => r.maintenance.status === "scheduled",
                         ).length
                       }
                     </div>
@@ -2028,7 +1990,7 @@ export const LabComputers = () => {
                     <div className="text-lg font-bold text-white">
                       {
                         maintenanceRecords.filter(
-                          (r: any) => r.maintenance.status === "in_progress"
+                          (r: any) => r.maintenance.status === "in_progress",
                         ).length
                       }
                     </div>
@@ -2039,7 +2001,7 @@ export const LabComputers = () => {
                     <div className="text-lg font-bold text-white">
                       {
                         maintenanceRecords.filter(
-                          (r: any) => r.maintenance.status === "completed"
+                          (r: any) => r.maintenance.status === "completed",
                         ).length
                       }
                     </div>

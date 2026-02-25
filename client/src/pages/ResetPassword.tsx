@@ -16,8 +16,6 @@ export const ResetPassword = () => {
   // Password match validation
   const passwordsMatch =
     confirmPassword.length > 0 && newPassword === confirmPassword;
-  const passwordsDontMatch =
-    confirmPassword.length > 0 && newPassword !== confirmPassword;
 
   useEffect(() => {
     // Get token and email from URL
@@ -56,7 +54,7 @@ export const ResetPassword = () => {
         token,
         email,
         newPassword,
-        confirmPassword
+        confirmPassword,
       );
 
       if (response.success) {
@@ -72,11 +70,11 @@ export const ResetPassword = () => {
         err?.data?.message || "Failed to reset password. Please try again.";
       if (errorMessage.includes("expired")) {
         setError(
-          "This reset link has expired. Please request a new password reset."
+          "This reset link has expired. Please request a new password reset.",
         );
       } else if (errorMessage.includes("Invalid or expired")) {
         setError(
-          "Invalid or expired reset link. Please request a new password reset."
+          "Invalid or expired reset link. Please request a new password reset.",
         );
       } else {
         setError(errorMessage);

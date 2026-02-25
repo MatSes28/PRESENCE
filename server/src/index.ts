@@ -755,44 +755,60 @@ initializeDatabaseColumns().then(() => {
     // Add db.execute method for compatibility
     addExecuteMethod();
 
-    // Check database and create admin user if needed
+    // Check database connection and print table counts
     checkDatabaseConnection().then(async (dbAvailable) => {
       if (dbAvailable) {
         await logTableCounts();
 
-        // Create admin user if it doesn't exist
-        try {
-          const existingAdmin = await db
-            .select()
-            .from(users)
-            .where(eq(users.email, "admin@clsu.edu.ph"))
-            .limit(1);
+        // SECURITY: Do NOT auto-create or reset a default admin in production.
+        // Use an explicit bootstrap flow when needed.
+        const bootstrapEnabled = process.env.BOOTSTRAP_ADMIN === "true";
+        if (bootstrapEnabled) {
+          try {
+            const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
+            const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
 
-          if (existingAdmin.length === 0) {
-            const hashedPassword = await bcrypt.hash("admin123", 12);
-            await db.insert(users).values({
-              email: "admin@clsu.edu.ph",
-              password: hashedPassword,
-              name: "System Administrator",
-              role: "admin",
-              isActive: true,
-            });
-            console.log("✅ Admin user created: admin@clsu.edu.ph / admin123");
-          } else {
-            // Update password to ensure it's correct
-            const hashedPassword = await bcrypt.hash("admin123", 12);
-            await db
-              .update(users)
-              .set({ password: hashedPassword, isActive: true })
-              .where(eq(users.email, "admin@clsu.edu.ph"));
-            console.log(
-              "✅ Admin user password updated: admin@clsu.edu.ph / admin123",
-            );
+            if (!email || !password) {
+              console.error(
+                "❌ BOOTSTRAP_ADMIN is enabled but BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD is missing",
+              );
+              return;
+            }
+
+            if (password.length < 12) {
+              console.error(
+                "❌ BOOTSTRAP_ADMIN_PASSWORD must be at least 12 characters",
+              );
+              return;
+            }
+
+            const existingAdmin = await db
+              .select()
+              .from(users)
+              .where(eq(users.email, email))
+              .limit(1);
+
+            if (existingAdmin.length === 0) {
+              const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
+              const hashedPassword = await bcrypt.hash(password, saltRounds);
+              await db.insert(users).values({
+                email,
+                password: hashedPassword,
+                name: "System Administrator",
+                role: "admin",
+                isActive: true,
+              });
+              console.log(
+                `✅ Bootstrap admin user created: ${email} (BOOTSTRAP_ADMIN=true)`,
+              );
+            } else {
+              console.log(
+                `ℹ️ Bootstrap admin skipped: user already exists (${email})`,
+              );
+            }
+          } catch (error) {
+            console.error("❌ Failed during BOOTSTRAP_ADMIN flow:", error);
           }
-        } catch (error) {
-          console.error("❌ Failed to setup admin user:", error);
-          console.error("Error details:", error.message);
-          // Don't exit - admin can be created manually if needed
         }
       }
     });

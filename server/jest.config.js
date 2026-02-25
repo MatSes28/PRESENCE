@@ -9,7 +9,15 @@ export default {
     "!**/e2e/**", // Exclude e2e tests as they use Playwright
   ],
   transform: {
-    "^.+\\.ts$": ["ts-jest", { useESM: true }],
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        useESM: true,
+        // Ensure ts-jest compiles with the server tsconfig (ES module output),
+        // otherwise `import.meta.url` will fail type-checking under CommonJS.
+        tsconfig: "<rootDir>/tsconfig.json",
+      },
+    ],
   },
   extensionsToTreatAsEsm: [".ts"],
   collectCoverageFrom: [

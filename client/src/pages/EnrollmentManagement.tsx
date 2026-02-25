@@ -41,7 +41,6 @@ export const EnrollmentManagement = () => {
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
-  const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
   const [showEnrollForm, setShowEnrollForm] = useState(false);
   const [formData, setFormData] = useState({
     studentId: "",
@@ -86,10 +85,21 @@ export const EnrollmentManagement = () => {
           id: item.enrollment?.id ?? item.id,
           studentId: item.enrollment?.studentId ?? item.studentId,
           subjectId: item.enrollment?.subjectId ?? item.subjectId,
-          student: item.student ?? { id: 0, studentId: "", name: "", email: "" },
-          subject: item.subject ?? { id: 0, code: "", name: "", description: "" },
+          student: item.student ?? {
+            id: 0,
+            studentId: "",
+            name: "",
+            email: "",
+          },
+          subject: item.subject ?? {
+            id: 0,
+            code: "",
+            name: "",
+            description: "",
+          },
           semester: item.enrollment?.semester ?? item.semester ?? "",
-          academicYear: item.enrollment?.academicYear ?? item.academicYear ?? "",
+          academicYear:
+            item.enrollment?.academicYear ?? item.academicYear ?? "",
           enrolledAt: item.enrollment?.createdAt ?? item.createdAt ?? "",
         }));
         setEnrollments(transformed);
@@ -153,7 +163,7 @@ export const EnrollmentManagement = () => {
   const handleUnenroll = async (enrollmentId: number) => {
     if (
       !confirm(
-        "Are you sure you want to unenroll this student from the subject?"
+        "Are you sure you want to unenroll this student from the subject?",
       )
     ) {
       return;
@@ -193,7 +203,6 @@ export const EnrollmentManagement = () => {
       semester: "",
       academicYear: "",
     });
-    setSelectedStudent(null);
     setSelectedSubject(null);
     setShowEnrollForm(false);
   };
@@ -286,14 +295,18 @@ export const EnrollmentManagement = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label
+              htmlFor="enrollment-filter-subject"
+              className="block text-sm font-medium text-gray-300 mb-1"
+            >
               Filter by Subject
             </label>
             <select
+              id="enrollment-filter-subject"
               value={selectedSubject || ""}
               onChange={(e) =>
                 setSelectedSubject(
-                  e.target.value ? parseInt(e.target.value) : null
+                  e.target.value ? parseInt(e.target.value) : null,
                 )
               }
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
@@ -318,10 +331,14 @@ export const EnrollmentManagement = () => {
           <form onSubmit={handleEnroll} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label
+                  htmlFor="enrollment-student"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
                   Student *
                 </label>
                 <select
+                  id="enrollment-student"
                   value={formData.studentId}
                   onChange={(e) =>
                     setFormData({ ...formData, studentId: e.target.value })
@@ -338,10 +355,14 @@ export const EnrollmentManagement = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label
+                  htmlFor="enrollment-subject"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
                   Subject *
                 </label>
                 <select
+                  id="enrollment-subject"
                   value={formData.subjectId}
                   onChange={(e) =>
                     setFormData({ ...formData, subjectId: e.target.value })
@@ -358,10 +379,14 @@ export const EnrollmentManagement = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label
+                  htmlFor="enrollment-semester"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
                   Semester *
                 </label>
                 <select
+                  id="enrollment-semester"
                   value={formData.semester}
                   onChange={(e) =>
                     setFormData({ ...formData, semester: e.target.value })
@@ -376,10 +401,14 @@ export const EnrollmentManagement = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label
+                  htmlFor="enrollment-academic-year"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
                   Academic Year *
                 </label>
                 <select
+                  id="enrollment-academic-year"
                   value={formData.academicYear}
                   onChange={(e) =>
                     setFormData({ ...formData, academicYear: e.target.value })

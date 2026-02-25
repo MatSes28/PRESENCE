@@ -6,8 +6,8 @@ import {
 } from "../../../src/services/errorTrackingService";
 
 // Mock external dependencies
-jest.mock("../../../src/storage.js", () => ({
-  db: {
+jest.mock("../../../src/storage.js", () => {
+  const mockDb = {
     insert: jest.fn(() => ({
       values: jest.fn(() => ({
         returning: jest.fn(() => [{ id: 1 }]),
@@ -29,8 +29,15 @@ jest.mock("../../../src/storage.js", () => ({
         })),
       })),
     })),
-  },
-}));
+    execute: jest.fn(),
+  };
+
+  return {
+    __esModule: true,
+    default: mockDb,
+    db: mockDb,
+  };
+});
 
 jest.mock("../../../src/services/monitoringService.js", () => ({
   monitoringService: {
@@ -67,13 +74,13 @@ describe("ErrorTrackingService", () => {
         context,
         metadata,
         ErrorCategory.SYSTEM,
-        ErrorSeverity.MEDIUM
+        ErrorSeverity.MEDIUM,
       );
 
       expect(mockMonitoringLog).toHaveBeenCalledWith(
         error,
         context,
-        expect.any(Object)
+        expect.any(Object),
       );
       expect(mockInsert).toHaveBeenCalled();
       expect(errorId).toBe(1);
@@ -87,8 +94,10 @@ describe("ErrorTrackingService", () => {
 
       expect(mockInsert).toHaveBeenCalled();
       // Check that the category was determined as validation
-      const insertCall = mockInsert.mock.calls[0][0].values.mock.calls[0][0];
-      expect(insertCall.category).toBe(ErrorCategory.VALIDATION);
+      const insertResult = mockInsert.mock.results[0]?.value;
+      const valuesArg = insertResult?.values?.mock?.calls?.[0]?.[0];
+      expect(valuesArg.category).toBe(ErrorCategory.VALIDATION);
+      expect(errorId).toBe(1);
     });
 
     it("should handle database logging failure", async () => {
@@ -115,7 +124,7 @@ describe("ErrorTrackingService", () => {
         context,
         {},
         ErrorCategory.SYSTEM,
-        ErrorSeverity.CRITICAL
+        ErrorSeverity.CRITICAL,
       );
 
       expect(mockAlerting.sendCriticalErrorAlert).toHaveBeenCalledWith(
@@ -123,7 +132,7 @@ describe("ErrorTrackingService", () => {
         expect.objectContaining({
           endpoint: "/api/critical",
           userId: 1,
-        })
+        }),
       );
     });
 
@@ -139,12 +148,12 @@ describe("ErrorTrackingService", () => {
         context,
         {},
         ErrorCategory.DATABASE,
-        ErrorSeverity.HIGH
+        ErrorSeverity.HIGH,
       );
 
       expect(mockAlerting.sendDatabaseAlert).toHaveBeenCalledWith(
         expect.stringContaining("Database connection issue"),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
   });
@@ -157,14 +166,10 @@ describe("ErrorTrackingService", () => {
         1,
         1,
         RecoveryStrategy.RETRY,
-        "success"
+        "success",
       );
 
-      expect(mockInsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          values: expect.any(Function),
-        })
-      );
+      expect(mockInsert).toHaveBeenCalled();
     });
 
     it("should attempt recovery with retry strategy", async () => {
@@ -175,7 +180,7 @@ describe("ErrorTrackingService", () => {
 
       const result = await errorTrackingService.attemptRecovery(
         1,
-        recoveryConfig
+        recoveryConfig,
       );
 
       expect(result.success).toBe(false);
@@ -190,7 +195,7 @@ describe("ErrorTrackingService", () => {
 
       const result = await errorTrackingService.attemptRecovery(
         1,
-        recoveryConfig
+        recoveryConfig,
       );
 
       expect(result.success).toBe(true);
@@ -211,7 +216,7 @@ describe("ErrorTrackingService", () => {
 
       const result = await errorTrackingService.attemptRecovery(
         1,
-        recoveryConfig
+        recoveryConfig,
       );
 
       expect(result.success).toBe(false);
@@ -225,7 +230,7 @@ describe("ErrorTrackingService", () => {
 
       const result = await errorTrackingService.attemptRecovery(
         1,
-        recoveryConfig
+        recoveryConfig,
       );
 
       expect(result.success).toBe(true);
@@ -334,7 +339,7 @@ describe("ErrorTrackingService", () => {
       const error = new Error("Validation failed");
       const category = (errorTrackingService as any).determineCategory(
         error,
-        ErrorCategory.SYSTEM
+        ErrorCategory.SYSTEM,
       );
 
       expect(category).toBe(ErrorCategory.VALIDATION);
@@ -344,7 +349,7 @@ describe("ErrorTrackingService", () => {
       const error = new Error("Database connection failed");
       const category = (errorTrackingService as any).determineCategory(
         error,
-        ErrorCategory.SYSTEM
+        ErrorCategory.SYSTEM,
       );
 
       expect(category).toBe(ErrorCategory.DATABASE);
@@ -354,7 +359,7 @@ describe("ErrorTrackingService", () => {
       const error = new Error("Unauthorized access");
       const category = (errorTrackingService as any).determineCategory(
         error,
-        ErrorCategory.SYSTEM
+        ErrorCategory.SYSTEM,
       );
 
       expect(category).toBe(ErrorCategory.SECURITY);
@@ -364,7 +369,7 @@ describe("ErrorTrackingService", () => {
       const error = new Error("Unknown error");
       const category = (errorTrackingService as any).determineCategory(
         error,
-        ErrorCategory.BUSINESS
+        ErrorCategory.BUSINESS,
       );
 
       expect(category).toBe(ErrorCategory.BUSINESS);
@@ -376,7 +381,7 @@ describe("ErrorTrackingService", () => {
       (errorTrackingService as any).recordCircuitFailure("test_circuit");
 
       const circuit = (errorTrackingService as any).circuitBreakers.get(
-        "test_circuit"
+        "test_circuit",
       );
       expect(circuit.failures).toBe(1);
       expect(circuit.state).toBe("closed");
@@ -388,7 +393,7 @@ describe("ErrorTrackingService", () => {
       }
 
       const circuit = (errorTrackingService as any).circuitBreakers.get(
-        "test_circuit"
+        "test_circuit",
       );
       expect(circuit.failures).toBe(5);
       expect(circuit.state).toBe("open");
@@ -404,7 +409,7 @@ describe("ErrorTrackingService", () => {
       (errorTrackingService as any).resetCircuitBreaker("test_circuit");
 
       const circuit = (errorTrackingService as any).circuitBreakers.get(
-        "test_circuit"
+        "test_circuit",
       );
       expect(circuit.failures).toBe(0);
       expect(circuit.state).toBe("closed");

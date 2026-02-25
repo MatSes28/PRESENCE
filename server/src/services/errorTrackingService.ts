@@ -82,7 +82,7 @@ class ErrorTrackingService {
     context: ErrorContext = {},
     metadata: ErrorMetadata = {},
     category: ErrorCategory = ErrorCategory.SYSTEM,
-    severity: ErrorSeverity = ErrorSeverity.MEDIUM
+    severity: ErrorSeverity = ErrorSeverity.MEDIUM,
   ): Promise<number> {
     try {
       // Determine category from error type if not specified
@@ -101,8 +101,8 @@ class ErrorTrackingService {
           severity === ErrorSeverity.CRITICAL
             ? "error"
             : severity === ErrorSeverity.HIGH
-            ? "error"
-            : "warn",
+              ? "error"
+              : "warn",
         message: error.message,
         stack: error.stack,
         category: determinedCategory,
@@ -139,7 +139,7 @@ class ErrorTrackingService {
         error,
         context,
         determinedCategory,
-        severity
+        severity,
       );
 
       return insertedError.id;
@@ -157,7 +157,7 @@ class ErrorTrackingService {
     attemptNumber: number,
     strategy: RecoveryStrategy,
     status: "pending" | "success" | "failed",
-    result?: any
+    result?: any,
   ): Promise<void> {
     try {
       await db.insert(errorRecoveryAttempts).values({
@@ -245,7 +245,7 @@ class ErrorTrackingService {
   // Attempt automatic recovery
   async attemptRecovery(
     errorLogId: number,
-    recoveryConfig: RecoveryAttempt
+    recoveryConfig: RecoveryAttempt,
   ): Promise<{ success: boolean; result?: any; error?: string }> {
     const {
       strategy,
@@ -278,7 +278,7 @@ class ErrorTrackingService {
             errorLogId,
             attempt,
             strategy,
-            "pending"
+            "pending",
           );
 
           let result: any;
@@ -309,13 +309,13 @@ class ErrorTrackingService {
             attempt,
             strategy,
             "success",
-            result
+            result,
           );
 
           // Reset circuit breaker on success for applicable strategies
           if (
             [RecoveryStrategy.RETRY, RecoveryStrategy.FALLBACK].includes(
-              strategy
+              strategy,
             )
           ) {
             this.resetCircuitBreaker(`circuit_${errorLogId}`);
@@ -331,13 +331,13 @@ class ErrorTrackingService {
             {
               error: attemptError.message,
               stack: attemptError.stack,
-            }
+            },
           );
 
           // Update circuit breaker for applicable strategies
           if (
             [RecoveryStrategy.RETRY, RecoveryStrategy.FALLBACK].includes(
-              strategy
+              strategy,
             )
           ) {
             this.recordCircuitFailure(`circuit_${errorLogId}`);
@@ -346,7 +346,7 @@ class ErrorTrackingService {
           // Wait before next attempt
           if (attempt < maxAttempts) {
             await new Promise((resolve) =>
-              setTimeout(resolve, backoffMs * attempt)
+              setTimeout(resolve, backoffMs * attempt),
             );
           }
         }
@@ -364,39 +364,36 @@ class ErrorTrackingService {
   // Private helper methods
   private determineCategory(
     error: Error,
-    providedCategory: ErrorCategory
+    providedCategory: ErrorCategory,
   ): ErrorCategory {
+    const message = (error.message || "").toLowerCase();
+    const name = (error.name || "").toLowerCase();
+
     // Try to determine category from error type
-    if (
-      error.name === "ValidationError" ||
-      error.message.includes("validation")
-    ) {
+    if (name === "validationerror" || message.includes("validation")) {
       return ErrorCategory.VALIDATION;
     }
     if (
-      error.name === "DatabaseError" ||
-      error.message.includes("database") ||
-      error.message.includes("postgres")
+      name === "databaseerror" ||
+      message.includes("database") ||
+      message.includes("postgres")
     ) {
       return ErrorCategory.DATABASE;
     }
     if (
-      error.name === "ExternalServiceError" ||
-      error.message.includes("external") ||
-      error.message.includes("service")
+      name === "externalserviceerror" ||
+      message.includes("external") ||
+      message.includes("service")
     ) {
       return ErrorCategory.EXTERNAL;
     }
-    if (
-      error.message.includes("network") ||
-      error.message.includes("connection")
-    ) {
+    if (message.includes("network") || message.includes("connection")) {
       return ErrorCategory.NETWORK;
     }
     if (
-      error.message.includes("unauthorized") ||
-      error.message.includes("forbidden") ||
-      error.message.includes("security")
+      message.includes("unauthorized") ||
+      message.includes("forbidden") ||
+      message.includes("security")
     ) {
       return ErrorCategory.SECURITY;
     }
@@ -444,7 +441,7 @@ class ErrorTrackingService {
     error: Error,
     context: ErrorContext,
     category: ErrorCategory,
-    severity: ErrorSeverity
+    severity: ErrorSeverity,
   ): Promise<void> {
     // Check for critical errors that need immediate alerting
     if (severity === ErrorSeverity.CRITICAL) {
@@ -460,7 +457,7 @@ class ErrorTrackingService {
       });
 
       console.error(
-        `🚨 CRITICAL ERROR: ${error.message} at ${context.endpoint}`
+        `🚨 CRITICAL ERROR: ${error.message} at ${context.endpoint}`,
       );
     }
 
@@ -477,7 +474,7 @@ class ErrorTrackingService {
           requestId: context.requestId,
           category,
           timestamp: new Date().toISOString(),
-        }
+        },
       );
     }
 
@@ -494,18 +491,18 @@ class ErrorTrackingService {
             severity === ErrorSeverity.CRITICAL
               ? "critical"
               : severity === ErrorSeverity.HIGH
-              ? "high"
-              : severity === ErrorSeverity.MEDIUM
-              ? "medium"
-              : "low",
-        }
+                ? "high"
+                : severity === ErrorSeverity.MEDIUM
+                  ? "medium"
+                  : "low",
+        },
       );
     }
   }
 
   private async executeRetry(
     errorLogId: number,
-    attempt: number
+    attempt: number,
   ): Promise<any> {
     // This would be implemented based on the specific operation that failed
     // For now, just simulate a retry
@@ -553,27 +550,27 @@ export function createErrorLogger(context: Partial<ErrorContext> = {}) {
       error: Error,
       metadata: ErrorMetadata = {},
       category?: ErrorCategory,
-      severity?: ErrorSeverity
+      severity?: ErrorSeverity,
     ) =>
       errorTrackingService.logError(
         error,
         context as ErrorContext,
         metadata,
         category,
-        severity
+        severity,
       ),
 
     logValidationError: (
       message: string,
       field?: string,
-      metadata: ErrorMetadata = {}
+      metadata: ErrorMetadata = {},
     ) =>
       errorTrackingService.logError(
         new Error(message),
         context as ErrorContext,
         { ...metadata, field },
         ErrorCategory.VALIDATION,
-        ErrorSeverity.LOW
+        ErrorSeverity.LOW,
       ),
 
     logDatabaseError: (error: Error, metadata: ErrorMetadata = {}) =>
@@ -582,20 +579,20 @@ export function createErrorLogger(context: Partial<ErrorContext> = {}) {
         context as ErrorContext,
         metadata,
         ErrorCategory.DATABASE,
-        ErrorSeverity.HIGH
+        ErrorSeverity.HIGH,
       ),
 
     logExternalError: (
       error: Error,
       service: string,
-      metadata: ErrorMetadata = {}
+      metadata: ErrorMetadata = {},
     ) =>
       errorTrackingService.logError(
         error,
         context as ErrorContext,
         { ...metadata, service },
         ErrorCategory.EXTERNAL,
-        ErrorSeverity.MEDIUM
+        ErrorSeverity.MEDIUM,
       ),
   };
 }

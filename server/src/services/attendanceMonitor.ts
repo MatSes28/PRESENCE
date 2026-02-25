@@ -42,10 +42,27 @@ class AttendanceMonitor {
   >();
   private recentAttendance = new Map<string, Date>(); // Track recent attendance to prevent duplicates
 
-  async processRFIDScan(scan: RFIDScan) {
+  async processRFIDScan(scan: RFIDScan): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+    student?: any;
+    session?: any;
+  }> {
     try {
+      if (
+        !scan?.rfidUid ||
+        typeof scan.rfidUid !== "string" ||
+        scan.rfidUid.trim().length === 0
+      ) {
+        return { success: false, message: "Invalid RFID UID" };
+      }
+
       if (await isEmergencyStopActive()) {
-        return { success: false, message: "RFID processing paused (emergency stop active)." };
+        return {
+          success: false,
+          message: "RFID processing paused (emergency stop active).",
+        };
       }
       // Store recent RFID scan for sensor validation
       this.storeRecentRFIDScan(scan);
@@ -94,8 +111,8 @@ class AttendanceMonitor {
           .where(
             and(
               eq(attendanceRecords.studentId, studentData.id),
-              eq(attendanceRecords.classSessionId, currentSession.id)
-            )
+              eq(attendanceRecords.classSessionId, currentSession.id),
+            ),
           )
           .limit(1);
 
@@ -105,7 +122,7 @@ class AttendanceMonitor {
           !existingRecord[0].exitTime
         ) {
           console.log(
-            `Anti-passback violation: Student ${studentData.id} already entered without exiting`
+            `Anti-passback violation: Student ${studentData.id} already entered without exiting`,
           );
           return {
             success: false,
@@ -120,7 +137,7 @@ class AttendanceMonitor {
         now.getTime() - lastAttendance.getTime() < this.attendanceCooldown
       ) {
         console.log(
-          `Duplicate attendance attempt within cooldown period for student ${studentData.id}`
+          `Duplicate attendance attempt within cooldown period for student ${studentData.id}`,
         );
         return {
           success: false,
@@ -135,8 +152,8 @@ class AttendanceMonitor {
         .where(
           and(
             eq(attendanceRecords.studentId, studentData.id),
-            eq(attendanceRecords.classSessionId, currentSession.id)
-          )
+            eq(attendanceRecords.classSessionId, currentSession.id),
+          ),
         )
         .limit(1);
 
@@ -158,17 +175,37 @@ class AttendanceMonitor {
 
       return {
         success: true,
+        message: "RFID scan processed",
         student: studentData,
         session: currentSession,
       };
     } catch (error) {
       console.error("Error processing RFID scan:", error);
-      return { success: false, message: "Internal error" };
+      const msg = (error as any)?.message || String(error);
+      const lower = msg.toLowerCase();
+      const userMessage =
+        lower.includes("database") ||
+        lower.includes("connection") ||
+        lower.includes("timeout")
+          ? "Database error"
+          : "Internal error";
+      return { success: false, message: userMessage, error: msg };
     }
   }
 
-  async processSensorTrigger(trigger: SensorTrigger) {
+  async processSensorTrigger(trigger: SensorTrigger): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+    student?: any;
+    session?: any;
+    triggerType?: "entry" | "exit";
+  }> {
     try {
+      if (trigger.sensorType !== "entry" && trigger.sensorType !== "exit") {
+        return { success: false, message: "Invalid sensor type" };
+      }
+
       // Find active class session
       const now = new Date();
       const currentSession = await this.findActiveClassSession(now);
@@ -187,7 +224,7 @@ class AttendanceMonitor {
         trigger.distance > MAX_DISTANCE_CM
       ) {
         console.log(`Invalid sensor distance: ${trigger.distance}cm`);
-        return { success: false, message: "Invalid sensor distance" };
+        return { success: false, message: "Invalid distance" };
       }
 
       // Look for recent RFID scans within validation window
@@ -195,7 +232,7 @@ class AttendanceMonitor {
 
       if (recentScans.length === 0) {
         console.log(
-          "Sensor trigger without recent RFID scan - potential ghost attendance"
+          "Sensor trigger without recent RFID scan - potential ghost attendance",
         );
         // Create discrepancy record
         await this.createDiscrepancyRecord(trigger, currentSession.id);
@@ -225,8 +262,8 @@ class AttendanceMonitor {
         .where(
           and(
             eq(attendanceRecords.studentId, student[0].id),
-            eq(attendanceRecords.classSessionId, currentSession.id)
-          )
+            eq(attendanceRecords.classSessionId, currentSession.id),
+          ),
         )
         .limit(1);
 
@@ -237,7 +274,7 @@ class AttendanceMonitor {
           !existingRecord[0].exitTime
         ) {
           console.log(
-            `Anti-passback violation: Student ${student[0].id} already entered without exiting`
+            `Anti-passback violation: Student ${student[0].id} already entered without exiting`,
           );
           return {
             success: false,
@@ -247,7 +284,7 @@ class AttendanceMonitor {
 
         if (trigger.sensorType === "exit" && !existingRecord[0].entryTime) {
           console.log(
-            `Invalid exit: Student ${student[0].id} has no entry record`
+            `Invalid exit: Student ${student[0].id} has no entry record`,
           );
           return {
             success: false,
@@ -261,7 +298,7 @@ class AttendanceMonitor {
           existingRecord[0],
           "sensor",
           now,
-          trigger.sensorType
+          trigger.sensorType,
         );
       } else {
         await this.createAttendanceRecord({
@@ -275,13 +312,18 @@ class AttendanceMonitor {
 
       return {
         success: true,
+        message: "Sensor trigger processed",
         student: student[0],
         session: currentSession,
         triggerType: trigger.sensorType,
       };
     } catch (error) {
       console.error("Error processing sensor trigger:", error);
-      return { success: false, message: "Internal error" };
+      return {
+        success: false,
+        message: "Internal error",
+        error: (error as any)?.message || String(error),
+      };
     }
   }
 
@@ -310,18 +352,18 @@ class AttendanceMonitor {
             new Date(
               currentTime.getFullYear(),
               currentTime.getMonth(),
-              currentTime.getDate()
-            )
+              currentTime.getDate(),
+            ),
           ),
           lte(
             classSessions.date,
             new Date(
               currentTime.getFullYear(),
               currentTime.getMonth(),
-              currentTime.getDate() + 1
-            )
-          )
-        )
+              currentTime.getDate() + 1,
+            ),
+          ),
+        ),
       );
 
     // Return the first active session
@@ -345,7 +387,7 @@ class AttendanceMonitor {
     // Keep only recent scans (within validation window)
     const cutoffTime = new Date(timestamp.getTime() - this.validationWindow);
     const recentScans = deviceScans.filter(
-      (scan) => scan.timestamp > cutoffTime
+      (scan) => scan.timestamp > cutoffTime,
     );
 
     // Limit to last 10 scans per device to prevent memory issues
@@ -356,7 +398,7 @@ class AttendanceMonitor {
     this.recentRFIDScans.set(scan.deviceId, recentScans);
 
     console.log(
-      `Stored RFID scan: ${scan.rfidUid} from device ${scan.deviceId}`
+      `Stored RFID scan: ${scan.rfidUid} from device ${scan.deviceId}`,
     );
   }
 
@@ -369,10 +411,9 @@ class AttendanceMonitor {
   }
 
   private async createAttendanceRecord(
-    record: Partial<typeof attendanceRecords.$inferInsert>
+    record: Partial<typeof attendanceRecords.$inferInsert>,
   ) {
-    const isValid =
-      (record.rfidDetected && record.sensorDetected) || false;
+    const isValid = (record.rfidDetected && record.sensorDetected) || false;
     const [newRecord] = await db
       .insert(attendanceRecords)
       .values({
@@ -401,7 +442,7 @@ class AttendanceMonitor {
     existingRecord: typeof attendanceRecords.$inferSelect,
     detectionType: "rfid" | "sensor",
     timestamp: Date,
-    sensorType?: "entry" | "exit"
+    sensorType?: "entry" | "exit",
   ) {
     const updateData: Partial<typeof attendanceRecords.$inferInsert> = {};
 
@@ -434,7 +475,7 @@ class AttendanceMonitor {
 
   private async createDiscrepancyRecord(
     trigger: SensorTrigger,
-    sessionId: number
+    sessionId: number,
   ) {
     // Create a record flagged as discrepancy
     await db.insert(attendanceRecords).values({
@@ -481,8 +522,20 @@ class AttendanceMonitor {
     console.log(`Created general discrepancy record: ${discrepancy.type}`);
   }
 
-  async validateAttendanceRecord(recordId: number) {
+  async validateAttendanceRecord(
+    recordId: number,
+  ): Promise<{ success: boolean; message: string }> {
     // Manual validation of suspicious records
+    const existing = await db
+      .select()
+      .from(attendanceRecords)
+      .where(eq(attendanceRecords.id, recordId))
+      .limit(1);
+
+    if (!existing.length) {
+      return { success: false, message: "Attendance record not found" };
+    }
+
     await db
       .update(attendanceRecords)
       .set({
@@ -491,16 +544,14 @@ class AttendanceMonitor {
         notes: "Manually validated",
       })
       .where(eq(attendanceRecords.id, recordId));
+
+    return { success: true, message: "Attendance record validated" };
   }
 
   async getAttendanceStats(sessionId: number) {
-    const cacheKey = `attendance_stats:${sessionId}`;
-
-    // Try cache first
-    const cached = await cacheService.get<any>(cacheKey);
-    if (cached) {
-      return cached;
-    }
+    // Try cache first (shared key with cacheService helpers)
+    const cached = await cacheService.getAttendanceStats(sessionId);
+    if (cached) return cached;
 
     const records = await db
       .select()
@@ -515,10 +566,22 @@ class AttendanceMonitor {
         .length,
       sensorOnly: records.filter((r) => r.sensorDetected && !r.rfidDetected)
         .length,
+      // Back-compat fields used by some UIs/tests
+      totalStudents: new Set(records.map((r) => r.studentId)).size,
+      presentCount: records.filter((r) => r.status === "present").length,
+      absentCount: records.filter((r) => r.status === "absent").length,
+      attendanceRate:
+        records.length > 0
+          ? Math.round(
+              (records.filter((r) => r.status === "present").length /
+                records.length) *
+                10000,
+            ) / 100
+          : 0,
     };
 
     // Cache for 2 minutes
-    await cacheService.set(cacheKey, stats, { ttl: 120 });
+    await cacheService.setAttendanceStats(sessionId, stats, 120);
     return stats;
   }
 
@@ -527,13 +590,13 @@ class AttendanceMonitor {
     const now = new Date();
     const rfidCutoffTime = new Date(now.getTime() - this.validationWindow * 2); // Keep 2x validation window
     const attendanceCutoffTime = new Date(
-      now.getTime() - this.attendanceCooldown * 2
+      now.getTime() - this.attendanceCooldown * 2,
     ); // Keep 2x cooldown window
 
     // Clean up old RFID scans
     for (const [deviceId, scans] of this.recentRFIDScans) {
       const recentScans = scans.filter(
-        (scan) => scan.timestamp > rfidCutoffTime
+        (scan) => scan.timestamp > rfidCutoffTime,
       );
       if (recentScans.length === 0) {
         this.recentRFIDScans.delete(deviceId);
@@ -550,7 +613,7 @@ class AttendanceMonitor {
     }
 
     console.log(
-      `Cleaned up old data: ${this.recentRFIDScans.size} RFID devices, ${this.recentAttendance.size} attendance records`
+      `Cleaned up old data: ${this.recentRFIDScans.size} RFID devices, ${this.recentAttendance.size} attendance records`,
     );
   }
 
@@ -560,14 +623,14 @@ class AttendanceMonitor {
       totalDevices: this.recentRFIDScans.size,
       totalScans: Array.from(this.recentRFIDScans.values()).reduce(
         (sum, scans) => sum + scans.length,
-        0
+        0,
       ),
       devicesWithScans: Array.from(this.recentRFIDScans.entries()).map(
         ([deviceId, scans]) => ({
           deviceId,
           scanCount: scans.length,
           latestScan: scans[scans.length - 1]?.timestamp,
-        })
+        }),
       ),
     };
 
@@ -586,9 +649,9 @@ class AttendanceMonitor {
           key,
           lastAttendance: timestamp,
           minutesAgo: Math.round(
-            (Date.now() - timestamp.getTime()) / (1000 * 60)
+            (Date.now() - timestamp.getTime()) / (1000 * 60),
           ),
-        })
+        }),
       ),
     };
 

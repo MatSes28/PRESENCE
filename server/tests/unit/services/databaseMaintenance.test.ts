@@ -1,11 +1,20 @@
 import { databaseMaintenance } from "../../../src/services/databaseMaintenance";
 
 // Mock external dependencies
-jest.mock("../../../src/storage.js", () => ({
-  db: {
+jest.mock("../../../src/storage.js", () => {
+  const mockDb = {
     execute: jest.fn(),
-  },
-}));
+    select: jest.fn(),
+    insert: jest.fn(),
+    update: jest.fn(),
+  };
+  return {
+    __esModule: true,
+    default: mockDb,
+    // Back-compat for older tests that access `.db`
+    db: mockDb,
+  };
+});
 
 jest.mock("fs", () => ({
   existsSync: jest.fn(),
@@ -15,6 +24,7 @@ jest.mock("fs", () => ({
 
 jest.mock("path", () => ({
   join: jest.fn(),
+  resolve: jest.fn(() => "C:/mock/backups"),
 }));
 
 describe("DatabaseMaintenanceService", () => {
@@ -238,11 +248,11 @@ describe("DatabaseMaintenanceService", () => {
       const checks = await databaseMaintenance.runHealthCheck();
 
       const connectionCheck = checks.find(
-        (c) => c.checkName === "active_connections"
+        (c) => c.checkName === "active_connections",
       );
       const bloatCheck = checks.find((c) => c.checkName === "table_bloat");
       const queryCheck = checks.find(
-        (c) => c.checkName === "long_running_queries"
+        (c) => c.checkName === "long_running_queries",
       );
 
       expect(connectionCheck?.status).toBe("fail");
@@ -272,7 +282,7 @@ describe("DatabaseMaintenanceService", () => {
 
     it("should reject unknown tasks", async () => {
       await expect(databaseMaintenance.runTask("unknown_task")).rejects.toThrow(
-        "not found"
+        "not found",
       );
     });
 
@@ -280,10 +290,10 @@ describe("DatabaseMaintenanceService", () => {
       // Mock a long-running task
       const mockRunVacuum = jest.spyOn(
         databaseMaintenance as any,
-        "runVacuumAnalyze"
+        "runVacuumAnalyze",
       );
       mockRunVacuum.mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 100))
+        () => new Promise((resolve) => setTimeout(resolve, 100)),
       );
 
       // Start first task
@@ -291,7 +301,7 @@ describe("DatabaseMaintenanceService", () => {
 
       // Try to start second task while first is running
       await expect(
-        databaseMaintenance.runTask("reindex_critical")
+        databaseMaintenance.runTask("reindex_critical"),
       ).rejects.toThrow("already running");
 
       await taskPromise;

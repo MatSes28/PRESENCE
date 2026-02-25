@@ -61,7 +61,7 @@ export const useFormValidation = (config: FieldConfig) => {
 
       return null;
     },
-    [config]
+    [config],
   );
 
   const validateForm = useCallback(
@@ -80,7 +80,7 @@ export const useFormValidation = (config: FieldConfig) => {
       setErrors(newErrors);
       return isValid;
     },
-    [config, validateField]
+    [config, validateField],
   );
 
   const validateSingleField = useCallback(
@@ -92,7 +92,7 @@ export const useFormValidation = (config: FieldConfig) => {
       }));
       return !error;
     },
-    [validateField]
+    [validateField],
   );
 
   const setFieldTouched = useCallback((name: string) => {
@@ -111,7 +111,7 @@ export const useFormValidation = (config: FieldConfig) => {
     (name: string): string | null => {
       return touched[name] ? errors[name] || null : null;
     },
-    [errors, touched]
+    [errors, touched],
   );
 
   return {
@@ -130,7 +130,8 @@ export const useFormValidation = (config: FieldConfig) => {
 export const validationPatterns = {
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   password: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/,
-  phone: /^\+?[\d\s\-\(\)]+$/,
+  // Inside a character class, parentheses don't need escaping.
+  phone: /^\+?[\d\s()-]+$/,
   studentId: /^[A-Z0-9-]{5,20}$/i,
 };
 

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 
 interface IoTDevice {
@@ -38,7 +37,6 @@ interface Classroom {
 }
 
 export const IoTDevices: React.FC = () => {
-  const { user } = useAuth();
   const [devices, setDevices] = useState<IoTDevice[]>([]);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,7 +108,7 @@ export const IoTDevices: React.FC = () => {
   const handleSendCommand = async (
     deviceId: string,
     command: string,
-    params?: any
+    params?: any,
   ) => {
     try {
       await api.post(`/iot/devices/${deviceId}/command`, { command, params });
@@ -152,7 +150,7 @@ export const IoTDevices: React.FC = () => {
   const handleRegenerateApiKey = async (deviceId: string) => {
     try {
       const response = (await api.post(
-        `/iot/devices/${deviceId}/regenerate-api-key`
+        `/iot/devices/${deviceId}/regenerate-api-key`,
       )) as { data: { apiKey: string } };
       setDeviceApiKey(response.data.apiKey);
       alert("API key regenerated successfully!");
@@ -300,7 +298,7 @@ export const IoTDevices: React.FC = () => {
                   </div>
                   <div
                     className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                      device.status
+                      device.status,
                     )}`}
                   >
                     {getStatusIcon(device.status)} {device.status}
@@ -595,7 +593,7 @@ export const IoTDevices: React.FC = () => {
                   onClick={() =>
                     handleUpdateConfig(
                       selectedDevice.device.deviceId,
-                      selectedDevice.device.config
+                      selectedDevice.device.config,
                     )
                   }
                   className="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded text-sm font-medium"

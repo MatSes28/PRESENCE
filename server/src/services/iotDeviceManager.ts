@@ -118,17 +118,27 @@ class IoTDeviceManagerService extends EventEmitter {
       .update(secretKey)
       .digest("hex");
 
+    // NOTE: Current DB schema stores `apiKey` but has no column for `hashedSecret`.
+    // If you want mutual auth (apiKey + secret), add a column (e.g. `apiSecretHash`).
+
+    const defaultConfig = this.getDefaultConfig(request.deviceType);
+
     const result = await db
       .insert(iotDevices)
       .values({
         deviceId: request.deviceId,
+        name: request.name ?? request.deviceId,
+        location: "CLIRDEC Building",
         classroomId: request.classroomId,
         deviceType: request.deviceType,
-        apiKey: apiKey,
+        apiKey,
         status: "pending",
-        config: JSON.stringify(this.getDefaultConfig(request.deviceType)),
-        lastHeartbeat: new Date(),
+        // Postgres schema uses jsonb. Keep config as an object.
+        config: request.config ?? defaultConfig,
+        // Postgres schema has `lastSeen` (no `lastHeartbeat`).
         lastSeen: new Date(),
+        macAddress: request.mac_address,
+        firmwareVersion: request.firmware_version,
       })
       .returning();
 
@@ -146,9 +156,10 @@ class IoTDeviceManagerService extends EventEmitter {
       secret_key: secretKey,
       status: device.status as DeviceStatus,
       firmware_version: request.firmware_version || "",
-      last_heartbeat: device.lastHeartbeat,
+      // Back-compat for callers that expect `last_heartbeat`.
+      last_heartbeat: device.lastSeen ?? new Date(),
       last_seen: device.lastSeen,
-      config: this.getDefaultConfig(request.deviceType),
+      config: (device.config as DeviceConfig) ?? defaultConfig,
       created_at: device.createdAt,
       updated_at: device.updatedAt,
     };
@@ -164,7 +175,7 @@ class IoTDeviceManagerService extends EventEmitter {
       .where(eq(iotDevices.apiKey, apiKey))
       .limit(1);
 
-    if (result.length === 0 || result[0].status === "decommissioned") {
+    if (result.length === 0 || (result[0] as any).status === "decommissioned") {
       return null;
     }
 
@@ -180,7 +191,7 @@ class IoTDeviceManagerService extends EventEmitter {
       secret_key: "",
       status: device.status as DeviceStatus,
       firmware_version: "",
-      last_heartbeat: device.lastHeartbeat,
+      last_heartbeat: device.lastSeen ?? new Date(),
       last_seen: device.lastSeen,
       config: device.config,
       created_at: device.createdAt,
@@ -208,7 +219,7 @@ class IoTDeviceManagerService extends EventEmitter {
       secret_key: "",
       status: device.status as DeviceStatus,
       firmware_version: "",
-      last_heartbeat: device.lastHeartbeat,
+      last_heartbeat: device.lastSeen ?? new Date(),
       last_seen: device.lastSeen,
       config: device.config,
       created_at: device.createdAt,
@@ -240,7 +251,7 @@ class IoTDeviceManagerService extends EventEmitter {
       secret_key: "",
       status: device.status as DeviceStatus,
       firmware_version: "",
-      last_heartbeat: device.lastHeartbeat,
+      last_heartbeat: device.lastSeen ?? new Date(),
       last_seen: device.lastSeen,
       config: device.config,
       created_at: device.createdAt,
@@ -269,7 +280,7 @@ class IoTDeviceManagerService extends EventEmitter {
       secret_key: "",
       status: device.status as DeviceStatus,
       firmware_version: "",
-      last_heartbeat: device.lastHeartbeat,
+      last_heartbeat: device.lastSeen ?? new Date(),
       last_seen: device.lastSeen,
       config: device.config,
       created_at: device.createdAt,
@@ -344,7 +355,7 @@ class IoTDeviceManagerService extends EventEmitter {
    */
   async configureDevice(
     deviceId: string,
-    config: Partial<DeviceConfig>
+    config: Partial<DeviceConfig>,
   ): Promise<boolean> {
     const current = await this.getDeviceStatus(deviceId);
     if (!current) return false;
@@ -364,7 +375,7 @@ class IoTDeviceManagerService extends EventEmitter {
   async updateDeviceStatus(
     deviceId: string,
     status: string,
-    config?: DeviceConfig
+    config?: DeviceConfig,
   ): Promise<void> {
     await db
       .update(iotDevices)
@@ -381,14 +392,15 @@ class IoTDeviceManagerService extends EventEmitter {
    */
   async recordHeartbeat(
     deviceId: string,
-    heartbeat: DeviceHeartbeat
+    heartbeat: DeviceHeartbeat,
   ): Promise<void> {
     await db
       .update(iotDevices)
       .set({
         status: "online",
-        lastHeartbeat: new Date(),
         lastSeen: new Date(),
+        batteryLevel: heartbeat.batteryLevel ?? null,
+        signalStrength: heartbeat.signalStrength ?? null,
       })
       .where(eq(iotDevices.deviceId, deviceId));
 
@@ -401,7 +413,7 @@ class IoTDeviceManagerService extends EventEmitter {
   async sendCommandToDevice(
     deviceId: string,
     command: string,
-    params?: Record<string, unknown>
+    params?: Record<string, unknown>,
   ): Promise<boolean> {
     const cmd: DeviceCommand = {
       id: `cmd_${randomBytes(8).toString("hex")}`,
@@ -427,7 +439,8 @@ class IoTDeviceManagerService extends EventEmitter {
       }
     }
     return pending.sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     );
   }
 
@@ -454,7 +467,7 @@ class IoTDeviceManagerService extends EventEmitter {
    */
   async updateDeviceFirmware(
     deviceId: string,
-    firmwareUrl: string
+    firmwareUrl: string,
   ): Promise<boolean> {
     return this.sendCommandToDevice(deviceId, "update_firmware", {
       url: firmwareUrl,
@@ -488,7 +501,7 @@ class IoTDeviceManagerService extends EventEmitter {
   async updateDeviceCertificate(
     deviceId: string,
     certificateData: string,
-    fingerprint: string
+    fingerprint: string,
   ): Promise<boolean> {
     // Certificate update would go here
     return true;
@@ -499,7 +512,7 @@ class IoTDeviceManagerService extends EventEmitter {
    */
   async getHeartbeatHistory(
     deviceId: string,
-    limit: number = 50
+    limit: number = 50,
   ): Promise<DeviceHeartbeat[]> {
     // Simplified - would query heartbeat table in production
     return [];
@@ -593,9 +606,53 @@ class IoTDeviceManagerService extends EventEmitter {
   async validateAndAuthorizeCommand(
     deviceId: string,
     command: string,
-    payload?: any
+    payload?: any,
   ): Promise<{ authorized: boolean; reason?: string }> {
-    // Basic validation - all commands are authorized for now
+    // Allow-list device -> server message types and basic payload validation.
+    // This is a security boundary: unknown commands should be rejected.
+    const allowedDeviceMessages = new Set([
+      "rfid_scan",
+      "sensor_trigger",
+      "attendance_record",
+      "heartbeat",
+      "ping",
+    ]);
+
+    if (!allowedDeviceMessages.has(command)) {
+      return {
+        authorized: false,
+        reason: `Command '${command}' is not allowed`,
+      };
+    }
+
+    // Minimal payload checks for safety (avoid missing fields)
+    if (command === "rfid_scan") {
+      if (!payload?.rfidUid || typeof payload.rfidUid !== "string") {
+        return { authorized: false, reason: "Missing or invalid rfidUid" };
+      }
+    }
+    if (command === "sensor_trigger") {
+      if (payload?.sensorType !== "entry" && payload?.sensorType !== "exit") {
+        return { authorized: false, reason: "Invalid sensorType" };
+      }
+      if (typeof payload?.distance !== "number") {
+        return { authorized: false, reason: "Invalid distance" };
+      }
+    }
+
+    // Ensure device exists and is active
+    const device = await db
+      .select()
+      .from(iotDevices)
+      .where(eq(iotDevices.deviceId, deviceId))
+      .limit(1);
+    if (!device.length) {
+      return { authorized: false, reason: "Device not found" };
+    }
+    if (!device[0].isActive) {
+      return { authorized: false, reason: "Device is not active" };
+    }
+
     return { authorized: true };
   }
 
@@ -603,7 +660,7 @@ class IoTDeviceManagerService extends EventEmitter {
    * Authenticate device by certificate
    */
   async authenticateDeviceByCertificate(
-    certificateData: string
+    certificateData: string,
   ): Promise<IoTDevice | null> {
     return null;
   }

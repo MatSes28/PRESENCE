@@ -92,7 +92,11 @@ export const StudentDetail = () => {
       }
 
       if (attendanceResponse.success) {
-        setAttendanceRecords(attendanceResponse.data?.attendance || []);
+        const attendanceData = attendanceResponse.data as any;
+        // Endpoint may return either `{ attendance: AttendanceRecord[] }` or a raw array.
+        setAttendanceRecords(
+          attendanceData?.attendance ?? attendanceData ?? [],
+        );
       }
     } catch (error) {
       console.error("Failed to fetch student data:", error);
@@ -454,8 +458,8 @@ export const StudentDetail = () => {
                           record.status === "present"
                             ? "bg-green-900 text-green-300"
                             : record.status === "late"
-                            ? "bg-yellow-900 text-yellow-300"
-                            : "bg-red-900 text-red-300"
+                              ? "bg-yellow-900 text-yellow-300"
+                              : "bg-red-900 text-red-300"
                         }`}
                       >
                         {record.status.charAt(0).toUpperCase() +
@@ -466,10 +470,10 @@ export const StudentDetail = () => {
                       {record.rfidDetected && record.sensorDetected
                         ? "RFID + Sensor"
                         : record.rfidDetected
-                        ? "RFID"
-                        : record.sensorDetected
-                        ? "Sensor"
-                        : "Manual"}
+                          ? "RFID"
+                          : record.sensorDetected
+                            ? "Sensor"
+                            : "Manual"}
                     </td>
                   </tr>
                 ))}
