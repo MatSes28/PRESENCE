@@ -196,10 +196,10 @@ export class SeatingOptimizationService {
     // Simplified ML prediction (in real system, use trained model)
     const factors: string[] = [];
     let predictedScore = 0.7; // Base prediction
-    let confidence = 0.75;
 
     // Get historical data for this student
     const historicalData = await this.getStudentHistoricalData(studentId);
+    const computerData = await this.getComputerPerformanceData(computerId);
 
     // Historical attendance factor
     if (historicalData.attendanceRate > 0.9) {
@@ -211,7 +211,6 @@ export class SeatingOptimizationService {
     }
 
     // Computer performance history
-    const computerData = await this.getComputerPerformanceData(computerId);
     if (computerData.averagePerformance) {
       const adjustment = (computerData.averagePerformance - 0.7) * 0.3;
       predictedScore += adjustment;
@@ -235,6 +234,13 @@ export class SeatingOptimizationService {
       predictedScore += 0.08;
       factors.push("Learning style compatibility (+8%)");
     }
+
+    let confidence =
+      0.5 +
+      (historicalData.attendanceRate > 0 ? 0.2 : 0) +
+      (computerData.totalAssignments > 0 ? 0.2 : 0) +
+      Math.min(factors.length * 0.02, 0.15);
+    confidence = Math.min(0.95, Math.max(0.5, confidence));
 
     return {
       predictedScore: Math.max(0, Math.min(1, predictedScore)),
@@ -594,15 +600,33 @@ export class SeatingOptimizationService {
 
   private async getComputerPerformanceData(computerId: number): Promise<any> {
     const assignments = await db
-      .select()
+      .select({
+        sessionDuration: computerAssignments.sessionDuration,
+      })
       .from(computerAssignments)
       .where(eq(computerAssignments.computerId, computerId))
       .limit(10);
 
+    const totalAssignments = assignments.length;
+    const withDuration = assignments.filter(
+      (a) => a.sessionDuration != null && a.sessionDuration > 0
+    );
+    const averagePerformance =
+      withDuration.length > 0
+        ? Math.min(
+            1,
+            withDuration.reduce((s, a) => s + (a.sessionDuration ?? 0), 0) /
+              withDuration.length /
+              120
+          )
+        : totalAssignments > 0
+          ? Math.min(0.5 + totalAssignments * 0.05, 1)
+          : 0;
+
     return {
-      averagePerformance: 0.75, // Mock value
-      optimalLearningStyle: "visual", // Mock value
-      totalAssignments: assignments.length,
+      averagePerformance,
+      optimalLearningStyle: "visual" as const, // Default; not stored per computer
+      totalAssignments,
     };
   }
 }

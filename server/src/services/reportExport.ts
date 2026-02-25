@@ -689,11 +689,54 @@ class ReportExportService {
   }
 
   private async getAttendanceTrends(conditions: any[]): Promise<any[]> {
-    // Simplified trend calculation
+    const now = new Date();
+    const day = 24 * 60 * 60 * 1000;
+    const baseCondition = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const rateForPeriod = async (
+      start: Date,
+      end: Date
+    ): Promise<number> => {
+      const periodConditions = [
+        gte(classSessions.date, start),
+        lte(classSessions.date, end),
+      ];
+      const whereClause = baseCondition
+        ? and(...periodConditions, baseCondition)
+        : and(...periodConditions);
+      const result = await db
+        .select({
+          rate: sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1.0 ELSE 0.0 END)`,
+        })
+        .from(attendanceRecords)
+        .innerJoin(
+          classSessions,
+          eq(attendanceRecords.classSessionId, classSessions.id),
+        )
+        .where(whereClause);
+      const rate = Number(result[0]?.rate ?? 0);
+      return Math.round(rate * 100) / 100;
+    };
+
+    const end7 = new Date(now);
+    const start7 = new Date(now.getTime() - 7 * day);
+    const start30 = new Date(now.getTime() - 30 * day);
+    const start90 = new Date(now.getTime() - 90 * day);
+
+    const [rate7, rate30, rate90] = await Promise.all([
+      rateForPeriod(start7, now),
+      rateForPeriod(start30, now),
+      rateForPeriod(start90, now),
+    ]);
+
+    const change7 = rate30 > 0 ? Math.round((rate7 - rate30) * 100) / 100 : 0;
+    const change30 = rate90 > 0 ? Math.round((rate30 - rate90) * 100) / 100 : 0;
+    const change90 = 0;
+
     return [
-      { period: "Last 7 days", attendanceRate: 0.87, change: 0.02 },
-      { period: "Last 30 days", attendanceRate: 0.85, change: -0.01 },
-      { period: "Last 90 days", attendanceRate: 0.86, change: 0.03 },
+      { period: "Last 7 days", attendanceRate: rate7, change: change7 },
+      { period: "Last 30 days", attendanceRate: rate30, change: change30 },
+      { period: "Last 90 days", attendanceRate: rate90, change: change90 },
     ];
   }
 }

@@ -1,3 +1,14 @@
+import db from "../../storage.js";
+import {
+  classSessions,
+  schedules,
+  enrollments,
+  students,
+  computers,
+  computerAssignments,
+} from "../../schema.js";
+import { eq, and } from "drizzle-orm";
+
 export interface ConflictDetectionResult {
   detectedConflicts: any[];
   resolutions: any[];
@@ -26,10 +37,19 @@ export class ConflictDetectionService {
         sessionData
       );
 
+      const dataQuality =
+        sessionData.availableComputers?.length > 0 && assignments.length > 0
+          ? 1
+          : sessionData.enrolledStudents?.length > 0
+            ? 0.6
+            : 0.3;
+      const conflictFactor = Math.min(detectedConflicts.length * 0.05, 0.3);
+      const confidence = Math.min(0.95, Math.max(0.5, dataQuality - conflictFactor));
+
       return {
         detectedConflicts,
         resolutions,
-        confidence: 0.85, // Mock confidence score
+        confidence,
       };
     } catch (error) {
       console.error("Conflict resolution error:", error);
@@ -200,16 +220,69 @@ export class ConflictDetectionService {
   }
 
   private async getSessionData(sessionId: number): Promise<any> {
-    // Mock implementation - would retrieve actual session data
+    const session = await db
+      .select()
+      .from(classSessions)
+      .where(eq(classSessions.id, sessionId))
+      .limit(1);
+    if (!session.length) {
+      return { availableComputers: [], enrolledStudents: [] };
+    }
+    const sched = await db
+      .select()
+      .from(schedules)
+      .where(eq(schedules.id, session[0].scheduleId))
+      .limit(1);
+    if (!sched.length) {
+      return { availableComputers: [], enrolledStudents: [] };
+    }
+    const classroomId = sched[0].classroomId;
+    const availableComputers = await db
+      .select({ id: computers.id, name: computers.name, classroomId: computers.classroomId })
+      .from(computers)
+      .where(eq(computers.classroomId, classroomId));
+    const enrolled = await db
+      .select({
+        studentId: enrollments.studentId,
+        name: students.name,
+      })
+      .from(enrollments)
+      .innerJoin(students, eq(enrollments.studentId, students.id))
+      .where(
+        and(
+          eq(enrollments.subjectId, sched[0].subjectId),
+          eq(enrollments.semester, sched[0].semester),
+          eq(enrollments.academicYear, sched[0].academicYear),
+          eq(enrollments.isActive, true)
+        )
+      );
     return {
-      availableComputers: [],
-      enrolledStudents: [],
+      availableComputers,
+      enrolledStudents: enrolled.map((r) => ({ id: r.studentId, name: r.name })),
     };
   }
 
   private async getCurrentAssignments(sessionId: number): Promise<any[]> {
-    // Mock assignments for conflict detection
-    return [];
+    const rows = await db
+      .select({
+        id: computerAssignments.id,
+        computerId: computerAssignments.computerId,
+        studentId: computerAssignments.studentId,
+        studentName: students.name,
+      })
+      .from(computerAssignments)
+      .innerJoin(students, eq(computerAssignments.studentId, students.id))
+      .where(
+        and(
+          eq(computerAssignments.classSessionId, sessionId),
+          eq(computerAssignments.isActive, true)
+        )
+      );
+    return rows.map((r) => ({
+      id: r.id,
+      computerId: r.computerId,
+      student: { id: r.studentId, name: r.studentName },
+    }));
   }
 }
 
