@@ -76,6 +76,15 @@ export const LoginForm = () => {
       {/* Right Panel - Login Form */}
       <div className="flex-1 flex items-center justify-center bg-gray-900 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
+          {/* Mobile-only branding (left panel hidden on small screens) */}
+          <div className="lg:hidden text-center pb-4 border-b border-gray-700/50">
+            <h1 className="text-2xl font-bold text-teal-400 tracking-tight">
+              CLIRDEC:PRESENCE
+            </h1>
+            <p className="text-sm text-cyan-200/90 mt-1">
+              Proximity & RFID Smart Entry for Classroom Engagement
+            </p>
+          </div>
           <div className="text-center">
             <h2 className="text-3xl font-bold text-teal-400 mb-2">
               Welcome Back

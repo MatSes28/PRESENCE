@@ -1,5 +1,15 @@
 # Scripts
 
+## Deploy smoke-test
+
+After deploying, run a quick health check:
+
+```bash
+API_BASE_URL=https://your-api.com node scripts/smoke-test.mjs
+```
+
+Optional: set `SMOKE_ORIGIN` to your frontend origin to verify the API is reachable with CORS (e.g. `SMOKE_ORIGIN=https://your-app.com`).
+
 ## Device command polling (Test RFID Reader / Calibrate Sensors)
 
 `device-poll-commands.mjs` is an example script that polls the API for pending commands and acknowledges them. Use it to test the dashboard **Test RFID Reader** and **Calibrate Sensors** buttons, or adapt it for your device/gateway.
