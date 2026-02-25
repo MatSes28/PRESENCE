@@ -67,90 +67,61 @@ export const Schedule = () => {
     fetchReferenceData();
   }, []);
 
-  // Add a separate useEffect to handle loading state
-  useEffect(() => {
-    // Set loading to false after a reasonable timeout to prevent infinite loading
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 10000); // 10 seconds timeout
-
-    return () => clearTimeout(timer);
-  }, []);
-
   const fetchReferenceData = async () => {
     try {
-      // Fetch subjects, classrooms, and faculty for dropdowns
       const [subjectsRes, classroomsRes, usersRes] = await Promise.all([
-        fetch("/api/subjects", { credentials: "include" }).then((r) =>
-          r.json(),
-        ),
+        api.getSubjects(),
         api.getClassrooms(),
         api.getUsers(),
       ]);
 
-      if (subjectsRes.success && Array.isArray(subjectsRes.data))
-        setSubjects(subjectsRes.data);
-      if (classroomsRes.success && Array.isArray(classroomsRes.data))
-        setClassrooms(classroomsRes.data);
-      if (usersRes.success && Array.isArray(usersRes.data))
-        setFaculty(usersRes.data.filter((u: any) => u.role === "faculty"));
-      else {
-        // If users API fails, provide fallback faculty data
-        setFaculty([
-          {
-            id: 1,
-            firstName: "System",
-            lastName: "Administrator",
-            role: "admin",
-          },
-        ]);
+      const subjectsRaw = (subjectsRes as any)?.data;
+      if (subjectsRes.success && Array.isArray(subjectsRaw)) setSubjects(subjectsRaw);
+      else setSubjects([]);
+
+      const classroomsRaw = (classroomsRes as any)?.data;
+      if (classroomsRes.success && Array.isArray(classroomsRaw)) setClassrooms(classroomsRaw);
+      else setClassrooms([]);
+
+      const usersRaw = (usersRes as any)?.data;
+      if (usersRes.success && Array.isArray(usersRaw)) {
+        setFaculty(usersRaw.filter((u: any) => u.role === "faculty"));
+      } else {
+        setFaculty([]);
       }
     } catch (error) {
       console.error("Failed to fetch reference data:", error);
-      // Provide fallback data to prevent form from being unusable
-      setSubjects([
-        { id: 1, code: "CS101", name: "Introduction to Computer Science" },
-        { id: 2, code: "CS201", name: "Data Structures and Algorithms" },
-        { id: 3, code: "IT301", name: "Database Systems" },
-      ]);
-      setClassrooms([
-        { id: 1, name: "Computer Lab 1", location: "Building A, Room 101" },
-        { id: 2, name: "Computer Lab 2", location: "Building A, Room 102" },
-        { id: 3, name: "Programming Lab", location: "Building B, Room 201" },
-      ]);
-      setFaculty([
-        {
-          id: 1,
-          firstName: "System",
-          lastName: "Administrator",
-          role: "admin",
-        },
-      ]);
+      setSubjects([]);
+      setClassrooms([]);
+      setFaculty([]);
     }
   };
 
   const fetchSchedules = async () => {
     try {
       const response = await api.getSchedules();
-      if (response.success) {
-        setSchedules((response.data as Schedule[]) || []);
+      const raw = (response as any)?.data;
+      if (response.success && Array.isArray(raw)) {
+        setSchedules(raw as Schedule[]);
       } else {
-        addNotification({
-          type: "error",
-          title: "Failed to Load Schedules",
-          message: response.message || "Unable to fetch schedule data",
-        });
         setSchedules([]);
+        if (!response.success) {
+          addNotification({
+            type: "error",
+            title: "Failed to Load Schedules",
+            message: (response as any).message || "Unable to fetch schedule data",
+          });
+        }
       }
     } catch (error) {
       console.error("Failed to fetch schedules:", error);
+      setSchedules([]);
       addNotification({
         type: "error",
         title: "Network Error",
         message:
           "Failed to connect to the server. Please check your connection.",
       });
-      setSchedules([]);
     } finally {
       setLoading(false);
     }
@@ -303,8 +274,8 @@ export const Schedule = () => {
         excludeId: editingSchedule?.id,
       });
 
-      if (conflictCheck.success && (conflictCheck.data as any).hasConflicts) {
-        setConflicts((conflictCheck.data as any).conflicts);
+      if (conflictCheck.success && (conflictCheck as any).hasConflicts) {
+        setConflicts((conflictCheck as any).conflicts || []);
         addNotification({
           type: "warning",
           title: "Schedule Conflicts Detected",

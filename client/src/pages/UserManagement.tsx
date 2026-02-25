@@ -75,7 +75,8 @@ export const UserManagement: React.FC = () => {
     try {
       const response = await api.getUsers();
       if (response.success) {
-        setUsers((response.data as User[]) || []);
+        const raw = (response as any)?.data;
+        setUsers(Array.isArray(raw) ? (raw as User[]) : []);
       } else {
         addNotification({
           type: "error",

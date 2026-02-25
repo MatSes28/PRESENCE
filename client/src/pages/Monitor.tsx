@@ -36,12 +36,13 @@ export const Monitor: React.FC = () => {
     setLoading(true);
     try {
       const [sessionsRes, statsRes] = await Promise.all([
-        api.get<ActiveSession[]>("/attendance/active-sessions"),
+        api.getActiveSessions(),
         api.get<SystemStats>("/reports/system-stats"),
       ]);
 
-      setActiveSessions(sessionsRes.data ?? []);
-      setStats(statsRes.data ?? null);
+      const sessionsRaw = (sessionsRes as any)?.data ?? (sessionsRes as any)?.sessions;
+      setActiveSessions(Array.isArray(sessionsRaw) ? sessionsRaw : []);
+      setStats((statsRes as any)?.data ?? (statsRes as any) ?? null);
     } catch (error) {
       console.error("Failed to load monitor data:", error);
     } finally {

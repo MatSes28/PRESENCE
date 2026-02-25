@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
+import { useNotifications } from "../components/NotificationSystem";
 
 interface User {
   id: number;
@@ -13,6 +14,7 @@ interface User {
 
 export const FacultyManagement = () => {
   const { user } = useAuth();
+  const { addNotification } = useNotifications();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -51,10 +53,20 @@ export const FacultyManagement = () => {
   const fetchUsers = async () => {
     try {
       const response = await api.getUsers();
-      setUsers((response.data as User[]) || []);
+      const raw = (response as any)?.data;
+      if (response.success && Array.isArray(raw)) {
+        setUsers(raw as User[]);
+      } else {
+        setUsers([]);
+      }
     } catch (error) {
       console.error("Failed to fetch users:", error);
       setUsers([]);
+      addNotification({
+        type: "error",
+        title: "Failed to Load Faculty",
+        message: "Unable to fetch users. Please check your connection.",
+      });
     } finally {
       setLoading(false);
     }
@@ -74,22 +86,25 @@ export const FacultyManagement = () => {
           role: formData.role,
         });
         if (response.success) {
+          addNotification({ type: "success", title: "User Updated", message: "User updated successfully." });
           setMessage("User updated successfully!");
         } else {
-          setError(response.message || "Failed to update user");
+          setError((response as any).message || "Failed to update user");
         }
       } else {
         const response = await api.createUser(formData);
         if (response.success) {
+          addNotification({ type: "success", title: "User Created", message: "User created successfully." });
           setMessage("User created successfully!");
         } else {
-          setError(response.message || "Failed to create user");
+          setError((response as any).message || "Failed to create user");
         }
       }
       fetchUsers();
       resetForm();
     } catch (error) {
       setError("An error occurred while saving user");
+      addNotification({ type: "error", title: "Save Failed", message: "Failed to save user." });
     } finally {
       setFormLoading(false);
     }
@@ -100,13 +115,15 @@ export const FacultyManagement = () => {
       try {
         const response = await api.deleteUser(id);
         if (response.success) {
+          addNotification({ type: "success", title: "User Deleted", message: "User deleted successfully." });
           setMessage("User deleted successfully!");
           fetchUsers();
         } else {
-          setError(response.message || "Failed to delete user");
+          setError((response as any).message || "Failed to delete user");
         }
       } catch (error) {
         setError("An error occurred while deleting user");
+        addNotification({ type: "error", title: "Delete Failed", message: "Failed to delete user." });
       }
     }
   };

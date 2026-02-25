@@ -30,6 +30,7 @@ router.get("/", requireAuth, async (req, res) => {
         session: classSessions,
         schedule: {
           id: schedules.id,
+          subjectId: schedules.subjectId,
           subject: subjects.name,
           classroom: classrooms.name,
           faculty: users.name,

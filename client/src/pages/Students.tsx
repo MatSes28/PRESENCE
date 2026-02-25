@@ -79,25 +79,28 @@ export const Students = () => {
   const fetchStudents = async () => {
     try {
       const response = await api.getStudents();
-      if (response.success) {
-        setStudents((response.data as Student[]) || []);
+      const raw = (response as any)?.data;
+      if (response.success && Array.isArray(raw)) {
+        setStudents(raw as Student[]);
       } else {
-        addNotification({
-          type: "error",
-          title: "Failed to Load Students",
-          message: response.message || "Unable to fetch student data",
-        });
         setStudents([]);
+        if (!response.success) {
+          addNotification({
+            type: "error",
+            title: "Failed to Load Students",
+            message: (response as any).message || "Unable to fetch student data",
+          });
+        }
       }
     } catch (error) {
       console.error("Failed to fetch students:", error);
+      setStudents([]);
       addNotification({
         type: "error",
         title: "Network Error",
         message:
           "Failed to connect to the server. Please check your connection.",
       });
-      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -115,11 +118,11 @@ export const Students = () => {
           const response = await api.getStudentAttendance(student.id, {
             limit: 100,
           });
-          if (response.success && (response.data as any)?.attendance) {
-            const attendanceRecords = (response.data as any).attendance;
-            const totalRecords = attendanceRecords.length;
-            const presentRecords = attendanceRecords.filter(
-              (record: any) => record.record?.status === "present"
+          const attendanceList = (response as any)?.attendance;
+          if (response.success && Array.isArray(attendanceList)) {
+            const totalRecords = attendanceList.length;
+            const presentRecords = attendanceList.filter(
+              (item: any) => item.record?.status === "present"
             ).length;
             const attendanceRate =
               totalRecords > 0

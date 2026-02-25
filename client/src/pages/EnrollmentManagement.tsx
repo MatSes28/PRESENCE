@@ -58,40 +58,49 @@ export const EnrollmentManagement = () => {
     try {
       setLoading(true);
 
-      // Fetch students
-      const studentsResponse = await api.getStudents();
-      if (studentsResponse.success) {
-        setStudents(studentsResponse.data || []);
+      const [studentsResponse, subjectsResponse, enrollmentsResponse] =
+        await Promise.all([
+          api.getStudents(),
+          api.getSubjects(),
+          api.getEnrollments(),
+        ]);
+
+      const studentsRaw = (studentsResponse as any)?.data;
+      if (studentsResponse.success && Array.isArray(studentsRaw)) {
+        setStudents(studentsRaw);
+      } else {
+        setStudents([]);
       }
 
-      // Fetch subjects
-      const subjectsResponse = await api.getSubjects();
-      if (subjectsResponse.success) {
-        setSubjects(subjectsResponse.data || []);
+      const subjectsRaw = (subjectsResponse as any)?.data;
+      if (subjectsResponse.success && Array.isArray(subjectsRaw)) {
+        setSubjects(subjectsRaw);
+      } else {
+        setSubjects([]);
       }
 
-      // Fetch enrollments
-      const enrollmentsResponse = await api.getEnrollments();
-      if (enrollmentsResponse.success) {
-        const enrollmentsData = enrollmentsResponse.data || [];
-        // Transform the data to match our Enrollment interface
-        const transformedEnrollments = Array.isArray(enrollmentsData)
-          ? enrollmentsData.map((enrollment) => ({
-              ...enrollment,
-              student: students.find((s) => s.id === enrollment.studentId) || {
-                id: 0,
-                studentId: "",
-                name: "",
-              },
-              subject: subjects.find(
-                (sub) => sub.id === enrollment.subjectId
-              ) || { id: 0, code: "", name: "" },
-            }))
-          : [];
-        setEnrollments(transformedEnrollments);
+      // Server returns { success, enrollments: [{ enrollment, student, subject }] }
+      const enrollmentsRaw = (enrollmentsResponse as any)?.enrollments;
+      if (enrollmentsResponse.success && Array.isArray(enrollmentsRaw)) {
+        const transformed: Enrollment[] = enrollmentsRaw.map((item: any) => ({
+          id: item.enrollment?.id ?? item.id,
+          studentId: item.enrollment?.studentId ?? item.studentId,
+          subjectId: item.enrollment?.subjectId ?? item.subjectId,
+          student: item.student ?? { id: 0, studentId: "", name: "", email: "" },
+          subject: item.subject ?? { id: 0, code: "", name: "", description: "" },
+          semester: item.enrollment?.semester ?? item.semester ?? "",
+          academicYear: item.enrollment?.academicYear ?? item.academicYear ?? "",
+          enrolledAt: item.enrollment?.createdAt ?? item.createdAt ?? "",
+        }));
+        setEnrollments(transformed);
+      } else {
+        setEnrollments([]);
       }
     } catch (error) {
       console.error("Failed to fetch data:", error);
+      setStudents([]);
+      setSubjects([]);
+      setEnrollments([]);
       addNotification({
         type: "error",
         title: "Data Fetch Error",

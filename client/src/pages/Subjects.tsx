@@ -37,25 +37,28 @@ export const Subjects = () => {
   const fetchSubjects = async () => {
     try {
       const response = await api.getSubjects();
-      if (response.success) {
-        setSubjects((response.data as Subject[]) || []);
+      const raw = (response as any)?.data;
+      if (response.success && Array.isArray(raw)) {
+        setSubjects(raw as Subject[]);
       } else {
-        addNotification({
-          type: "error",
-          title: "Failed to Load Subjects",
-          message: response.message || "Unable to fetch subject data",
-        });
         setSubjects([]);
+        if (!response.success) {
+          addNotification({
+            type: "error",
+            title: "Failed to Load Subjects",
+            message: (response as any).message || "Unable to fetch subject data",
+          });
+        }
       }
     } catch (error) {
       console.error("Failed to fetch subjects:", error);
+      setSubjects([]);
       addNotification({
         type: "error",
         title: "Network Error",
         message:
           "Failed to connect to the server. Please check your connection.",
       });
-      setSubjects([]);
     } finally {
       setLoading(false);
     }

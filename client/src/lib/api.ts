@@ -602,11 +602,11 @@ class ApiClient {
 
   // Class Sessions endpoints
   async getClassSessions() {
-    return this.request("/class-sessions");
+    return this.request("/sessions");
   }
 
   async getClassSession(id: number) {
-    return this.request(`/class-sessions/${id}`);
+    return this.request(`/sessions/${id}`);
   }
 
   async createClassSessionsForDate(date: string) {

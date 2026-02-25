@@ -169,10 +169,10 @@ export const LabComputers = () => {
   const fetchSubjects = async () => {
     try {
       const response = await api.getSubjects();
-      if (response.success) {
-        setSubjects((response.data as Subject[]) || []);
+      const raw = (response as any)?.data;
+      if (response.success && Array.isArray(raw)) {
+        setSubjects(raw as Subject[]);
       } else {
-        // Fallback to empty array if API fails
         setSubjects([]);
       }
     } catch (error) {
@@ -184,11 +184,15 @@ export const LabComputers = () => {
   const fetchStudents = async () => {
     try {
       const response = await api.getStudents();
-      if (response.success) {
-        setStudents((response.data as any[]) || []);
+      const raw = (response as any)?.data;
+      if (response.success && Array.isArray(raw)) {
+        setStudents(raw);
+      } else {
+        setStudents([]);
       }
     } catch (error) {
       console.error("Failed to fetch students:", error);
+      setStudents([]);
     }
   };
 
@@ -263,21 +267,25 @@ export const LabComputers = () => {
     setProcessing(`assign-${computerId}`);
 
     try {
-      // Find the active class session for the selected subject
-      // For now, we'll use a simulated session ID - in a real implementation,
-      // you'd get the actual active session for the subject
       const sessionsResponse = await api.getClassSessions();
-      let sessionId = 1; // Default fallback
+      const sessionsList = (sessionsResponse as any)?.sessions;
+      const activeItem = Array.isArray(sessionsList) && selectedSubject != null
+        ? sessionsList.find(
+            (item: any) =>
+              item.session?.status === "active" &&
+              item.schedule?.subjectId === selectedSubject
+          )
+        : null;
+      const sessionId = activeItem?.session?.id;
 
-      if (sessionsResponse.success && sessionsResponse.data) {
-        // Find active session for the selected subject
-        const activeSession = (sessionsResponse.data as any[]).find(
-          (session: any) =>
-            session.status === "active" && session.subjectId === selectedSubject
-        );
-        if (activeSession) {
-          sessionId = activeSession.id;
-        }
+      if (sessionId == null) {
+        setProcessing(null);
+        addNotification({
+          type: "error",
+          title: "No Active Session",
+          message: "No active class session for this subject. Start or select an active session first.",
+        });
+        return;
       }
 
       const response = await api.assignComputer({
@@ -593,18 +601,26 @@ export const LabComputers = () => {
     setProcessing("bulk-assign");
 
     try {
-      // Find the active class session for the selected subject
       const sessionsResponse = await api.getClassSessions();
-      let sessionId = 1; // Default fallback
+      const sessionsList = (sessionsResponse as any)?.sessions;
+      const activeItem = Array.isArray(sessionsList) && selectedSubject != null
+        ? sessionsList.find(
+            (item: any) =>
+              item.session?.status === "active" &&
+              item.schedule?.subjectId === selectedSubject
+          )
+        : null;
+      const sessionId = activeItem?.session?.id;
 
-      if (sessionsResponse.success && sessionsResponse.data) {
-        const activeSession = (sessionsResponse.data as any[]).find(
-          (session: any) =>
-            session.status === "active" && session.subjectId === selectedSubject
-        );
-        if (activeSession) {
-          sessionId = activeSession.id;
-        }
+      if (sessionId == null) {
+        setProcessing(null);
+        setBulkOperation(null);
+        addNotification({
+          type: "error",
+          title: "No Active Session",
+          message: "No active class session for this subject. Start or select an active session first.",
+        });
+        return;
       }
 
       const assignPromises = Array.from(selectedComputers).map((computerId) =>
@@ -650,18 +666,25 @@ export const LabComputers = () => {
     setProcessing(`assign-${computerId}`);
 
     try {
-      // Find the active class session for the selected subject
       const sessionsResponse = await api.getClassSessions();
-      let sessionId = 1; // Default fallback
+      const sessionsList = (sessionsResponse as any)?.sessions;
+      const activeItem = Array.isArray(sessionsList) && selectedSubject != null
+        ? sessionsList.find(
+            (item: any) =>
+              item.session?.status === "active" &&
+              item.schedule?.subjectId === selectedSubject
+          )
+        : null;
+      const sessionId = activeItem?.session?.id;
 
-      if (sessionsResponse.success && sessionsResponse.data) {
-        const activeSession = (sessionsResponse.data as any[]).find(
-          (session: any) =>
-            session.status === "active" && session.subjectId === selectedSubject
-        );
-        if (activeSession) {
-          sessionId = activeSession.id;
-        }
+      if (sessionId == null) {
+        setProcessing(null);
+        addNotification({
+          type: "error",
+          title: "No Active Session",
+          message: "No active class session for this subject. Start or select an active session first.",
+        });
+        return;
       }
 
       const response = await api.assignComputer({
