@@ -65,48 +65,35 @@ export const Reports = () => {
     };
   }, [autoRefresh]);
 
-  const loadPreviewData = async (page = pagination.page, filters = {}) => {
+  const loadPreviewData = async (page = pagination.page) => {
     try {
       const offset = (page - 1) * pagination.limit;
       const queryParams = new URLSearchParams({
         limit: pagination.limit.toString(),
         offset: offset.toString(),
-        ...filters,
       });
+      if (reportParams.startDate) queryParams.set("startDate", reportParams.startDate);
+      if (reportParams.endDate) queryParams.set("endDate", reportParams.endDate);
+      if (reportParams.subjectId) queryParams.set("subjectId", reportParams.subjectId.toString());
 
-      // Fetch real attendance data for preview
       const response = await fetch(
         `/api/reports/attendance-records?${queryParams}`,
-        {
-          credentials: "include",
-        },
+        { credentials: "include" },
       );
-
       const data = await response.json();
 
-      if (data.success && data.data && Array.isArray(data.data)) {
+      if (data.success && Array.isArray(data.data)) {
         setPreviewData(data.data);
         calculateStatistics(data.data);
-        // Update pagination info (assuming backend provides total count)
         setPagination((prev) => ({
           ...prev,
           page,
-          total: data.total || data.data.length, // Fallback if no total provided
+          total: typeof data.total === "number" ? data.total : data.data.length,
         }));
       } else {
-        // No data is expected behavior - don't show warning for empty data
-        console.log(
-          "No preview data available - this is expected with empty database",
-        );
-        // Set empty data instead of mock data
         setPreviewData([]);
-        setStatistics({
-          totalRecords: 0,
-          present: 0,
-          late: 0,
-          absent: 0,
-        });
-        setPagination((prev) => ({ ...prev, total: 0 }));
+        setStatistics({ totalRecords: 0, present: 0, late: 0, absent: 0 });
+        setPagination((prev) => ({ ...prev, page, total: 0 }));
       }
     } catch (error) {
       console.error("Failed to load preview data:", error);
@@ -116,22 +103,18 @@ export const Reports = () => {
         message: "Failed to load report preview. Please check your connection.",
       });
       setPreviewData([]);
-      setStatistics({
-        totalRecords: 0,
-        present: 0,
-        late: 0,
-        absent: 0,
-      });
+      setStatistics({ totalRecords: 0, present: 0, late: 0, absent: 0 });
       setPagination((prev) => ({ ...prev, total: 0 }));
     }
   };
 
   const calculateStatistics = (records: any[]) => {
+    if (!Array.isArray(records)) return;
     const stats = {
       totalRecords: records.length,
-      present: records.filter((r) => r.record.status === "present").length,
-      late: records.filter((r) => r.record.status === "late").length,
-      absent: records.filter((r) => r.record.status === "absent").length,
+      present: records.filter((r) => r?.record?.status === "present").length,
+      late: records.filter((r) => r?.record?.status === "late").length,
+      absent: records.filter((r) => r?.record?.status === "absent").length,
     };
     setStatistics(stats);
   };
@@ -144,11 +127,14 @@ export const Reports = () => {
 
       const data = await response.json();
 
-      if (data.success && data.data) {
-        setRealTimeStats(data.data);
+      if (data.success && data.data && typeof data.data === "object") {
+        setRealTimeStats({
+          todayPresent: Number(data.data.todayPresent) ?? 0,
+          todayAbsent: Number(data.data.todayAbsent) ?? 0,
+          todayLate: Number(data.data.todayLate) ?? 0,
+          activeSessions: Number(data.data.activeSessions) ?? 0,
+        });
       } else {
-        console.error("Failed to load real-time stats:", data.message);
-        // Set default values on error
         setRealTimeStats({
           todayPresent: 0,
           todayAbsent: 0,
@@ -174,20 +160,19 @@ export const Reports = () => {
         credentials: "include",
       });
       const subjectsData = await subjectsResponse.json();
-      if (subjectsData.success) {
-        setSubjects(subjectsData.data || []);
-      }
+      const subjectsRaw = (subjectsData as any)?.data;
+      setSubjects(Array.isArray(subjectsRaw) ? subjectsRaw : []);
 
-      // Load classrooms
       const classroomsResponse = await fetch("/api/classrooms", {
         credentials: "include",
       });
       const classroomsData = await classroomsResponse.json();
-      if (classroomsData.success) {
-        setClassrooms(classroomsData.data || []);
-      }
+      const classroomsRaw = (classroomsData as any)?.data;
+      setClassrooms(Array.isArray(classroomsRaw) ? classroomsRaw : []);
     } catch (error) {
       console.error("Failed to load filter options:", error);
+      setSubjects([]);
+      setClassrooms([]);
     }
   };
 
@@ -251,18 +236,17 @@ export const Reports = () => {
     }
   };
 
-  const handleGenerateReport = async () => {
+  const handleGenerateReport = async (formatOverride?: "csv" | "pdf") => {
+    const format = formatOverride ?? reportParams.format;
     setGenerating(true);
     try {
-      // For CSV format, we need to handle the response as a blob
-      if (reportParams.format === "csv") {
+      const payload = { ...reportParams, format };
+      if (format === "csv") {
         const response = await fetch("/api/reports/generate-report", {
           method: "POST",
           credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(reportParams),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
 
         if (response.ok) {
@@ -291,14 +275,11 @@ export const Reports = () => {
           });
         }
       } else {
-        // For PDF or other formats, use JSON response
         const response = await fetch("/api/reports/generate-report", {
           method: "POST",
           credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(reportParams),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
 
         const data = await response.json();
@@ -630,10 +611,10 @@ export const Reports = () => {
             </div>
           </div>
 
-          {/* Generate Report Button */}
-          <div className="flex justify-between items-center">
+          {/* Generate Report & Export (real API, no mock) */}
+          <div className="flex justify-between items-center flex-wrap gap-4">
             <button
-              onClick={handleGenerateReport}
+              onClick={() => handleGenerateReport()}
               disabled={generating}
               className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-6 py-3 rounded-md text-sm font-medium flex items-center space-x-2"
             >
@@ -651,21 +632,25 @@ export const Reports = () => {
             </button>
             <div className="flex space-x-2">
               <button
-                onClick={() =>
-                  setReportParams({ ...reportParams, format: "csv" })
-                }
+                onClick={() => {
+                  setReportParams((p) => ({ ...p, format: "csv" }));
+                  handleGenerateReport("csv");
+                }}
+                disabled={generating}
                 className={`px-4 py-2 rounded text-sm font-medium ${
                   reportParams.format === "csv"
                     ? "bg-cyan-600 text-white"
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                 }`}
               >
-                Excel (XLSX)
+                CSV / Excel
               </button>
               <button
-                onClick={() =>
-                  setReportParams({ ...reportParams, format: "pdf" })
-                }
+                onClick={() => {
+                  setReportParams((p) => ({ ...p, format: "pdf" }));
+                  handleGenerateReport("pdf");
+                }}
+                disabled={generating}
                 className={`px-4 py-2 rounded text-sm font-medium ${
                   reportParams.format === "pdf"
                     ? "bg-cyan-600 text-white"
@@ -733,15 +718,15 @@ export const Reports = () => {
             </thead>
             <tbody className="bg-gray-800 divide-y divide-gray-700">
               {previewData.map((record, index) => (
-                <tr key={index}>
+                <tr key={record?.record?.id ?? index}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                    {record.student.name}
+                    {record?.student?.name ?? "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {record.student.studentId}
+                    {record?.student?.studentId ?? "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {record.record.entryTime
+                    {record?.record?.entryTime
                       ? new Date(record.record.entryTime).toLocaleTimeString(
                           [],
                           {
@@ -749,10 +734,10 @@ export const Reports = () => {
                             minute: "2-digit",
                           },
                         )
-                      : "-"}
+                      : "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {record.record.exitTime
+                    {record?.record?.exitTime
                       ? new Date(record.record.exitTime).toLocaleTimeString(
                           [],
                           {
@@ -760,10 +745,10 @@ export const Reports = () => {
                             minute: "2-digit",
                           },
                         )
-                      : "-"}
+                      : "—"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {record.record.entryTime && record.record.exitTime
+                    {record?.record?.entryTime && record?.record?.exitTime
                       ? (() => {
                           const entry = new Date(record.record.entryTime);
                           const exit = new Date(record.record.exitTime);
@@ -779,16 +764,16 @@ export const Reports = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        record.record.status === "present"
+                        record?.record?.status === "present"
                           ? "bg-green-900 text-green-300"
-                          : record.record.status === "late"
+                          : record?.record?.status === "late"
                             ? "bg-yellow-900 text-yellow-300"
                             : "bg-red-900 text-red-300"
                       }`}
                     >
-                      {record.record.status === "present"
+                      {record?.record?.status === "present"
                         ? "Present"
-                        : record.record.status === "late"
+                        : record?.record?.status === "late"
                           ? "Late"
                           : "Absent"}
                     </span>

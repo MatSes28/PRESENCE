@@ -191,16 +191,6 @@ function AppContent() {
         )}
       />
       <Route
-        path="/reports/export"
-        component={() => (
-          <Layout>
-            <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-              <Reports />
-            </ProtectedRoute>
-          </Layout>
-        )}
-      />
-      <Route
         path="/ai-analytics"
         component={() => (
           <Layout>

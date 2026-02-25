@@ -302,6 +302,9 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
       limit = 10,
       offset = 0,
       date,
+      startDate,
+      endDate,
+      subjectId,
       studentId,
       sessionId,
       status,
@@ -310,12 +313,18 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
     // Build conditions first
     const conditions = [];
 
-    if (date) {
+    if (startDate && endDate) {
+      const start = new Date(startDate as string);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate as string);
+      end.setHours(23, 59, 59, 999);
+      conditions.push(gte(attendanceRecords.createdAt, start));
+      conditions.push(lte(attendanceRecords.createdAt, end));
+    } else if (date) {
       const startOfDay = new Date(date as string);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(date as string);
       endOfDay.setHours(23, 59, 59, 999);
-
       conditions.push(gte(attendanceRecords.createdAt, startOfDay));
       conditions.push(lte(attendanceRecords.createdAt, endOfDay));
     }
@@ -336,7 +345,6 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
       conditions.push(eq(attendanceRecords.status, status as string));
     }
 
-    // Build query with conditional where clause
     const baseQuery = db
       .select({
         record: attendanceRecords,
@@ -347,7 +355,13 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
         },
       })
       .from(attendanceRecords)
-      .leftJoin(students, eq(attendanceRecords.studentId, students.id));
+      .leftJoin(students, eq(attendanceRecords.studentId, students.id))
+      .leftJoin(classSessions, eq(attendanceRecords.classSessionId, classSessions.id))
+      .leftJoin(schedules, eq(classSessions.scheduleId, schedules.id));
+
+    if (subjectId) {
+      conditions.push(eq(schedules.subjectId, parseInt(subjectId as string)));
+    }
 
     const query =
       conditions.length > 0 ? baseQuery.where(and(...conditions)) : baseQuery;
