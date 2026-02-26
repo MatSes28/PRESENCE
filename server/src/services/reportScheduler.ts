@@ -41,10 +41,17 @@ class ReportSchedulerService {
   private schedules: Map<string, ReportSchedule> = new Map();
 
   constructor() {
+    const isTestEnv =
+      process.env.NODE_ENV === "test" ||
+      typeof process.env.JEST_WORKER_ID !== "undefined";
+
     // Initialize with default schedules
     this.initializeDefaultSchedules();
-    // Start the scheduler
-    this.startScheduler();
+    // Never auto-run background jobs during tests.
+    if (!isTestEnv) {
+      // Start the scheduler
+      this.startScheduler();
+    }
   }
 
   // Create a new report schedule

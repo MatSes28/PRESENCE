@@ -223,6 +223,9 @@ const wss = new WebSocketServer({
   maxPayload: 1024 * 1024, // 1MB max payload
 });
 
+// Export for integration tests (Supertest can run against the Express app instance)
+export { app, server };
+
 // Root route for SPA
 app.get("/", (req, res) => {
   if (fs.existsSync(path.join(publicPath, "index.html"))) {
@@ -316,6 +319,11 @@ app.use(preventSQLInjection);
 // Session configuration with PostgreSQL store
 const PgSession = connectPgSimple(session);
 
+const isTestEnv =
+  process.env.NODE_ENV === "test" ||
+  // Jest sets JEST_WORKER_ID; keep working even if NODE_ENV isn't set.
+  typeof process.env.JEST_WORKER_ID !== "undefined";
+
 // Parse database URL for session store SSL config
 const sessionDbConfig = {
   connectionString: process.env.DATABASE_URL,
@@ -328,20 +336,27 @@ const sessionDbConfig = {
 
 app.use(
   session({
-    store: new PgSession({
-      ...sessionDbConfig,
-      tableName: "user_sessions", // Will be created automatically
-      createTableIfMissing: true,
-      // Clean up expired sessions every hour
-      pruneSessionInterval: 60 * 60 * 1000, // 1 hour
-    }),
-    secret: requireEnv("SESSION_SECRET", { minLength: 32 }),
+    // Use an in-memory store in tests to avoid requiring Postgres session tables.
+    // CI/prod continue using the Postgres-backed store.
+    store: isTestEnv
+      ? new session.MemoryStore()
+      : new PgSession({
+          ...sessionDbConfig,
+          tableName: "user_sessions", // Will be created automatically
+          createTableIfMissing: true,
+          // Clean up expired sessions every hour
+          pruneSessionInterval: 60 * 60 * 1000, // 1 hour
+        }),
+    secret: isTestEnv
+      ? process.env.SESSION_SECRET ||
+        "test-session-secret-please-change-32chars"
+      : requireEnv("SESSION_SECRET", { minLength: 32 }),
     name: "presence.sid", // Change default session name for security
     resave: false,
     saveUninitialized: false,
     rolling: true, // Reset expiration on activity
     cookie: {
-      secure: isProductionLike(),
+      secure: isProductionLike() && !isTestEnv,
       httpOnly: true,
       sameSite: (process.env.SESSION_COOKIE_SAMESITE as any) || "lax",
       maxAge: parseInt(process.env.SESSION_MAX_AGE || "28800000"), // default 8 hours
@@ -718,85 +733,92 @@ const PORT = process.env.PORT || 3000;
 
 const HOST = process.env.HOST || "0.0.0.0";
 
-// Initialize database columns before starting server
-initializeDatabaseColumns().then(() => {
-  server.listen({ port: PORT, host: HOST }, () => {
-    console.log(`🚀 Server running on ${HOST}:${PORT}`);
-    console.log(`🌐 WebSocket server ready`);
+// Initialize database columns + start listener (disabled under Jest/test).
+// Integration tests should import [`app`](server/src/index.ts:123) and run Supertest
+// without binding a real TCP port.
+const shouldStartListener =
+  process.env.NODE_ENV !== "test" && process.env.JEST_WORKER_ID === undefined;
 
-    // Start automated database backup (only in production)
-    if (process.env.NODE_ENV === "production") {
-      databaseBackupService.startAutomatedBackup();
-      console.log("Automated database backup enabled");
-    }
+if (shouldStartListener) {
+  initializeDatabaseColumns().then(() => {
+    server.listen({ port: PORT, host: HOST }, () => {
+      console.log(`🚀 Server running on ${HOST}:${PORT}`);
+      console.log(`🌐 WebSocket server ready`);
 
-    // Add db.execute method for compatibility
-    addExecuteMethod();
+      // Start automated database backup (only in production)
+      if (process.env.NODE_ENV === "production") {
+        databaseBackupService.startAutomatedBackup();
+        console.log("Automated database backup enabled");
+      }
 
-    // Check database connection and print table counts
-    checkDatabaseConnection().then(async (dbAvailable) => {
-      if (dbAvailable) {
-        await logTableCounts();
+      // Add db.execute method for compatibility
+      addExecuteMethod();
 
-        // SECURITY: Do NOT auto-create or reset a default admin in production.
-        // Use an explicit bootstrap flow when needed.
-        const bootstrapEnabled = process.env.BOOTSTRAP_ADMIN === "true";
-        if (bootstrapEnabled) {
-          try {
-            const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
-            const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+      // Check database connection and print table counts
+      checkDatabaseConnection().then(async (dbAvailable) => {
+        if (dbAvailable) {
+          await logTableCounts();
 
-            if (!email || !password) {
-              console.error(
-                "❌ BOOTSTRAP_ADMIN is enabled but BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD is missing",
-              );
-              return;
+          // SECURITY: Do NOT auto-create or reset a default admin in production.
+          // Use an explicit bootstrap flow when needed.
+          const bootstrapEnabled = process.env.BOOTSTRAP_ADMIN === "true";
+          if (bootstrapEnabled) {
+            try {
+              const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
+              const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+
+              if (!email || !password) {
+                console.error(
+                  "❌ BOOTSTRAP_ADMIN is enabled but BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD is missing",
+                );
+                return;
+              }
+
+              if (password.length < 12) {
+                console.error(
+                  "❌ BOOTSTRAP_ADMIN_PASSWORD must be at least 12 characters",
+                );
+                return;
+              }
+
+              const existingAdmin = await db
+                .select()
+                .from(users)
+                .where(eq(users.email, email))
+                .limit(1);
+
+              if (existingAdmin.length === 0) {
+                const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
+                const hashedPassword = await bcrypt.hash(password, saltRounds);
+                await db.insert(users).values({
+                  email,
+                  password: hashedPassword,
+                  name: "System Administrator",
+                  role: "admin",
+                  isActive: true,
+                });
+                console.log(
+                  `✅ Bootstrap admin user created: ${email} (BOOTSTRAP_ADMIN=true)`,
+                );
+              } else {
+                console.log(
+                  `ℹ️ Bootstrap admin skipped: user already exists (${email})`,
+                );
+              }
+            } catch (error) {
+              console.error("❌ Failed during BOOTSTRAP_ADMIN flow:", error);
             }
-
-            if (password.length < 12) {
-              console.error(
-                "❌ BOOTSTRAP_ADMIN_PASSWORD must be at least 12 characters",
-              );
-              return;
-            }
-
-            const existingAdmin = await db
-              .select()
-              .from(users)
-              .where(eq(users.email, email))
-              .limit(1);
-
-            if (existingAdmin.length === 0) {
-              const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
-              const hashedPassword = await bcrypt.hash(password, saltRounds);
-              await db.insert(users).values({
-                email,
-                password: hashedPassword,
-                name: "System Administrator",
-                role: "admin",
-                isActive: true,
-              });
-              console.log(
-                `✅ Bootstrap admin user created: ${email} (BOOTSTRAP_ADMIN=true)`,
-              );
-            } else {
-              console.log(
-                `ℹ️ Bootstrap admin skipped: user already exists (${email})`,
-              );
-            }
-          } catch (error) {
-            console.error("❌ Failed during BOOTSTRAP_ADMIN flow:", error);
           }
         }
-      }
-    });
+      });
 
-    console.log("Server started successfully");
+      console.log("Server started successfully");
 
-    // Mark app as fully initialized for health checks
-    (global as any).appInitialized = true;
-  }); // End of server.listen callback
-}); // End of initializeDatabaseColumns().then()
+      // Mark app as fully initialized for health checks
+      (global as any).appInitialized = true;
+    }); // End of server.listen callback
+  }); // End of initializeDatabaseColumns().then()
+}
 
 // Graceful shutdown handler
 async function gracefulShutdown(signal: string) {

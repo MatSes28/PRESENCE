@@ -1,9 +1,16 @@
 import request from "supertest";
+import { jest } from "@jest/globals";
+import bcrypt from "bcryptjs";
 import db from "../../src/storage.js";
+import { app } from "../../src/index.js";
 import {
   attendanceRecords,
   students,
   classSessions,
+  users,
+  classrooms,
+  subjects,
+  schedules,
 } from "../../../shared/schema.js";
 import { eq } from "drizzle-orm";
 
@@ -13,16 +20,88 @@ jest.mock("../../src/services/monitoringService.js");
 describe("Attendance API Integration Tests", () => {
   let testStudent: any;
   let testSession: any;
-  let authToken: string;
+  let testUser: any;
+  let testClassroom: any;
+  let testSubject: any;
+  let testSchedule: any;
+  let agent: any;
+
+  const adminEmail = "attendance-admin@example.com";
+  const adminPasswordPlain = "StrongPass123!";
 
   beforeAll(async () => {
+    (global as any).appInitialized = true;
+
+    agent = request.agent(app);
+
+    // Create + login an admin to establish a session cookie
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: adminEmail,
+        password: await bcrypt.hash(adminPasswordPlain, 12),
+        name: "Attendance Admin",
+        role: "admin",
+        isActive: true,
+      })
+      .returning();
+    testUser = user;
+
+    await agent
+      .post("/api/auth/login")
+      .send({ email: adminEmail, password: adminPasswordPlain })
+      .expect(200);
+
+    // Create FK fixtures for schedule + session
+    const [classroom] = await db
+      .insert(classrooms)
+      .values({
+        name: "Attendance Test Classroom",
+        location: "CLIRDEC Building",
+        type: "lecture",
+        capacity: 10,
+        isActive: true,
+      })
+      .returning();
+    testClassroom = classroom;
+
+    const [subject] = await db
+      .insert(subjects)
+      .values({
+        code: `ATT-${Date.now()}`,
+        name: "Attendance Test Subject",
+        description: "Integration test subject",
+        isActive: true,
+      })
+      .returning();
+    testSubject = subject;
+
+    const now = new Date();
+    const [schedule] = await db
+      .insert(schedules)
+      .values({
+        subjectId: subject.id,
+        classroomId: classroom.id,
+        facultyId: user.id,
+        dayOfWeek: now.getDay(),
+        // Use HH:MM:SS strings so attendance monitor comparisons work reliably.
+        startTime: "00:00:00",
+        endTime: "23:59:59",
+        semester: "1st Semester",
+        academicYear: "2024-2025",
+        isRecurring: false,
+        isActive: true,
+      })
+      .returning();
+    testSchedule = schedule;
+
     // Create test data
     const studentData = {
       studentId: "TEST001",
       name: "Test Student",
       email: "test@example.com",
-      phone: "+1234567890",
       parentEmail: "parent@example.com",
+      rfidUid: "ABCDEF12",
       isActive: true,
     };
 
@@ -30,7 +109,7 @@ describe("Attendance API Integration Tests", () => {
     testStudent = student;
 
     const sessionData = {
-      scheduleId: 1,
+      scheduleId: schedule.id,
       date: new Date(),
       status: "active",
     };
@@ -40,9 +119,6 @@ describe("Attendance API Integration Tests", () => {
       .values(sessionData)
       .returning();
     testSession = session;
-
-    // Mock authentication - in real tests, you'd get a real token
-    authToken = "mock-jwt-token";
   });
 
   afterAll(async () => {
@@ -51,7 +127,11 @@ describe("Attendance API Integration Tests", () => {
       .delete(attendanceRecords)
       .where(eq(attendanceRecords.studentId, testStudent.id));
     await db.delete(classSessions).where(eq(classSessions.id, testSession.id));
+    await db.delete(schedules).where(eq(schedules.id, testSchedule.id));
+    await db.delete(subjects).where(eq(subjects.id, testSubject.id));
+    await db.delete(classrooms).where(eq(classrooms.id, testClassroom.id));
     await db.delete(students).where(eq(students.id, testStudent.id));
+    await db.delete(users).where(eq(users.id, testUser.id));
   });
 
   describe("POST /api/attendance/manual", () => {
@@ -63,9 +143,8 @@ describe("Attendance API Integration Tests", () => {
         notes: "Manual entry for testing",
       };
 
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .post("/api/attendance/manual")
-        .set("Authorization", `Bearer ${authToken}`)
         .send(attendanceData)
         .expect(201);
 
@@ -83,16 +162,14 @@ describe("Attendance API Integration Tests", () => {
       };
 
       // First request should succeed
-      await request("http://localhost:3000")
+      await agent
         .post("/api/attendance/manual")
-        .set("Authorization", `Bearer ${authToken}`)
         .send(attendanceData)
         .expect(201);
 
       // Second request should fail
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .post("/api/attendance/manual")
-        .set("Authorization", `Bearer ${authToken}`)
         .send(attendanceData)
         .expect(409);
 
@@ -101,9 +178,8 @@ describe("Attendance API Integration Tests", () => {
     });
 
     it("should validate required fields", async () => {
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .post("/api/attendance/manual")
-        .set("Authorization", `Bearer ${authToken}`)
         .send({})
         .expect(400);
 
@@ -140,10 +216,7 @@ describe("Attendance API Integration Tests", () => {
     });
 
     it("should retrieve attendance records", async () => {
-      const response = await request("http://localhost:3000")
-        .get("/api/attendance")
-        .set("Authorization", `Bearer ${authToken}`)
-        .expect(200);
+      const response = await agent.get("/api/attendance").expect(200);
 
       expect(response.body.success).toBe(true);
       expect(Array.isArray(response.body.records)).toBe(true);
@@ -157,9 +230,8 @@ describe("Attendance API Integration Tests", () => {
     });
 
     it("should filter by student ID", async () => {
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .get(`/api/attendance?studentId=${testStudent.id}`)
-        .set("Authorization", `Bearer ${authToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
@@ -171,9 +243,8 @@ describe("Attendance API Integration Tests", () => {
     });
 
     it("should support pagination", async () => {
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .get("/api/attendance?limit=1&offset=0")
-        .set("Authorization", `Bearer ${authToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
@@ -210,9 +281,8 @@ describe("Attendance API Integration Tests", () => {
         notes: "Updated notes",
       };
 
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .put(`/api/attendance/${testRecord.id}`)
-        .set("Authorization", `Bearer ${authToken}`)
         .send(updateData)
         .expect(200);
 
@@ -222,9 +292,8 @@ describe("Attendance API Integration Tests", () => {
     });
 
     it("should return 404 for non-existent record", async () => {
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .put("/api/attendance/99999")
-        .set("Authorization", `Bearer ${authToken}`)
         .send({ notes: "Test" })
         .expect(404);
 
@@ -254,9 +323,8 @@ describe("Attendance API Integration Tests", () => {
     });
 
     it("should delete attendance record", async () => {
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .delete(`/api/attendance/${testRecord.id}`)
-        .set("Authorization", `Bearer ${authToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
@@ -264,10 +332,7 @@ describe("Attendance API Integration Tests", () => {
     });
 
     it("should return 404 for non-existent record", async () => {
-      const response = await request("http://localhost:3000")
-        .delete("/api/attendance/99999")
-        .set("Authorization", `Bearer ${authToken}`)
-        .expect(404);
+      const response = await agent.delete("/api/attendance/99999").expect(404);
 
       expect(response.body.success).toBe(false);
       expect(response.body.message).toContain("not found");
@@ -277,12 +342,11 @@ describe("Attendance API Integration Tests", () => {
   describe("POST /api/attendance/simulate-rfid", () => {
     it("should simulate RFID scan", async () => {
       const rfidData = {
-        rfidUid: "ABC123XYZ",
+        rfidUid: testStudent.rfidUid,
       };
 
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .post("/api/attendance/simulate-rfid")
-        .set("Authorization", `Bearer ${authToken}`)
         .send(rfidData)
         .expect(200);
 
@@ -291,9 +355,8 @@ describe("Attendance API Integration Tests", () => {
     });
 
     it("should validate RFID UID", async () => {
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .post("/api/attendance/simulate-rfid")
-        .set("Authorization", `Bearer ${authToken}`)
         .send({})
         .expect(400);
 
@@ -304,14 +367,19 @@ describe("Attendance API Integration Tests", () => {
 
   describe("POST /api/attendance/simulate-sensor", () => {
     it("should simulate sensor trigger", async () => {
+      // Prime the attendance monitor with a recent RFID scan for validation.
+      await agent
+        .post("/api/attendance/simulate-rfid")
+        .send({ rfidUid: testStudent.rfidUid })
+        .expect(200);
+
       const sensorData = {
         sensorType: "entry",
         distance: 30,
       };
 
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .post("/api/attendance/simulate-sensor")
-        .set("Authorization", `Bearer ${authToken}`)
         .send(sensorData)
         .expect(200);
 
@@ -320,9 +388,8 @@ describe("Attendance API Integration Tests", () => {
     });
 
     it("should validate sensor type", async () => {
-      const response = await request("http://localhost:3000")
+      const response = await agent
         .post("/api/attendance/simulate-sensor")
-        .set("Authorization", `Bearer ${authToken}`)
         .send({ sensorType: "invalid", distance: 50 })
         .expect(400);
 

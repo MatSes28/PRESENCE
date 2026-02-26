@@ -33,6 +33,10 @@ class LogAggregationService {
   private aggregationTimer?: NodeJS.Timeout;
 
   constructor() {
+    const isTestEnv =
+      process.env.NODE_ENV === "test" ||
+      typeof process.env.JEST_WORKER_ID !== "undefined";
+
     this.config = {
       aggregationIntervalMinutes: 15, // Aggregate every 15 minutes
       retentionDays: 90, // Keep aggregated data for 90 days
@@ -41,7 +45,8 @@ class LogAggregationService {
         suspiciousActivitiesPerHour: 5,
         securityEventsPerHour: 3,
       },
-      enabled: process.env.LOG_AGGREGATION_ENABLED !== "false",
+      // Never auto-run background jobs during tests.
+      enabled: !isTestEnv && process.env.LOG_AGGREGATION_ENABLED !== "false",
     };
 
     if (this.config.enabled) {
@@ -52,16 +57,19 @@ class LogAggregationService {
   // Start periodic log aggregation
   private startAggregation(): void {
     console.log(
-      `Starting log aggregation every ${this.config.aggregationIntervalMinutes} minutes`
+      `Starting log aggregation every ${this.config.aggregationIntervalMinutes} minutes`,
     );
 
     // Run initial aggregation
     this.aggregateLogs();
 
     // Set up periodic aggregation
-    this.aggregationTimer = setInterval(() => {
-      this.aggregateLogs();
-    }, this.config.aggregationIntervalMinutes * 60 * 1000);
+    this.aggregationTimer = setInterval(
+      () => {
+        this.aggregateLogs();
+      },
+      this.config.aggregationIntervalMinutes * 60 * 1000,
+    );
   }
 
   // Stop aggregation
@@ -78,11 +86,11 @@ class LogAggregationService {
     try {
       const endDate = new Date();
       const startDate = new Date(
-        endDate.getTime() - this.config.aggregationIntervalMinutes * 60 * 1000
+        endDate.getTime() - this.config.aggregationIntervalMinutes * 60 * 1000,
       );
 
       console.log(
-        `Aggregating logs from ${startDate.toISOString()} to ${endDate.toISOString()}`
+        `Aggregating logs from ${startDate.toISOString()} to ${endDate.toISOString()}`,
       );
 
       const stats = await this.generateAggregatedStats(startDate, endDate);
@@ -104,7 +112,7 @@ class LogAggregationService {
   // Generate aggregated statistics
   async generateAggregatedStats(
     startDate: Date,
-    endDate: Date
+    endDate: Date,
   ): Promise<AggregatedLogStats> {
     const auditStats = await auditService.getAuditStats(startDate, endDate);
 
@@ -114,7 +122,7 @@ class LogAggregationService {
     // Analyze suspicious patterns
     const suspiciousPatterns = await auditService.detectSuspiciousActivity(
       0, // Analyze for all users
-      events
+      events,
     );
 
     // Get top IPs and users
@@ -148,7 +156,7 @@ class LogAggregationService {
       eventsByUser: auditStats.eventsByUser,
       failedOperations: auditStats.suspiciousActivity.length,
       securityEvents: auditStats.suspiciousActivity.filter((e) =>
-        e.action.startsWith("SECURITY_")
+        e.action.startsWith("SECURITY_"),
       ).length,
       suspiciousPatterns,
       topIPs,
@@ -217,7 +225,7 @@ class LogAggregationService {
     // Add additional search capabilities if needed
     if (query.text) {
       return events.filter((event) =>
-        JSON.stringify(event).toLowerCase().includes(query.text!.toLowerCase())
+        JSON.stringify(event).toLowerCase().includes(query.text!.toLowerCase()),
       );
     }
 
@@ -237,7 +245,7 @@ class LogAggregationService {
     startDate: Date,
     endDate: Date,
     format: "json" | "csv" | "xml" = "json",
-    filters?: any
+    filters?: any,
   ): Promise<string> {
     const events = await auditService.queryEvents({
       startDate,
@@ -255,9 +263,9 @@ class LogAggregationService {
         const rows = events.map((event) =>
           Object.values(event)
             .map((val) =>
-              typeof val === "object" ? JSON.stringify(val) : String(val)
+              typeof val === "object" ? JSON.stringify(val) : String(val),
             )
-            .join(",")
+            .join(","),
         );
         return [headers, ...rows].join("\n");
 

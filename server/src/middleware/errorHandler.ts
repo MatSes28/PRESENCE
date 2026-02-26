@@ -13,7 +13,10 @@ declare global {
 
 // Error types for better categorization
 export class ValidationError extends Error {
-  constructor(message: string, public field?: string) {
+  constructor(
+    message: string,
+    public field?: string,
+  ) {
     super(message);
     this.name = "ValidationError";
   }
@@ -34,7 +37,10 @@ export class AuthorizationError extends Error {
 }
 
 export class DatabaseError extends Error {
-  constructor(message: string, public originalError?: Error) {
+  constructor(
+    message: string,
+    public originalError?: Error,
+  ) {
     super(message);
     this.name = "DatabaseError";
   }
@@ -44,7 +50,7 @@ export class ExternalServiceError extends Error {
   constructor(
     message: string,
     public service: string,
-    public statusCode?: number
+    public statusCode?: number,
   ) {
     super(message);
     this.name = "ExternalServiceError";
@@ -68,7 +74,7 @@ export const errorHandler = async (
   error: Error,
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   // Generate request ID if not present
   const requestId =
@@ -88,6 +94,18 @@ export const errorHandler = async (
   let statusCode = 500;
   let errorCode = "INTERNAL_ERROR";
   let logLevel: "error" | "warn" = "error";
+
+  // Allow upstream middleware/handlers to set an explicit HTTP status code.
+  // Example: [`server/src/middleware/errorHandler.ts:notFoundHandler`](server/src/middleware/errorHandler.ts:188)
+  // sets `(error as any).statusCode = 404`.
+  const anyError = error as any;
+  if (typeof anyError?.statusCode === "number") {
+    statusCode = anyError.statusCode;
+    if (statusCode === 404) {
+      errorCode = "NOT_FOUND";
+      logLevel = "warn";
+    }
+  }
 
   if (error instanceof ValidationError) {
     statusCode = 400;
@@ -176,7 +194,7 @@ export const asyncHandler = (fn: Function) => {
 export const requestIdMiddleware = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   req.requestId = `req_${Date.now()}_${Math.random()
     .toString(36)
@@ -189,7 +207,7 @@ export const requestIdMiddleware = (
 export const notFoundHandler = (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const error = new Error(`Route ${req.method} ${req.path} not found`);
   (error as any).statusCode = 404;
@@ -218,7 +236,7 @@ process.on("unhandledRejection", (reason: any, promise: Promise<any>) => {
       stack: reason?.stack,
       isSqlError: isSqlError,
       errorType: isSqlError ? "SQL_ERROR" : "GENERIC_ERROR",
-    }
+    },
   );
 
   console.error("Unhandled Promise Rejection:", reason);
@@ -241,7 +259,7 @@ process.on("uncaughtException", (error: Error) => {
     {
       type: "uncaughtException",
       stack: error.stack,
-    }
+    },
   );
 
   console.error("Uncaught Exception:", error);

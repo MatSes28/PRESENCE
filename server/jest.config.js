@@ -1,6 +1,5 @@
 /** @type {import('jest').Config} */
 export default {
-  preset: "ts-jest/presets/default-esm",
   testEnvironment: "node",
   roots: ["<rootDir>/src", "<rootDir>/tests"],
   testMatch: [
@@ -8,35 +7,46 @@ export default {
     "**/?(*.)+(spec|test).ts",
     "!**/e2e/**", // Exclude e2e tests as they use Playwright
   ],
+
+  // TypeScript + ESM support
+  preset: "ts-jest/presets/default-esm",
+  extensionsToTreatAsEsm: [".ts"],
   transform: {
-    "^.+\\.ts$": [
+    "^.+\\.(ts|tsx)$": [
       "ts-jest",
       {
         useESM: true,
-        // Ensure ts-jest compiles with the server tsconfig (ES module output),
-        // otherwise `import.meta.url` will fail type-checking under CommonJS.
-        tsconfig: "<rootDir>/tsconfig.json",
+        tsconfig: "<rootDir>/tsconfig.jest.json",
       },
     ],
   },
-  extensionsToTreatAsEsm: [".ts"],
+
+  // Allow NodeNext-style imports that include `.js` extensions in TS sources.
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
+    // Map monorepo source imports ending in `.js` back to their `.ts` sources.
+    // (NodeNext pattern: TS source imports use `.js` in specifiers.)
+    // Keep this scoped to `/src/` and `/shared/` to avoid impacting node_modules.
+    "^\\.{1,2}\\/(?:.*?\\/)?src\\/(.*)\\.js$": "<rootDir>/src/$1.ts",
+    "^\\.{1,2}\\/(?:.*?\\/)?shared\\/(.*)\\.js$": "<rootDir>/../shared/$1.ts",
+
+    // Fallback: strip `.js` extension for other relative imports.
+    "^(\\.{1,2}\\/.*)\\.js$": "$1",
+  },
+
+  setupFilesAfterEnv: ["<rootDir>/tests/setup.ts"],
+
   collectCoverageFrom: [
     "src/**/*.ts",
     "!src/**/*.d.ts",
-    "!src/index.ts", // Entry point
-    "!src/routes.ts", // Route aggregator
-    "!src/config/**/*.ts", // Configuration files
-    "!src/**/*.test.ts", // Test files
-    "!src/**/*.spec.ts", // Spec files
+    "!src/index.ts",
+    "!src/routes.ts",
+    "!src/config/**/*.ts",
+    "!src/**/*.test.ts",
+    "!src/**/*.spec.ts",
   ],
   coverageDirectory: "coverage",
-  coverageReporters: [
-    "text",
-    "lcov",
-    "html",
-    "json",
-    "cobertura", // For CI/CD integration
-  ],
+  coverageReporters: ["text", "lcov", "html", "json", "cobertura"],
   coverageThreshold: {
     global: {
       branches: 75,
@@ -45,24 +55,15 @@ export default {
       statements: 85,
     },
   },
-  // Quality gates and best practices
-  bail: false, // Don't stop on first failure, run all tests
-  passWithNoTests: false, // Fail if no tests found
-  testFailureExitCode: 1, // Explicit exit code for failures
-  setupFilesAfterEnv: ["<rootDir>/tests/setup.ts"],
+
+  bail: false,
+  passWithNoTests: false,
+  testFailureExitCode: 1,
   testTimeout: 10000,
   verbose: true,
   forceExit: true,
   detectOpenHandles: true,
   maxWorkers: "50%",
-  moduleNameMapper: {
-    "^@/(.*)$": "<rootDir>/src/$1",
-    "^(\\.\\.?\\/.*)\\.js$": "$1",
-  },
-  // Test categorization
   testPathIgnorePatterns: ["/node_modules/", "/dist/"],
   moduleFileExtensions: ["js", "ts", "json"],
-  // Database test isolation
-  // globalSetup: "<rootDir>/tests/globalSetup.mjs",
-  // globalTeardown: "<rootDir>/tests/globalTeardown.mjs",
 };

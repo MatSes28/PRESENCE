@@ -2,26 +2,15 @@ import { Router, Request } from "express";
 import { gdprService } from "../services/gdprService.js";
 import { parentConsentService } from "../services/parentConsentService.js";
 import { validateRequest, validationRules } from "../middleware/validation.js";
-import { requireAdmin } from "../middleware/auth.js";
+import { requireAdmin, requireAuth } from "../middleware/auth.js";
 
 const router = Router();
-
-// Middleware to check authentication
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required",
-    });
-  }
-  next();
-};
 
 // Middleware to check if user can access GDPR data (own data or admin)
 const requireDataAccess = (req: any, res: any, next: any) => {
   const requestedUserId = parseInt(req.params.userId);
   const currentUserId = req.session?.userId;
-  const userRole = req.session?.role;
+  const userRole = req.session?.userRole;
 
   // Users can access their own data, admins can access any data
   if (currentUserId === requestedUserId || userRole === "admin") {
@@ -55,7 +44,7 @@ router.get(
         "GDPR data access report generated",
         req.ip,
         req.get("User-Agent") || "",
-        "User requested data access report under GDPR Article 15"
+        "User requested data access report under GDPR Article 15",
       );
 
       res.json({
@@ -70,7 +59,7 @@ router.get(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Right to Data Portability - Export data
@@ -90,7 +79,7 @@ router.get(
         "GDPR data portability export generated",
         req.ip,
         req.get("User-Agent") || "",
-        "User requested data portability under GDPR Article 20"
+        "User requested data portability under GDPR Article 20",
       );
 
       res.json({
@@ -105,7 +94,7 @@ router.get(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Right to Rectification - Request data correction
@@ -136,7 +125,7 @@ router.post(
       const requestId = await gdprService.requestDataRectification(
         userId,
         requestedBy,
-        corrections
+        corrections,
       );
 
       // Log privacy rectification request
@@ -146,7 +135,7 @@ router.post(
         `GDPR rectification requested: ${reason}`,
         req.ip,
         req.get("User-Agent") || "",
-        "User requested data rectification under GDPR Article 16"
+        "User requested data rectification under GDPR Article 16",
       );
 
       res.json({
@@ -161,7 +150,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Right to Erasure - Request data deletion
@@ -186,7 +175,7 @@ router.post(
       const requestId = await gdprService.requestDataErasure(
         userId,
         requestedBy,
-        reason
+        reason,
       );
 
       // Log privacy erasure request
@@ -196,7 +185,7 @@ router.post(
         `GDPR erasure requested: ${reason}`,
         req.ip,
         req.get("User-Agent") || "",
-        "User requested data erasure under GDPR Article 17"
+        "User requested data erasure under GDPR Article 17",
       );
 
       res.json({
@@ -212,7 +201,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Right to Restriction - Request processing restriction
@@ -244,7 +233,7 @@ router.post(
       await gdprService.restrictDataProcessing(
         userId,
         restrictionType,
-        requestedBy
+        requestedBy,
       );
 
       // Log privacy restriction
@@ -254,7 +243,7 @@ router.post(
         `GDPR processing restriction: ${restrictionType} - ${reason}`,
         req.ip,
         req.get("User-Agent") || "",
-        "User requested processing restriction under GDPR Article 18"
+        "User requested processing restriction under GDPR Article 18",
       );
 
       res.json({
@@ -268,7 +257,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Right to Object - Object to processing
@@ -305,7 +294,7 @@ router.post(
         `GDPR processing objection: ${processingType} - ${reason}`,
         req.ip,
         req.get("User-Agent") || "",
-        "User objected to processing under GDPR Article 21"
+        "User objected to processing under GDPR Article 21",
       );
 
       res.json({
@@ -319,7 +308,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Parent Consent Management Endpoints
@@ -351,7 +340,7 @@ router.post(
       const requestId = await parentConsentService.requestParentConsent(
         studentId,
         consentType,
-        requestedBy
+        requestedBy,
       );
 
       res.json({
@@ -366,7 +355,7 @@ router.post(
         message: error.message || "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Process parent consent (from email link)
@@ -394,7 +383,7 @@ router.post(
         token,
         consented,
         req.ip,
-        req.get("User-Agent") || ""
+        req.get("User-Agent") || "",
       );
 
       if (success) {
@@ -417,16 +406,15 @@ router.post(
         message: error.message || "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Get student consent status
 router.get("/consent/status/:studentId", requireAuth, async (req, res) => {
   try {
     const studentId = parseInt(req.params.studentId);
-    const status = await parentConsentService.getStudentConsentStatus(
-      studentId
-    );
+    const status =
+      await parentConsentService.getStudentConsentStatus(studentId);
 
     res.json({
       success: true,
@@ -468,7 +456,7 @@ router.post(
       await parentConsentService.revokeParentConsent(
         studentId,
         consentType,
-        requestedBy
+        requestedBy,
       );
 
       res.json({
@@ -482,7 +470,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Generate consent report
@@ -536,7 +524,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Privacy Policy and Terms

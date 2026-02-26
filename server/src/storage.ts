@@ -2,9 +2,19 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { drizzle as drizzleBetterSqlite3 } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
-import * as schema from "./schema.js";
+// Use the shared Drizzle schema for DB access.
+// This avoids duplicated schema modules and simplifies Jest/ts-jest resolution.
+import * as schema from "../../shared/schema.js";
 
 // Check if using SQLite for local development
+// Default behavior:
+// - dev: SQLite unless explicitly configured otherwise
+// - test: follow DATABASE_URL; CI provides Postgres
+// - prod-like: Postgres (DATABASE_URL must be present)
+const isTestEnv =
+  process.env.NODE_ENV === "test" ||
+  typeof process.env.JEST_WORKER_ID !== "undefined";
+
 const useSqlite =
   process.env.USE_SQLITE === "true" ||
   process.env.NODE_ENV === "development" ||
@@ -20,9 +30,16 @@ if (useSqlite) {
 
   const sqlite = new Database(sqlitePath);
 
+  // Compatibility: some schemas/defaults (and generated queries) assume Postgres-style helpers.
+  // Provide a minimal `now()` function so SQLite DEFAULT now() works in local/test databases.
+  // Returns an ISO timestamp string.
+  sqlite.function("now", () => new Date().toISOString());
+
   // Enable WAL mode for better performance
   sqlite.pragma("journal_mode = WAL");
 
+  // NOTE: The SQLite DB uses the same logical schema as the app's Drizzle schema.
+  // Keep the schema mapping consistent so route code can run unchanged.
   db = drizzleBetterSqlite3(sqlite, { schema });
   dbClient = sqlite;
 
@@ -81,13 +98,13 @@ if (useSqlite) {
       : undefined,
 
     onconnect: (conn: any) => {
-      if (!isProduction) {
+      if (!isProduction && !isTestEnv) {
         console.log(`✅ Database connection established (PID: ${conn.pid})`);
       }
     },
 
     onclose: (conn: any) => {
-      if (!isProduction) {
+      if (!isProduction && !isTestEnv) {
         console.log(`❌ Database connection closed (PID: ${conn.pid})`);
       }
     },

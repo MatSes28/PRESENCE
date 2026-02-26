@@ -1,3 +1,5 @@
+import { afterAll, afterEach, jest } from "@jest/globals";
+
 // Extend global types
 declare global {
   var testUtils: {
@@ -16,11 +18,18 @@ process.env.LOG_LEVEL = "error"; // Reduce log noise during tests
 process.env.SESSION_SECRET = "test-session-secret-" + "x".repeat(48);
 process.env.JWT_SECRET = "test-jwt-secret-" + "x".repeat(52);
 process.env.JWT_REFRESH_SECRET = "test-jwt-refresh-secret-" + "x".repeat(44);
-process.env.DATABASE_URL =
-  process.env.DATABASE_URL || "postgres://test:test@localhost:5432/test";
+// DATABASE_URL:
+// - In CI, the workflow sets this to Postgres.
+// - Locally, default to the same Postgres URL as CI for consistency.
+//   If you want to use a different local DB, set DATABASE_URL explicitly.
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL =
+    // Aligns with CI workflow in [`.github/workflows/test.yml`](.github/workflows/test.yml:1)
+    "postgresql://postgres:postgres@localhost:5432/test_db";
+}
 
 // Mock external services
-jest.mock("../src/services/websocket", () => ({
+jest.mock("../src/services/websocket.js", () => ({
   setupWebSocket: jest.fn(),
   getWebSocketClient: jest.fn(() => ({
     on: jest.fn(),
@@ -31,14 +40,14 @@ jest.mock("../src/services/websocket", () => ({
 }));
 
 // Mock email service
-jest.mock("../src/services/emailService", () => ({
+jest.mock("../src/services/emailService.js", () => ({
   sendEmail: jest.fn(),
   sendWelcomeEmail: jest.fn(),
   sendPasswordResetEmail: jest.fn(),
 }));
 
 // Mock monitoring service to avoid actual logging during tests
-jest.mock("../src/services/monitoringService", () => ({
+jest.mock("../src/services/monitoringService.js", () => ({
   monitoringService: {
     logError: jest.fn(),
     logWarning: jest.fn(),
@@ -137,5 +146,3 @@ afterAll(async () => {
   // Close any open database connections
   // This will be handled by the global teardown
 });
-
-export {};

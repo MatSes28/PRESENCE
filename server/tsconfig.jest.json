@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // ts-jest has historically had issues with `moduleResolution: bundler`.
+    // Use Node's resolver for test compilation.
+    "moduleResolution": "NodeNext",
+    "module": "NodeNext",
+    "isolatedModules": true
+  }
+}
