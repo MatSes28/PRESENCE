@@ -68,6 +68,48 @@ export function validateEnvironmentOrThrow(): void {
         "Missing CORS configuration: set ALLOWED_ORIGINS, FRONTEND_URL, or CORS_ORIGIN",
       );
     }
+
+    // Disallow wildcard origins in production-like environments.
+    const corsOrigin = getEnv("CORS_ORIGIN");
+    if (corsOrigin === "*") {
+      throw new Error(
+        "Unsafe CORS configuration: CORS_ORIGIN='*' is not allowed in production",
+      );
+    }
+    const allowedOriginsRaw = getEnv("ALLOWED_ORIGINS") || "";
+    if (
+      allowedOriginsRaw
+        .split(",")
+        .map((s) => s.trim())
+        .includes("*")
+    ) {
+      throw new Error(
+        "Unsafe CORS configuration: ALLOWED_ORIGINS must not contain '*' in production",
+      );
+    }
+
+    // Validate session cookie settings.
+    const sameSite = (getEnv("SESSION_COOKIE_SAMESITE") || "lax").toLowerCase();
+    const validSameSite = ["lax", "strict", "none"];
+    if (!validSameSite.includes(sameSite)) {
+      throw new Error(
+        `Invalid SESSION_COOKIE_SAMESITE: '${sameSite}'. Expected one of: ${validSameSite.join(", ")}`,
+      );
+    }
+
+    // Forbidden feature flags in production-like environments.
+    const forbiddenTrueFlags = [
+      "ALLOW_FORCE_RESET_DEFAULTS",
+      "ALLOW_FIX_SESSION_ENDPOINT",
+      "ALLOW_DEBUG_SESSION",
+    ];
+    for (const flag of forbiddenTrueFlags) {
+      if (getEnv(flag) === "true") {
+        throw new Error(
+          `Unsafe configuration: ${flag}=true is not allowed in production-like environments`,
+        );
+      }
+    }
   } else {
     // Validate provided secrets (useful to catch too-short local values).
     for (const req of requiredInProd) {

@@ -13,6 +13,7 @@ import {
   validateRequest,
   validationRules,
 } from "../middleware/validation.js";
+import { isProductionLike } from "../config/env.js";
 
 const router = Router();
 
@@ -125,9 +126,13 @@ router.post(
       const user = userResult[0];
 
       // Verify password
-      console.log(`[AUTH] Attempting login for ${email}`);
+      if (process.env.LOG_AUTH_DEBUG === "true") {
+        console.log(`[AUTH] Attempting login for ${email}`);
+      }
       const isValidPassword = await bcrypt.compare(password, user.password);
-      console.log(`[AUTH] Password valid: ${isValidPassword}`);
+      if (process.env.LOG_AUTH_DEBUG === "true") {
+        console.log(`[AUTH] Password valid: ${isValidPassword}`);
+      }
       if (!isValidPassword) {
         // Log failed login attempt for invalid password
         await auditService.logFailedLoginAttempt(
@@ -143,8 +148,15 @@ router.post(
         });
       }
 
-      // Set session
+      // Session fixation protection: rotate session ID on login
       if (req.session) {
+        await new Promise<void>((resolve, reject) => {
+          req.session!.regenerate((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+
         req.session.userId = user.id;
         req.session.userRole = user.role;
 
@@ -237,13 +249,20 @@ router.post("/logout", async (req, res) => {
 
 // Debug session endpoint
 router.get("/debug-session", (req, res) => {
-  if (
-    process.env.NODE_ENV === "production" ||
-    process.env.RAILWAY_ENVIRONMENT
-  ) {
+  // Never allow this endpoint in production-like environments.
+  if (isProductionLike()) {
     return res.status(404).json({
       success: false,
       message: "Not found",
+    });
+  }
+
+  // Disabled by default even in dev.
+  if (process.env.ALLOW_DEBUG_SESSION !== "true") {
+    return res.status(403).json({
+      success: false,
+      message:
+        "debug-session is disabled (set ALLOW_DEBUG_SESSION=true to enable in non-production)",
     });
   }
 
@@ -813,7 +832,7 @@ router.post("/force-reset-defaults", async (req, res) => {
   try {
     // SECURITY: This endpoint is dangerous for real deployments.
     // It is disabled by default and MUST NOT be enabled in production.
-    if (process.env.NODE_ENV === "production") {
+    if (isProductionLike() || process.env.NODE_ENV === "test") {
       return res.status(404).json({
         success: false,
         message: "Not found",
@@ -828,42 +847,92 @@ router.post("/force-reset-defaults", async (req, res) => {
       });
     }
 
+    // Require an authenticated admin session even in non-production.
+    if (!req.session?.userId || req.session?.userRole !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
+
+    const adminEmail =
+      process.env.FORCE_RESET_ADMIN_EMAIL || "admin@clsu.edu.ph";
+    const facultyEmail =
+      process.env.FORCE_RESET_FACULTY_EMAIL || "faculty@clsu.edu.ph";
+
+    const adminPasswordPlain = process.env.FORCE_RESET_ADMIN_PASSWORD;
+    const facultyPasswordPlain = process.env.FORCE_RESET_FACULTY_PASSWORD;
+
+    if (!adminPasswordPlain || adminPasswordPlain.length < 12) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "FORCE_RESET_ADMIN_PASSWORD is required and must be at least 12 characters",
+      });
+    }
+    if (!facultyPasswordPlain || facultyPasswordPlain.length < 12) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "FORCE_RESET_FACULTY_PASSWORD is required and must be at least 12 characters",
+      });
+    }
+
     console.log("[AUTH] Force resetting default passwords...");
 
     // Hash default passwords
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
-    const adminPassword = await bcrypt.hash("admin123", saltRounds);
-    const facultyPassword = await bcrypt.hash("faculty123", saltRounds);
+    const adminPassword = await bcrypt.hash(adminPasswordPlain, saltRounds);
+    const facultyPassword = await bcrypt.hash(facultyPasswordPlain, saltRounds);
 
     // Update admin password
     const adminResult = await db
       .update(users)
       .set({ password: adminPassword })
-      .where(eq(users.email, "admin@clsu.edu.ph"))
+      .where(eq(users.email, adminEmail))
       .returning();
 
     // Update or create faculty password
     const facultyResult = await db
       .update(users)
       .set({ password: facultyPassword })
-      .where(eq(users.email, "faculty@clsu.edu.ph"))
+      .where(eq(users.email, facultyEmail))
       .returning();
 
     // If faculty doesn't exist, create it
     if (facultyResult.length === 0) {
       await db.insert(users).values({
-        email: "faculty@clsu.edu.ph",
+        email: facultyEmail,
         password: facultyPassword,
         name: "Faculty Member",
         role: "faculty",
       });
     }
 
+    // Add a security audit entry
+    await auditService.logEvent({
+      userId: req.session.userId,
+      action: "FORCE_RESET_DEFAULTS",
+      resource: "auth",
+      resourceId: null,
+      ipAddress: req.ip,
+      userAgent: req.get("User-Agent") || "",
+      sessionId: req.sessionID,
+      success: true,
+      metadata: {
+        adminEmail,
+        facultyEmail,
+        adminUpdated: adminResult.length > 0,
+        facultyUpdated: facultyResult.length > 0,
+        facultyCreated: facultyResult.length === 0,
+      },
+    });
+
     console.log("[AUTH] Default passwords reset successfully");
 
     res.json({
       success: true,
-      message: "Default passwords reset successfully",
+      message: "Passwords reset successfully",
     });
   } catch (error) {
     console.error("Force reset error:", error);

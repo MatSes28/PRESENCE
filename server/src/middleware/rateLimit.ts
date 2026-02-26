@@ -83,9 +83,12 @@ export const generalRateLimit = createUserRateLimit({
   },
   // Skip rate limiting for health checks and auth routes (they have their own limits)
   skip: (req) =>
+    // Note: this middleware is mounted at `/api`, so paths look like `/health`, `/auth`, etc.
     req.path === "/health" ||
-    req.path === "/api/health" ||
-    req.path.startsWith("/api/auth"),
+    req.path === "/live" ||
+    req.path === "/ready" ||
+    req.path === "/metrics" ||
+    req.path.startsWith("/auth"),
 });
 
 // API optimization middleware
@@ -277,9 +280,15 @@ export const corsOptimization = (req: Request, res: Response, next: any) => {
         });
       }
       res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
     }
   } else {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    // In non-production, echo the request origin (if present) so credentials work.
+    // If there is no Origin header, treat it as non-CORS.
+    if (origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    }
   }
 
   res.setHeader("Access-Control-Allow-Credentials", "true");

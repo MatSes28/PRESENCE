@@ -265,6 +265,12 @@ app.use(
         connectSrc: ["'self'", "ws:", "wss:"],
       },
     },
+    // Reduce cross-origin data leakage
+    referrerPolicy: { policy: "no-referrer" },
+    // Don't enable COEP by default (can break loading cross-origin resources)
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    crossOriginResourcePolicy: { policy: "same-site" },
     hsts: {
       maxAge: 31536000,
       includeSubDomains: true,

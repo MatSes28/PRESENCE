@@ -14,9 +14,14 @@ export const requireAuth = (
 
   // Second, check for JWT token in Authorization header
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
 
-  if (!token) {
+  // Strictly require `Authorization: Bearer <token>` (no extra parts)
+  const parts = typeof authHeader === "string" ? authHeader.split(" ") : [];
+  const scheme = parts[0];
+  const token = parts[1];
+  const extra = parts.length > 2;
+
+  if (scheme !== "Bearer" || !token || extra) {
     return res.status(401).json({
       success: false,
       message: "Authentication required",
@@ -24,11 +29,17 @@ export const requireAuth = (
   }
 
   try {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      // Fail closed: do not accept JWT auth if the server is misconfigured.
+      return res.status(500).json({
+        success: false,
+        message: "Server misconfiguration: JWT secret not set",
+      });
+    }
+
     // Verify JWT token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "default-secret",
-    );
+    const decoded = jwt.verify(token, jwtSecret);
 
     // Attach user information to request
     if (
@@ -43,14 +54,10 @@ export const requireAuth = (
       req.session.userRole = (decoded as any).role;
     }
 
-    // Log successful authentication
-    console.log(`User ${(decoded as any).userId} authenticated successfully`);
-
     next();
   } catch (error) {
-    // Log authentication failure
-    console.error("Authentication failed:", error);
-    return res.status(403).json({
+    // Treat invalid/expired tokens as unauthorized
+    return res.status(401).json({
       success: false,
       message: "Invalid or expired token",
     });
