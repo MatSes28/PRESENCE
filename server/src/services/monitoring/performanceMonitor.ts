@@ -2,6 +2,7 @@ import * as v8 from "v8";
 import * as path from "path";
 import * as fs from "fs";
 import { loggerService } from "./logger.js";
+import { promMetrics } from "./promMetrics.js";
 import {
   metricsCollector,
   SystemMetrics,
@@ -34,7 +35,7 @@ export class PerformanceMonitor {
   // Performance monitoring methods
   public startTrace(
     operation: string,
-    metadata: Partial<PerformanceTrace["metadata"]> = {}
+    metadata: Partial<PerformanceTrace["metadata"]> = {},
   ): string {
     const traceId = `trace_${Date.now()}_${Math.random()
       .toString(36)
@@ -62,7 +63,7 @@ export class PerformanceMonitor {
   public endTrace(
     traceId: string,
     success: boolean = true,
-    additionalMetadata: Partial<PerformanceTrace["metadata"]> = {}
+    additionalMetadata: Partial<PerformanceTrace["metadata"]> = {},
   ): void {
     const trace = this.traces.get(traceId);
     if (!trace) return;
@@ -96,6 +97,21 @@ export class PerformanceMonitor {
       const originalEnd = res.end;
       res.end = (...args: any[]) => {
         const duration = Date.now() - startTime;
+
+        // Normalized path for metrics to avoid high-cardinality values.
+        // Prefer Express route templates like "/:id" when available.
+        const routePath =
+          typeof req?.route?.path === "string" ? req.route.path : req.path;
+        const baseUrl = typeof req?.baseUrl === "string" ? req.baseUrl : "";
+        const normalizedPath =
+          `${baseUrl}${routePath}` || req.path || "unknown";
+
+        promMetrics.recordHttpRequest({
+          method: req.method,
+          path: normalizedPath,
+          status: res.statusCode,
+          durationSeconds: duration / 1000,
+        });
 
         // Update application metrics
         const currentMetrics =
@@ -194,17 +210,20 @@ export class PerformanceMonitor {
     const latestSystem =
       this.systemMetricsHistory[this.systemMetricsHistory.length - 1];
 
-    let metrics = "# HELP presence_system_cpu_usage CPU usage percentage\n";
+    const systemMetricsAvailable = latestSystem ? 1 : 0;
+
+    let metrics =
+      "# HELP presence_system_metrics_available Whether system metrics have been collected at least once (1=yes, 0=no)\n";
+    metrics += "# TYPE presence_system_metrics_available gauge\n";
+    metrics += `presence_system_metrics_available ${systemMetricsAvailable}\n`;
+
+    metrics += "# HELP presence_system_cpu_usage CPU usage percentage\n";
     metrics += "# TYPE presence_system_cpu_usage gauge\n";
-    if (latestSystem) {
-      metrics += `presence_system_cpu_usage ${latestSystem.cpu.usage}\n`;
-    }
+    metrics += `presence_system_cpu_usage ${latestSystem ? latestSystem.cpu.usage : 0}\n`;
 
     metrics += "# HELP presence_system_memory_usage Memory usage percentage\n";
     metrics += "# TYPE presence_system_memory_usage gauge\n";
-    if (latestSystem) {
-      metrics += `presence_system_memory_usage ${latestSystem.memory.usagePercent}\n`;
-    }
+    metrics += `presence_system_memory_usage ${latestSystem ? latestSystem.memory.usagePercent : 0}\n`;
 
     metrics +=
       "# HELP presence_system_status System health status (0=healthy, 1=degraded, 2=unhealthy)\n";
@@ -223,7 +242,7 @@ export class PerformanceMonitor {
   // Update metrics history
   public updateMetricsHistory(
     systemMetrics: SystemMetrics,
-    applicationMetrics: ApplicationMetrics
+    applicationMetrics: ApplicationMetrics,
   ): void {
     this.systemMetricsHistory.push(systemMetrics);
     this.applicationMetricsHistory.push(applicationMetrics);

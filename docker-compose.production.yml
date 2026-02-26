@@ -216,6 +216,39 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Exporters (required for Prometheus jobs in monitoring/prometheus.yml)
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: presence-node-exporter
+    restart: unless-stopped
+    networks:
+      - presence-network
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: presence-postgres-exporter
+    restart: unless-stopped
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - presence-network
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    container_name: presence-redis-exporter
+    restart: unless-stopped
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - presence-network
+
 volumes:
   postgres_data:
     driver: local

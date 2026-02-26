@@ -9,10 +9,8 @@ services:
     image: haproxy:2.7-alpine
     ports:
       - "8080:8080"
-      - "8443:8443"
-      - "8404:8404" # Stats interface
     volumes:
-      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./haproxy.scaling.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
       - presence-app-1
       - presence-app-2
@@ -28,18 +26,20 @@ services:
   # Application Instance 1
   presence-app-1:
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.production
     ports:
       - "3001:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=postgresql://user:password@database:5432/presence
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - SESSION_SECRET=${SESSION_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - METRICS_ENABLED=true
       - INSTANCE_ID=app-1
     depends_on:
       - database
@@ -63,18 +63,20 @@ services:
   # Application Instance 2
   presence-app-2:
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.production
     ports:
       - "3002:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=postgresql://user:password@database:5432/presence
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - SESSION_SECRET=${SESSION_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - METRICS_ENABLED=true
       - INSTANCE_ID=app-2
     depends_on:
       - database
@@ -98,18 +100,20 @@ services:
   # Application Instance 3 (Backup)
   presence-app-3:
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.production
     ports:
       - "3003:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=postgresql://user:password@database:5432/presence
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - SESSION_SECRET=${SESSION_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - METRICS_ENABLED=true
       - INSTANCE_ID=app-3
     depends_on:
       - database
@@ -136,9 +140,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=presence
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./database_setup.sql:/docker-entrypoint-initdb.d/01-init.sql
@@ -156,12 +160,13 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
     volumes:
       - redis-data:/data
     networks:
       - presence-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -172,7 +177,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus.scaling.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     networks:
       - presence-network
@@ -199,6 +204,30 @@ services:
       - presence-network
     depends_on:
       - prometheus
+
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    networks:
+      - presence-network
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${DB_USER}:${DB_PASSWORD}@database:5432/${DB_NAME}?sslmode=disable
+    networks:
+      - presence-network
+    depends_on:
+      - database
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    networks:
+      - presence-network
+    depends_on:
+      - redis
 
 volumes:
   postgres-data:

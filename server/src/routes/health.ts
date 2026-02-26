@@ -1,5 +1,8 @@
 import { Router, Request, Response } from "express";
 import db, { safeExecute } from "../storage.js";
+import { monitoringService } from "../services/monitoringService.js";
+import { cacheService } from "../services/cacheService.js";
+import { promMetrics } from "../services/monitoring/promMetrics.js";
 
 const router = Router();
 
@@ -88,10 +91,20 @@ router.get("/ready", async (req: Request, res: Response) => {
 
 // Metrics endpoint for Prometheus
 router.get("/metrics", async (req: Request, res: Response) => {
-  const memUsage = process.memoryUsage();
-  const uptime = process.uptime();
+  // Allow disabling metrics explicitly (useful for dev/staging), but keep it on by default.
+  const enabled =
+    process.env.METRICS_ENABLED !== "false" &&
+    // Backward compatibility: older env templates use ENABLE_METRICS
+    process.env.ENABLE_METRICS !== "false";
+  if (!enabled) {
+    return res
+      .status(404)
+      .json({ success: false, message: "Metrics disabled" });
+  }
 
-  // Avoid emitting fake metrics. Provide a simple DB up/down gauge.
+  const memUsage = process.memoryUsage();
+
+  // Real service health signals.
   let dbUp = 0;
   try {
     await safeExecute("SELECT 1");
@@ -100,11 +113,14 @@ router.get("/metrics", async (req: Request, res: Response) => {
     dbUp = 0;
   }
 
-  const metrics = [
-    `# HELP presence_uptime_seconds Application uptime in seconds`,
-    `# TYPE presence_uptime_seconds counter`,
-    `presence_uptime_seconds ${uptime}`,
-    ``,
+  let redisUp = 0;
+  try {
+    redisUp = (await cacheService.ping()) ? 1 : 0;
+  } catch {
+    redisUp = 0;
+  }
+
+  const baseMetrics = [
     `# HELP presence_memory_heap_used_bytes Memory heap used in bytes`,
     `# TYPE presence_memory_heap_used_bytes gauge`,
     `presence_memory_heap_used_bytes ${memUsage.heapUsed}`,
@@ -120,9 +136,20 @@ router.get("/metrics", async (req: Request, res: Response) => {
     `# HELP presence_database_up Database connectivity (1 = up, 0 = down)`,
     `# TYPE presence_database_up gauge`,
     `presence_database_up ${dbUp}`,
+    ``,
+    `# HELP presence_redis_up Redis connectivity (1 = up, 0 = down)`,
+    `# TYPE presence_redis_up gauge`,
+    `presence_redis_up ${redisUp}`,
+    ``,
   ].join("\n");
 
-  res.setHeader("Content-Type", "text/plain");
+  // System health gauges collected asynchronously (CPU/memory/status) + in-process request metrics.
+  const monitoringMetrics = await monitoringService.getPrometheusMetrics();
+  const httpMetrics = promMetrics.render();
+
+  const metrics = [baseMetrics, monitoringMetrics, "", httpMetrics].join("\n");
+
+  res.setHeader("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
   res.send(metrics);
 });
 
