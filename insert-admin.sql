@@ -1,9 +1,16 @@
-INSERT INTO users (email, password, name, first_name, last_name, role, is_active) VALUES
-('admin@clsu.edu.ph', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uB0Y/CjVzQy', 'System Administrator', 'System', 'Administrator', 'admin', true)
-ON CONFLICT (email) DO UPDATE SET
-  password = EXCLUDED.password,
-  name = EXCLUDED.name,
-  first_name = EXCLUDED.first_name,
-  last_name = EXCLUDED.last_name,
-  role = EXCLUDED.role,
-  is_active = EXCLUDED.is_active;
+-- Intentionally blanked: do not commit real admin accounts/credentials to source control.
+--
+-- If you need a one-off admin bootstrap, prefer:
+--   - application onboarding flow, or
+--   - [`server/create-admin.js`](server/create-admin.js:1) with env vars.
+--
+-- Template (fill in your own values):
+-- INSERT INTO users (email, password, name, first_name, last_name, role, is_active)
+-- VALUES ('you@example.com', '<bcrypt-hash>', 'System Administrator', 'System', 'Administrator', 'admin', true)
+-- ON CONFLICT (email) DO UPDATE SET
+--   password = EXCLUDED.password,
+--   name = EXCLUDED.name,
+--   first_name = EXCLUDED.first_name,
+--   last_name = EXCLUDED.last_name,
+--   role = EXCLUDED.role,
+--   is_active = EXCLUDED.is_active;

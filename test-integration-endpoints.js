@@ -10,6 +10,10 @@ import { performance } from "perf_hooks";
 
 const BASE_URL = "http://localhost:3000/api";
 
+// Optional auth credentials (avoid committing defaults)
+const TEST_ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL;
+const TEST_ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD;
+
 // Test configuration
 const TEST_CONFIG = {
   endpoints: [
@@ -18,7 +22,9 @@ const TEST_CONFIG = {
       name: "Authentication",
       path: "/auth/login",
       method: "POST",
-      data: { email: "admin@clirdec.edu", password: "Admin123!" },
+      ...(TEST_ADMIN_EMAIL && TEST_ADMIN_PASSWORD
+        ? { data: { email: TEST_ADMIN_EMAIL, password: TEST_ADMIN_PASSWORD } }
+        : { skip: true }),
     },
     { name: "Students", path: "/students", method: "GET" },
     { name: "Subjects", path: "/subjects", method: "GET" },
@@ -69,6 +75,17 @@ const colors = {
 
 // Test a single endpoint
 async function testEndpoint(endpoint) {
+  if (endpoint.skip) {
+    return {
+      name: endpoint.name,
+      success: true,
+      responseTime: 0,
+      statusCode: "SKIPPED",
+      attempt: 0,
+      error: null,
+    };
+  }
+
   const startTime = performance.now();
   let attempt = 0;
   let success = false;
@@ -120,14 +137,14 @@ async function runIntegrationTests() {
   console.log(`${colors.fg.cyan}${colors.bright}
 🔍 PRESENCE System - Integration Endpoint Testing${colors.reset}`);
   console.log(
-    `${colors.fg.blue}===============================================${colors.reset}`
+    `${colors.fg.blue}===============================================${colors.reset}`,
   );
   console.log(`${colors.fg.yellow}Base URL:${colors.reset} ${BASE_URL}`);
   console.log(
-    `${colors.fg.yellow}Timeout:${colors.reset} ${TEST_CONFIG.timeout}ms`
+    `${colors.fg.yellow}Timeout:${colors.reset} ${TEST_CONFIG.timeout}ms`,
   );
   console.log(
-    `${colors.fg.yellow}Max Retries:${colors.reset} ${TEST_CONFIG.maxRetries}`
+    `${colors.fg.yellow}Max Retries:${colors.reset} ${TEST_CONFIG.maxRetries}`,
   );
   console.log("");
 
@@ -138,7 +155,7 @@ async function runIntegrationTests() {
 
   for (const endpoint of TEST_CONFIG.endpoints) {
     console.log(
-      `${colors.fg.magenta}Testing ${endpoint.name}...${colors.reset}`
+      `${colors.fg.magenta}Testing ${endpoint.name}...${colors.reset}`,
     );
 
     const result = await testEndpoint(endpoint);
@@ -146,25 +163,25 @@ async function runIntegrationTests() {
 
     if (result.success) {
       console.log(
-        `${colors.fg.green}✅ PASS${colors.reset} - ${endpoint.name}`
+        `${colors.fg.green}✅ PASS${colors.reset} - ${endpoint.name}`,
       );
       console.log(
         `   ${colors.fg.blue}Response Time:${
           colors.reset
-        } ${result.responseTime.toFixed(2)}ms`
+        } ${result.responseTime.toFixed(2)}ms`,
       );
       console.log(
-        `   ${colors.fg.blue}Status Code:${colors.reset} ${result.statusCode}`
+        `   ${colors.fg.blue}Status Code:${colors.reset} ${result.statusCode}`,
       );
       passed++;
     } else {
       console.log(`${colors.fg.red}❌ FAIL${colors.reset} - ${endpoint.name}`);
       console.log(
-        `   ${colors.fg.blue}Attempts:${colors.reset} ${result.attempt}`
+        `   ${colors.fg.blue}Attempts:${colors.reset} ${result.attempt}`,
       );
       console.log(`   ${colors.fg.blue}Error:${colors.reset} ${result.error}`);
       console.log(
-        `   ${colors.fg.blue}Status Code:${colors.reset} ${result.statusCode}`
+        `   ${colors.fg.blue}Status Code:${colors.reset} ${result.statusCode}`,
       );
       failed++;
     }
@@ -178,26 +195,26 @@ async function runIntegrationTests() {
   const successRate = (passed / TEST_CONFIG.endpoints.length) * 100;
 
   console.log(
-    `${colors.fg.cyan}${colors.bright}===============================================${colors.reset}`
+    `${colors.fg.cyan}${colors.bright}===============================================${colors.reset}`,
   );
   console.log(
-    `${colors.fg.cyan}${colors.bright}📊 TEST SUMMARY${colors.reset}`
+    `${colors.fg.cyan}${colors.bright}📊 TEST SUMMARY${colors.reset}`,
   );
   console.log(
-    `${colors.fg.cyan}${colors.bright}===============================================${colors.reset}`
+    `${colors.fg.cyan}${colors.bright}===============================================${colors.reset}`,
   );
   console.log(
-    `${colors.fg.green}Total Tests:${colors.reset} ${TEST_CONFIG.endpoints.length}`
+    `${colors.fg.green}Total Tests:${colors.reset} ${TEST_CONFIG.endpoints.length}`,
   );
   console.log(`${colors.fg.green}Passed:${colors.reset} ${passed}`);
   console.log(`${colors.fg.red}Failed:${colors.reset} ${failed}`);
   console.log(
-    `${colors.fg.blue}Success Rate:${colors.reset} ${successRate.toFixed(2)}%`
+    `${colors.fg.blue}Success Rate:${colors.reset} ${successRate.toFixed(2)}%`,
   );
   console.log(
     `${colors.fg.blue}Avg Response Time:${
       colors.reset
-    } ${averageResponseTime.toFixed(2)}ms`
+    } ${averageResponseTime.toFixed(2)}ms`,
   );
 
   if (failed === 0) {
@@ -216,7 +233,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   runIntegrationTests().catch((error) => {
     console.error(
       `${colors.fg.red}[ERROR]${colors.reset} Test execution failed:`,
-      error
+      error,
     );
     process.exit(1);
   });

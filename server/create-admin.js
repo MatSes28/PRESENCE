@@ -1,16 +1,35 @@
-// Create new admin account in Railway PostgreSQL
+// Create/update an admin account in the configured database.
+//
+// Production readiness:
+// - No embedded credentials.
+// - Requires explicit env vars.
+//
+// Usage:
+//   DATABASE_URL=postgresql://... ADMIN_EMAIL=... ADMIN_PASSWORD=... node server/create-admin.js
 import postgres from "postgres";
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("Missing DATABASE_URL");
+  process.exit(1);
+}
 
-// Pre-hashed password for "Admin123" with bcrypt 12 rounds
-const hashedPassword =
-  "$2a$12$QIcfNITxQZGQJWZxO.yJluvEHY7kF.LP1pEFrWKWKWK8rK8rK8rK";
+const adminEmail = process.env.ADMIN_EMAIL;
+const adminPassword = process.env.ADMIN_PASSWORD;
+const adminName = process.env.ADMIN_NAME || "System Administrator";
+
+if (!adminEmail || !adminEmail.trim()) {
+  console.error("Missing ADMIN_EMAIL");
+  process.exit(1);
+}
+
+if (!adminPassword || adminPassword.length < 12) {
+  console.error("Missing/weak ADMIN_PASSWORD (min 12 chars)");
+  process.exit(1);
+}
 
 async function createAdmin() {
-  console.log("🔌 Connecting to Railway PostgreSQL...");
+  console.log("Connecting to PostgreSQL...");
 
   const sql = postgres(connectionString, {
     prepare: false,
@@ -20,29 +39,28 @@ async function createAdmin() {
   });
 
   try {
-    // First, let's get the hash for Admin123
+    // Hash password (do not log it)
     const bcrypt = await import("bcryptjs");
-    const newHashedPassword = await bcrypt.default.hash("Admin123", 12);
-    console.log("Hash:", newHashedPassword);
+    const newHashedPassword = await bcrypt.default.hash(adminPassword, 12);
 
     // Check if user already exists
     const existing = await sql`
-      SELECT id, email FROM users WHERE email = 'mattferia777@gmail.com'
+      SELECT id, email FROM users WHERE email = ${adminEmail}
     `;
 
     if (existing.length > 0) {
       console.log("User already exists, updating...");
       await sql`
         UPDATE users 
-        SET password = ${newHashedPassword}, name = 'Matt Feria', role = 'admin'
-        WHERE email = 'mattferia777@gmail.com'
+        SET password = ${newHashedPassword}, name = ${adminName}, role = 'admin'
+        WHERE email = ${adminEmail}
       `;
       console.log("✅ Admin account updated!");
     } else {
       // Create new admin user
       const result = await sql`
         INSERT INTO users (email, password, name, role, is_active, created_at)
-        VALUES ('mattferia777@gmail.com', ${newHashedPassword}, 'Matt Feria', 'admin', true, NOW())
+        VALUES (${adminEmail}, ${newHashedPassword}, ${adminName}, 'admin', true, NOW())
         RETURNING id, email, name, role
       `;
       console.log("✅ New admin account created!");
