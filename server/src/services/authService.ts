@@ -4,7 +4,7 @@ import speakeasy from "speakeasy";
 import qrcode from "qrcode";
 import crypto from "crypto";
 import db from "../storage.js";
-import { users, userSessions } from "../schema";
+import { users, userSessions } from "../schema.js";
 import { eq, and, lt, sql, desc } from "drizzle-orm";
 import { requireEnv } from "../config/env.js";
 

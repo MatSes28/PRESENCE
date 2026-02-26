@@ -5,13 +5,13 @@
 
 import { EventEmitter } from "events";
 import * as mqtt from "mqtt";
-import db from "../storage";
+import db from "../storage.js";
 import {
   iotDevices as devices,
   classSessions as attendanceSessions,
   attendanceRecords as deviceAttendanceLogs,
   type AttendanceRecord as DatabaseAttendanceRecord,
-} from "../schema";
+} from "../schema.js";
 import { eq, and, gte, lte } from "drizzle-orm";
 
 export interface IoTDeviceConfig {
@@ -173,7 +173,7 @@ class MQTTIoTService extends EventEmitter {
       });
 
       console.log(
-        `[IoT] Loaded ${this.deviceConfigs.size} device configurations`
+        `[IoT] Loaded ${this.deviceConfigs.size} device configurations`,
       );
     } catch (error) {
       console.error("[IoT] Failed to load device configurations:", error);
@@ -223,7 +223,7 @@ class MQTTIoTService extends EventEmitter {
    */
   private async handleAttendanceRecord(
     deviceId: string,
-    payload: IoTAttendanceRecord
+    payload: IoTAttendanceRecord,
   ): Promise<void> {
     try {
       // Find student by studentId
@@ -270,7 +270,7 @@ class MQTTIoTService extends EventEmitter {
       });
 
       console.log(
-        `[IoT] Attendance recorded: ${payload.studentId} at ${deviceId}`
+        `[IoT] Attendance recorded: ${payload.studentId} at ${deviceId}`,
       );
     } catch (error) {
       console.error("[IoT] Error recording attendance:", error);
@@ -282,7 +282,7 @@ class MQTTIoTService extends EventEmitter {
    */
   private async handleHeartbeat(
     deviceId: string,
-    payload: DeviceHeartbeat
+    payload: DeviceHeartbeat,
   ): Promise<void> {
     try {
       // Update device status in database
@@ -308,7 +308,7 @@ class MQTTIoTService extends EventEmitter {
    */
   private async handleConfigUpdate(
     deviceId: string,
-    payload: any
+    payload: any,
   ): Promise<void> {
     try {
       await db
@@ -331,7 +331,7 @@ class MQTTIoTService extends EventEmitter {
    */
   private async handleSensorData(
     deviceId: string,
-    payload: any
+    payload: any,
   ): Promise<void> {
     this.emit("sensorData", { deviceId, data: payload });
     // Optionally store raw data for analytics
@@ -342,7 +342,7 @@ class MQTTIoTService extends EventEmitter {
    */
   private async handleDeviceAlert(
     deviceId: string,
-    payload: any
+    payload: any,
   ): Promise<void> {
     this.emit("deviceAlert", { deviceId, alert: payload });
     console.warn(`[IoT] Alert from ${deviceId}:`, payload.alertMessage);
@@ -401,8 +401,8 @@ class MQTTIoTService extends EventEmitter {
           .where(
             and(
               eq(devices.status, "active"),
-              lte(devices.lastSeen, timeoutThreshold)
-            )
+              lte(devices.lastSeen, timeoutThreshold),
+            ),
           );
 
         // Find devices that haven't sent heartbeat recently
@@ -410,7 +410,7 @@ class MQTTIoTService extends EventEmitter {
           where: (devices, { and, eq, lte }) =>
             and(
               eq(devices.status, "active"),
-              lte(devices.lastSeen, timeoutThreshold)
+              lte(devices.lastSeen, timeoutThreshold),
             ),
         });
 
