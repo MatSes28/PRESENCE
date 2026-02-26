@@ -19,11 +19,20 @@ import {
 } from "../src/schema.js";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { isProductionLike } from "../src/config/env.js";
 
 const BCRYPT_ROUNDS = 12;
 
 async function seedTestData() {
   console.log("🌱 Seeding test data for local development...\n");
+
+  // Production readiness: never allow this script to run in production-like environments.
+  if (isProductionLike()) {
+    console.error(
+      "Refusing to seed TEST data in production-like environment (NODE_ENV=production or Railway).",
+    );
+    process.exit(1);
+  }
 
   try {
     // Check if data already exists
@@ -184,7 +193,7 @@ async function seedTestData() {
     for (const schedule of scheduleData) {
       await db.insert(schedules).values(schedule);
       console.log(
-        `✅ Created schedule for subject ${schedule.subjectId} in classroom ${schedule.classroomId}`
+        `✅ Created schedule for subject ${schedule.subjectId} in classroom ${schedule.classroomId}`,
       );
     }
 
@@ -298,12 +307,12 @@ async function seedTestData() {
           studentId: student.id,
           classSessionId: session.id,
           entryTime: new Date(
-            sessionDate.getTime() + Math.floor(Math.random() * 3600000)
+            sessionDate.getTime() + Math.floor(Math.random() * 3600000),
           ), // Random time within 1 hour
           exitTime: new Date(
             sessionDate.getTime() +
               3600000 +
-              Math.floor(Math.random() * 3600000)
+              Math.floor(Math.random() * 3600000),
           ), // Random time within next hour
           status: "present",
           rfidDetected: true,
@@ -313,7 +322,7 @@ async function seedTestData() {
           isActive: true,
         });
         console.log(
-          `✅ Created attendance record for student ${student.studentId}`
+          `✅ Created attendance record for student ${student.studentId}`,
         );
       }
     }
@@ -329,7 +338,7 @@ async function seedTestData() {
     console.log(`   - Enrollments: ${allStudents.length * allSubjects.length}`);
     console.log(`   - Class Sessions: ${allSchedules.length}`);
     console.log(
-      `   - Attendance Records: ${createdStudents.length * allSchedules.length}`
+      `   - Attendance Records: ${createdStudents.length * allSchedules.length}`,
     );
   } catch (error) {
     console.error("❌ Error seeding test data:", error);

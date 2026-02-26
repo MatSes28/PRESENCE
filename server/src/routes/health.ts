@@ -91,6 +91,15 @@ router.get("/metrics", async (req: Request, res: Response) => {
   const memUsage = process.memoryUsage();
   const uptime = process.uptime();
 
+  // Avoid emitting fake metrics. Provide a simple DB up/down gauge.
+  let dbUp = 0;
+  try {
+    await safeExecute("SELECT 1");
+    dbUp = 1;
+  } catch {
+    dbUp = 0;
+  }
+
   const metrics = [
     `# HELP presence_uptime_seconds Application uptime in seconds`,
     `# TYPE presence_uptime_seconds counter`,
@@ -108,9 +117,9 @@ router.get("/metrics", async (req: Request, res: Response) => {
     `# TYPE presence_memory_rss_bytes gauge`,
     `presence_memory_rss_bytes ${memUsage.rss}`,
     ``,
-    `# HELP presence_database_connections_active Active database connections`,
-    `# TYPE presence_database_connections_active gauge`,
-    `presence_database_connections_active 1`,
+    `# HELP presence_database_up Database connectivity (1 = up, 0 = down)`,
+    `# TYPE presence_database_up gauge`,
+    `presence_database_up ${dbUp}`,
   ].join("\n");
 
   res.setHeader("Content-Type", "text/plain");

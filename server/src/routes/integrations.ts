@@ -35,7 +35,7 @@ router.post(
       const { integrationId, sessionId } = req.params;
       const result = await integrationService.syncAttendanceToLMS(
         integrationId,
-        parseInt(sessionId)
+        parseInt(sessionId),
       );
 
       res.json({
@@ -52,7 +52,7 @@ router.post(
         message: "Attendance synchronization failed",
       });
     }
-  }
+  },
 );
 
 // Google Classroom integration
@@ -62,9 +62,8 @@ router.post(
   async (req, res) => {
     try {
       const { classroomId } = req.params;
-      const result = await integrationService.syncWithGoogleClassroom(
-        classroomId
-      );
+      const result =
+        await integrationService.syncWithGoogleClassroom(classroomId);
 
       res.json({
         success: result.success,
@@ -80,7 +79,7 @@ router.post(
         message: "Google Classroom synchronization failed",
       });
     }
-  }
+  },
 );
 
 // Microsoft Teams integration
@@ -145,7 +144,7 @@ router.get("/export/:format/:dataType", requireAdmin, async (req, res) => {
 
     const data = await integrationService.exportData(
       format as "csv" | "json" | "xml",
-      dataType as "students" | "attendance" | "sessions"
+      dataType as "students" | "attendance" | "sessions",
     );
 
     // Set appropriate headers
@@ -158,7 +157,7 @@ router.get("/export/:format/:dataType", requireAdmin, async (req, res) => {
     res.setHeader("Content-Type", mimeTypes[format as keyof typeof mimeTypes]);
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${dataType}_export.${format}"`
+      `attachment; filename="${dataType}_export.${format}"`,
     );
 
     res.send(data);
@@ -174,27 +173,29 @@ router.get("/export/:format/:dataType", requireAdmin, async (req, res) => {
 // Get integration status
 router.get("/status", requireAdmin, async (req, res) => {
   try {
-    // Return status of all integrations
+    // Return status of all integrations.
+    // Production readiness: do not report synthetic/assumed status.
+    // If an integration isn't configured, mark it inactive and leave lastSync as null.
     const integrations = {
       moodle: {
         configured: !!process.env.MOODLE_API_CONFIG,
-        active: true, // Would check actual status
-        lastSync: new Date().toISOString(),
+        active: !!process.env.MOODLE_API_CONFIG,
+        lastSync: null,
       },
       canvas: {
         configured: !!process.env.CANVAS_API_CONFIG,
-        active: true,
-        lastSync: new Date().toISOString(),
+        active: !!process.env.CANVAS_API_CONFIG,
+        lastSync: null,
       },
       google_classroom: {
         configured: !!process.env.GOOGLE_CLASSROOM_API_KEY,
-        active: true,
-        lastSync: new Date().toISOString(),
+        active: !!process.env.GOOGLE_CLASSROOM_API_KEY,
+        lastSync: null,
       },
       microsoft_teams: {
         configured: !!process.env.MICROSOFT_TEAMS_API_KEY,
-        active: true,
-        lastSync: new Date().toISOString(),
+        active: !!process.env.MICROSOFT_TEAMS_API_KEY,
+        lastSync: null,
       },
     };
 
@@ -229,9 +230,8 @@ router.post("/sync/bulk", requireAdmin, async (req, res) => {
 
           switch (dataType) {
             case "students":
-              result = await integrationService.syncStudentsFromLMS(
-                integration
-              );
+              result =
+                await integrationService.syncStudentsFromLMS(integration);
               break;
             case "attendance":
               // Would need session IDs for attendance sync

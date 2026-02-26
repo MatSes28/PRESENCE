@@ -263,50 +263,8 @@ CREATE TRIGGER trigger_iot_devices_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_iot_devices_updated_at();
 
--- ===========================================
--- SAMPLE DATA (Optional - for testing)
--- ===========================================
-
--- Insert sample admin user (password should be hashed in production)
--- Password: admin123 (hashed)
-INSERT INTO users (email, password, name, role) VALUES
-('admin@clsu.edu.ph', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uB0Y/CjVzQy', 'System Administrator', 'admin');
-
--- Insert sample faculty
-INSERT INTO users (email, password, name, role) VALUES
-('faculty@clsu.edu.ph', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uB0Y/CjVzQy', 'Dr. Maria Santos', 'faculty');
-
--- Insert sample classrooms
-INSERT INTO classrooms (name, location, capacity) VALUES
-('Computer Lab 1', 'Building A, Room 101', 30),
-('Computer Lab 2', 'Building A, Room 102', 25),
-('Programming Lab', 'Building B, Room 201', 20);
-
--- Insert sample subjects
-INSERT INTO subjects (code, name, description) VALUES
-('CS101', 'Introduction to Computer Science', 'Basic programming concepts'),
-('CS201', 'Data Structures and Algorithms', 'Advanced programming concepts'),
-('IT301', 'Database Systems', 'Relational database design and SQL');
-
--- Insert sample students
-INSERT INTO students (student_id, name, email, rfid_uid, parent_email) VALUES
-('2021001', 'Juan Dela Cruz', 'juan.delacruz@clsu.edu.ph', 'ABC123456789', 'parent1@email.com'),
-('2021002', 'Maria Garcia', 'maria.garcia@clsu.edu.ph', 'DEF987654321', 'parent2@email.com'),
-('2021003', 'Pedro Reyes', 'pedro.reyes@clsu.edu.ph', 'GHI456789123', 'parent3@email.com');
-
--- Insert sample computers
-INSERT INTO computers (classroom_id, name, ip_address, mac_address) VALUES
-(1, 'PC-001', '192.168.1.101', '00:11:22:33:44:55'),
-(1, 'PC-002', '192.168.1.102', '00:11:22:33:44:56'),
-(1, 'PC-003', '192.168.1.103', '00:11:22:33:44:57'),
-(2, 'PC-201', '192.168.1.201', '00:11:22:33:44:58'),
-(2, 'PC-202', '192.168.1.202', '00:11:22:33:44:59');
-
--- Insert sample IoT devices
-INSERT INTO iot_devices (device_id, classroom_id, device_type, status) VALUES
-('ESP32_S3_001', 1, 'esp32_s3', 'offline'),
-('ESP32_S3_002', 2, 'esp32_s3', 'offline'),
-('ESP32_S3_003', 3, 'esp32_s3', 'offline');
+-- NOTE: Sample/mock data intentionally removed.
+-- Use application flows or dedicated, non-production seed scripts for initial setup.
 
 -- ===========================================
 -- USEFUL QUERIES
