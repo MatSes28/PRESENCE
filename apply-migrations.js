@@ -53,7 +53,7 @@ try {
           // Ignore "table already exists" errors
           if (!error.message.includes("already exists")) {
             console.warn(
-              `⚠️  Warning in statement: ${statement.substring(0, 50)}...`
+              `⚠️  Warning in statement: ${statement.substring(0, 50)}...`,
             );
             console.warn(`   Error: ${error.message}`);
           }

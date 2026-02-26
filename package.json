@@ -16,11 +16,18 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.0",
+    "minimatch": "^9.0.8",
     "pg": "^8.18.0"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "drizzle-orm": "^0.44.6",
     "postgres": "^3.4.7"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "9.0.8"
+    },
+    "esbuild": "0.25.12"
   }
 }

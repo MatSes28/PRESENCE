@@ -55,7 +55,38 @@ jest.mock("../../../src/services/alertingService.js", () => ({
 
 describe("ErrorTrackingService", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    // Use `resetAllMocks()` for isolation, but restore default mock implementations
+    // for our chainable drizzle API stubs afterwards.
+    jest.resetAllMocks();
+
+    const mockDb = require("../../../src/storage.js").db;
+
+    mockDb.insert.mockImplementation(() => ({
+      values: jest.fn(() => ({
+        returning: jest.fn(() => [{ id: 1 }]),
+      })),
+    }));
+
+    mockDb.update.mockImplementation(() => ({
+      set: jest.fn(() => ({
+        where: jest.fn(() => ({
+          returning: jest.fn(() => []),
+        })),
+      })),
+    }));
+
+    mockDb.select.mockImplementation(() => ({
+      from: jest.fn(() => ({
+        where: jest.fn(() => ({
+          orderBy: jest.fn(() => ({
+            limit: jest.fn(() => []),
+          })),
+        })),
+      })),
+    }));
+
+    // Reset in-memory circuit breaker state between tests.
+    (errorTrackingService as any).circuitBreakers?.clear?.();
   });
 
   describe("Error Logging", () => {

@@ -217,6 +217,19 @@ try {
       FOREIGN KEY (studentId) REFERENCES students(id),
       FOREIGN KEY (classSessionId) REFERENCES class_sessions(id)
     )`,
+
+    // Password reset tokens (hashed + expiry + single-use)
+    `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMP NOT NULL,
+      used_at TIMESTAMP,
+      requested_ip TEXT,
+      requested_user_agent TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
   ];
 
   // Apply each table creation
@@ -235,7 +248,7 @@ try {
   // Verify tables were created
   const tablesResult = db
     .prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
     )
     .all();
   console.log("📊 Created tables:", tablesResult.map((t) => t.name).join(", "));

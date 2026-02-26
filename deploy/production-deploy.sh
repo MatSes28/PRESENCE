@@ -75,18 +75,17 @@ fi
 log_success "Repository ready"
 
 # Install Node.js dependencies
+# NOTE: building requires devDependencies (TypeScript/Vite). Install full deps for build.
 log_info "Installing Node.js dependencies..."
-cd "$DEPLOYMENT_DIR/server"
-npm ci --only=production
-cd "$DEPLOYMENT_DIR/client"
-npm ci --only=production
+cd "$DEPLOYMENT_DIR"
+npm ci
 log_success "Node.js dependencies installed"
 
-# Build client
-log_info "Building client..."
-cd "$DEPLOYMENT_DIR/client"
+# Build client + server
+log_info "Building client + server..."
+cd "$DEPLOYMENT_DIR"
 npm run build
-log_success "Client built"
+log_success "Build completed"
 
 # Configure environment
 log_info "Configuring environment..."

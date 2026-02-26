@@ -6,6 +6,7 @@ import crypto from "crypto";
 import db from "../storage.js";
 import { users, userSessions } from "../schema";
 import { eq, and, lt, sql, desc } from "drizzle-orm";
+import { requireEnv } from "../config/env.js";
 
 interface TwoFactorSetup {
   secret: string;
@@ -41,11 +42,8 @@ class AuthService {
   private lockoutDuration = 15 * 60 * 1000; // 15 minutes
 
   constructor() {
-    this.jwtSecret =
-      process.env.JWT_SECRET || "fallback-jwt-secret-change-in-production";
-    this.jwtRefreshSecret =
-      process.env.JWT_REFRESH_SECRET ||
-      "fallback-refresh-secret-change-in-production";
+    this.jwtSecret = requireEnv("JWT_SECRET", { minLength: 32 });
+    this.jwtRefreshSecret = requireEnv("JWT_REFRESH_SECRET", { minLength: 32 });
   }
 
   // Password hashing
@@ -67,7 +65,7 @@ class AuthService {
         iat: Math.floor(Date.now() / 1000),
       },
       this.jwtSecret,
-      { expiresIn: "1h" }
+      { expiresIn: "1h" },
     );
   }
 
@@ -79,7 +77,7 @@ class AuthService {
         iat: Math.floor(Date.now() / 1000),
       },
       this.jwtRefreshSecret,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
   }
 
@@ -158,7 +156,7 @@ class AuthService {
     userId: number,
     ipAddress: string,
     userAgent: string,
-    deviceFingerprint?: string
+    deviceFingerprint?: string,
   ): Promise<string> {
     const sessionId = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 hours
@@ -167,8 +165,8 @@ class AuthService {
     await db.execute(sql`
       INSERT INTO user_sessions (session_id, user_id, ip_address, user_agent, device_fingerprint, expires_at, is_active)
       VALUES (${sessionId}, ${userId}, ${ipAddress}, ${userAgent}, ${
-      deviceFingerprint || null
-    }, ${expiresAt}, true)
+        deviceFingerprint || null
+      }, ${expiresAt}, true)
     `);
 
     return sessionId;
@@ -185,9 +183,9 @@ class AuthService {
             eq(userSessions.isActive, true),
             lt(
               userSessions.createdAt,
-              new Date(Date.now() + 8 * 60 * 60 * 1000)
-            ) // Not expired
-          )
+              new Date(Date.now() + 8 * 60 * 60 * 1000),
+            ), // Not expired
+          ),
         )
         .limit(1);
 
@@ -234,7 +232,7 @@ class AuthService {
           isActive: false,
         })
         .where(
-          and(eq(userSessions.userId, userId), eq(userSessions.isActive, true))
+          and(eq(userSessions.userId, userId), eq(userSessions.isActive, true)),
         );
     } catch (error) {
       console.error("Error invalidating all user sessions:", error);
@@ -253,9 +251,9 @@ class AuthService {
             eq(userSessions.isActive, true),
             lt(
               userSessions.createdAt,
-              new Date(Date.now() + 8 * 60 * 60 * 1000)
-            ) // Not expired
-          )
+              new Date(Date.now() + 8 * 60 * 60 * 1000),
+            ), // Not expired
+          ),
         )
         .orderBy(desc(userSessions.createdAt));
 
@@ -284,7 +282,7 @@ class AuthService {
     console.log(
       `Login attempt recorded for user ${attempt.userId}: ${
         attempt.successful ? "success" : "failed"
-      }`
+      }`,
     );
   }
 
@@ -354,7 +352,7 @@ class AuthService {
     userId: number | null,
     details: any,
     ipAddress: string,
-    userAgent: string
+    userAgent: string,
   ): Promise<void> {
     // In a real implementation, this would be stored in a security_events table
     const event = {
@@ -374,7 +372,7 @@ class AuthService {
   async detectSuspiciousActivity(
     userId: number,
     ipAddress: string,
-    userAgent: string
+    userAgent: string,
   ): Promise<boolean> {
     // Check for unusual login patterns
     // - Different IP than usual

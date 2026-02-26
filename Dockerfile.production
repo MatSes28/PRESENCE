@@ -1,94 +1,72 @@
 # =============================================================================
-# PRESENCE System - Multi-stage Production Dockerfile
+# PRESENCE System - Multi-stage Production Dockerfile (Monorepo-aware)
 # =============================================================================
 
-# Stage 1: Build client
-FROM node:20-alpine AS client-build
+# Stage 1: Build (client + server + shared)
+FROM node:20-alpine AS builder
 
-WORKDIR /app/client
-
-# Copy package files
-COPY client/package*.json ./
-COPY client/vite.config.ts ./
-COPY client/tsconfig*.json ./
-
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy source code
-COPY client/src ./src
-COPY client/public ./public
-
-# Build for production
-RUN npm run build
-
-# Stage 2: Build server
-FROM node:20-alpine AS server-build
-
-WORKDIR /app/server
-
-# Copy package files
-COPY server/package*.json ./
-COPY server/tsconfig*.json ./
-COPY server/drizzle.config.ts ./
-
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy source code
-COPY server/src ./src
-COPY server/drizzle ./drizzle
-
-# Build TypeScript
-RUN npm run build
-
-# Stage 3: Production image
-FROM node:20-alpine AS production
-
-# Set NODE_ENV
-ENV NODE_ENV=production
+RUN apk add --no-cache python3 make g++ postgresql-client
 
 WORKDIR /app
 
+# Copy package manifests first for better caching
+COPY package*.json ./
+COPY server/package*.json ./server/
+COPY shared/package*.json ./shared/
+COPY client/package*.json ./client/
+
+# Install all deps (build needs devDependencies like typescript/vite)
+RUN npm ci
+
+# Copy sources
+COPY server/ ./server/
+COPY shared/ ./shared/
+COPY client/ ./client/
+
+# Build shared package first
+WORKDIR /app/shared
+RUN npm run build
+
+# Build client
+WORKDIR /app/client
+RUN npm run build
+
+# Copy client build to server public directory
+RUN mkdir -p /app/server/public \
+  && cp -r dist/* /app/server/public/
+
+# Build server
+WORKDIR /app/server
+RUN npm run build
+
+# Stage 2: Runtime
+FROM node:20-alpine AS runtime
+
+RUN apk add --no-cache curl postgresql-client redis
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S presence -u 1001 -G nodejs
+    adduser -S nodejs -u 1001
 
-# Install necessary packages
-RUN apk add --no-cache dumb-init curl openssl postgresql-client redis
+WORKDIR /app
 
-# Create directories
-RUN mkdir -p /app/uploads /app/logs /app/certs && \
-    chown -R presence:nodejs /app
+# Install only production deps for the server runtime
+COPY server/package*.json ./
+RUN npm install --omit=dev && npm cache clean --force
 
-# Copy client build from stage 1
-COPY --from=client-build /app/client/dist /app/client/dist
-COPY --from=client-build /app/client/public /app/client/public
+# Copy runtime artifacts
+COPY --from=builder /app/server/dist ./dist
+COPY --from=builder /app/server/public ./public
+COPY --from=builder /app/shared/dist ./shared/dist
 
-# Copy server from stage 2
-COPY --from=server-build /app/server/dist /app/server/dist
-COPY --from=server-build /app/server/package*.json /app/server/
-COPY --from=server-build /app/server/drizzle.config.ts /app/server/
+ENV NODE_ENV=production
+ENV PORT=3000
 
-# Copy configuration files
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-COPY .env.production /app/.env
+USER nodejs
 
-# Change ownership
-RUN chown -R presence:nodejs /app
+EXPOSE 3000
 
-# Switch to non-root user
-USER presence
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
 
-# Expose ports
-EXPOSE 3000 5023
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
-
-# Entrypoint
-ENTRYPOINT ["/docker-entrypoint.sh"]
-
-# Default command
-CMD ["node", "server/dist/index.js"]
+CMD ["node", "dist/server/src/index.js"]

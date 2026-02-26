@@ -13,6 +13,11 @@ declare global {
 // Set test environment
 process.env.NODE_ENV = "test";
 process.env.LOG_LEVEL = "error"; // Reduce log noise during tests
+process.env.SESSION_SECRET = "test-session-secret-" + "x".repeat(48);
+process.env.JWT_SECRET = "test-jwt-secret-" + "x".repeat(52);
+process.env.JWT_REFRESH_SECRET = "test-jwt-refresh-secret-" + "x".repeat(44);
+process.env.DATABASE_URL =
+  process.env.DATABASE_URL || "postgres://test:test@localhost:5432/test";
 
 // Mock external services
 jest.mock("../src/services/websocket", () => ({
@@ -41,7 +46,7 @@ jest.mock("../src/services/monitoringService", () => ({
     startTrace: jest.fn(() => "test-trace-id"),
     endTrace: jest.fn(),
     createRequestMiddleware: jest.fn(
-      () => (req: any, res: any, next: any) => next()
+      () => (req: any, res: any, next: any) => next(),
     ),
     getHealthStatus: jest.fn(() => ({
       status: "healthy",

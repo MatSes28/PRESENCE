@@ -111,17 +111,63 @@ class IoTDeviceManagerService extends EventEmitter {
    * Register a new IoT device
    */
   async registerDevice(request: DeviceRegistrationRequest): Promise<IoTDevice> {
-    // Generate secure credentials
+    const defaultConfig = this.getDefaultConfig(request.deviceType);
+
+    // If device already exists, update its metadata but DO NOT rotate API keys implicitly.
+    const existing = await db
+      .select()
+      .from(iotDevices)
+      .where(eq(iotDevices.deviceId, request.deviceId))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const device = existing[0];
+
+      const updateResult = await db
+        .update(iotDevices)
+        .set({
+          classroomId: request.classroomId,
+          deviceType: request.deviceType,
+          name: request.name ?? device.name ?? request.deviceId,
+          location: device.location ?? "CLIRDEC Building",
+          macAddress: request.mac_address ?? device.macAddress,
+          firmwareVersion: request.firmware_version ?? device.firmwareVersion,
+          config: request.config ?? (device.config as any) ?? defaultConfig,
+          lastSeen: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(iotDevices.deviceId, request.deviceId))
+        .returning();
+
+      const updated = updateResult[0] ?? device;
+      this.emit("device:registered", updated);
+
+      return {
+        id: String(updated.id),
+        deviceId: updated.deviceId,
+        classroomId: updated.classroomId,
+        name: updated.name ?? request.deviceId,
+        type: updated.deviceType as DeviceType,
+        location: updated.location ?? "CLIRDEC Building",
+        api_key: updated.apiKey,
+        // Secret is only shown on first registration.
+        secret_key: "",
+        status: updated.status as DeviceStatus,
+        firmware_version: updated.firmwareVersion ?? "",
+        last_heartbeat: updated.lastSeen ?? new Date(),
+        last_seen: updated.lastSeen,
+        config: (updated.config as DeviceConfig) ?? defaultConfig,
+        created_at: updated.createdAt,
+        updated_at: updated.updatedAt,
+      };
+    }
+
+    // New device: generate secure credentials
     const apiKey = `pk_${randomBytes(16).toString("hex")}`;
     const secretKey = randomBytes(32).toString("hex");
-    const hashedSecret = createHmac("sha256", apiKey)
-      .update(secretKey)
-      .digest("hex");
-
-    // NOTE: Current DB schema stores `apiKey` but has no column for `hashedSecret`.
+    // NOTE: Current DB schema stores `apiKey` but has no column for an API secret hash.
     // If you want mutual auth (apiKey + secret), add a column (e.g. `apiSecretHash`).
-
-    const defaultConfig = this.getDefaultConfig(request.deviceType);
+    createHmac("sha256", apiKey).update(secretKey).digest("hex");
 
     const result = await db
       .insert(iotDevices)
@@ -320,12 +366,13 @@ class IoTDeviceManagerService extends EventEmitter {
       } as Record<DeviceType, number>,
     };
 
-    for (const device of result) {
-      if (device.status === "online") stats.online++;
-      else if (device.status === "offline") stats.offline++;
-      else if (device.status === "maintenance") stats.maintenance++;
+    for (const device of result as any[]) {
+      const status = device.online as DeviceStatus;
+      if (status === "online") stats.online++;
+      else if (status === "offline") stats.offline++;
+      else if (status === "maintenance") stats.maintenance++;
 
-      const type = device.deviceType as DeviceType;
+      const type = device.type as DeviceType;
       if (stats.byType[type] !== undefined) {
         stats.byType[type]++;
       }
@@ -729,11 +776,16 @@ class IoTDeviceManagerService extends EventEmitter {
    * Setup periodic cleanup tasks
    */
   private setupCleanup(): void {
+    // In unit tests, avoid background timers that keep Jest running.
+    if (process.env.NODE_ENV === "test") return;
+
     // Check device health every minute
-    setInterval(() => this.checkDeviceHealth(), 60000);
+    const healthInterval = setInterval(() => this.checkDeviceHealth(), 60000);
+    // Don't keep the Node event loop alive just for this interval.
+    healthInterval.unref?.();
 
     // Clean up old commands every 5 minutes
-    setInterval(() => {
+    const cleanupInterval = setInterval(() => {
       const cutoff = Date.now() - 3600000; // 1 hour
       for (const [id, cmd] of this.commandQueue) {
         if (cmd.created_at.getTime() < cutoff && cmd.status === "pending") {
@@ -742,6 +794,7 @@ class IoTDeviceManagerService extends EventEmitter {
         }
       }
     }, 300000);
+    cleanupInterval.unref?.();
   }
 
   /**

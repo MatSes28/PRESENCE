@@ -2,10 +2,11 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import db from "../storage.js";
-import { users } from "../schema.js";
-import { eq } from "drizzle-orm";
+import { users, passwordResetTokens, userSessions } from "../schema.js";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { emailService } from "../services/emailService.js";
 import { auditService } from "../services/auditService.js";
+import { authService } from "../services/authService.js";
 import rateLimit from "express-rate-limit";
 import {
   sanitizeInput,
@@ -47,6 +48,30 @@ const registerRateLimit = rateLimit({
     success: false,
     message: "Too many registration attempts, please try again later.",
     retryAfter: 60 * 60,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const forgotPasswordRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  message: {
+    success: false,
+    message: "Too many password reset requests, please try again later.",
+    retryAfter: 15 * 60,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const resetPasswordRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: {
+    success: false,
+    message: "Too many password reset attempts, please try again later.",
+    retryAfter: 15 * 60,
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -212,6 +237,16 @@ router.post("/logout", async (req, res) => {
 
 // Debug session endpoint
 router.get("/debug-session", (req, res) => {
+  if (
+    process.env.NODE_ENV === "production" ||
+    process.env.RAILWAY_ENVIRONMENT
+  ) {
+    return res.status(404).json({
+      success: false,
+      message: "Not found",
+    });
+  }
+
   res.json({
     sessionID: req.sessionID,
     session: req.session,
@@ -462,15 +497,9 @@ router.put("/change-password", async (req, res) => {
       });
     }
 
-    // Hash new password
-    const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-
-    // Update password
-    await db
-      .update(users)
-      .set({ password: hashedPassword })
-      .where(eq(users.id, user.id));
+    // Update password + invalidate sessions
+    // NOTE: this will invalidate the current session as well.
+    await authService.updatePassword(user.id, newPassword);
 
     // Log password change
     await auditService.logPasswordChange(
@@ -528,170 +557,256 @@ router.put("/settings", async (req, res) => {
 });
 
 // Password reset request - sends email with reset token
-router.post("/forgot-password", async (req, res) => {
-  try {
-    const { email } = req.body;
+router.post(
+  "/forgot-password",
+  forgotPasswordRateLimit,
+  sanitizeInput,
+  validateRequest({ email: validationRules.email }),
+  async (req, res) => {
+    try {
+      const { email } = req.body;
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required",
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is required",
+        });
+      }
+
+      // Check if user exists
+      const userResult = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      if (userResult.length === 0) {
+        // Don't reveal if email exists for security
+        return res.json({
+          success: true,
+          message:
+            "If an account with this email exists, password reset instructions have been sent.",
+        });
+      }
+
+      // Generate secure reset token (hashed in DB; raw token only sent via email)
+      const resetToken = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto
+        .createHash("sha256")
+        .update(resetToken)
+        .digest("hex");
+      const ttlMinutes = parseInt(
+        process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES || "15",
+      );
+      const resetTokenExpiry = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+      // Clean up prior unused tokens for this user (best-effort)
+      try {
+        await db
+          .delete(passwordResetTokens)
+          .where(
+            and(
+              eq(passwordResetTokens.userId, userResult[0].id),
+              isNull(passwordResetTokens.usedAt),
+            ),
+          );
+      } catch (cleanupErr) {
+        console.warn("[AUTH] Failed cleaning up old reset tokens:", cleanupErr);
+      }
+
+      // Store token hash server-side
+      await db.insert(passwordResetTokens).values({
+        userId: userResult[0].id,
+        tokenHash,
+        expiresAt: resetTokenExpiry,
+        requestedIp: req.ip || req.connection.remoteAddress || null,
+        requestedUserAgent: req.get("User-Agent") || null,
       });
-    }
 
-    // Check if user exists
-    const userResult = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
+      const resetLink = `${
+        process.env.FRONTEND_URL || "http://localhost:5173"
+      }/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
 
-    if (userResult.length === 0) {
-      // Don't reveal if email exists for security
-      return res.json({
+      // Send password reset email
+      try {
+        // Get user name for email
+        const user = userResult[0];
+        const userName = user.name || user.email;
+
+        const emailSent = await emailService.sendPasswordResetEmail(
+          email,
+          userName,
+          resetLink,
+        );
+        if (emailSent) {
+          console.log(`[AUTH] Password reset email sent to ${email}`);
+        } else {
+          console.error(
+            `[AUTH] Failed to send password reset email to ${email}`,
+          );
+          return res.status(500).json({
+            success: false,
+            message:
+              "Failed to send reset email. Please check your email configuration or try again later.",
+          });
+        }
+      } catch (emailError) {
+        console.error("Email service error:", emailError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to send reset email. Please try again later.",
+        });
+      }
+
+      res.json({
         success: true,
         message:
           "If an account with this email exists, password reset instructions have been sent.",
       });
-    }
-
-    // Generate secure reset token (24 hours expiry)
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    // Store reset token in database (we'd need a passwordResetTokens table for this)
-    // For now, we'll send a direct reset link via email
-
-    const resetLink = `${
-      process.env.FRONTEND_URL || "http://localhost:5173"
-    }/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
-
-    // Send password reset email
-    try {
-      // Get user name for email
-      const user = userResult[0];
-      const userName = user.name || user.email;
-
-      const emailSent = await emailService.sendPasswordResetEmail(
-        email,
-        userName,
-        resetLink,
-      );
-      if (emailSent) {
-        console.log(`[AUTH] Password reset email sent to ${email}`);
-      } else {
-        console.error(`[AUTH] Failed to send password reset email to ${email}`);
-        return res.status(500).json({
-          success: false,
-          message:
-            "Failed to send reset email. Please check your email configuration or try again later.",
-        });
-      }
-    } catch (emailError) {
-      console.error("Email service error:", emailError);
-      return res.status(500).json({
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({
         success: false,
-        message: "Failed to send reset email. Please try again later.",
+        message: "Internal server error",
       });
     }
-
-    res.json({
-      success: true,
-      message:
-        "If an account with this email exists, password reset instructions have been sent.",
-    });
-  } catch (error) {
-    console.error("Forgot password error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-});
+  },
+);
 
 // Password reset with token
-router.post("/reset-password", async (req, res) => {
-  try {
-    const { token, email, newPassword, confirmPassword } = req.body;
+router.post(
+  "/reset-password",
+  resetPasswordRateLimit,
+  sanitizeInput,
+  validateRequest({
+    email: validationRules.email,
+    token: (value) => {
+      if (!value) return "Token is required";
+      if (typeof value !== "string") return "Invalid token";
+      if (value.length < 32) return "Invalid token";
+      if (value.length > 512) return "Invalid token";
+      return null;
+    },
+    newPassword: validationRules.password,
+    confirmPassword: (value) => {
+      if (!value) return "Confirm password is required";
+      return null;
+    },
+  }),
+  async (req, res) => {
+    try {
+      const { token, email, newPassword, confirmPassword } = req.body;
 
-    if (!token || !email || !newPassword || !confirmPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
+      if (!token || !email || !newPassword || !confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "All fields are required",
+        });
+      }
+
+      // Validate password strength (ISO 27001 compliance)
+      if (newPassword.length < 8) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be at least 8 characters long",
+        });
+      }
+
+      if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+        });
+      }
+
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Passwords do not match",
+        });
+      }
+
+      // Verify user exists
+      const userResult = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+      if (userResult.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Invalid reset request",
+        });
+      }
+
+      // Verify token against stored reset tokens with expiry + single-use
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      const now = new Date();
+
+      const matchingTokens = await db
+        .select()
+        .from(passwordResetTokens)
+        .where(
+          and(
+            eq(passwordResetTokens.userId, userResult[0].id),
+            eq(passwordResetTokens.tokenHash, tokenHash),
+            gt(passwordResetTokens.expiresAt, now),
+            isNull(passwordResetTokens.usedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!matchingTokens.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid or expired reset token",
+        });
+      }
+
+      // Transactionally mark token used + update password + invalidate sessions
+      await db.transaction(async (tx) => {
+        await tx
+          .update(passwordResetTokens)
+          .set({ usedAt: now })
+          .where(eq(passwordResetTokens.id, matchingTokens[0].id));
+
+        const hashedPassword = await authService.hashPassword(newPassword);
+
+        await tx
+          .update(users)
+          .set({ password: hashedPassword, updatedAt: now })
+          .where(eq(users.id, userResult[0].id));
+
+        // Invalidate all existing sessions for security
+        await tx
+          .update(userSessions)
+          .set({ isActive: false })
+          .where(
+            and(
+              eq(userSessions.userId, userResult[0].id),
+              eq(userSessions.isActive, true),
+            ),
+          );
       });
-    }
 
-    // Validate password strength (ISO 27001 compliance)
-    if (newPassword.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 8 characters long",
-      });
-    }
+      console.log(`[AUTH] Password reset completed for ${email}`);
 
-    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
-      return res.status(400).json({
-        success: false,
+      res.json({
+        success: true,
         message:
-          "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+          "Password reset successfully. You can now log in with your new password.",
       });
-    }
-
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({
         success: false,
-        message: "Passwords do not match",
+        message: "Internal server error",
       });
     }
-
-    // Verify user exists
-    const userResult = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-
-    if (userResult.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Invalid reset request",
-      });
-    }
-
-    // For demo purposes, accept any valid token format
-    // In production, verify token against stored reset tokens with expiry
-    if (token.length < 32) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid or expired reset token",
-      });
-    }
-
-    // Hash new password
-    const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-
-    // Update password
-    await db
-      .update(users)
-      .set({ password: hashedPassword })
-      .where(eq(users.email, email));
-
-    console.log(`[AUTH] Password reset completed for ${email}`);
-
-    res.json({
-      success: true,
-      message:
-        "Password reset successfully. You can now log in with your new password.",
-    });
-  } catch (error) {
-    console.error("Reset password error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-});
+  },
+);
 
 // Force reset admin and faculty passwords (emergency endpoint)
 router.post("/force-reset-defaults", async (req, res) => {

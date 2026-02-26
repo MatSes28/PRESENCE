@@ -198,6 +198,17 @@ BREVO_API_KEY=your_brevo_api_key
 FROM_EMAIL=matclirdecpresence@gmail.com
 
 # Application
+
+# REQUIRED (fail-closed in production):
+SESSION_SECRET=32+ chars
+JWT_SECRET=32+ chars
+JWT_REFRESH_SECRET=32+ chars
+
+# REQUIRED (production CORS allowlist):
+# Set at least one of these:
+ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+# or FRONTEND_URL=https://yourdomain.com
+# or CORS_ORIGIN=https://yourdomain.com
 NODE_ENV=production
 SESSION_SECRET=32_character_random_string
 JWT_SECRET=your_jwt_secret_key_min_32_chars

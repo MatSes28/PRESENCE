@@ -16,6 +16,11 @@ import routes from "./routes.js";
 import { setupWebSocket } from "./services/websocket.js";
 import { sql, eq } from "drizzle-orm";
 import {
+  isProductionLike,
+  requireEnv,
+  validateEnvironmentOrThrow,
+} from "./config/env.js";
+import {
   generalRateLimit,
   attendanceRateLimit,
   reportRateLimit,
@@ -51,65 +56,24 @@ import {
   emailNotifications,
 } from "../../shared/schema.js";
 
-// Environment variable validation for security
-const requiredEnvVars = [
-  "DATABASE_URL",
-  "SESSION_SECRET",
-  "JWT_SECRET",
-  "JWT_REFRESH_SECRET",
-];
-
-const missingEnvVars = requiredEnvVars.filter(
-  (varName) => !process.env[varName],
-);
-
-// In Railway/production, don't exit - allow deployment to succeed with warnings
-const isRailway = !!process.env.RAILWAY_ENVIRONMENT;
-const isProduction = process.env.NODE_ENV === "production" || isRailway;
-
-if (missingEnvVars.length > 0) {
-  console.error("❌ Missing required environment variables:", missingEnvVars);
-  if (!isRailway && !isProduction) {
-    console.error(
-      "Please set these variables in your .env file or environment",
-    );
-    process.exit(1);
-  } else {
-    console.warn(
-      "⚠️  Running in Railway with missing environment variables - some features may not work",
-    );
-  }
-}
-
-// Validate secret lengths (minimum 32 characters for security)
-const secretsToValidate = [
-  { name: "SESSION_SECRET", value: process.env.SESSION_SECRET },
-  { name: "JWT_SECRET", value: process.env.JWT_SECRET },
-  { name: "JWT_REFRESH_SECRET", value: process.env.JWT_REFRESH_SECRET },
-];
-
-for (const secret of secretsToValidate) {
-  if (secret.value && secret.value.length < 32) {
-    console.error(`❌ ${secret.name} must be at least 32 characters long`);
-    if (!isRailway && !isProduction) {
-      process.exit(1);
-    } else {
-      console.warn(
-        `⚠️  ${secret.name} is too short - using fallback for Railway deployment`,
-      );
-    }
-  }
-}
-
-if (
-  missingEnvVars.length === 0 &&
-  secretsToValidate.every((s) => !s.value || s.value.length >= 32)
-) {
+// Fail-closed environment validation in production-like environments
+let missingEnvVars: string[] = [];
+try {
+  validateEnvironmentOrThrow();
   console.log("✅ Environment variables validated successfully");
-} else if (isRailway || isProduction) {
-  console.log(
-    "⚠️  Environment validation completed with warnings (Railway deployment)",
-  );
+} catch (error: any) {
+  const msg = error?.message || String(error);
+  console.error(`❌ Environment validation failed: ${msg}`);
+
+  if (isProductionLike()) {
+    process.exit(1);
+  }
+
+  // Non-production: continue, but surface warnings.
+  // Attempt to derive missing names from message.
+  missingEnvVars = msg.includes("Missing required environment variable")
+    ? [msg.split(":").pop()?.trim() || "unknown"]
+    : [];
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -117,8 +81,7 @@ const __dirname = path.dirname(__filename);
 
 // Create secure server (HTTPS in production, HTTP in development)
 function createSecureServer(app: express.Application) {
-  const isProduction =
-    process.env.NODE_ENV === "production" || !!process.env.RAILWAY_ENVIRONMENT;
+  const isProduction = isProductionLike();
 
   if (isProduction && process.env.SSL_CERT_PATH && process.env.SSL_KEY_PATH) {
     // Production: Use HTTPS
@@ -356,7 +319,7 @@ const PgSession = connectPgSimple(session);
 // Parse database URL for session store SSL config
 const sessionDbConfig = {
   connectionString: process.env.DATABASE_URL,
-  ...(isProduction && {
+  ...(isProductionLike() && {
     ssl: {
       rejectUnauthorized: false, // Allow self-signed certificates (Railway)
     },
@@ -372,19 +335,16 @@ app.use(
       // Clean up expired sessions every hour
       pruneSessionInterval: 60 * 60 * 1000, // 1 hour
     }),
-    secret:
-      process.env.SESSION_SECRET || "fallback-secret-change-in-production",
+    secret: requireEnv("SESSION_SECRET", { minLength: 32 }),
     name: "presence.sid", // Change default session name for security
     resave: false,
     saveUninitialized: false,
     rolling: true, // Reset expiration on activity
     cookie: {
-      secure:
-        process.env.NODE_ENV === "production" ||
-        !!process.env.RAILWAY_ENVIRONMENT,
+      secure: isProductionLike(),
       httpOnly: true,
-      sameSite: "lax", // Use lax for better compatibility
-      maxAge: 8 * 60 * 60 * 1000, // 8 hours (reduced for security)
+      sameSite: (process.env.SESSION_COOKIE_SAMESITE as any) || "lax",
+      maxAge: parseInt(process.env.SESSION_MAX_AGE || "28800000"), // default 8 hours
       path: "/",
     },
   }),
@@ -405,6 +365,24 @@ app.use(express.static(publicPath));
 // TEMPORARY: Fix session constraint endpoint
 app.get("/api/admin/fix-session", async (req, res) => {
   try {
+    // This endpoint exists only for emergency migrations / one-off fixes.
+    // Never expose this in production-like deployments.
+    if (
+      process.env.NODE_ENV === "production" ||
+      process.env.RAILWAY_ENVIRONMENT
+    ) {
+      return res.status(404).json({ success: false, message: "Not found" });
+    }
+
+    // Must be explicitly enabled even in non-production.
+    if (process.env.ALLOW_FIX_SESSION_ENDPOINT !== "true") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "fix-session endpoint disabled (set ALLOW_FIX_SESSION_ENDPOINT=true to enable in non-production)",
+      });
+    }
+
     const { Pool } = await import("pg");
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,

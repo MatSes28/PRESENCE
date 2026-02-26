@@ -303,6 +303,20 @@ export const userSessions = pgTable("user_sessions", {
   isActive: boolean("is_active").default(true).notNull(),
 });
 
+// Password Reset Tokens (hashed + expiry + single-use)
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  requestedIp: varchar("requested_ip", { length: 45 }),
+  requestedUserAgent: text("requested_user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Error Logs table (for comprehensive error tracking)
 export const errorLogs = pgTable("error_logs", {
   id: serial("id").primaryKey(),
@@ -481,7 +495,7 @@ export const classSessionsRelations = relations(
     attendanceRecords: many(attendanceRecords),
     computerAssignments: many(computerAssignments),
     emailNotifications: many(emailNotifications),
-  })
+  }),
 );
 
 export const attendanceRecordsRelations = relations(
@@ -495,7 +509,7 @@ export const attendanceRecordsRelations = relations(
       fields: [attendanceRecords.classSessionId],
       references: [classSessions.id],
     }),
-  })
+  }),
 );
 
 export const computersRelations = relations(computers, ({ one, many }) => ({
@@ -522,7 +536,7 @@ export const computerAssignmentsRelations = relations(
       fields: [computerAssignments.classSessionId],
       references: [classSessions.id],
     }),
-  })
+  }),
 );
 
 export const iotDevicesRelations = relations(iotDevices, ({ one }) => ({
@@ -536,7 +550,7 @@ export const iotDeviceHeartbeatsRelations = relations(
   iotDeviceHeartbeats,
   ({}) => ({
     // No relations needed for heartbeat history
-  })
+  }),
 );
 
 export const enrollmentsRelations = relations(enrollments, ({ one }) => ({
@@ -561,7 +575,7 @@ export const emailNotificationsRelations = relations(
       fields: [emailNotifications.classSessionId],
       references: [classSessions.id],
     }),
-  })
+  }),
 );
 
 export const subjectSessionsRelations = relations(
@@ -580,7 +594,7 @@ export const subjectSessionsRelations = relations(
       references: [users.id],
     }),
     assignments: many(sessionAssignments),
-  })
+  }),
 );
 
 export const sessionAssignmentsRelations = relations(
@@ -598,7 +612,7 @@ export const sessionAssignmentsRelations = relations(
       fields: [sessionAssignments.studentId],
       references: [students.id],
     }),
-  })
+  }),
 );
 
 export const computerMaintenanceRelations = relations(
@@ -612,7 +626,7 @@ export const computerMaintenanceRelations = relations(
       fields: [computerMaintenance.performedBy],
       references: [users.id],
     }),
-  })
+  }),
 );
 
 export const userSessionsRelations = relations(userSessions, ({ one }) => ({
@@ -641,7 +655,7 @@ export const errorRecoveryAttemptsRelations = relations(
       fields: [errorRecoveryAttempts.errorLogId],
       references: [errorLogs.id],
     }),
-  })
+  }),
 );
 
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({

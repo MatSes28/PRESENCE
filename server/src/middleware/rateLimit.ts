@@ -82,7 +82,10 @@ export const generalRateLimit = createUserRateLimit({
     retryAfter: 15 * 60,
   },
   // Skip rate limiting for health checks and auth routes (they have their own limits)
-  skip: (req) => req.path === "/health" || req.path === "/api/health" || req.path.startsWith("/api/auth"),
+  skip: (req) =>
+    req.path === "/health" ||
+    req.path === "/api/health" ||
+    req.path.startsWith("/api/auth"),
 });
 
 // API optimization middleware
@@ -249,27 +252,34 @@ export const corsOptimization = (req: Request, res: Response, next: any) => {
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
+  const isProduction =
+    process.env.NODE_ENV === "production" || !!process.env.RAILWAY_ENVIRONMENT;
+
   const allowedOrigins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
+    // Only allow localhost in non-production
+    ...(!isProduction
+      ? ["http://localhost:5173", "http://localhost:3000"]
+      : []),
     process.env.FRONTEND_URL,
     process.env.CORS_ORIGIN,
     process.env.RAILWAY_STATIC_URL,
     ...fromEnv,
   ].filter(Boolean);
 
-  const isProduction =
-    process.env.NODE_ENV === "production" || !!process.env.RAILWAY_ENVIRONMENT;
-
-  if (isProduction && origin && allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  } else if (!isProduction) {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+  // In production: fail-closed on unknown origins.
+  // Note: requests without an Origin header are treated as non-CORS (same-origin or server-to-server).
+  if (isProduction) {
+    if (origin) {
+      if (!allowedOrigins.includes(origin)) {
+        return res.status(403).json({
+          success: false,
+          message: "CORS origin not allowed",
+        });
+      }
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    }
   } else {
-    res.setHeader(
-      "Access-Control-Allow-Origin",
-      process.env.FRONTEND_URL || process.env.CORS_ORIGIN || "http://localhost:5173",
-    );
+    res.setHeader("Access-Control-Allow-Origin", "*");
   }
 
   res.setHeader("Access-Control-Allow-Credentials", "true");
