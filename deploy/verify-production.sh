@@ -87,6 +87,19 @@ else
     check_status "Migration directory" "fail" "drizzle directory not found"
 fi
 
+# Verify required schema objects exist (password reset tokens, session table)
+echo ""
+echo "Verifying schema objects..."
+if [ -n "${DATABASE_URL}" ]; then
+    if node scripts/verify-schema.mjs; then
+        check_status "Schema verification" "pass" ""
+    else
+        check_status "Schema verification" "fail" "Missing required tables"
+    fi
+else
+    check_status "Schema verification" "warn" "DATABASE_URL not set in shell; skipping live schema check"
+fi
+
 # 4. Check schema
 if [ -f "src/schema.ts" ]; then
     check_status "Schema file" "pass" ""

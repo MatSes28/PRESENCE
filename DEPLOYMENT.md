@@ -199,21 +199,41 @@ FROM_EMAIL=matclirdecpresence@gmail.com
 
 # Application
 
-# REQUIRED (fail-closed in production):
-SESSION_SECRET=32+ chars
-JWT_SECRET=32+ chars
-JWT_REFRESH_SECRET=32+ chars
+  # REQUIRED (fail-closed in production):
+  SESSION_SECRET=32+ chars
+  JWT_SECRET=32+ chars
+  JWT_REFRESH_SECRET=32+ chars
 
-# REQUIRED (production CORS allowlist):
+  # REQUIRED (production CORS allowlist):
 # Set at least one of these:
 ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 # or FRONTEND_URL=https://yourdomain.com
 # or CORS_ORIGIN=https://yourdomain.com
-NODE_ENV=production
+  NODE_ENV=production
 SESSION_SECRET=32_character_random_string
 JWT_SECRET=your_jwt_secret_key_min_32_chars
-JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_min_32_chars
+  JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_min_32_chars
 ```
+
+## Database migrations (explicit step)
+
+For Postgres deployments, run migrations and then verify critical tables exist:
+
+- Migrate: [`npm run db:push`](server/package.json:10)
+- Verify: [`server/scripts/verify-schema.mjs`](server/scripts/verify-schema.mjs:1)
+
+## Secrets rotation
+
+Rotation guidance: [`docs/secrets-rotation.md`](docs/secrets-rotation.md:1)
+
+## TLS termination
+
+Preferred: terminate TLS at the edge/load balancer.
+
+If you must terminate TLS inside nginx for docker-compose:
+
+- Use [`nginx.tls.conf`](nginx.tls.conf:1)
+- Run compose with the override [`docker-compose.production.tls.yml`](docker-compose.production.tls.yml:1)
 
 ### Optional Variables
 

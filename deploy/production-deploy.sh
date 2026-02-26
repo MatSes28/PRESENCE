@@ -89,7 +89,15 @@ log_success "Build completed"
 
 # Configure environment
 log_info "Configuring environment..."
-cp ".env.production.example" ".env.production"
+if [ ! -f ".env.production" ]; then
+    log_error ".env.production not found. Create it from .env.production.example and fill real values."
+    exit 1
+fi
+
+# Export variables from .env.production into this shell for migration commands.
+set -a
+source ".env.production"
+set +a
 
 # Generate secrets if needed
 if [ ! -f ".env.secrets" ]; then
@@ -115,7 +123,8 @@ log_success "Database configured"
 # Run migrations
 log_info "Running database migrations..."
 cd "$DEPLOYMENT_DIR/server"
-npx drizzle-kit push
+npm run db:push
+node scripts/verify-schema.mjs
 log_success "Database migrations completed"
 
 # Seed database if needed

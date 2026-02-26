@@ -1,10 +1,12 @@
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
-import { eq } from "drizzle-orm";
-import { users } from "./shared/dist/schema.js";
 
 const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("Missing DATABASE_URL");
+  process.exit(1);
+}
 
 async function runMigrations() {
   console.log("🔄 Running database migrations...");
@@ -38,31 +40,6 @@ async function runMigrations() {
     // Run migrations
     await migrate(db, { migrationsFolder: "./server/drizzle" });
     console.log("✅ Database migrations completed successfully!");
-
-    // Verify admin user exists
-    const adminUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, "admin@clsu.edu.ph"))
-      .limit(1);
-
-    if (adminUser.length === 0) {
-      console.log("⚠️  Admin user not found, creating...");
-      // This should have been created on startup, but let's ensure it exists
-      const bcrypt = await import("bcryptjs");
-      const hashedPassword = await bcrypt.hash("admin123", 12);
-
-      await db.insert(users).values({
-        email: "admin@clsu.edu.ph",
-        password: hashedPassword,
-        name: "System Administrator",
-        role: "admin",
-        isActive: true,
-      });
-      console.log("✅ Admin user created");
-    } else {
-      console.log("✅ Admin user exists");
-    }
   } catch (error) {
     console.error("❌ Migration failed:", error);
     process.exit(1);

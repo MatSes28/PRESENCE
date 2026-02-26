@@ -1,9 +1,15 @@
-// Script to fix all database issues for Railway PostgreSQL
+// Script to fix all database issues for Railway PostgreSQL.
+//
+// SECURITY:
+// - Never embed credentials.
+// - Require DATABASE_URL explicitly.
 import postgres from "postgres";
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("Missing DATABASE_URL");
+  process.exit(1);
+}
 
 async function fixDatabase() {
   console.log("🔌 Connecting to Railway PostgreSQL...");

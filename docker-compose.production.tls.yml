@@ -1,0 +1,14 @@
+# Optional override for docker-compose.production.yml to enable nginx TLS termination.
+#
+# Usage:
+#   docker compose -f docker-compose.production.yml -f docker-compose.production.tls.yml up -d
+
+services:
+  client:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.tls.conf:/etc/nginx/nginx.conf:ro
+      # Provide cert files at ./certs/fullchain.pem and ./certs/privkey.pem
+      - ./certs:/etc/nginx/certs:ro
