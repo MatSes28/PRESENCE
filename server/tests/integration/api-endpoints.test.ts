@@ -1,5 +1,5 @@
 import request from "supertest";
-import { db } from "../../src/storage.js";
+import db from "../../src/storage.js";
 import {
   users,
   students,
@@ -368,13 +368,13 @@ describe("API Endpoints Integration Tests", () => {
 
       it("should filter report by date range", async () => {
         const startDate = new Date(
-          Date.now() - 7 * 24 * 60 * 60 * 1000
+          Date.now() - 7 * 24 * 60 * 60 * 1000,
         ).toISOString();
         const endDate = new Date().toISOString();
 
         const response = await request("http://localhost:3000")
           .get(
-            `/api/reports/attendance?startDate=${startDate}&endDate=${endDate}`
+            `/api/reports/attendance?startDate=${startDate}&endDate=${endDate}`,
           )
           .set("Authorization", `Bearer ${authToken}`)
           .expect(200);

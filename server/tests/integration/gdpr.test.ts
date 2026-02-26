@@ -1,6 +1,6 @@
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
-import { db } from "../../src/storage.js";
+import db from "../../src/storage.js";
 import { users, students } from "../../../shared/schema.js";
 import { eq } from "drizzle-orm";
 
@@ -91,7 +91,7 @@ describe("GDPR Compliance Tests", () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.message).toContain(
-        "rectification request submitted"
+        "rectification request submitted",
       );
       expect(response.body).toHaveProperty("requestId");
     });
@@ -111,7 +111,7 @@ describe("GDPR Compliance Tests", () => {
       expect(response.body.success).toBe(true);
       expect(response.body.message).toContain("erasure request submitted");
       expect(response.body.note).toContain(
-        "reviewed by data protection officers"
+        "reviewed by data protection officers",
       );
     });
 

@@ -1,5 +1,5 @@
 import request from "supertest";
-import { db } from "../../src/storage.js";
+import db from "../../src/storage.js";
 import {
   attendanceRecords,
   students,
@@ -165,8 +165,8 @@ describe("Attendance API Integration Tests", () => {
       expect(response.body.success).toBe(true);
       expect(
         response.body.records.every(
-          (r: any) => r.record.studentId === testStudent.id
-        )
+          (r: any) => r.record.studentId === testStudent.id,
+        ),
       ).toBe(true);
     });
 
