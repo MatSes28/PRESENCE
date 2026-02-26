@@ -19,6 +19,9 @@ Reason: there are still **blocking gaps in system-level validation** (integratio
   - [`npm run build --workspace=server`](server/package.json:8)
 - Server unit tests pass:
   - [`npm run test:unit --workspace=server`](server/package.json:16)
+- Monitoring metrics endpoint exports non-mock metrics and matches Prometheus scrape path:
+  - [`/api/metrics`](server/src/routes/health.ts:93)
+  - Prometheus scrape config uses `metrics_path: "/api/metrics"`: [`monitoring/prometheus.yml`](monitoring/prometheus.yml:18)
 - Production hardening changes are present:
   - Fail-closed env validation: [`validateEnvironmentOrThrow()`](server/src/config/env.ts:41)
   - No fallback JWT/session secrets in runtime paths: [`AuthService.constructor()`](server/src/services/authService.ts:43), session config in [`server/src/index.ts`](server/src/index.ts:366)
@@ -45,6 +48,21 @@ Required resolution:
 ### 2) E2E suite not validated here
 
 No green run of [`npm run test:e2e --workspace=server`](server/package.json:18) is recorded in this session. E2E is required to claim readiness because it covers real auth/session/cookie flows in a browser.
+
+### 3) Load tests require explicit credentials and device API key
+
+Load tests are intentionally gated to avoid fake credentials/tokens.
+
+Required env/secrets:
+
+- `LOADTEST_EMAIL`
+- `LOADTEST_PASSWORD`
+- `LOADTEST_DEVICE_API_KEY` (for IoT plan)
+
+Files:
+
+- API plan: [`server/tests/load/artillery-api.yml`](server/tests/load/artillery-api.yml:1)
+- IoT plan: [`server/tests/load/artillery-iot.yml`](server/tests/load/artillery-iot.yml:1)
 
 ## ⚠️ Known risks / explicit acceptance required
 

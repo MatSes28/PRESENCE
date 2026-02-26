@@ -1,0 +1,46 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 60
+      arrivalRate: 10
+      name: "Warmup"
+    - duration: 180
+      arrivalRate: 30
+      name: "Sustained"
+    - duration: 60
+      arrivalRate: 60
+      name: "Peak"
+  processor: "./artillery-processor.js"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Authenticated dashboard + student list"
+    flow:
+      # Session-based login. Artillery keeps cookies per virtual user.
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ loadtestEmail }}"
+            password: "{{ loadtestPassword }}"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/dashboard/stats"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/dashboard/activity"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/students?limit=25&page=1"
+          expect:
+            - statusCode: 200
+
+ensure:
+  # These are initial default SLOs for CI; tune once real baseline is known.
+  p95: 1500
+  p99: 3000
+  maxErrorRate: 1

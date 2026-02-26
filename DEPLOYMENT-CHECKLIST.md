@@ -5,14 +5,12 @@
 ### ✅ Environment Setup
 
 - [ ] **Infrastructure Provisioning**
-
   - [ ] Railway account configured
   - [ ] PostgreSQL database created
   - [ ] Redis instance configured
   - [ ] Domain name registered and DNS configured
 
 - [ ] **Security Configuration**
-
   - [ ] SSL/TLS certificates obtained
   - [ ] Environment variables set (no secrets in code)
   - [ ] Database credentials configured
@@ -29,7 +27,6 @@
 ### ✅ Database Setup
 
 - [ ] **Schema Migration**
-
   - [ ] Database schema created
   - [ ] Initial data seeded (admin user, etc.)
   - [ ] Indexes optimized
@@ -41,12 +38,15 @@
   - [ ] Backup testing completed
   - [ ] Point-in-time recovery tested
 
+  Evidence / Commands:
+  - Create a manual backup: [`deploy/scripts/backup-db.sh`](deploy/scripts/backup-db.sh:1)
+  - Restore a backup: [`deploy/scripts/restore-db.sh`](deploy/scripts/restore-db.sh:1)
+
 ## Deployment Phase
 
 ### ✅ CI/CD Pipeline
 
 - [ ] **GitHub Actions Setup**
-
   - [ ] Repository connected to GitHub
   - [ ] CI/CD pipeline configured
   - [ ] Automated testing enabled
@@ -63,7 +63,6 @@
 ### ✅ Load Testing
 
 - [ ] **Performance Benchmarks**
-
   - [ ] Load testing completed (Artillery)
   - [ ] Response time < 1 second (95th percentile)
   - [ ] Error rate < 1%
@@ -81,7 +80,6 @@
 ### ✅ Production Deployment
 
 - [ ] **Staging Validation**
-
   - [ ] Deploy to staging environment
   - [ ] Full integration testing completed
   - [ ] User acceptance testing passed
@@ -96,7 +94,6 @@
 ### ✅ Monitoring Setup
 
 - [ ] **Application Monitoring**
-
   - [ ] Health check endpoints responding
   - [ ] Metrics collection working
   - [ ] Error tracking configured
@@ -113,7 +110,6 @@
 ### ✅ Validation & Testing
 
 - [ ] **Smoke Testing**
-
   - [ ] Application accessible via domain
   - [ ] User login working
   - [ ] Basic attendance functionality tested
@@ -128,7 +124,6 @@
 ### ✅ Documentation & Training
 
 - [ ] **User Documentation**
-
   - [ ] Admin manual updated
   - [ ] Faculty manual updated
   - [ ] Student manual updated
@@ -145,7 +140,6 @@
 ### 🚨 Rollback Procedures
 
 - [ ] **Automated Rollback**
-
   - [ ] Rollback scripts tested
   - [ ] Backup restoration verified
   - [ ] Zero-downtime rollback possible
@@ -158,7 +152,6 @@
 ### 📊 Monitoring & Alerting
 
 - [ ] **Alert Configuration**
-
   - [ ] Application down alerts
   - [ ] Performance degradation alerts
   - [ ] Security incident alerts
@@ -175,7 +168,6 @@
 ### 🔒 Security Validation
 
 - [ ] **GDPR Compliance**
-
   - [ ] Data subject rights implemented
   - [ ] Privacy policy published
   - [ ] Consent management active
@@ -190,7 +182,6 @@
 ### 📋 Final Sign-off
 
 - [ ] **Stakeholder Approval**
-
   - [ ] Development team sign-off
   - [ ] QA team sign-off
   - [ ] Security team sign-off
@@ -237,8 +228,8 @@
 
 ---
 
-**Deployment Commander**: ********\_\_\_\_********
-**Date**: ********\_\_\_\_********
-**Time**: ********\_\_\_\_********
+**Deployment Commander**: **\*\*\*\***\_\_\_\_**\*\*\*\***
+**Date**: **\*\*\*\***\_\_\_\_**\*\*\*\***
+**Time**: **\*\*\*\***\_\_\_\_**\*\*\*\***
 
 **Final Status**: ⬜ Ready for Go-Live ⬜ On Hold ⬜ Issues Found

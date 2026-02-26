@@ -1,12 +1,17 @@
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import { createGzip, createGunzip } from "zlib";
+import { pipeline } from "stream";
+import { promisify as promisifyCb } from "util";
 import db from "../storage.js";
 import { sql } from "drizzle-orm";
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+const pipelineAsync = promisifyCb(pipeline);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -16,6 +21,7 @@ interface BackupConfig {
   path: string; // backup directory
   compress: boolean;
   encrypt: boolean;
+  enabled: boolean;
   walArchivePath?: string; // WAL archive directory for PITR
   continuousArchiving?: boolean;
 }
@@ -39,6 +45,7 @@ class DatabaseBackupService {
       path: path.join(__dirname, "../../../backups"),
       compress: true,
       encrypt: false,
+      enabled: process.env.BACKUP_ENABLED === "true",
       walArchivePath: path.join(__dirname, "../../../wal_archive"),
       continuousArchiving: false,
       ...config,
@@ -64,24 +71,73 @@ class DatabaseBackupService {
     ) {
       fs.mkdirSync(this.config.walArchivePath, { recursive: true });
       console.log(
-        `Created WAL archive directory: ${this.config.walArchivePath}`
+        `Created WAL archive directory: ${this.config.walArchivePath}`,
       );
     }
   }
 
   // Start automated backup schedule
   startAutomatedBackup(): void {
+    if (!this.config.enabled) {
+      console.log(
+        "Automated database backup disabled (set BACKUP_ENABLED=true to enable)",
+      );
+      return;
+    }
+
     // For simplicity, run backup every 24 hours
     // In production, use a proper cron job
-    this.backupInterval = setInterval(async () => {
-      try {
-        await this.createBackup();
-      } catch (error) {
-        console.error("Automated backup failed:", error);
-      }
-    }, 24 * 60 * 60 * 1000); // 24 hours
+    this.backupInterval = setInterval(
+      async () => {
+        try {
+          await this.createBackup();
+          await this.cleanupOldBackups();
+        } catch (error) {
+          console.error("Automated backup failed:", error);
+        }
+      },
+      24 * 60 * 60 * 1000,
+    ); // 24 hours
 
     console.log("Automated database backup started");
+  }
+
+  private parseDatabaseUrl(databaseUrl: string): {
+    host: string;
+    port: string;
+    database: string;
+    username: string;
+    password: string;
+    sslmode?: string;
+  } {
+    const url = new URL(databaseUrl);
+    const host = url.hostname;
+    const port = url.port || "5432";
+    const database = url.pathname.replace(/^\//, "");
+    const username = decodeURIComponent(url.username || "");
+    const password = decodeURIComponent(url.password || "");
+    const sslmode = url.searchParams.get("sslmode") || undefined;
+
+    return { host, port, database, username, password, sslmode };
+  }
+
+  private async gzipFile(inputPath: string, outputPath: string): Promise<void> {
+    await pipelineAsync(
+      fs.createReadStream(inputPath),
+      createGzip(),
+      fs.createWriteStream(outputPath),
+    );
+  }
+
+  private async gunzipFile(
+    inputPath: string,
+    outputPath: string,
+  ): Promise<void> {
+    await pipelineAsync(
+      fs.createReadStream(inputPath),
+      createGunzip(),
+      fs.createWriteStream(outputPath),
+    );
   }
 
   // Create a database backup
@@ -103,24 +159,43 @@ class DatabaseBackupService {
         throw new Error("DATABASE_URL not configured");
       }
 
-      // Extract connection details from DATABASE_URL
-      const url = new URL(databaseUrl);
-      const host = url.hostname;
-      const port = url.port;
-      const database = url.pathname.slice(1);
-      const username = url.username;
-      const password = url.password;
-
-      // Create pg_dump command
-      const dumpCommand = `pg_dump "postgresql://${username}:${password}@${host}:${port}/${database}" > "${filepath}"`;
+      const { host, port, database, username, password, sslmode } =
+        this.parseDatabaseUrl(databaseUrl);
 
       console.log(`Starting database backup: ${filename}`);
-      await execAsync(dumpCommand);
 
-      // Compress if enabled
+      // Avoid leaking password in process args: pass via env.
+      const env = {
+        ...process.env,
+        PGPASSWORD: password,
+        ...(sslmode ? { PGSSLMODE: sslmode } : {}),
+      };
+
+      // Use --file instead of shell redirection to avoid invoking a shell.
+      await execFileAsync(
+        "pg_dump",
+        [
+          "-h",
+          host,
+          "-p",
+          port,
+          "-U",
+          username,
+          "-d",
+          database,
+          "--no-owner",
+          "--no-privileges",
+          "--file",
+          filepath,
+        ],
+        { env },
+      );
+
+      // Compress if enabled (no external gzip dependency)
       if (this.config.compress) {
         const compressedPath = `${filepath}.gz`;
-        await execAsync(`gzip "${filepath}"`);
+        await this.gzipFile(filepath, compressedPath);
+        fs.unlinkSync(filepath);
         console.log(`Backup compressed: ${filename}.gz`);
         return compressedPath;
       }
@@ -143,27 +218,41 @@ class DatabaseBackupService {
         throw new Error("DATABASE_URL not configured");
       }
 
-      // Extract connection details
-      const url = new URL(databaseUrl);
-      const host = url.hostname;
-      const port = url.port;
-      const database = url.pathname.slice(1);
-      const username = url.username;
-      const password = url.password;
+      const { host, port, database, username, password, sslmode } =
+        this.parseDatabaseUrl(databaseUrl);
+
+      const env = {
+        ...process.env,
+        PGPASSWORD: password,
+        ...(sslmode ? { PGSSLMODE: sslmode } : {}),
+      };
 
       // Handle compressed files
       let restorePath = backupPath;
       if (backupPath.endsWith(".gz")) {
         const decompressedPath = backupPath.replace(".gz", "");
-        await execAsync(`gunzip -c "${backupPath}" > "${decompressedPath}"`);
+        await this.gunzipFile(backupPath, decompressedPath);
         restorePath = decompressedPath;
       }
 
-      // Restore command
-      const restoreCommand = `psql "postgresql://${username}:${password}@${host}:${port}/${database}" < "${restorePath}"`;
-
       console.log(`Starting database restore from: ${backupPath}`);
-      await execAsync(restoreCommand);
+
+      await execFileAsync(
+        "psql",
+        [
+          "-h",
+          host,
+          "-p",
+          port,
+          "-U",
+          username,
+          "-d",
+          database,
+          "-f",
+          restorePath,
+        ],
+        { env },
+      );
 
       // Clean up decompressed file if it was created
       if (restorePath !== backupPath) {
@@ -185,20 +274,19 @@ class DatabaseBackupService {
         .filter(
           (file) =>
             file.startsWith("backup-") &&
-            (file.endsWith(".sql") || file.endsWith(".sql.gz"))
+            (file.endsWith(".sql") || file.endsWith(".sql.gz")),
         )
         .map((file) => ({
           name: file,
           path: path.join(this.config.path, file),
           stats: fs.statSync(path.join(this.config.path, file)),
-        }))
-        .sort((a, b) => b.stats.mtime.getTime() - a.stats.mtime.getTime());
+        }));
 
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - this.config.retention);
 
       let deletedCount = 0;
-      for (const file of backupFiles.slice(this.config.retention)) {
+      for (const file of backupFiles) {
         if (file.stats.mtime < cutoffDate) {
           fs.unlinkSync(file.path);
           deletedCount++;
@@ -226,7 +314,7 @@ class DatabaseBackupService {
         .filter(
           (file) =>
             file.startsWith("backup-") &&
-            (file.endsWith(".sql") || file.endsWith(".sql.gz"))
+            (file.endsWith(".sql") || file.endsWith(".sql.gz")),
         )
         .map((file) => ({
           name: file,
@@ -236,10 +324,10 @@ class DatabaseBackupService {
 
       const totalSize = backupFiles.reduce(
         (sum, file) => sum + file.stats.size,
-        0
+        0,
       );
       const sortedByTime = backupFiles.sort(
-        (a, b) => b.stats.mtime.getTime() - a.stats.mtime.getTime()
+        (a, b) => b.stats.mtime.getTime() - a.stats.mtime.getTime(),
       );
 
       return {
@@ -278,7 +366,7 @@ class DatabaseBackupService {
 
     try {
       console.log(
-        "Setting up continuous archiving for point-in-time recovery..."
+        "Setting up continuous archiving for point-in-time recovery...",
       );
 
       // Enable WAL archiving in PostgreSQL
@@ -316,7 +404,7 @@ fi
 
       const scriptPath = path.join(
         this.config.walArchivePath,
-        "archive_wal.sh"
+        "archive_wal.sh",
       );
       fs.writeFileSync(scriptPath, archiveScript);
       fs.chmodSync(scriptPath, "755");
@@ -334,20 +422,20 @@ fi
       for (const command of walCommands) {
         try {
           await execAsync(
-            `psql "postgresql://${username}:${password}@${host}:${port}/${database}" -c "${command}"`
+            `psql "postgresql://${username}:${password}@${host}:${port}/${database}" -c "${command}"`,
           );
           console.log(`Executed: ${command.split(" ")[0]}...`);
         } catch (error) {
           console.warn(
             `Warning: Failed to execute ${command.split(" ")[0]}:`,
-            error.message
+            error.message,
           );
         }
       }
 
       console.log("✅ Continuous archiving setup completed");
       console.log(
-        `📁 WAL files will be archived to: ${this.config.walArchivePath}`
+        `📁 WAL files will be archived to: ${this.config.walArchivePath}`,
       );
     } catch (error) {
       console.error("❌ Failed to setup continuous archiving:", error);
@@ -385,7 +473,7 @@ fi
 
       // Start backup and get the backup label
       const startBackupResult = await execAsync(
-        `psql "postgresql://${username}:${password}@${host}:${port}/${database}" -c "SELECT pg_start_backup('${baseBackupName}', true);" -t`
+        `psql "postgresql://${username}:${password}@${host}:${port}/${database}" -c "SELECT pg_start_backup('${baseBackupName}', true);" -t`,
       );
 
       const backupLabel = startBackupResult.stdout.trim();
@@ -400,7 +488,7 @@ fi
       // In production, you would use pg_basebackup for physical backup
       const backupCommand = `pg_dump "postgresql://${username}:${password}@${host}:${port}/${database}" > "${path.join(
         baseBackupPath,
-        "base_backup.sql"
+        "base_backup.sql",
       )}"`;
 
       console.log("Creating base backup...");
@@ -408,7 +496,7 @@ fi
 
       // Stop backup
       await execAsync(
-        `psql "postgresql://${username}:${password}@${host}:${port}/${database}" -c "SELECT pg_stop_backup();" -t`
+        `psql "postgresql://${username}:${password}@${host}:${port}/${database}" -c "SELECT pg_stop_backup();" -t`,
       );
 
       // Create backup manifest
@@ -423,7 +511,7 @@ fi
 
       fs.writeFileSync(
         path.join(baseBackupPath, "backup_manifest.json"),
-        JSON.stringify(manifest, null, 2)
+        JSON.stringify(manifest, null, 2),
       );
 
       console.log(`✅ Base backup created: ${baseBackupPath}`);
@@ -436,11 +524,11 @@ fi
 
   // Perform point-in-time recovery
   async performPointInTimeRecovery(
-    config: PointInTimeRecoveryConfig
+    config: PointInTimeRecoveryConfig,
   ): Promise<void> {
     try {
       console.log(
-        `Starting point-in-time recovery to: ${config.targetTime.toISOString()}`
+        `Starting point-in-time recovery to: ${config.targetTime.toISOString()}`,
       );
 
       const databaseUrl = process.env.DATABASE_URL;
@@ -521,7 +609,7 @@ restore_command = 'cp ${config.walArchivePath}/%f %p'
       const files = fs
         .readdirSync(this.config.walArchivePath)
         .filter(
-          (file) => file.endsWith(".backup") || file.match(/^[0-9A-F]{24}$/)
+          (file) => file.endsWith(".backup") || file.match(/^[0-9A-F]{24}$/),
         );
 
       let totalSize = 0;

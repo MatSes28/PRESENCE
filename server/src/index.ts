@@ -753,8 +753,16 @@ if (shouldStartListener) {
 
       // Start automated database backup (only in production)
       if (process.env.NODE_ENV === "production") {
-        databaseBackupService.startAutomatedBackup();
-        console.log("Automated database backup enabled");
+        if (process.env.BACKUP_ENABLED === "true") {
+          databaseBackupService.startAutomatedBackup();
+          console.log(
+            "Automated database backup enabled (BACKUP_ENABLED=true)",
+          );
+        } else {
+          console.log(
+            "Automated database backup disabled (set BACKUP_ENABLED=true to enable)",
+          );
+        }
       }
 
       // Add db.execute method for compatibility

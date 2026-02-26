@@ -1,5 +1,18 @@
 // Artillery processor for custom logic during load testing
 module.exports = {
+  beforeScenario: function (context, ee, next) {
+    // Inject credentials from environment (no hardcoded/mock tokens).
+    context.vars.loadtestEmail =
+      process.env.LOADTEST_EMAIL || "loadtest-admin@example.com";
+    context.vars.loadtestPassword =
+      process.env.LOADTEST_PASSWORD || "ChangeMe-LoadTest-Password-123!";
+
+    // Optional: device API key for IoT endpoints (set for iot-specific test plans)
+    context.vars.deviceApiKey = process.env.LOADTEST_DEVICE_API_KEY || "";
+
+    return next();
+  },
+
   beforeRequest: function (requestParams, context, ee, next) {
     // Add custom headers or modify requests before sending
     if (!requestParams.headers) {
@@ -7,9 +20,8 @@ module.exports = {
     }
 
     // Add request ID for tracking
-    requestParams.headers[
-      "X-Request-ID"
-    ] = `load-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    requestParams.headers["X-Request-ID"] =
+      `load-test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Add user agent
     requestParams.headers["User-Agent"] = "Artillery-Load-Test/1.0";
@@ -28,14 +40,14 @@ module.exports = {
       response.timings.phases.total > 500
     ) {
       console.log(
-        `Slow request: ${requestParams.url} - ${response.timings.phases.total}ms - ${requestId}`
+        `Slow request: ${requestParams.url} - ${response.timings.phases.total}ms - ${requestId}`,
       );
     }
 
     // Check for error responses
     if (response.statusCode >= 400) {
       console.log(
-        `Error response: ${response.statusCode} for ${requestParams.url} - ${requestId}`
+        `Error response: ${response.statusCode} for ${requestParams.url} - ${requestId}`,
       );
     }
 
@@ -46,14 +58,14 @@ module.exports = {
         ee.emit(
           "custom_metric",
           "attendance_records_created",
-          response.body.attendanceRecordsCreated
+          response.body.attendanceRecordsCreated,
         );
       }
       if (response.body.rfidScansProcessed) {
         ee.emit(
           "custom_metric",
           "rfid_scans_processed",
-          response.body.rfidScansProcessed
+          response.body.rfidScansProcessed,
         );
       }
     }
@@ -84,7 +96,7 @@ module.exports = {
 
   generateDeviceId: function (context, events, done) {
     // Generate IoT device IDs
-    const deviceId = "iot_device_" + Math.floor(Math.random() * 100) + 1;
+    const deviceId = "iot_device_" + (Math.floor(Math.random() * 100) + 1);
     return done(deviceId);
   },
 
@@ -109,7 +121,7 @@ module.exports = {
     now.setHours(
       hour,
       Math.floor(Math.random() * 60),
-      Math.floor(Math.random() * 60)
+      Math.floor(Math.random() * 60),
     );
     return done(now.toISOString());
   },
@@ -132,15 +144,6 @@ module.exports = {
     return done(status);
   },
 
-  // Authentication helper
-  getAuthToken: function (context, events, done) {
-    // In a real scenario, this would authenticate and return a token
-    // For load testing, we'll use a mock token with realistic claims
-    const token =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkxvYWQgVGVzdCBVc2VyIiwiaWF0IjoxNTE2MjM5MDIyfQ.test.load.token";
-    return done(token);
-  },
-
   // Bulk data generation for realistic scenarios
   generateBulkAttendanceRecords: function (context, events, done) {
     const records = [];
@@ -153,8 +156,8 @@ module.exports = {
           Math.random() > 0.15
             ? "present"
             : Math.random() > 0.5
-            ? "late"
-            : "absent",
+              ? "late"
+              : "absent",
         entryTime: new Date().toISOString(),
         notes: Math.random() > 0.8 ? `Load test note ${i}` : undefined,
       });

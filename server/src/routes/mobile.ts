@@ -1,4 +1,5 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { notificationService } from "../services/notificationService.js";
 import db from "../storage.js";
 import {
@@ -11,9 +12,23 @@ import {
   enrollments,
 } from "../schema.js";
 import { eq, and, gte, lte, desc, count } from "drizzle-orm";
-// import QRCode from "qrcode"; // Will add to package.json
+import * as QRCode from "qrcode";
 
 const router = Router();
+
+function requireMobileSession(req: any, res: any, next: any) {
+  // Allow CORS preflight.
+  if (req.method === "OPTIONS") return next();
+
+  if (!req.session?.userId) {
+    return res.status(401).json({
+      success: false,
+      message: "Not authenticated",
+    });
+  }
+
+  return next();
+}
 
 // Mobile-optimized authentication
 router.post("/auth/login", async (req, res) => {
@@ -31,6 +46,41 @@ router.post("/auth/login", async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required",
+      });
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user[0].password);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    // Session fixation protection: rotate session ID on login
+    if (req.session) {
+      await new Promise<void>((resolve, reject) => {
+        req.session!.regenerate((err: any) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      req.session.userId = user[0].id;
+      req.session.userRole = user[0].role;
+
+      await new Promise<void>((resolve, reject) => {
+        req.session!.save((err: any) => {
+          if (err) reject(err);
+          else resolve();
+        });
       });
     }
 
@@ -60,8 +110,6 @@ router.post("/auth/login", async (req, res) => {
           email: user[0].email,
           role: user[0].role,
         },
-        // Token should be generated properly in production
-        token: `mobile-${user[0].id}-${Date.now()}`,
       },
     });
   } catch (error) {
@@ -73,13 +121,23 @@ router.post("/auth/login", async (req, res) => {
   }
 });
 
+// All mobile endpoints below require an authenticated session.
+router.use(requireMobileSession);
+
 // Register device for push notifications
 router.post("/device/register", async (req, res) => {
   try {
-    const { userId, deviceToken, deviceType, platform } = req.body;
+    const { deviceToken, deviceType, platform } = req.body;
+
+    if (!deviceToken) {
+      return res.status(400).json({
+        success: false,
+        message: "deviceToken is required",
+      });
+    }
 
     await notificationService.registerPushSubscription({
-      userId: parseInt(userId),
+      userId: Number(req.session.userId),
       endpoint: deviceToken,
       p256dh: "mobile-p256dh", // Mobile push services use different format
       auth: "mobile-auth",
@@ -104,10 +162,25 @@ router.post("/device/register", async (req, res) => {
 router.get("/dashboard/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
+
+    // Only allow reading your own dashboard unless you're an admin.
+    const requestedUserId = parseInt(userId);
+    if (
+      Number.isFinite(requestedUserId) &&
+      requestedUserId !== Number(req.session.userId) &&
+      req.session.userRole !== "admin"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden",
+      });
+    }
+
+    const effectiveUserId = Number(req.session.userId);
     const user = await db
       .select()
       .from(users)
-      .where(eq(users.id, parseInt(userId)))
+      .where(eq(users.id, effectiveUserId))
       .limit(1);
 
     if (!user.length) {
@@ -130,8 +203,8 @@ router.get("/dashboard/:userId", async (req, res) => {
 
     // Get recent notifications
     const notifications = await notificationService.getUserNotifications(
-      parseInt(userId),
-      10
+      effectiveUserId,
+      10,
     );
     dashboardData.notifications = notifications.slice(0, 5);
 
@@ -153,8 +226,8 @@ router.get("/dashboard/:userId", async (req, res) => {
           and(
             eq(schedules.facultyId, user[0].id),
             gte(classSessions.date, new Date()),
-            lte(classSessions.date, tomorrow)
-          )
+            lte(classSessions.date, tomorrow),
+          ),
         )
         .orderBy(classSessions.date)
         .limit(5);
@@ -180,14 +253,14 @@ router.get("/dashboard/:userId", async (req, res) => {
       .innerJoin(students, eq(attendanceRecords.studentId, students.id))
       .innerJoin(
         classSessions,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
       .where(
         user[0].role === "faculty"
           ? eq(schedules.facultyId, user[0].id)
-          : undefined
+          : undefined,
       )
       .orderBy(desc(attendanceRecords.createdAt))
       .limit(10);
@@ -224,16 +297,19 @@ router.get("/qr/generate/:sessionId", async (req, res) => {
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes
     };
 
-    // For now, return JSON data - QR code generation requires additional package
-    // In production, install 'qrcode' package and use QRCode.toDataURL()
-    const qrCodePlaceholder = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==`;
+    const qrText = JSON.stringify(qrData);
+    const qrCode = await QRCode.toDataURL(qrText, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 256,
+    });
 
     res.json({
       success: true,
       data: {
-        qrCode: qrCodePlaceholder, // Placeholder - install qrcode package for real QR codes
+        qrCode,
         sessionData: qrData,
-        qrText: JSON.stringify(qrData), // Mobile apps can generate QR from this
+        qrText, // Mobile apps can generate QR from this too
       },
     });
   } catch (error) {
@@ -290,8 +366,8 @@ router.post("/qr/attendance", async (req, res) => {
       .where(
         and(
           eq(attendanceRecords.studentId, parseInt(studentId)),
-          eq(attendanceRecords.classSessionId, sessionData.sessionId)
-        )
+          eq(attendanceRecords.classSessionId, sessionData.sessionId),
+        ),
       )
       .limit(1);
 
@@ -334,7 +410,7 @@ router.post("/qr/attendance", async (req, res) => {
     await notificationService.sendAttendanceNotification(
       parseInt(studentId),
       sessionData.sessionId,
-      status
+      status,
     );
 
     res.json({

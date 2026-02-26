@@ -18,7 +18,10 @@ import { notificationService } from "../services/notificationService.js";
 import { createUserRateLimit } from "../middleware/rateLimit.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { iotDeviceManager } from "../services/iotDeviceManager.js";
-import { setEmergencyStop, isEmergencyStopActive } from "../services/rfidEmergencyStop.js";
+import {
+  setEmergencyStop,
+  isEmergencyStopActive,
+} from "../services/rfidEmergencyStop.js";
 
 const router = Router();
 
@@ -45,7 +48,7 @@ const dashboardRateLimit = createUserRateLimit({
 });
 
 // Get dashboard statistics
-router.get("/stats", dashboardRateLimit, async (req, res) => {
+router.get("/stats", requireAuth, dashboardRateLimit, async (req, res) => {
   try {
     // Try to get from cache first (longer cache time)
     const cachedStats = await cacheService.getDashboardStats();
@@ -194,16 +197,13 @@ router.get("/stats", dashboardRateLimit, async (req, res) => {
     const errorRate =
       totalEvents > 0 ? (discrepancyCount / totalEvents) * 100 : 0;
 
-    // Calculate system uptime
-    const systemStartDate = new Date("2024-01-01");
-    const uptimeMs = today.getTime() - systemStartDate.getTime();
-    const uptimeDays = Math.floor(uptimeMs / (1000 * 60 * 60 * 24));
+    // Calculate system uptime from process start (real uptime, not a fixed date).
+    const uptimeSeconds = Math.max(0, Math.floor(process.uptime()));
+    const uptimeDays = Math.floor(uptimeSeconds / (60 * 60 * 24));
     const uptimeHours = Math.floor(
-      (uptimeMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+      (uptimeSeconds % (60 * 60 * 24)) / (60 * 60),
     );
-    const uptimeMinutes = Math.floor(
-      (uptimeMs % (1000 * 60 * 60)) / (1000 * 60),
-    );
+    const uptimeMinutes = Math.floor((uptimeSeconds % (60 * 60)) / 60);
     const systemUptime = `${uptimeDays}d ${uptimeHours}h ${uptimeMinutes}m`;
 
     const stats = {
@@ -782,7 +782,11 @@ router.get(
           description: activity.details
             ? JSON.stringify(activity.details)
             : activity.action,
-          riskLevel: String(activity.action).includes("FAILED") || String(activity.action).includes("BRUTE") ? "high" : "medium",
+          riskLevel:
+            String(activity.action).includes("FAILED") ||
+            String(activity.action).includes("BRUTE")
+              ? "high"
+              : "medium",
           timestamp: activity.timestamp,
         })),
         period,
@@ -970,7 +974,7 @@ router.post(
     try {
       const devices = await iotDeviceManager.getAllDevices();
       const readers = devices.filter(
-        (d: any) => d.type === "rfid_reader" || d.type === "esp32_s3"
+        (d: any) => d.type === "rfid_reader" || d.type === "esp32_s3",
       );
       if (readers.length === 0) {
         return res.json({
@@ -981,7 +985,10 @@ router.post(
       }
       let ok = 0;
       for (const d of readers) {
-        const sent = await iotDeviceManager.sendCommandToDevice(d.deviceId, "test");
+        const sent = await iotDeviceManager.sendCommandToDevice(
+          d.deviceId,
+          "test",
+        );
         if (sent) ok++;
       }
       res.json({
@@ -991,9 +998,11 @@ router.post(
       });
     } catch (error) {
       console.error("RFID test-reader error:", error);
-      res.status(500).json({ success: false, message: "Failed to run reader test" });
+      res
+        .status(500)
+        .json({ success: false, message: "Failed to run reader test" });
     }
-  }
+  },
 );
 
 router.post(
@@ -1006,7 +1015,9 @@ router.post(
       const devices = await iotDeviceManager.getAllDevices();
       const sensors = devices.filter(
         (d: any) =>
-          d.type === "ultrasonic_sensor" || d.type === "esp32_s3" || d.type === "rfid_reader"
+          d.type === "ultrasonic_sensor" ||
+          d.type === "esp32_s3" ||
+          d.type === "rfid_reader",
       );
       if (sensors.length === 0) {
         return res.json({
@@ -1017,7 +1028,10 @@ router.post(
       }
       let sent = 0;
       for (const d of sensors) {
-        const ok = await iotDeviceManager.sendCommandToDevice(d.deviceId, "calibrate");
+        const ok = await iotDeviceManager.sendCommandToDevice(
+          d.deviceId,
+          "calibrate",
+        );
         if (ok) sent++;
       }
       res.json({
@@ -1027,9 +1041,11 @@ router.post(
       });
     } catch (error) {
       console.error("RFID calibrate error:", error);
-      res.status(500).json({ success: false, message: "Failed to send calibrate command" });
+      res
+        .status(500)
+        .json({ success: false, message: "Failed to send calibrate command" });
     }
-  }
+  },
 );
 
 router.get(
@@ -1040,7 +1056,10 @@ router.get(
   async (req, res) => {
     try {
       const [withRfid, total] = await Promise.all([
-        db.select({ count: sql<number>`count(*)` }).from(students).where(and(isNotNull(students.rfidUid), ne(students.rfidUid, ""))),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(students)
+          .where(and(isNotNull(students.rfidUid), ne(students.rfidUid, ""))),
         db.select({ count: sql<number>`count(*)` }).from(students),
       ]);
       const countWithRfid = Number(withRfid[0]?.count ?? 0);
@@ -1055,9 +1074,11 @@ router.get(
       });
     } catch (error) {
       console.error("Check card database error:", error);
-      res.status(500).json({ success: false, message: "Failed to check card database" });
+      res
+        .status(500)
+        .json({ success: false, message: "Failed to check card database" });
     }
-  }
+  },
 );
 
 router.post(
@@ -1074,9 +1095,11 @@ router.post(
       });
     } catch (error) {
       console.error("Reset device cache error:", error);
-      res.status(500).json({ success: false, message: "Failed to reset device cache" });
+      res
+        .status(500)
+        .json({ success: false, message: "Failed to reset device cache" });
     }
-  }
+  },
 );
 
 router.post(
@@ -1089,13 +1112,16 @@ router.post(
       await setEmergencyStop(true);
       res.json({
         success: true,
-        message: "Emergency stop active. RFID scans will not be processed until resumed.",
+        message:
+          "Emergency stop active. RFID scans will not be processed until resumed.",
       });
     } catch (error) {
       console.error("Emergency stop error:", error);
-      res.status(500).json({ success: false, message: "Failed to set emergency stop" });
+      res
+        .status(500)
+        .json({ success: false, message: "Failed to set emergency stop" });
     }
-  }
+  },
 );
 
 router.post(
@@ -1114,7 +1140,7 @@ router.post(
       console.error("Resume RFID error:", error);
       res.status(500).json({ success: false, message: "Failed to resume" });
     }
-  }
+  },
 );
 
 router.get(
@@ -1133,7 +1159,7 @@ router.get(
       console.error("Emergency status error:", error);
       res.status(500).json({ success: false, message: "Failed to get status" });
     }
-  }
+  },
 );
 
 router.post(
@@ -1154,9 +1180,11 @@ router.post(
       });
     } catch (error) {
       console.error("Run calibration error:", error);
-      res.status(500).json({ success: false, message: "Failed to run calibration" });
+      res
+        .status(500)
+        .json({ success: false, message: "Failed to run calibration" });
     }
-  }
+  },
 );
 
 router.get(
@@ -1172,7 +1200,9 @@ router.get(
       });
     } catch (error) {
       console.error("Calibration status error:", error);
-      res.status(500).json({ success: false, message: "Failed to get calibration status" });
+      res
+        .status(500)
+        .json({ success: false, message: "Failed to get calibration status" });
     }
-  }
+  },
 );
