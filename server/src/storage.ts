@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { drizzle as drizzleBetterSqlite3 } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
+import type { Statement } from "better-sqlite3";
 // Use the shared Drizzle schema for DB access.
 // This avoids duplicated schema modules and simplifies Jest/ts-jest resolution.
 import * as schema from "../../shared/schema.js";
@@ -179,6 +180,77 @@ export default db;
 // Export connection pool/client for monitoring
 export { dbClient };
 
+type SqliteCompiledQuery = { text: string; params: unknown[] };
+
+function isSqliteClient(client: any): client is Database.Database {
+  return (
+    !!client &&
+    typeof client.prepare === "function" &&
+    typeof client.exec === "function"
+  );
+}
+
+function compileDrizzleSqlForSqlite(input: any): SqliteCompiledQuery {
+  // Supported inputs:
+  // - string
+  // - drizzle `sql\`...\`` SQL object (has queryChunks)
+  // - nested SQL objects inside queryChunks
+
+  if (typeof input === "string") return { text: input, params: [] };
+
+  // Drizzle SQL object (drizzle-orm v0.3x): { queryChunks: (StringChunk | value | SQL)[] }
+  if (input && typeof input === "object" && Array.isArray(input.queryChunks)) {
+    let text = "";
+    const params: unknown[] = [];
+
+    for (const chunk of input.queryChunks) {
+      // StringChunk
+      if (chunk && typeof chunk === "object" && "value" in chunk) {
+        const v: any = (chunk as any).value;
+        if (Array.isArray(v)) {
+          text += v.join("");
+        } else if (typeof v === "string") {
+          text += v;
+        } else {
+          text += String(v);
+        }
+        continue;
+      }
+
+      // Nested SQL
+      if (
+        chunk &&
+        typeof chunk === "object" &&
+        Array.isArray((chunk as any).queryChunks)
+      ) {
+        const nested = compileDrizzleSqlForSqlite(chunk);
+        text += nested.text;
+        params.push(...nested.params);
+        continue;
+      }
+
+      // Parameter value
+      text += "?";
+      params.push(chunk);
+    }
+
+    return { text, params };
+  }
+
+  // Anything else: best-effort string coercion
+  return { text: String(input), params: [] };
+}
+
+function sqliteIsSelectLike(sqlText: string): boolean {
+  const trimmed = sqlText.trimStart().toLowerCase();
+  return (
+    trimmed.startsWith("select") ||
+    trimmed.startsWith("with") ||
+    trimmed.startsWith("pragma") ||
+    trimmed.startsWith("explain")
+  );
+}
+
 // Safe database execute wrapper to handle errors gracefully
 export async function safeExecute(
   query: any,
@@ -187,13 +259,13 @@ export async function safeExecute(
   try {
     // Use dbClient for raw SQL execution
     // Check if we're using SQLite by checking the dbClient type
-    if (dbClient.prepare && dbClient.exec) {
+    if (isSqliteClient(dbClient)) {
       // For SQLite, use the raw database connection
-      if (params.length > 0) {
-        return await dbClient.prepare(query).run(params);
-      } else {
-        return await dbClient.exec(query);
+      const stmt = dbClient.prepare(String(query));
+      if (sqliteIsSelectLike(String(query))) {
+        return params.length > 0 ? stmt.all(...params) : stmt.all();
       }
+      return params.length > 0 ? stmt.run(...params) : stmt.run();
     } else {
       // For PostgreSQL, use the client directly
       if (typeof dbClient.query === "function") {
@@ -216,24 +288,17 @@ export function addExecuteMethod() {
     db.execute = async function (sqlQuery: any) {
       try {
         // Check if we're using SQLite
-        if (dbClient.prepare && dbClient.exec) {
-          // For SQLite, use prepare/run for queries that return results
-          // or exec for queries that don't
-          let queryString;
-          if (typeof sqlQuery === "object" && sqlQuery.sql) {
-            // Handle drizzle SQL object
-            queryString = sqlQuery.sql;
-          } else if (typeof sqlQuery === "string") {
-            queryString = sqlQuery;
-          } else {
-            queryString = sqlQuery.toString();
+        if (isSqliteClient(dbClient)) {
+          const compiled = compileDrizzleSqlForSqlite(sqlQuery);
+          const stmt: Statement = dbClient.prepare(compiled.text);
+          if (sqliteIsSelectLike(compiled.text)) {
+            return compiled.params.length > 0
+              ? stmt.all(...compiled.params)
+              : stmt.all();
           }
-
-          if (queryString.toLowerCase().startsWith("select")) {
-            return dbClient.prepare(queryString).all();
-          } else {
-            return dbClient.exec(queryString);
-          }
+          return compiled.params.length > 0
+            ? stmt.run(...compiled.params)
+            : stmt.run();
         } else {
           // For PostgreSQL, use the existing safeExecute
           return safeExecute(sqlQuery);

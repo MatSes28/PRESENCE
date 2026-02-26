@@ -3,11 +3,19 @@ import * as fs from "fs";
 import * as path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import db from "../../storage.js";
+import db, { dbClient } from "../../storage.js";
 import { sql } from "drizzle-orm";
 import { loggerService } from "./logger.js";
 
 const execAsync = promisify(exec);
+
+function isSqlite(): boolean {
+  return (
+    !!dbClient &&
+    typeof dbClient.prepare === "function" &&
+    typeof dbClient.exec === "function"
+  );
+}
 
 // System Health Metrics Interface
 export interface SystemMetrics {
@@ -560,6 +568,49 @@ export class MetricsCollector {
   // Collect database performance metrics
   public async collectDatabaseMetrics(): Promise<DatabaseMetrics> {
     try {
+      // SQLite is used for local/dev convenience only; production uses Postgres.
+      // Avoid running Postgres-specific catalog queries on SQLite.
+      if (isSqlite()) {
+        let databaseSize = 0;
+        try {
+          const pageCount = (await db.execute("PRAGMA page_count")) as any[];
+          const pageSize = (await db.execute("PRAGMA page_size")) as any[];
+          const pc =
+            Number(
+              pageCount?.[0]?.page_count ?? pageCount?.[0]?.["page_count"],
+            ) || 0;
+          const ps =
+            Number(pageSize?.[0]?.page_size ?? pageSize?.[0]?.["page_size"]) ||
+            0;
+          databaseSize = pc * ps;
+        } catch {
+          databaseSize = 0;
+        }
+
+        return {
+          timestamp: new Date(),
+          connections: { active: 1, idle: 0, total: 1, waiting: 0, max: 1 },
+          performance: {
+            cacheHitRatio: 0,
+            avgQueryTime: 0,
+            slowQueries: 0,
+            deadlocks: 0,
+            rollbacks: 0,
+            conflicts: 0,
+          },
+          storage: {
+            databaseSize,
+            indexSize: 0,
+            tableSize: 0,
+            walSize: 0,
+            tempSize: 0,
+          },
+          replication: { isReplica: false, lag: 0, status: "primary" },
+          vacuum: { lastVacuum: null, lastAutoVacuum: null, activeVacuums: 0 },
+          locks: { total: 0, waiting: 0, deadlocks: 0 },
+        };
+      }
+
       let connStats = {
         active_connections: 0,
         idle_connections: 0,
@@ -851,6 +902,54 @@ export class MetricsCollector {
   // Collect application performance metrics
   public async collectApplicationMetrics(): Promise<ApplicationMetrics> {
     try {
+      if (isSqlite()) {
+        // SQLite-compatible time arithmetic.
+        // NOTE: These columns are created by apply-sqlite-migrations.js and may not exist in every dev DB.
+        let attendanceCount = 0;
+        let rfidCount = 0;
+
+        try {
+          const attendanceResult = (await db.execute(
+            "SELECT COUNT(*) as count FROM attendance_records WHERE created_at >= datetime('now','-1 hour')",
+          )) as any[];
+          attendanceCount = parseInt(attendanceResult?.[0]?.count) || 0;
+        } catch {
+          attendanceCount = 0;
+        }
+
+        try {
+          const rfidResult = (await db.execute(
+            "SELECT COUNT(*) as count FROM attendance_records WHERE rfidDetected = 1 AND created_at >= datetime('now','-1 hour')",
+          )) as any[];
+          rfidCount = parseInt(rfidResult?.[0]?.count) || 0;
+        } catch {
+          rfidCount = 0;
+        }
+
+        return {
+          timestamp: new Date(),
+          requests: {
+            total: 0,
+            successful: 0,
+            failed: 0,
+            averageResponseTime: 0,
+            p95ResponseTime: 0,
+            p99ResponseTime: 0,
+          },
+          errors: {
+            total: 0,
+            byType: {},
+            byEndpoint: {},
+          },
+          business: {
+            attendanceRecordsCreated: attendanceCount,
+            rfidScansProcessed: rfidCount,
+            notificationsSent: 0,
+            activeUsers: 0,
+          },
+        };
+      }
+
       // Get attendance records created in last hour
       const attendanceResult = await db.execute(sql`
         SELECT COUNT(*) as count
