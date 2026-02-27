@@ -3,6 +3,7 @@ import { iotDeviceManager } from "../services/iotDeviceManager.js";
 import { sendToDevice, broadcastToWebClients } from "../services/websocket.js";
 import { validateRequest, validationRules } from "../middleware/validation.js";
 import { v4 as uuidv4 } from "uuid";
+import { auditEventLogger } from "../services/audit/auditEvents.js";
 
 const router = Router();
 
@@ -32,9 +33,8 @@ const requireDeviceAuth = async (req: any, res: any, next: any) => {
     }
 
     // Validate API key against database
-    const deviceInfo = await iotDeviceManager.authenticateDeviceByApiKey(
-      apiKey
-    );
+    const deviceInfo =
+      await iotDeviceManager.authenticateDeviceByApiKey(apiKey);
 
     if (!deviceInfo) {
       return res.status(401).json({
@@ -156,7 +156,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Update device configuration
@@ -203,7 +203,7 @@ router.post("/devices/:deviceId/command", requireAuth, async (req, res) => {
     const success = await iotDeviceManager.sendCommandToDevice(
       deviceId,
       command,
-      params
+      params,
     );
 
     if (!success) {
@@ -268,7 +268,7 @@ router.post("/devices/:deviceId/firmware", requireAuth, async (req, res) => {
 
     const success = await iotDeviceManager.updateDeviceFirmware(
       deviceId,
-      firmwareUrl
+      firmwareUrl,
     );
 
     if (!success) {
@@ -312,7 +312,7 @@ router.get(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Get device statistics
@@ -359,7 +359,7 @@ router.get("/devices/:deviceId/heartbeats", requireAuth, async (req, res) => {
 
     const history = await iotDeviceManager.getHeartbeatHistory(
       deviceId,
-      parseInt(limit as string, 10)
+      parseInt(limit as string, 10),
     );
 
     res.json({
@@ -404,7 +404,7 @@ router.get(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Get device API key (for device setup)
@@ -465,7 +465,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Update device certificate
@@ -484,7 +484,7 @@ router.post("/devices/:deviceId/certificate", requireAuth, async (req, res) => {
     const success = await iotDeviceManager.updateDeviceCertificate(
       deviceId,
       certificateData,
-      fingerprint
+      fingerprint,
     );
 
     if (!success) {
@@ -578,28 +578,35 @@ router.get("/commands", requireDeviceAuth, async (req: any, res: any) => {
 });
 
 // Acknowledge a command (device received and will execute it)
-router.post("/commands/:commandId/ack", requireDeviceAuth, async (req: any, res: any) => {
-  try {
-    const { commandId } = req.params;
-    const ok = iotDeviceManager.markCommandAcknowledged(commandId, req.deviceId);
-    if (!ok) {
-      return res.status(404).json({
+router.post(
+  "/commands/:commandId/ack",
+  requireDeviceAuth,
+  async (req: any, res: any) => {
+    try {
+      const { commandId } = req.params;
+      const ok = iotDeviceManager.markCommandAcknowledged(
+        commandId,
+        req.deviceId,
+      );
+      if (!ok) {
+        return res.status(404).json({
+          success: false,
+          message: "Command not found or not for this device",
+        });
+      }
+      res.json({
+        success: true,
+        message: "Command acknowledged",
+      });
+    } catch (error) {
+      console.error("Ack command error:", error);
+      res.status(500).json({
         success: false,
-        message: "Command not found or not for this device",
+        message: "Failed to acknowledge command",
       });
     }
-    res.json({
-      success: true,
-      message: "Command acknowledged",
-    });
-  } catch (error) {
-    console.error("Ack command error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to acknowledge command",
-    });
-  }
-});
+  },
+);
 
 // RFID scan endpoint (called by devices)
 router.post(
@@ -618,12 +625,11 @@ router.post(
       }
 
       // Import attendance monitor dynamically to avoid circular dependencies
-      const { attendanceMonitor } = await import(
-        "../services/attendanceMonitor.js"
-      );
+      const { attendanceMonitor } =
+        await import("../services/attendanceMonitor.js");
 
       console.log(
-        `[IoT RFID] Device ${req.deviceId} scanned RFID: ${rfidUid} (Request: ${requestId})`
+        `[IoT RFID] Device ${req.deviceId} scanned RFID: ${rfidUid} (Request: ${requestId})`,
       );
 
       const result = await attendanceMonitor.processRFIDScan({
@@ -631,6 +637,21 @@ router.post(
         rfidUid,
         timestamp: timestamp || new Date().toISOString(),
       });
+
+      // Evidence trail for discrepancy resolution:
+      // log RFID scan outcome to tamper-chained audit log (best-effort).
+      try {
+        await auditEventLogger.logRFIDScan(
+          req.deviceId,
+          rfidUid,
+          !!result?.success,
+          (result as any)?.student?.id,
+          (result as any)?.error || (result as any)?.message,
+        );
+      } catch (e) {
+        // Never fail device ingestion due to audit logging.
+        console.warn("Failed to audit RFID scan:", (e as any)?.message || e);
+      }
 
       // Broadcast to web clients
       broadcastToWebClients("rfidScan", {
@@ -654,7 +675,7 @@ router.post(
         message: error.message || "Failed to process RFID scan",
       });
     }
-  }
+  },
 );
 
 // Ultrasonic sensor data endpoint (called by devices)
@@ -674,9 +695,8 @@ router.post(
       }
 
       // Process sensor data for presence detection using processSensorTrigger
-      const { attendanceMonitor } = await import(
-        "../services/attendanceMonitor.js"
-      );
+      const { attendanceMonitor } =
+        await import("../services/attendanceMonitor.js");
 
       const result = await attendanceMonitor.processSensorTrigger({
         deviceId: req.deviceId,
@@ -684,6 +704,21 @@ router.post(
         distance,
         timestamp: timestamp || new Date().toISOString(),
       });
+
+      // Evidence trail for discrepancy resolution (best-effort)
+      try {
+        await auditEventLogger.logSensorTrigger(
+          req.deviceId,
+          distance > 100 ? "entry" : "exit",
+          Number(distance),
+          !!result?.success,
+        );
+      } catch (e) {
+        console.warn(
+          "Failed to audit sensor trigger:",
+          (e as any)?.message || e,
+        );
+      }
 
       // Broadcast to web clients
       broadcastToWebClients("sensorData", {
@@ -708,7 +743,7 @@ router.post(
         message: error.message || "Failed to process sensor data",
       });
     }
-  }
+  },
 );
 
 // Combined sensor data endpoint (called by devices with both RFID and ultrasonic)
@@ -727,12 +762,11 @@ router.post(
         });
       }
 
-      const { attendanceMonitor } = await import(
-        "../services/attendanceMonitor.js"
-      );
+      const { attendanceMonitor } =
+        await import("../services/attendanceMonitor.js");
 
       console.log(
-        `[IoT Combined] Device ${req.deviceId} - RFID: ${rfidUid}, Distance: ${distance}cm (Request: ${requestId})`
+        `[IoT Combined] Device ${req.deviceId} - RFID: ${rfidUid}, Distance: ${distance}cm (Request: ${requestId})`,
       );
 
       // Process RFID scan first if present
@@ -743,6 +777,22 @@ router.post(
           rfidUid,
           timestamp: timestamp || new Date().toISOString(),
         });
+
+        // Evidence trail (best-effort)
+        try {
+          await auditEventLogger.logRFIDScan(
+            req.deviceId,
+            rfidUid,
+            !!(rfidResult as any)?.success,
+            (rfidResult as any)?.student?.id,
+            (rfidResult as any)?.error || (rfidResult as any)?.message,
+          );
+        } catch (e) {
+          console.warn(
+            "Failed to audit RFID scan (combined):",
+            (e as any)?.message || e,
+          );
+        }
       }
 
       // Process sensor trigger if distance is present
@@ -754,6 +804,21 @@ router.post(
           distance,
           timestamp: timestamp || new Date().toISOString(),
         });
+
+        // Evidence trail (best-effort)
+        try {
+          await auditEventLogger.logSensorTrigger(
+            req.deviceId,
+            distance > 100 ? "entry" : "exit",
+            Number(distance),
+            !!(sensorResult as any)?.success,
+          );
+        } catch (e) {
+          console.warn(
+            "Failed to audit sensor trigger (combined):",
+            (e as any)?.message || e,
+          );
+        }
       }
 
       const result = {
@@ -785,7 +850,7 @@ router.post(
         message: error.message || "Failed to process combined sensor data",
       });
     }
-  }
+  },
 );
 
 // Device status update endpoint (called by devices)
@@ -865,9 +930,8 @@ router.post(
 
       // Also process the RFID scan directly for testing
       try {
-        const { attendanceMonitor } = await import(
-          "../services/attendanceMonitor.js"
-        );
+        const { attendanceMonitor } =
+          await import("../services/attendanceMonitor.js");
         console.log(`[SIMULATE RFID] Processing RFID scan: ${rfidUid}`);
         const result = await attendanceMonitor.processRFIDScan({
           deviceId: "simulator",
@@ -899,7 +963,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // ============================================

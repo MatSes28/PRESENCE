@@ -41,6 +41,12 @@ const navigationSections: NavSection[] = [
         roles: ["admin", "faculty"],
       },
       {
+        path: "/discrepancies",
+        label: "Discrepancies",
+        icon: "⚠️",
+        roles: ["admin", "faculty"],
+      },
+      {
         path: "/roster",
         label: "Attendance Records",
         icon: "📋",

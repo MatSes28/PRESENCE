@@ -22,6 +22,7 @@ import healthRoutes from "./routes/health.js";
 import gdprRoutes from "./routes/gdpr.js";
 import privacyRoutes from "./routes/privacy.js";
 import auditRoutes from "./routes/audit.js";
+import discrepancyRoutes from "./routes/discrepancies.js";
 
 const router = Router();
 
@@ -53,5 +54,6 @@ router.use("/settings", settingsRoutes);
 router.use("/gdpr", gdprRoutes);
 router.use("/privacy", privacyRoutes);
 router.use("/audit", auditRoutes);
+router.use("/discrepancies", discrepancyRoutes);
 
 export default router;
