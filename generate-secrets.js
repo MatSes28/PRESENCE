@@ -19,6 +19,10 @@ const sessionSecret = crypto.randomBytes(32).toString("base64");
 // Generate IoT API key (32+ characters)
 const iotApiKey = crypto.randomBytes(32).toString("hex");
 
+// Generate encryption master key (32 bytes, base64 recommended)
+// Used to derive per-purpose keys for encrypting sensitive data at rest.
+const encryptionMasterKey = crypto.randomBytes(32).toString("base64");
+
 // Generate database password (16+ characters)
 const dbPassword = crypto.randomBytes(16).toString("base64");
 
@@ -27,6 +31,7 @@ console.log("===================");
 console.log(`JWT_SECRET="${jwtSecret}"`);
 console.log(`JWT_REFRESH_SECRET="${jwtRefreshSecret}"`);
 console.log(`SESSION_SECRET="${sessionSecret}"`);
+console.log(`ENCRYPTION_MASTER_KEY="${encryptionMasterKey}"`);
 console.log(`IOT_API_KEY="${iotApiKey}"`);
 console.log(`DB_PASSWORD="${dbPassword}"`);
 
