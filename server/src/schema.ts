@@ -407,6 +407,51 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// =============================================================================
+// Enterprise integrations (SIS/LMS/HR/SSO tooling)
+// =============================================================================
+
+export const integrations = pgTable("integrations", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  kind: varchar("kind", { length: 50 }).notNull().default("custom"),
+  provider: varchar("provider", { length: 100 }).notNull().default("custom"),
+  config: jsonb("config").notNull().default({}),
+  enabled: boolean("enabled").default(false).notNull(),
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const integrationSyncRuns = pgTable("integration_sync_runs", {
+  id: serial("id").primaryKey(),
+  integrationId: integer("integration_id")
+    .references(() => integrations.id, { onDelete: "cascade" })
+    .notNull(),
+  jobType: varchar("job_type", { length: 100 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("running"),
+  idempotencyKey: varchar("idempotency_key", { length: 128 }),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
+  stats: jsonb("stats").notNull().default({}),
+  error: text("error"),
+});
+
+export const integrationSyncEvents = pgTable("integration_sync_events", {
+  id: serial("id").primaryKey(),
+  runId: integer("run_id")
+    .references(() => integrationSyncRuns.id, { onDelete: "cascade" })
+    .notNull(),
+  entityType: varchar("entity_type", { length: 50 }).notNull(),
+  action: varchar("action", { length: 50 }).notNull(),
+  externalId: varchar("external_id", { length: 255 }),
+  localId: varchar("local_id", { length: 255 }),
+  status: varchar("status", { length: 20 }).notNull().default("ok"),
+  message: text("message"),
+  diff: jsonb("diff"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Subject Sessions table - For lab session management
 export const subjectSessions = pgTable("subject_sessions", {
   id: serial("id").primaryKey(),

@@ -279,6 +279,58 @@ export const userSessions = pgTable("user_sessions", {
   isActive: boolean("is_active").default(true).notNull(),
 });
 
+// =============================================================================
+// Enterprise integrations (SIS/LMS/HR/SSO tooling)
+// =============================================================================
+
+// Integration configurations are stored in the database (not environment variables)
+// to support multi-tenant-like setups, safe change management, and auditable operations.
+export const integrations = pgTable("integrations", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  // Example values: sis, lms, hr, oidc, saml, scim, custom
+  kind: varchar("kind", { length: 50 }).notNull().default("custom"),
+  // Provider identifier, e.g., banner, peopleSoft, moodle, canvas, azure_ad, okta
+  provider: varchar("provider", { length: 100 }).notNull().default("custom"),
+  // DB-backed configuration (endpoints, field mapping, options). Do not store raw secrets in plaintext.
+  config: jsonb("config").notNull().default({}),
+  enabled: boolean("enabled").default(false).notNull(),
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// A run is one execution of a sync/export/provision job.
+export const integrationSyncRuns = pgTable("integration_sync_runs", {
+  id: serial("id").primaryKey(),
+  integrationId: integer("integration_id")
+    .references(() => integrations.id, { onDelete: "cascade" })
+    .notNull(),
+  jobType: varchar("job_type", { length: 100 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("running"), // running, success, failed
+  idempotencyKey: varchar("idempotency_key", { length: 128 }),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
+  stats: jsonb("stats").notNull().default({}),
+  error: text("error"),
+});
+
+// Optional per-item audit trail for reconciliation/debugging (can be sampled at scale).
+export const integrationSyncEvents = pgTable("integration_sync_events", {
+  id: serial("id").primaryKey(),
+  runId: integer("run_id")
+    .references(() => integrationSyncRuns.id, { onDelete: "cascade" })
+    .notNull(),
+  entityType: varchar("entity_type", { length: 50 }).notNull(), // user, student, schedule, enrollment, attendance
+  action: varchar("action", { length: 50 }).notNull(), // upsert, deactivate, export, reconcile
+  externalId: varchar("external_id", { length: 255 }),
+  localId: varchar("local_id", { length: 255 }),
+  status: varchar("status", { length: 20 }).notNull().default("ok"), // ok, skipped, error
+  message: text("message"),
+  diff: jsonb("diff"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Push Subscriptions table (for web push API)
 export const pushSubscriptions = pgTable("push_subscriptions", {
   id: serial("id").primaryKey(),
@@ -382,7 +434,7 @@ export const classSessionsRelations = relations(
     attendanceRecords: many(attendanceRecords),
     computerAssignments: many(computerAssignments),
     emailNotifications: many(emailNotifications),
-  })
+  }),
 );
 
 export const attendanceRecordsRelations = relations(
@@ -396,7 +448,7 @@ export const attendanceRecordsRelations = relations(
       fields: [attendanceRecords.classSessionId],
       references: [classSessions.id],
     }),
-  })
+  }),
 );
 
 export const computersRelations = relations(computers, ({ one, many }) => ({
@@ -423,7 +475,7 @@ export const computerAssignmentsRelations = relations(
       fields: [computerAssignments.classSessionId],
       references: [classSessions.id],
     }),
-  })
+  }),
 );
 
 export const iotDevicesRelations = relations(iotDevices, ({ one }) => ({
@@ -455,7 +507,7 @@ export const emailNotificationsRelations = relations(
       fields: [emailNotifications.classSessionId],
       references: [classSessions.id],
     }),
-  })
+  }),
 );
 
 export const subjectSessionsRelations = relations(
@@ -474,7 +526,7 @@ export const subjectSessionsRelations = relations(
       references: [users.id],
     }),
     assignments: many(sessionAssignments),
-  })
+  }),
 );
 
 export const sessionAssignmentsRelations = relations(
@@ -492,7 +544,7 @@ export const sessionAssignmentsRelations = relations(
       fields: [sessionAssignments.studentId],
       references: [students.id],
     }),
-  })
+  }),
 );
 
 export const computerMaintenanceRelations = relations(
@@ -506,7 +558,7 @@ export const computerMaintenanceRelations = relations(
       fields: [computerMaintenance.performedBy],
       references: [users.id],
     }),
-  })
+  }),
 );
 
 export const userSessionsRelations = relations(userSessions, ({ one }) => ({

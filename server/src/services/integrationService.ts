@@ -6,18 +6,33 @@ import {
   classSessions,
   schedules,
   subjects,
+  integrations,
+  integrationSyncRuns,
+  integrationSyncEvents,
 } from "../schema.js";
 import { eq, and, gte, lte } from "drizzle-orm";
+import { encryptionService } from "./encryptionService.js";
+import { auditService } from "./auditService.js";
+
+type IntegrationProvider =
+  | "moodle"
+  | "canvas"
+  | "google_classroom"
+  | "microsoft_teams"
+  | "sis"
+  | "hr"
+  | "oidc"
+  | "saml"
+  | "scim"
+  | "custom";
 
 interface IntegrationConfig {
-  id?: number;
+  id: number;
   name: string;
-  type: "moodle" | "canvas" | "google_classroom" | "microsoft_teams" | "custom";
-  apiEndpoint: string;
-  apiKey: string;
-  isActive: boolean;
-  syncFrequency: number; // minutes
-  lastSync?: Date;
+  kind: string;
+  provider: IntegrationProvider | string;
+  enabled: boolean;
+  lastSyncAt?: Date | null;
   config: Record<string, any>;
 }
 
@@ -46,30 +61,114 @@ interface SyncResult {
 }
 
 class IntegrationService {
-  private integrations: Map<string, IntegrationConfig> = new Map();
+  private integrationsById: Map<number, IntegrationConfig> = new Map();
+  private integrationsByKey: Map<string, IntegrationConfig> = new Map();
 
   constructor() {
-    this.loadIntegrations();
+    void this.refreshIntegrations();
   }
 
-  // Load integrations from database
-  private async loadIntegrations() {
+  private normalizeLookupKey(key: string): string {
+    return key.trim().toLowerCase();
+  }
+
+  private decryptIfEncrypted(value: unknown): unknown {
+    if (typeof value !== "string") return value;
     try {
-      // In a real implementation, you'd have an integrations table
-      // For now, we'll use environment variables
-      const moodleConfig = process.env.MOODLE_API_CONFIG;
-      const canvasConfig = process.env.CANVAS_API_CONFIG;
+      return encryptionService.decryptFromDatabase(value);
+    } catch {
+      return value;
+    }
+  }
 
-      if (moodleConfig) {
-        this.integrations.set("moodle", JSON.parse(moodleConfig));
-      }
+  private decryptIntegrationConfig(
+    config: Record<string, any>,
+  ): Record<string, any> {
+    const out: Record<string, any> = { ...config };
+    for (const k of Object.keys(out)) {
+      out[k] = this.decryptIfEncrypted(out[k]);
+    }
+    return out;
+  }
 
-      if (canvasConfig) {
-        this.integrations.set("canvas", JSON.parse(canvasConfig));
+  // DB-backed integration configs (replaces env-config integration stub)
+  private async refreshIntegrations() {
+    try {
+      const rows = await db.select().from(integrations);
+
+      this.integrationsById.clear();
+      this.integrationsByKey.clear();
+
+      for (const row of rows as any[]) {
+        const cfg: IntegrationConfig = {
+          id: row.id,
+          name: row.name,
+          kind: row.kind,
+          provider: row.provider,
+          enabled: row.enabled,
+          lastSyncAt: row.lastSyncAt ?? null,
+          config: this.decryptIntegrationConfig((row.config ?? {}) as any),
+        };
+
+        this.integrationsById.set(cfg.id, cfg);
+        this.integrationsByKey.set(
+          this.normalizeLookupKey(String(cfg.id)),
+          cfg,
+        );
+        this.integrationsByKey.set(
+          this.normalizeLookupKey(String(cfg.provider)),
+          cfg,
+        );
+        this.integrationsByKey.set(this.normalizeLookupKey(cfg.name), cfg);
       }
     } catch (error) {
       console.error("Failed to load integrations:", error);
     }
+  }
+
+  private async resolveIntegration(
+    integrationKey: string,
+  ): Promise<IntegrationConfig | null> {
+    const normalized = this.normalizeLookupKey(integrationKey);
+    const cached = this.integrationsByKey.get(normalized);
+    if (cached) return cached;
+
+    await this.refreshIntegrations();
+    return this.integrationsByKey.get(normalized) || null;
+  }
+
+  async listIntegrations(): Promise<IntegrationConfig[]> {
+    await this.refreshIntegrations();
+    return Array.from(this.integrationsById.values());
+  }
+
+  async getIntegrationStatus(): Promise<Record<string, any>> {
+    const list = await this.listIntegrations();
+    const status: Record<string, any> = {};
+
+    for (const i of list) {
+      const provider = String(i.provider);
+      const configured = i.config && Object.keys(i.config).length > 0;
+      status[provider] = {
+        configured,
+        active: !!i.enabled,
+        lastSync: i.lastSyncAt ?? null,
+      };
+    }
+
+    // These integrations are still env-based in this codebase; keep reporting them.
+    status.google_classroom = status.google_classroom ?? {
+      configured: !!process.env.GOOGLE_CLASSROOM_API_KEY,
+      active: !!process.env.GOOGLE_CLASSROOM_API_KEY,
+      lastSync: null,
+    };
+    status.microsoft_teams = status.microsoft_teams ?? {
+      configured: !!process.env.MICROSOFT_TEAMS_API_KEY,
+      active: !!process.env.MICROSOFT_TEAMS_API_KEY,
+      lastSync: null,
+    };
+
+    return status;
   }
 
   // Sync student data from external LMS
@@ -82,13 +181,14 @@ class IntegrationService {
     };
 
     try {
-      const integration = this.integrations.get(integrationId);
-      if (!integration || !integration.isActive) {
+      const integration = await this.resolveIntegration(integrationId);
+      if (!integration || !integration.enabled) {
         result.errors.push("Integration not found or inactive");
         return result;
       }
 
-      switch (integration.type) {
+      const provider = String(integration.provider);
+      switch (provider) {
         case "moodle":
           return await this.syncFromMoodle(integration);
         case "canvas":
@@ -117,8 +217,8 @@ class IntegrationService {
     };
 
     try {
-      const integration = this.integrations.get(integrationId);
-      if (!integration || !integration.isActive) {
+      const integration = await this.resolveIntegration(integrationId);
+      if (!integration || !integration.enabled) {
         result.errors.push("Integration not found or inactive");
         return result;
       }
@@ -141,7 +241,8 @@ class IntegrationService {
         .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
         .where(eq(attendanceRecords.classSessionId, sessionId));
 
-      switch (integration.type) {
+      const provider = String(integration.provider);
+      switch (provider) {
         case "moodle":
           return await this.syncAttendanceToMoodle(integration, attendanceData);
         case "canvas":

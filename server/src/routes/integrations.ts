@@ -173,31 +173,9 @@ router.get("/export/:format/:dataType", requireAdmin, async (req, res) => {
 // Get integration status
 router.get("/status", requireAdmin, async (req, res) => {
   try {
-    // Return status of all integrations.
-    // Production readiness: do not report synthetic/assumed status.
-    // If an integration isn't configured, mark it inactive and leave lastSync as null.
-    const integrations = {
-      moodle: {
-        configured: !!process.env.MOODLE_API_CONFIG,
-        active: !!process.env.MOODLE_API_CONFIG,
-        lastSync: null,
-      },
-      canvas: {
-        configured: !!process.env.CANVAS_API_CONFIG,
-        active: !!process.env.CANVAS_API_CONFIG,
-        lastSync: null,
-      },
-      google_classroom: {
-        configured: !!process.env.GOOGLE_CLASSROOM_API_KEY,
-        active: !!process.env.GOOGLE_CLASSROOM_API_KEY,
-        lastSync: null,
-      },
-      microsoft_teams: {
-        configured: !!process.env.MICROSOFT_TEAMS_API_KEY,
-        active: !!process.env.MICROSOFT_TEAMS_API_KEY,
-        lastSync: null,
-      },
-    };
+    // DB-backed integration framework status.
+    // Note: Google Classroom / Microsoft Teams remain env-based in this codebase.
+    const integrations = await integrationService.getIntegrationStatus();
 
     res.json({
       success: true,
