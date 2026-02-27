@@ -93,8 +93,19 @@ export function validateEnvironmentOrThrow(): void {
 
     // Encryption master key is mandatory in production-like environments.
     // This must be high-entropy and decode to exactly 32 bytes.
-    const encKey = requireEnv("ENCRYPTION_MASTER_KEY");
-    parse32ByteKeyFromEnv(encKey, "ENCRYPTION_MASTER_KEY");
+    // ENCRYPTION_KEY is a deprecated alias kept for backward compatibility.
+    const encKey = getEnv("ENCRYPTION_MASTER_KEY") ?? getEnv("ENCRYPTION_KEY");
+    if (!encKey) {
+      throw new Error(
+        "Missing ENCRYPTION_MASTER_KEY (required in production-like environments)",
+      );
+    }
+    parse32ByteKeyFromEnv(
+      encKey,
+      getEnv("ENCRYPTION_MASTER_KEY")
+        ? "ENCRYPTION_MASTER_KEY"
+        : "ENCRYPTION_KEY",
+    );
 
     // CORS should be explicitly configured in prod.
     // Require at least one origin source of truth.
@@ -158,9 +169,12 @@ export function validateEnvironmentOrThrow(): void {
     }
 
     // In non-prod, validate encryption key format if provided.
-    const encKey = getEnv("ENCRYPTION_MASTER_KEY");
-    if (encKey !== undefined) {
-      parse32ByteKeyFromEnv(encKey, "ENCRYPTION_MASTER_KEY");
+    const master = getEnv("ENCRYPTION_MASTER_KEY");
+    const alias = getEnv("ENCRYPTION_KEY");
+    if (master !== undefined) {
+      parse32ByteKeyFromEnv(master, "ENCRYPTION_MASTER_KEY");
+    } else if (alias !== undefined) {
+      parse32ByteKeyFromEnv(alias, "ENCRYPTION_KEY");
     }
   }
 }

@@ -41,7 +41,9 @@ class EncryptionService {
       saltRounds: 10000,
     };
 
-    const raw = process.env.ENCRYPTION_MASTER_KEY;
+    // Primary config is ENCRYPTION_MASTER_KEY.
+    // ENCRYPTION_KEY is a deprecated alias kept for backward compatibility with older deployments.
+    const raw = process.env.ENCRYPTION_MASTER_KEY ?? process.env.ENCRYPTION_KEY;
     if (!raw) {
       if (isProductionLike()) {
         // In production-like environments, this must be set and validated by env validation.
@@ -59,7 +61,10 @@ class EncryptionService {
       return;
     }
 
-    this.masterKey = this.parse32ByteKeyFromEnv(raw, "ENCRYPTION_MASTER_KEY");
+    const envName = process.env.ENCRYPTION_MASTER_KEY
+      ? "ENCRYPTION_MASTER_KEY"
+      : "ENCRYPTION_KEY";
+    this.masterKey = this.parse32ByteKeyFromEnv(raw, envName);
   }
 
   private parse32ByteKeyFromEnv(raw: string, envName: string): Buffer {

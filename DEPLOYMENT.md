@@ -51,6 +51,9 @@ NODE_ENV=production
 SESSION_SECRET=your-32-character-secret-here
 JWT_SECRET=your-jwt-secret-key-change-in-production-min-32-chars-long
 JWT_REFRESH_SECRET=your-jwt-refresh-secret-key-change-in-production-min-32-chars-long
+# 32-byte master key (base64 recommended) or 64-char hex
+# node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+ENCRYPTION_MASTER_KEY=your-32-byte-base64-or-64-char-hex
 ```
 
 ### 5. Deploy

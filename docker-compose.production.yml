@@ -96,6 +96,10 @@ services:
       - SESSION_SECRET=${SESSION_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      # Required: 32-byte key (base64 recommended) or 64-char hex.
+      # Primary: ENCRYPTION_MASTER_KEY (ENCRYPTION_KEY is deprecated alias).
+      - ENCRYPTION_MASTER_KEY=${ENCRYPTION_MASTER_KEY}
+      # Deprecated (kept for existing deployments):
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - METRICS_ENABLED=true
     ports:
