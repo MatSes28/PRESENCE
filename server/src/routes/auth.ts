@@ -17,6 +17,53 @@ import { isProductionLike } from "../config/env.js";
 
 const router = Router();
 
+function authDebugEnabled(): boolean {
+  return process.env.LOG_AUTH_DEBUG === "true";
+}
+
+function getPresenceSidFromCookieHeader(
+  cookieHeader: string | undefined,
+): string | null {
+  if (!cookieHeader) return null;
+  const parts = cookieHeader.split(";").map((p) => p.trim());
+  const sidPart = parts.find((p) => p.startsWith("presence.sid="));
+  if (!sidPart) return null;
+  const [, value] = sidPart.split("=");
+  return value || null;
+}
+
+function logAuthRequestContext(req: any, label: string): void {
+  if (!authDebugEnabled()) return;
+
+  const cookieHeader = req.headers?.cookie as string | undefined;
+  const sid = getPresenceSidFromCookieHeader(cookieHeader);
+
+  // Keep logs compact (do not dump full cookies)
+  console.log(
+    `[AUTH][${label}] ${req.method} ${req.originalUrl} ` +
+      `origin=${req.headers?.origin || "-"} ` +
+      `proto=${req.headers?.["x-forwarded-proto"] || (req.secure ? "https" : "http")} ` +
+      `cookieHeader=${cookieHeader ? "present" : "absent"} ` +
+      `presenceSid=${sid ? "present" : "absent"} ` +
+      `sessionID=${req.sessionID || "-"} ` +
+      `sessionUserId=${req.session?.userId || "-"}`,
+  );
+}
+
+function attachAuthResponseDebug(req: any, res: any, label: string): void {
+  if (!authDebugEnabled()) return;
+  res.on("finish", () => {
+    // express-session sets Set-Cookie on response when it writes the session cookie.
+    const setCookie = res.getHeader?.("set-cookie");
+    const setCookiePresent = Array.isArray(setCookie)
+      ? setCookie.length > 0
+      : !!setCookie;
+    console.log(
+      `[AUTH][${label}] response status=${res.statusCode} set-cookie=${setCookiePresent ? "present" : "absent"}`,
+    );
+  });
+}
+
 // Specific rate limiters for auth endpoints
 const loginRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -92,6 +139,9 @@ router.post(
   }),
   async (req, res) => {
     try {
+      logAuthRequestContext(req, "login:req");
+      attachAuthResponseDebug(req, res, "login:res");
+
       const { email, password } = req.body;
 
       if (!email || !password) {
@@ -159,6 +209,12 @@ router.post(
 
         req.session.userId = user.id;
         req.session.userRole = user.role;
+
+        if (authDebugEnabled()) {
+          console.log(
+            `[AUTH][login] session set userId=${req.session.userId} role=${req.session.userRole} sessionID=${req.sessionID}`,
+          );
+        }
 
         // Save session explicitly before sending response
         await new Promise<void>((resolve, reject) => {
@@ -277,7 +333,15 @@ router.get("/debug-session", (req, res) => {
 // Get current user (more generous rate limiting since this is just a status check)
 router.get("/me", meRateLimit, async (req, res) => {
   try {
+    logAuthRequestContext(req, "me:req");
+    attachAuthResponseDebug(req, res, "me:res");
+
     if (!req.session?.userId) {
+      if (authDebugEnabled()) {
+        console.log(
+          `[AUTH][me] Not authenticated: session=${req.session ? "present" : "absent"} sessionID=${req.sessionID || "-"}`,
+        );
+      }
       return res.status(401).json({
         success: false,
         message: "Not authenticated",
