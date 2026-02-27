@@ -276,6 +276,12 @@ class ReportSchedulerService {
     dateRange: { start: Date; end: Date },
   ): Promise<{ data: any[]; summary: any; title: string }> {
     // Similar to attendance report but focused on performance metrics
+
+    const useSqlite =
+      process.env.USE_SQLITE === "true" ||
+      process.env.NODE_ENV === "development" ||
+      process.env.SQLITE_PATH !== undefined;
+
     const performanceData = await db
       .select({
         studentName: students.name,
@@ -283,7 +289,9 @@ class ReportSchedulerService {
         subjectName: subjects.name,
         attendanceRate: sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 ELSE 0 END)`,
         totalSessions: sql<number>`COUNT(${attendanceRecords.id})`,
-        onTimeRate: sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' AND TO_CHAR(${attendanceRecords.entryTime}, 'HH24:MI') <= ${schedules.startTime} THEN 1 ELSE 0 END)`,
+        onTimeRate: useSqlite
+          ? sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' AND strftime('%H:%M', ${attendanceRecords.entryTime}) <= ${schedules.startTime} THEN 1 ELSE 0 END)`
+          : sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' AND TO_CHAR(${attendanceRecords.entryTime}, 'HH24:MI') <= ${schedules.startTime} THEN 1 ELSE 0 END)`,
       })
       .from(attendanceRecords)
       .innerJoin(students, eq(attendanceRecords.studentId, students.id))

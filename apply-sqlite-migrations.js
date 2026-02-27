@@ -2,8 +2,22 @@
 
 import Database from "better-sqlite3";
 
-// Initialize SQLite database
-const dbPath = "./server/presence.db";
+/**
+ * SQLite bootstrap/migration helper.
+ *
+ * IMPORTANT:
+ * - App runtime Drizzle schema uses snake_case columns (e.g. students.student_id).
+ * - Earlier SQLite bootstrap created camelCase columns (e.g. students.studentId),
+ *   which causes runtime failures like: "no such column: students.student_id".
+ *
+ * This script:
+ * 1) Ensures tables are created with snake_case columns
+ * 2) Migrates existing camelCase columns to snake_case via ALTER TABLE RENAME COLUMN
+ * 3) Ensures audit_logs exists (required by log aggregation/audit services)
+ */
+
+// Initialize SQLite database (allow override)
+const dbPath = process.env.SQLITE_PATH || "./server/presence.db";
 const db = new Database(dbPath);
 
 console.log("📦 Applying SQLite-specific database migrations...");
@@ -17,6 +31,188 @@ try {
   db.pragma("foreign_keys = ON");
   console.log("✅ Foreign keys enabled");
 
+  const getColumns = (tableName) => {
+    try {
+      return db
+        .prepare(
+          `PRAGMA table_info(${tableName.replace(/[^a-zA-Z0-9_]/g, "")})`,
+        )
+        .all()
+        .map((c) => c.name);
+    } catch {
+      return [];
+    }
+  };
+
+  const renameColumnIfNeeded = (tableName, from, to) => {
+    const cols = getColumns(tableName);
+    if (!cols.includes(from)) return;
+    if (cols.includes(to)) return;
+    try {
+      db.exec(`ALTER TABLE ${tableName} RENAME COLUMN ${from} TO ${to}`);
+      console.log(`✅ Renamed ${tableName}.${from} -> ${to}`);
+    } catch (error) {
+      console.warn(
+        `⚠️  Warning renaming ${tableName}.${from} -> ${to}: ${error.message}`,
+      );
+    }
+  };
+
+  const migrateCamelToSnake = () => {
+    // NOTE: Add mappings only when they exist; the helper checks presence.
+
+    // users
+    renameColumnIfNeeded("users", "isActive", "is_active");
+    renameColumnIfNeeded("users", "facultyId", "faculty_id");
+    // created_at/updated_at already OK in legacy
+
+    // students
+    renameColumnIfNeeded("students", "studentId", "student_id");
+    renameColumnIfNeeded("students", "rfidUid", "rfid_uid");
+    renameColumnIfNeeded("students", "parentEmail", "parent_email");
+    renameColumnIfNeeded("students", "parentName", "parent_name");
+    renameColumnIfNeeded("students", "isActive", "is_active");
+
+    // schedules
+    renameColumnIfNeeded("schedules", "dayOfWeek", "day_of_week");
+    renameColumnIfNeeded("schedules", "startTime", "start_time");
+    renameColumnIfNeeded("schedules", "endTime", "end_time");
+    renameColumnIfNeeded("schedules", "academicYear", "academic_year");
+    renameColumnIfNeeded("schedules", "isRecurring", "is_recurring");
+    renameColumnIfNeeded(
+      "schedules",
+      "recurrencePattern",
+      "recurrence_pattern",
+    );
+    renameColumnIfNeeded(
+      "schedules",
+      "recurrenceEndDate",
+      "recurrence_end_date",
+    );
+    renameColumnIfNeeded(
+      "schedules",
+      "recurrenceExceptions",
+      "recurrence_exceptions",
+    );
+    renameColumnIfNeeded(
+      "schedules",
+      "conflictResolutionPriority",
+      "conflict_resolution_priority",
+    );
+    renameColumnIfNeeded("schedules", "allowRoomChange", "allow_room_change");
+    renameColumnIfNeeded(
+      "schedules",
+      "allowTimeAdjustment",
+      "allow_time_adjustment",
+    );
+    renameColumnIfNeeded("schedules", "isActive", "is_active");
+
+    // class_sessions
+    renameColumnIfNeeded("class_sessions", "scheduleId", "schedule_id");
+    renameColumnIfNeeded("class_sessions", "isActive", "is_active");
+
+    // attendance_records
+    renameColumnIfNeeded("attendance_records", "studentId", "student_id");
+    renameColumnIfNeeded(
+      "attendance_records",
+      "classSessionId",
+      "class_session_id",
+    );
+    renameColumnIfNeeded("attendance_records", "entryTime", "entry_time");
+    renameColumnIfNeeded("attendance_records", "exitTime", "exit_time");
+    renameColumnIfNeeded("attendance_records", "rfidDetected", "rfid_detected");
+    renameColumnIfNeeded(
+      "attendance_records",
+      "sensorDetected",
+      "sensor_detected",
+    );
+    renameColumnIfNeeded("attendance_records", "isValid", "is_valid");
+    renameColumnIfNeeded(
+      "attendance_records",
+      "discrepancyFlag",
+      "discrepancy_flag",
+    );
+    renameColumnIfNeeded("attendance_records", "isActive", "is_active");
+
+    // computers
+    renameColumnIfNeeded("computers", "classroomId", "classroom_id");
+    renameColumnIfNeeded("computers", "ipAddress", "ip_address");
+    renameColumnIfNeeded("computers", "macAddress", "mac_address");
+    renameColumnIfNeeded("computers", "lastMaintenance", "last_maintenance");
+    renameColumnIfNeeded("computers", "nextMaintenance", "next_maintenance");
+    renameColumnIfNeeded("computers", "maintenanceNotes", "maintenance_notes");
+    renameColumnIfNeeded("computers", "isActive", "is_active");
+
+    // computer_assignments
+    renameColumnIfNeeded("computer_assignments", "computerId", "computer_id");
+    renameColumnIfNeeded("computer_assignments", "studentId", "student_id");
+    renameColumnIfNeeded(
+      "computer_assignments",
+      "classSessionId",
+      "class_session_id",
+    );
+    renameColumnIfNeeded("computer_assignments", "loginTime", "login_time");
+    renameColumnIfNeeded("computer_assignments", "logoutTime", "logout_time");
+    renameColumnIfNeeded(
+      "computer_assignments",
+      "sessionDuration",
+      "session_duration",
+    );
+    renameColumnIfNeeded("computer_assignments", "assignedAt", "assigned_at");
+    renameColumnIfNeeded("computer_assignments", "releasedAt", "released_at");
+    renameColumnIfNeeded("computer_assignments", "isActive", "is_active");
+
+    // enrollments
+    renameColumnIfNeeded("enrollments", "studentId", "student_id");
+    renameColumnIfNeeded("enrollments", "subjectId", "subject_id");
+    renameColumnIfNeeded("enrollments", "academicYear", "academic_year");
+    renameColumnIfNeeded("enrollments", "enrolledAt", "enrolled_at");
+    renameColumnIfNeeded("enrollments", "isActive", "is_active");
+
+    // email_notifications
+    renameColumnIfNeeded("email_notifications", "studentId", "student_id");
+    renameColumnIfNeeded(
+      "email_notifications",
+      "classSessionId",
+      "class_session_id",
+    );
+    renameColumnIfNeeded("email_notifications", "sentAt", "sent_at");
+    renameColumnIfNeeded(
+      "email_notifications",
+      "recipientEmail",
+      "recipient_email",
+    );
+    renameColumnIfNeeded("email_notifications", "isActive", "is_active");
+
+    // classrooms / subjects
+    renameColumnIfNeeded("classrooms", "isActive", "is_active");
+    renameColumnIfNeeded("subjects", "isActive", "is_active");
+
+    // iot_devices
+    renameColumnIfNeeded("iot_devices", "deviceId", "device_id");
+    renameColumnIfNeeded("iot_devices", "classroomId", "classroom_id");
+    renameColumnIfNeeded("iot_devices", "deviceType", "device_type");
+    renameColumnIfNeeded("iot_devices", "sensorType", "sensor_type");
+    renameColumnIfNeeded("iot_devices", "mqttTopic", "mqtt_topic");
+    renameColumnIfNeeded("iot_devices", "macAddress", "mac_address");
+    renameColumnIfNeeded("iot_devices", "firmwareVersion", "firmware_version");
+    renameColumnIfNeeded("iot_devices", "lastSeen", "last_seen");
+    renameColumnIfNeeded("iot_devices", "batteryLevel", "battery_level");
+    renameColumnIfNeeded("iot_devices", "signalStrength", "signal_strength");
+    renameColumnIfNeeded(
+      "iot_devices",
+      "certificateFingerprint",
+      "certificate_fingerprint",
+    );
+    renameColumnIfNeeded("iot_devices", "certificateData", "certificate_data");
+    renameColumnIfNeeded("iot_devices", "apiKey", "api_key");
+    renameColumnIfNeeded("iot_devices", "isActive", "is_active");
+  };
+
+  // 1) Migrate any existing legacy camelCase columns.
+  migrateCamelToSnake();
+
+  // 2) Create tables using snake_case column names to match Drizzle schema.
   // SQLite-compatible schema (converting PostgreSQL types to SQLite)
   const tables = [
     // Users table
@@ -29,7 +225,7 @@ try {
       faculty_id TEXT,
       department TEXT,
       gender TEXT,
-      isActive INTEGER DEFAULT 1 NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
     )`,
@@ -37,7 +233,7 @@ try {
     // Students table
     `CREATE TABLE IF NOT EXISTS students (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      studentId TEXT NOT NULL UNIQUE,
+      student_id TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       email TEXT,
       year INTEGER,
@@ -45,10 +241,10 @@ try {
       program TEXT DEFAULT 'BSIT' NOT NULL,
       department TEXT DEFAULT 'DIT' NOT NULL,
       college TEXT DEFAULT 'College of Engineering' NOT NULL,
-      rfidUid TEXT UNIQUE,
-      parentEmail TEXT NOT NULL,
-      parentName TEXT,
-      isActive INTEGER DEFAULT 1 NOT NULL,
+      rfid_uid TEXT UNIQUE,
+      parent_email TEXT NOT NULL,
+      parent_name TEXT,
+      is_active INTEGER DEFAULT 1 NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
     )`,
@@ -60,7 +256,7 @@ try {
       location TEXT DEFAULT 'CLIRDEC Building' NOT NULL,
       type TEXT DEFAULT 'lecture' NOT NULL,
       capacity INTEGER,
-      isActive INTEGER DEFAULT 1 NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
     )`,
 
@@ -70,7 +266,7 @@ try {
       code TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
       description TEXT,
-      isActive INTEGER DEFAULT 1 NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
     )`,
 
@@ -80,19 +276,19 @@ try {
       subject_id INTEGER NOT NULL,
       classroom_id INTEGER NOT NULL,
       faculty_id INTEGER NOT NULL,
-      dayOfWeek INTEGER NOT NULL,
-      startTime TEXT NOT NULL,
-      endTime TEXT NOT NULL,
+      day_of_week INTEGER NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
       semester TEXT NOT NULL,
-      academicYear TEXT NOT NULL,
-      isRecurring INTEGER DEFAULT 0 NOT NULL,
-      recurrencePattern TEXT,
-      recurrenceEndDate TIMESTAMP,
-      recurrenceExceptions TEXT,
-      conflictResolutionPriority INTEGER DEFAULT 1 NOT NULL,
-      allowRoomChange INTEGER DEFAULT 0 NOT NULL,
-      allowTimeAdjustment INTEGER DEFAULT 0 NOT NULL,
-      isActive INTEGER DEFAULT 1 NOT NULL,
+      academic_year TEXT NOT NULL,
+      is_recurring INTEGER DEFAULT 0 NOT NULL,
+      recurrence_pattern TEXT,
+      recurrence_end_date TIMESTAMP,
+      recurrence_exceptions TEXT,
+      conflict_resolution_priority INTEGER DEFAULT 1 NOT NULL,
+      allow_room_change INTEGER DEFAULT 0 NOT NULL,
+      allow_time_adjustment INTEGER DEFAULT 0 NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
       FOREIGN KEY (subject_id) REFERENCES subjects(id),
       FOREIGN KEY (classroom_id) REFERENCES classrooms(id),
@@ -102,121 +298,149 @@ try {
     // Class Sessions table
     `CREATE TABLE IF NOT EXISTS class_sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      scheduleId INTEGER NOT NULL,
+      schedule_id INTEGER NOT NULL,
       date TIMESTAMP NOT NULL,
       status TEXT DEFAULT 'scheduled' NOT NULL,
-      isActive INTEGER DEFAULT 1 NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-      FOREIGN KEY (scheduleId) REFERENCES schedules(id)
+      FOREIGN KEY (schedule_id) REFERENCES schedules(id)
     )`,
 
     // Attendance Records table
     `CREATE TABLE IF NOT EXISTS attendance_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      studentId INTEGER NOT NULL,
-      classSessionId INTEGER NOT NULL,
-      entryTime TIMESTAMP,
-      exitTime TIMESTAMP,
+      student_id INTEGER NOT NULL,
+      class_session_id INTEGER NOT NULL,
+      entry_time TIMESTAMP,
+      exit_time TIMESTAMP,
       status TEXT,
-      rfidDetected INTEGER DEFAULT 0 NOT NULL,
-      sensorDetected INTEGER DEFAULT 0 NOT NULL,
-      isValid INTEGER DEFAULT 0 NOT NULL,
-      discrepancyFlag INTEGER DEFAULT 0 NOT NULL,
+      rfid_detected INTEGER DEFAULT 0 NOT NULL,
+      sensor_detected INTEGER DEFAULT 0 NOT NULL,
+      is_valid INTEGER DEFAULT 0 NOT NULL,
+      discrepancy_flag INTEGER DEFAULT 0 NOT NULL,
       notes TEXT,
-      isActive INTEGER DEFAULT 1 NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-      FOREIGN KEY (studentId) REFERENCES students(id),
-      FOREIGN KEY (classSessionId) REFERENCES class_sessions(id)
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (class_session_id) REFERENCES class_sessions(id)
     )`,
 
     // Computers table
     `CREATE TABLE IF NOT EXISTS computers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      classroomId INTEGER NOT NULL,
+      classroom_id INTEGER NOT NULL,
       name TEXT NOT NULL,
-      ipAddress TEXT,
-      macAddress TEXT,
+      ip_address TEXT,
+      mac_address TEXT,
       status TEXT DEFAULT 'available' NOT NULL,
-      lastMaintenance TIMESTAMP,
-      nextMaintenance TIMESTAMP,
-      maintenanceNotes TEXT,
-      isActive INTEGER DEFAULT 1 NOT NULL,
+      last_maintenance TIMESTAMP,
+      next_maintenance TIMESTAMP,
+      maintenance_notes TEXT,
+      is_active INTEGER DEFAULT 1 NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-      FOREIGN KEY (classroomId) REFERENCES classrooms(id)
+      FOREIGN KEY (classroom_id) REFERENCES classrooms(id)
     )`,
 
     // Computer Assignments table
     `CREATE TABLE IF NOT EXISTS computer_assignments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      computerId INTEGER NOT NULL,
-      studentId INTEGER NOT NULL,
-      classSessionId INTEGER NOT NULL,
-      loginTime TIMESTAMP,
-      logoutTime TIMESTAMP,
-      sessionDuration INTEGER,
+      computer_id INTEGER NOT NULL,
+      student_id INTEGER NOT NULL,
+      class_session_id INTEGER NOT NULL,
+      login_time TIMESTAMP,
+      logout_time TIMESTAMP,
+      session_duration INTEGER,
       status TEXT DEFAULT 'assigned' NOT NULL,
-      assignedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-      releasedAt TIMESTAMP,
-      isActive INTEGER DEFAULT 1 NOT NULL,
-      FOREIGN KEY (computerId) REFERENCES computers(id),
-      FOREIGN KEY (studentId) REFERENCES students(id),
-      FOREIGN KEY (classSessionId) REFERENCES class_sessions(id)
+      assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      released_at TIMESTAMP,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      FOREIGN KEY (computer_id) REFERENCES computers(id),
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (class_session_id) REFERENCES class_sessions(id)
     )`,
 
     // IoT Devices table
     `CREATE TABLE IF NOT EXISTS iot_devices (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      deviceId TEXT NOT NULL UNIQUE,
+      device_id TEXT NOT NULL UNIQUE,
       name TEXT,
       location TEXT,
-      classroomId INTEGER NOT NULL,
-      deviceType TEXT NOT NULL,
-      sensorType TEXT,
-      mqttTopic TEXT,
-      macAddress TEXT,
-      firmwareVersion TEXT,
+      classroom_id INTEGER NOT NULL,
+      device_type TEXT NOT NULL,
+      sensor_type TEXT,
+      mqtt_topic TEXT,
+      mac_address TEXT,
+      firmware_version TEXT,
       status TEXT DEFAULT 'offline' NOT NULL,
-      lastSeen TIMESTAMP,
-      batteryLevel INTEGER,
-      signalStrength INTEGER,
+      last_seen TIMESTAMP,
+      battery_level INTEGER,
+      signal_strength INTEGER,
       config TEXT,
-      apiKey TEXT NOT NULL UNIQUE,
-      certificateFingerprint TEXT,
-      certificateData TEXT,
-      isActive INTEGER DEFAULT 1 NOT NULL,
+      api_key TEXT NOT NULL UNIQUE,
+      certificate_fingerprint TEXT,
+      certificate_data TEXT,
+      is_active INTEGER DEFAULT 1 NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-      FOREIGN KEY (classroomId) REFERENCES classrooms(id)
+      FOREIGN KEY (classroom_id) REFERENCES classrooms(id)
     )`,
 
     // Enrollments table
     `CREATE TABLE IF NOT EXISTS enrollments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      studentId INTEGER NOT NULL,
-      subjectId INTEGER NOT NULL,
+      student_id INTEGER NOT NULL,
+      subject_id INTEGER NOT NULL,
       semester TEXT NOT NULL,
-      academicYear TEXT NOT NULL,
-      enrolledAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-      isActive INTEGER DEFAULT 1 NOT NULL,
-      FOREIGN KEY (studentId) REFERENCES students(id),
-      FOREIGN KEY (subjectId) REFERENCES subjects(id)
+      academic_year TEXT NOT NULL,
+      enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (subject_id) REFERENCES subjects(id)
     )`,
 
     // Email Notifications table
     `CREATE TABLE IF NOT EXISTS email_notifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      studentId INTEGER NOT NULL,
-      classSessionId INTEGER NOT NULL,
+      student_id INTEGER NOT NULL,
+      class_session_id INTEGER NOT NULL,
       type TEXT NOT NULL,
-      sentAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-      recipientEmail TEXT NOT NULL,
+      sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      recipient_email TEXT NOT NULL,
       message TEXT,
-      isActive INTEGER DEFAULT 1 NOT NULL,
-      FOREIGN KEY (studentId) REFERENCES students(id),
-      FOREIGN KEY (classSessionId) REFERENCES class_sessions(id)
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (class_session_id) REFERENCES class_sessions(id)
     )`,
+
+    // Audit Logs table (SQLite)
+    `CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      user_id INTEGER,
+      action TEXT NOT NULL,
+      resource TEXT NOT NULL,
+      resource_id TEXT,
+      old_values TEXT,
+      new_values TEXT,
+      ip_address TEXT NOT NULL,
+      user_agent TEXT,
+      session_id TEXT,
+      success INTEGER DEFAULT 1 NOT NULL,
+      error_message TEXT,
+      metadata TEXT,
+      hash TEXT,
+      previous_hash TEXT,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_resource_id ON audit_logs(resource_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_success ON audit_logs(success)`,
 
     // Password reset tokens (hashed + expiry + single-use)
     `CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -236,8 +460,15 @@ try {
   for (const tableSql of tables) {
     try {
       db.exec(tableSql);
-      const tableName = tableSql.match(/CREATE TABLE IF NOT EXISTS (\w+)/)[1];
-      console.log(`✅ Created table: ${tableName}`);
+      const tableMatch = tableSql.match(/CREATE TABLE IF NOT EXISTS (\w+)/);
+      const indexMatch = tableSql.match(/CREATE INDEX IF NOT EXISTS (\w+)/);
+      if (tableMatch?.[1]) {
+        console.log(`✅ Created table: ${tableMatch[1]}`);
+      } else if (indexMatch?.[1]) {
+        console.log(`✅ Created index: ${indexMatch[1]}`);
+      } else {
+        console.log("✅ Applied statement");
+      }
     } catch (error) {
       console.warn(`⚠️  Warning creating table: ${error.message}`);
     }

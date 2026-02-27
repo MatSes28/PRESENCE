@@ -250,6 +250,11 @@ class ReportExportService {
 
   // Get performance report data
   private async getPerformanceReportData(conditions: any[]): Promise<any[]> {
+    const useSqlite =
+      process.env.USE_SQLITE === "true" ||
+      process.env.NODE_ENV === "development" ||
+      process.env.SQLITE_PATH !== undefined;
+
     const data = await db
       .select({
         studentId: students.id,
@@ -259,7 +264,9 @@ class ReportExportService {
         presentCount: sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 END)`,
         absentCount: sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'absent' THEN 1 END)`,
         lateCount: sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'late' THEN 1 END)`,
-        onTimeCount: sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'present' AND TO_CHAR(${attendanceRecords.entryTime}, 'HH24:MI') <= ${schedules.startTime} THEN 1 END)`,
+        onTimeCount: useSqlite
+          ? sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'present' AND strftime('%H:%M', ${attendanceRecords.entryTime}) <= ${schedules.startTime} THEN 1 END)`
+          : sql<number>`COUNT(CASE WHEN ${attendanceRecords.status} = 'present' AND TO_CHAR(${attendanceRecords.entryTime}, 'HH24:MI') <= ${schedules.startTime} THEN 1 END)`,
         attendanceRate: sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 ELSE 0 END)`,
         lastAttendance: sql<Date>`MAX(${attendanceRecords.createdAt})`,
       })
@@ -290,6 +297,11 @@ class ReportExportService {
 
   // Get analytics report data
   private async getAnalyticsReportData(conditions: any[]): Promise<any[]> {
+    const useSqlite =
+      process.env.USE_SQLITE === "true" ||
+      process.env.NODE_ENV === "development" ||
+      process.env.SQLITE_PATH !== undefined;
+
     const data = await db
       .select({
         date: classSessions.date,
@@ -300,7 +312,9 @@ class ReportExportService {
         absentCount: sql<number>`COUNT(DISTINCT CASE WHEN ${attendanceRecords.status} = 'absent' THEN ${attendanceRecords.studentId} END)`,
         lateCount: sql<number>`COUNT(DISTINCT CASE WHEN ${attendanceRecords.status} = 'late' THEN ${attendanceRecords.studentId} END)`,
         attendanceRate: sql<number>`AVG(CASE WHEN ${attendanceRecords.status} = 'present' THEN 1 ELSE 0 END)`,
-        averageDuration: sql<number>`AVG(EXTRACT(EPOCH FROM (${attendanceRecords.exitTime} - ${attendanceRecords.entryTime})) / 60)`,
+        averageDuration: useSqlite
+          ? sql<number>`AVG((julianday(${attendanceRecords.exitTime}) - julianday(${attendanceRecords.entryTime})) * 24 * 60)`
+          : sql<number>`AVG(EXTRACT(EPOCH FROM (${attendanceRecords.exitTime} - ${attendanceRecords.entryTime})) / 60)`,
       })
       .from(classSessions)
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
@@ -691,12 +705,10 @@ class ReportExportService {
   private async getAttendanceTrends(conditions: any[]): Promise<any[]> {
     const now = new Date();
     const day = 24 * 60 * 60 * 1000;
-    const baseCondition = conditions.length > 0 ? and(...conditions) : undefined;
+    const baseCondition =
+      conditions.length > 0 ? and(...conditions) : undefined;
 
-    const rateForPeriod = async (
-      start: Date,
-      end: Date
-    ): Promise<number> => {
+    const rateForPeriod = async (start: Date, end: Date): Promise<number> => {
       const periodConditions = [
         gte(classSessions.date, start),
         lte(classSessions.date, end),

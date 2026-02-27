@@ -919,7 +919,7 @@ export class MetricsCollector {
 
         try {
           const rfidResult = (await db.execute(
-            "SELECT COUNT(*) as count FROM attendance_records WHERE rfidDetected = 1 AND created_at >= datetime('now','-1 hour')",
+            "SELECT COUNT(*) as count FROM attendance_records WHERE rfid_detected = 1 AND created_at >= datetime('now','-1 hour')",
           )) as any[];
           rfidCount = parseInt(rfidResult?.[0]?.count) || 0;
         } catch {
