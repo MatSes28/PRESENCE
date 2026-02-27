@@ -52,10 +52,49 @@ export function validateEnvironmentOrThrow(): void {
     { name: "JWT_REFRESH_SECRET", minLength: 32 },
   ];
 
+  function parse32ByteKeyFromEnv(raw: string, envName: string): Buffer {
+    // Accept high-entropy encodings:
+    // - 64-char hex => 32 bytes
+    // - base64 => 32 bytes
+    const trimmed = raw.trim();
+
+    // Common placeholders should never ship.
+    const lowered = trimmed.toLowerCase();
+    if (
+      lowered.includes("change-this") ||
+      lowered.includes("please-change") ||
+      lowered.includes("dev-")
+    ) {
+      throw new Error(
+        `${envName} looks like a placeholder/dev value; generate a strong 32-byte key.`,
+      );
+    }
+
+    if (/^[0-9a-f]{64}$/i.test(trimmed)) {
+      return Buffer.from(trimmed, "hex");
+    }
+
+    try {
+      const buf = Buffer.from(trimmed, "base64");
+      if (buf.length === 32) return buf;
+    } catch {
+      // ignore
+    }
+
+    throw new Error(
+      `${envName} must be a 32-byte key encoded as base64 (recommended) or 64-char hex.`,
+    );
+  }
+
   if (prod) {
     for (const req of requiredInProd) {
       requireEnv(req.name, req.minLength ? { minLength: req.minLength } : {});
     }
+
+    // Encryption master key is mandatory in production-like environments.
+    // This must be high-entropy and decode to exactly 32 bytes.
+    const encKey = requireEnv("ENCRYPTION_MASTER_KEY");
+    parse32ByteKeyFromEnv(encKey, "ENCRYPTION_MASTER_KEY");
 
     // CORS should be explicitly configured in prod.
     // Require at least one origin source of truth.
@@ -116,6 +155,12 @@ export function validateEnvironmentOrThrow(): void {
       if (process.env[req.name] !== undefined) {
         getEnv(req.name, req.minLength ? { minLength: req.minLength } : {});
       }
+    }
+
+    // In non-prod, validate encryption key format if provided.
+    const encKey = getEnv("ENCRYPTION_MASTER_KEY");
+    if (encKey !== undefined) {
+      parse32ByteKeyFromEnv(encKey, "ENCRYPTION_MASTER_KEY");
     }
   }
 }

@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import CryptoJS from "crypto-js";
+import { isProductionLike } from "../config/env.js";
 
 interface EncryptionConfig {
   algorithm: string;
@@ -15,24 +15,136 @@ interface EncryptedData {
   authTag?: string;
 }
 
+type EncryptedEnvelopeV1 = {
+  v: 1;
+  alg: "aes-256-gcm";
+  k: string;
+  iv: string; // base64
+  ct: string; // base64
+  tag: string; // base64
+  aad?: string; // base64
+};
+
+type AnyEncryptedPayload = EncryptedEnvelopeV1 | EncryptedData;
+
 class EncryptionService {
   private config: EncryptionConfig;
-  private masterKey: string;
+  private masterKey: Buffer;
   private keyCache = new Map<string, Buffer>();
 
   constructor() {
     this.config = {
       algorithm: "aes-256-gcm",
       keyLength: 32,
-      ivLength: 16,
+      // 96-bit nonce is the recommended IV size for GCM.
+      ivLength: 12,
       saltRounds: 10000,
     };
 
-    this.masterKey =
-      process.env.ENCRYPTION_MASTER_KEY || "change-this-key-in-production-32";
-    if (this.masterKey.length !== 32) {
-      throw new Error("Master key must be exactly 32 characters long");
+    const raw = process.env.ENCRYPTION_MASTER_KEY;
+    if (!raw) {
+      if (isProductionLike()) {
+        // In production-like environments, this must be set and validated by env validation.
+        throw new Error(
+          "Missing ENCRYPTION_MASTER_KEY (required in production-like environments)",
+        );
+      }
+
+      // Development/test convenience: generate an ephemeral key.
+      // WARNING: encrypted data will not be decryptable across restarts.
+      this.masterKey = crypto.randomBytes(this.config.keyLength);
+      console.warn(
+        "⚠️  ENCRYPTION_MASTER_KEY is not set; using ephemeral in-memory key (dev only)",
+      );
+      return;
     }
+
+    this.masterKey = this.parse32ByteKeyFromEnv(raw, "ENCRYPTION_MASTER_KEY");
+  }
+
+  private parse32ByteKeyFromEnv(raw: string, envName: string): Buffer {
+    const trimmed = raw.trim();
+    const lowered = trimmed.toLowerCase();
+
+    if (
+      lowered.includes("change-this") ||
+      lowered.includes("please-change") ||
+      lowered.includes("dev-")
+    ) {
+      throw new Error(
+        `${envName} looks like a placeholder/dev value; generate a strong 32-byte key.`,
+      );
+    }
+
+    if (/^[0-9a-f]{64}$/i.test(trimmed)) {
+      return Buffer.from(trimmed, "hex");
+    }
+
+    const buf = Buffer.from(trimmed, "base64");
+    if (buf.length !== 32) {
+      throw new Error(
+        `${envName} must be a 32-byte key encoded as base64 (recommended) or 64-char hex.`,
+      );
+    }
+    return buf;
+  }
+
+  private hkdfKey(info: string): Buffer {
+    const cacheKey = `hkdf_${info}`;
+    const cached = this.keyCache.get(cacheKey);
+    if (cached) return cached;
+
+    const salt = Buffer.from("presence:hkdf:v1", "utf8");
+    const key = Buffer.from(
+      crypto.hkdfSync(
+        "sha256",
+        this.masterKey,
+        salt,
+        Buffer.from(info, "utf8"),
+        this.config.keyLength,
+      ),
+    );
+    this.keyCache.set(cacheKey, key);
+    return key;
+  }
+
+  private encryptGcm(
+    data: Buffer,
+    key: Buffer,
+    aad?: Buffer,
+  ): EncryptedEnvelopeV1 {
+    const iv = crypto.randomBytes(this.config.ivLength);
+    const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+    if (aad) cipher.setAAD(aad);
+
+    const ct = Buffer.concat([cipher.update(data), cipher.final()]);
+    const tag = cipher.getAuthTag();
+
+    return {
+      v: 1,
+      alg: "aes-256-gcm",
+      k: "master",
+      iv: iv.toString("base64"),
+      ct: ct.toString("base64"),
+      tag: tag.toString("base64"),
+      aad: aad ? aad.toString("base64") : undefined,
+    };
+  }
+
+  private decryptGcm(
+    payload: EncryptedEnvelopeV1,
+    key: Buffer,
+    aad?: Buffer,
+  ): Buffer {
+    const iv = Buffer.from(payload.iv, "base64");
+    const ct = Buffer.from(payload.ct, "base64");
+    const tag = Buffer.from(payload.tag, "base64");
+
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+    if (aad) decipher.setAAD(aad);
+    decipher.setAuthTag(tag);
+
+    return Buffer.concat([decipher.update(ct), decipher.final()]);
   }
 
   // Generate a secure random key
@@ -47,59 +159,71 @@ class EncryptionService {
       salt,
       this.config.saltRounds,
       this.config.keyLength,
-      "sha256"
+      "sha256",
     );
   }
 
-  // Encrypt data with AES-256-CBC (more compatible)
-  encrypt(data: string, key?: Buffer): EncryptedData {
-    const iv = crypto.randomBytes(this.config.ivLength);
-
-    let encryptionKey: Buffer;
-    if (key) {
-      encryptionKey = key;
-    } else {
-      // Use master key for general encryption
-      encryptionKey = Buffer.from(this.masterKey, "utf8");
-    }
-
-    const cipher = crypto.createCipheriv("aes-256-cbc", encryptionKey, iv);
-
-    let encrypted = cipher.update(data, "utf8", "hex");
-    encrypted += cipher.final("hex");
-
-    return {
-      encrypted,
-      iv: iv.toString("hex"),
-    };
+  /**
+   * Encrypt data with AES-256-GCM (AEAD).
+   *
+   * - Provides confidentiality + integrity.
+   * - Returns a versioned envelope to support future migration/rotation.
+   */
+  encrypt(
+    data: string,
+    key?: Buffer,
+    aadContext: string = "presence",
+  ): EncryptedEnvelopeV1 {
+    const encryptionKey = key ?? this.masterKey;
+    const aad = Buffer.from(`v1:${aadContext}`, "utf8");
+    const payload = this.encryptGcm(
+      Buffer.from(data, "utf8"),
+      encryptionKey,
+      aad,
+    );
+    payload.k = key ? "custom" : "master";
+    payload.aad = aad.toString("base64");
+    return payload;
   }
 
-  // Decrypt data with AES-256-CBC
-  decrypt(encryptedData: EncryptedData, key?: Buffer): string {
-    let decryptionKey: Buffer;
-    if (key) {
-      decryptionKey = key;
-    } else {
-      // Use master key for general decryption
-      decryptionKey = Buffer.from(this.masterKey, "utf8");
+  /**
+   * Decrypt data.
+   *
+   * Supports:
+   * - v1 AES-256-GCM envelopes (preferred)
+   * - legacy AES-256-CBC objects { encrypted, iv } for backward compatibility
+   */
+  decrypt(
+    encryptedData: AnyEncryptedPayload,
+    key?: Buffer,
+    aadContext: string = "presence",
+  ): string {
+    const decryptionKey = key ?? this.masterKey;
+
+    // v1 envelope
+    if ((encryptedData as any).v === 1) {
+      const payload = encryptedData as EncryptedEnvelopeV1;
+      const aad = Buffer.from(`v1:${aadContext}`, "utf8");
+      const pt = this.decryptGcm(payload, decryptionKey, aad);
+      return pt.toString("utf8");
     }
 
+    // Legacy CBC fallback (no integrity). Keep only for decrypting existing data.
+    const legacy = encryptedData as EncryptedData;
     const decipher = crypto.createDecipheriv(
       "aes-256-cbc",
       decryptionKey,
-      Buffer.from(encryptedData.iv, "hex")
+      Buffer.from(legacy.iv, "hex"),
     );
-
-    let decrypted = decipher.update(encryptedData.encrypted, "hex", "utf8");
+    let decrypted = decipher.update(legacy.encrypted, "hex", "utf8");
     decrypted += decipher.final("utf8");
-
     return decrypted;
   }
 
   // Encrypt sensitive fields in objects
   encryptObject<T extends Record<string, any>>(
     obj: T,
-    sensitiveFields: (keyof T)[]
+    sensitiveFields: (keyof T)[],
   ): T & { _encryptedFields: string[] } {
     const encrypted = { ...obj };
     const encryptedFields: string[] = [];
@@ -120,7 +244,7 @@ class EncryptionService {
 
   // Decrypt sensitive fields in objects
   decryptObject<T extends Record<string, any>>(
-    obj: T & { _encryptedFields?: string[] }
+    obj: T & { _encryptedFields?: string[] },
   ): T {
     if (!obj._encryptedFields) {
       return obj;
@@ -132,7 +256,9 @@ class EncryptionService {
     for (const field of obj._encryptedFields) {
       if (obj[field] !== undefined && obj[field] !== null) {
         try {
-          const encryptedData: EncryptedData = JSON.parse(String(obj[field]));
+          const encryptedData: AnyEncryptedPayload = JSON.parse(
+            String(obj[field]),
+          );
           (decrypted as any)[field] = this.decrypt(encryptedData);
         } catch (error) {
           console.error(`Failed to decrypt field ${field}:`, error);
@@ -158,7 +284,7 @@ class EncryptionService {
   async encryptFile(
     inputPath: string,
     outputPath: string,
-    key?: Buffer
+    key?: Buffer,
   ): Promise<void> {
     const input = require("fs").readFileSync(inputPath);
     const encrypted = this.encrypt(input.toString("base64"), key);
@@ -171,10 +297,10 @@ class EncryptionService {
   async decryptFile(
     inputPath: string,
     outputPath: string,
-    key?: Buffer
+    key?: Buffer,
   ): Promise<void> {
     const encryptedData = JSON.parse(
-      require("fs").readFileSync(inputPath, "utf8")
+      require("fs").readFileSync(inputPath, "utf8"),
     );
     const decrypted = this.decrypt(encryptedData, key);
 
@@ -189,61 +315,94 @@ class EncryptionService {
   }
 
   decryptFromDatabase(encryptedValue: string): string {
-    const encrypted: EncryptedData = JSON.parse(encryptedValue);
+    const encrypted: AnyEncryptedPayload = JSON.parse(encryptedValue);
     return this.decrypt(encrypted);
   }
 
   // Encrypt RFID UIDs for additional security
   encryptRFID(rfidUid: string): string {
-    // Use a specific key for RFID data
-    const rfidKey = this.deriveKey(
-      "rfid_encryption_key",
-      Buffer.from("rfid_salt_2024")
-    );
-    const encrypted = this.encrypt(rfidUid, rfidKey);
+    // Derive a sub-key from the master key (no hardcoded password/salt).
+    const rfidKey = this.hkdfKey("rfid:at-rest");
+    const encrypted = this.encrypt(rfidUid, rfidKey, "rfid");
     return JSON.stringify(encrypted);
   }
 
   decryptRFID(encryptedRfid: string): string {
-    const rfidKey = this.deriveKey(
-      "rfid_encryption_key",
-      Buffer.from("rfid_salt_2024")
-    );
-    const encrypted: EncryptedData = JSON.parse(encryptedRfid);
-    return this.decrypt(encrypted, rfidKey);
+    const encrypted: AnyEncryptedPayload = JSON.parse(encryptedRfid);
+
+    // Prefer new key derivation.
+    try {
+      const rfidKey = this.hkdfKey("rfid:at-rest");
+      return this.decrypt(encrypted, rfidKey, "rfid");
+    } catch (err) {
+      // Backward-compat: legacy hardcoded-derived key used by older deployments.
+      const legacyKey = this.deriveKey(
+        "rfid_encryption_key",
+        Buffer.from("rfid_salt_2024"),
+      );
+      return this.decrypt(encrypted, legacyKey, "rfid");
+    }
+  }
+
+  /**
+   * Deterministic, non-reversible lookup token for RFID UIDs.
+   *
+   * Store this in a dedicated DB column (e.g. rfid_uid_hash) to enforce uniqueness
+   * and enable lookups without ever storing plaintext UID.
+   */
+  hashRFIDUidForLookup(rfidUid: string): string {
+    const normalized = rfidUid.trim();
+    const key = this.hkdfKey("rfid:lookup-hmac");
+    return crypto.createHmac("sha256", key).update(normalized).digest("hex");
   }
 
   // Encrypt parent contact information
   encryptParentData(
     email: string,
-    phone?: string
+    phone?: string,
   ): { email: string; phone?: string } {
-    const parentKey = this.deriveKey(
-      "parent_data_key",
-      Buffer.from("parent_salt_2024")
-    );
+    const parentKey = this.hkdfKey("parent:at-rest");
 
     return {
-      email: JSON.stringify(this.encrypt(email, parentKey)),
-      phone: phone ? JSON.stringify(this.encrypt(phone, parentKey)) : undefined,
+      email: JSON.stringify(this.encrypt(email, parentKey, "parent")),
+      phone: phone
+        ? JSON.stringify(this.encrypt(phone, parentKey, "parent"))
+        : undefined,
     };
   }
 
   decryptParentData(
     encryptedEmail: string,
-    encryptedPhone?: string
+    encryptedPhone?: string,
   ): { email: string; phone?: string } {
-    const parentKey = this.deriveKey(
-      "parent_data_key",
-      Buffer.from("parent_salt_2024")
-    );
+    const emailPayload: AnyEncryptedPayload = JSON.parse(encryptedEmail);
+    const phonePayload: AnyEncryptedPayload | undefined = encryptedPhone
+      ? JSON.parse(encryptedPhone)
+      : undefined;
 
-    return {
-      email: this.decrypt(JSON.parse(encryptedEmail), parentKey),
-      phone: encryptedPhone
-        ? this.decrypt(JSON.parse(encryptedPhone), parentKey)
-        : undefined,
-    };
+    // Prefer new key derivation.
+    try {
+      const parentKey = this.hkdfKey("parent:at-rest");
+      return {
+        email: this.decrypt(emailPayload, parentKey, "parent"),
+        phone: phonePayload
+          ? this.decrypt(phonePayload, parentKey, "parent")
+          : undefined,
+      };
+    } catch (err) {
+      // Backward-compat: legacy hardcoded-derived key used by older deployments.
+      const legacyKey = this.deriveKey(
+        "parent_data_key",
+        Buffer.from("parent_salt_2024"),
+      );
+
+      return {
+        email: this.decrypt(emailPayload, legacyKey, "parent"),
+        phone: phonePayload
+          ? this.decrypt(phonePayload, legacyKey, "parent")
+          : undefined,
+      };
+    }
   }
 
   // Encrypt session data
@@ -268,7 +427,14 @@ class EncryptionService {
       .createHash("sha256")
       .update(`user_${userId}_salt`)
       .digest();
-    const userKey = this.deriveKey(this.masterKey, userSalt);
+    // Derive per-user keys from the master key.
+    const userKey = crypto.pbkdf2Sync(
+      this.masterKey,
+      userSalt,
+      this.config.saltRounds,
+      this.config.keyLength,
+      "sha256",
+    );
 
     this.keyCache.set(cacheKey, userKey);
     return userKey;
@@ -283,36 +449,43 @@ class EncryptionService {
 
   decryptUserData(userId: number, encryptedData: string): string {
     const userKey = this.generateUserKey(userId);
-    const encrypted: EncryptedData = JSON.parse(encryptedData);
+    const encrypted: AnyEncryptedPayload = JSON.parse(encryptedData);
     return this.decrypt(encrypted, userKey);
   }
 
   // Secure backup encryption
   encryptBackup(data: any): string {
-    const backupKey = this.deriveKey(
-      "backup_encryption_key",
-      Buffer.from("backup_salt_2024")
-    );
+    const backupKey = this.hkdfKey("backup:at-rest");
     const jsonData = JSON.stringify(data);
-    const encrypted = this.encrypt(jsonData, backupKey);
+    const encrypted = this.encrypt(jsonData, backupKey, "backup");
     return JSON.stringify(encrypted);
   }
 
   decryptBackup(encryptedBackup: string): any {
-    const backupKey = this.deriveKey(
-      "backup_encryption_key",
-      Buffer.from("backup_salt_2024")
-    );
-    const encrypted: EncryptedData = JSON.parse(encryptedBackup);
-    const decrypted = this.decrypt(encrypted, backupKey);
+    const encrypted: AnyEncryptedPayload = JSON.parse(encryptedBackup);
+
+    // Prefer new key derivation.
+    let decrypted: string;
+    try {
+      const backupKey = this.hkdfKey("backup:at-rest");
+      decrypted = this.decrypt(encrypted, backupKey, "backup");
+    } catch (err) {
+      // Backward-compat: legacy hardcoded-derived key used by older deployments.
+      const legacyKey = this.deriveKey(
+        "backup_encryption_key",
+        Buffer.from("backup_salt_2024"),
+      );
+      decrypted = this.decrypt(encrypted, legacyKey, "backup");
+    }
     return JSON.parse(decrypted);
   }
 
   // Key rotation support
   rotateMasterKey(newMasterKey: string): void {
-    if (newMasterKey.length !== 32) {
-      throw new Error("New master key must be exactly 32 characters long");
-    }
+    const parsed = this.parse32ByteKeyFromEnv(
+      newMasterKey,
+      "NEW_ENCRYPTION_MASTER_KEY",
+    );
 
     // In a real implementation, this would:
     // 1. Re-encrypt all data with the new key
@@ -320,9 +493,9 @@ class EncryptionService {
     // 3. Log the key rotation event
 
     console.log(
-      "Master key rotation initiated - this requires manual re-encryption of all data"
+      "Master key rotation initiated - this requires manual re-encryption of all data",
     );
-    this.masterKey = newMasterKey;
+    this.masterKey = parsed;
     this.keyCache.clear(); // Clear cached keys
   }
 
