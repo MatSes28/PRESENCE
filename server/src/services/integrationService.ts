@@ -63,6 +63,7 @@ interface SyncResult {
 class IntegrationService {
   private integrationsById: Map<number, IntegrationConfig> = new Map();
   private integrationsByKey: Map<string, IntegrationConfig> = new Map();
+  private warnedMissingIntegrationsTable = false;
 
   constructor() {
     void this.refreshIntegrations();
@@ -122,6 +123,24 @@ class IntegrationService {
         this.integrationsByKey.set(this.normalizeLookupKey(cfg.name), cfg);
       }
     } catch (error) {
+      const anyErr = error as any;
+      const pgCode = anyErr?.cause?.code || anyErr?.code;
+      const msg = String(anyErr?.cause?.message || anyErr?.message || "");
+
+      // Common on fresh deployments where migrations haven't been applied yet.
+      if (
+        pgCode === "42P01" ||
+        msg.includes('relation "integrations" does not exist')
+      ) {
+        if (!this.warnedMissingIntegrationsTable) {
+          this.warnedMissingIntegrationsTable = true;
+          console.warn(
+            "Integrations table missing. Apply DB migrations to enable SIS/LMS/HR integrations.",
+          );
+        }
+        return;
+      }
+
       console.error("Failed to load integrations:", error);
     }
   }
