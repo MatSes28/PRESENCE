@@ -17,6 +17,10 @@ class CacheService {
   private defaultTTL = 300; // 5 minutes default
   private keyPrefix = "clirdec_presence:";
 
+  // Dedicated prefixes for deterministic cross-instance state
+  private rfidScanKeyPrefix = "rfid_scans:";
+  private attendanceCooldownPrefix = "attendance_cooldown:";
+
   constructor() {
     // Only connect to Redis in production or if explicitly enabled
     const isRedisEnabled =
@@ -115,6 +119,113 @@ class CacheService {
       console.error("Cache setIfNotExists error:", error);
       return false;
     }
+  }
+
+  // ============================================================================
+  // Cross-instance attendance correlation helpers (Redis required for scaling)
+  // ============================================================================
+
+  /**
+   * Store a recent RFID scan for a device in a Redis ZSET (sorted by timestamp).
+   * This enables sensor↔RFID correlation even when device traffic hits different instances.
+   */
+  async addRecentRfidScan(params: {
+    deviceId: string;
+    rfidUid: string;
+    timestampMs: number;
+    ttlSeconds: number;
+  }): Promise<boolean> {
+    if (!this.isConnected) return false;
+    const { deviceId, rfidUid, timestampMs, ttlSeconds } = params;
+
+    try {
+      const key = this.generateKey(`${this.rfidScanKeyPrefix}${deviceId}`);
+      const value = JSON.stringify({ rfidUid, timestampMs, deviceId });
+
+      await this.client.zAdd(key, [{ score: timestampMs, value }]);
+      await this.client.expire(key, ttlSeconds);
+      return true;
+    } catch (error) {
+      console.error("Cache addRecentRfidScan error:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Trim scans older than minTimestampMs (inclusive lower bound kept).
+   */
+  async trimRecentRfidScans(params: {
+    deviceId: string;
+    minTimestampMs: number;
+  }): Promise<void> {
+    if (!this.isConnected) return;
+    const { deviceId, minTimestampMs } = params;
+
+    try {
+      const key = this.generateKey(`${this.rfidScanKeyPrefix}${deviceId}`);
+      // Remove entries with score < minTimestampMs
+      await this.client.zRemRangeByScore(key, 0, minTimestampMs - 1);
+    } catch (error) {
+      console.error("Cache trimRecentRfidScans error:", error);
+    }
+  }
+
+  /**
+   * Get scans for the device with score >= minTimestampMs (sorted ascending).
+   */
+  async getRecentRfidScans(params: {
+    deviceId: string;
+    minTimestampMs: number;
+  }): Promise<
+    Array<{ rfidUid: string; timestampMs: number; deviceId: string }>
+  > {
+    if (!this.isConnected) return [];
+    const { deviceId, minTimestampMs } = params;
+
+    try {
+      const key = this.generateKey(`${this.rfidScanKeyPrefix}${deviceId}`);
+      const raw = await this.client.zRangeByScore(key, minTimestampMs, "+inf");
+      const parsed: Array<{
+        rfidUid: string;
+        timestampMs: number;
+        deviceId: string;
+      }> = [];
+      for (const item of raw) {
+        try {
+          const obj = JSON.parse(item);
+          if (
+            obj &&
+            typeof obj.rfidUid === "string" &&
+            typeof obj.timestampMs === "number" &&
+            typeof obj.deviceId === "string"
+          ) {
+            parsed.push(obj);
+          }
+        } catch {
+          // ignore malformed entries
+        }
+      }
+      return parsed;
+    } catch (error) {
+      console.error("Cache getRecentRfidScans error:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Cross-instance cooldown gate to prevent duplicate attendance writes.
+   * Returns true if the cooldown was acquired (first writer), false otherwise.
+   */
+  async acquireAttendanceCooldown(params: {
+    key: string;
+    ttlSeconds: number;
+  }): Promise<boolean> {
+    return this.setIfNotExists(
+      params.key,
+      String(Date.now()),
+      params.ttlSeconds,
+      this.attendanceCooldownPrefix,
+    );
   }
 
   // Generic cache operations

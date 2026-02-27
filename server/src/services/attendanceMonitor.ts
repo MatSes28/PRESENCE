@@ -40,7 +40,33 @@ class AttendanceMonitor {
     string,
     { rfidUid: string; timestamp: Date; deviceId: string }[]
   >();
-  private recentAttendance = new Map<string, Date>(); // Track recent attendance to prevent duplicates
+  private recentAttendance = new Map<string, Date>(); // Fallback (single-instance) cooldown state
+
+  private rfidScanTtlSeconds = 60; // keep scans slightly longer than validationWindow
+
+  private async acquireAttendanceCooldownGate(
+    attendanceKey: string,
+    now: Date,
+  ): Promise<boolean> {
+    // Cross-instance correctness: use Redis NX key when available.
+    if (cacheService.available()) {
+      return cacheService.acquireAttendanceCooldown({
+        key: attendanceKey,
+        ttlSeconds: Math.ceil(this.attendanceCooldown / 1000),
+      });
+    }
+
+    // Single-instance fallback.
+    const lastAttendance = this.recentAttendance.get(attendanceKey);
+    if (
+      lastAttendance &&
+      now.getTime() - lastAttendance.getTime() < this.attendanceCooldown
+    ) {
+      return false;
+    }
+    this.recentAttendance.set(attendanceKey, now);
+    return true;
+  }
 
   async processRFIDScan(scan: RFIDScan): Promise<{
     success: boolean;
@@ -99,41 +125,39 @@ class AttendanceMonitor {
 
       // Anti-passback validation
       const attendanceKey = `${studentData.id}-${currentSession.id}`;
-      const lastAttendance = this.recentAttendance.get(attendanceKey);
 
       // Check if student has already entered but not exited
-      if (lastAttendance) {
-        const existingRecord = await db
-          .select()
-          .from(attendanceRecords)
-          .where(
-            and(
-              eq(attendanceRecords.studentId, studentData.id),
-              eq(attendanceRecords.classSessionId, currentSession.id),
-            ),
-          )
-          .limit(1);
+      const existingRecordForPassback = await db
+        .select()
+        .from(attendanceRecords)
+        .where(
+          and(
+            eq(attendanceRecords.studentId, studentData.id),
+            eq(attendanceRecords.classSessionId, currentSession.id),
+          ),
+        )
+        .limit(1);
 
-        if (
-          existingRecord.length &&
-          existingRecord[0].entryTime &&
-          !existingRecord[0].exitTime
-        ) {
-          console.log(
-            `Anti-passback violation: Student ${studentData.id} already entered without exiting`,
-          );
-          return {
-            success: false,
-            message: "Anti-passback violation: Already entered without exiting",
-          };
-        }
+      if (
+        existingRecordForPassback.length &&
+        existingRecordForPassback[0].entryTime &&
+        !existingRecordForPassback[0].exitTime
+      ) {
+        console.log(
+          `Anti-passback violation: Student ${studentData.id} already entered without exiting`,
+        );
+        return {
+          success: false,
+          message: "Anti-passback violation: Already entered without exiting",
+        };
       }
 
-      // Check for duplicate attendance within cooldown period
-      if (
-        lastAttendance &&
-        now.getTime() - lastAttendance.getTime() < this.attendanceCooldown
-      ) {
+      // Cross-instance cooldown gate (prevents duplicates when multiple instances receive the same scan)
+      const acquired = await this.acquireAttendanceCooldownGate(
+        attendanceKey,
+        now,
+      );
+      if (!acquired) {
         console.log(
           `Duplicate attendance attempt within cooldown period for student ${studentData.id}`,
         );
@@ -146,6 +170,8 @@ class AttendanceMonitor {
       // Only store scans that are eligible to count as a presence proof signal.
       // This avoids using unknown/invalid/rejected RFID scans to validate sensor triggers.
       this.storeRecentRFIDScan(scan);
+      // Cross-instance correlation: persist eligible scans to Redis (if available).
+      await this.storeRecentRFIDScanRedis(scan);
 
       // Check if student already has a record for this session
       const existingRecord = await db
@@ -171,9 +197,6 @@ class AttendanceMonitor {
           sensorDetected: false,
         });
       }
-
-      // Update recent attendance tracking
-      this.recentAttendance.set(attendanceKey, now);
 
       return {
         success: true,
@@ -425,11 +448,46 @@ class AttendanceMonitor {
     );
   }
 
+  private async storeRecentRFIDScanRedis(scan: RFIDScan): Promise<void> {
+    // Best-effort; local in-memory fallback is still used for single-instance.
+    if (!cacheService.available()) return;
+
+    const ts = new Date(scan.timestamp);
+    const tsMs = Number.isFinite(ts.getTime()) ? ts.getTime() : Date.now();
+    const cutoffMs = tsMs - this.validationWindow;
+
+    await cacheService.addRecentRfidScan({
+      deviceId: scan.deviceId,
+      rfidUid: scan.rfidUid,
+      timestampMs: tsMs,
+      ttlSeconds: this.rfidScanTtlSeconds,
+    });
+    await cacheService.trimRecentRfidScans({
+      deviceId: scan.deviceId,
+      minTimestampMs: cutoffMs,
+    });
+  }
+
   private async findRecentRFIDScans(deviceId: string, currentTime: Date) {
-    const deviceScans = this.recentRFIDScans.get(deviceId) || [];
     const cutoffTime = new Date(currentTime.getTime() - this.validationWindow);
 
-    // Return scans within the validation window
+    // Prefer Redis for cross-instance correctness.
+    if (cacheService.available()) {
+      const redisScans = await cacheService.getRecentRfidScans({
+        deviceId,
+        minTimestampMs: cutoffTime.getTime(),
+      });
+      return redisScans
+        .map((s) => ({
+          rfidUid: s.rfidUid,
+          timestamp: new Date(s.timestampMs),
+          deviceId: s.deviceId,
+        }))
+        .filter((scan) => scan.timestamp > cutoffTime);
+    }
+
+    // Fallback for single-instance.
+    const deviceScans = this.recentRFIDScans.get(deviceId) || [];
     return deviceScans.filter((scan) => scan.timestamp > cutoffTime);
   }
 

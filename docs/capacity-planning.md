@@ -75,6 +75,22 @@ This document provides comprehensive capacity planning guidelines for the CLIRDE
 
 ### Horizontal Scaling (Multiple Instances)
 
+#### Correctness requirement: shared correlation state
+
+When running **multiple API instances behind a load balancer**, device traffic (RFID + sensor triggers) can land on different instances.
+To prevent lost correlations and duplicate writes, the system requires **shared, low-latency state**:
+
+- **Recent RFID scans per device** are stored in Redis (ZSET) for sensor↔RFID correlation.
+- **Attendance cooldown gates** use Redis `SET NX EX` to prevent duplicate writes across instances.
+
+Implementation references:
+
+- Redis scan store + retrieval: [`cacheService.addRecentRfidScan()`](server/src/services/cacheService.ts:120)
+- Correlation lookup prefers Redis when available: [`AttendanceMonitor.findRecentRFIDScans()`](server/src/services/attendanceMonitor.ts:428)
+- Cross-instance cooldown gate: [`AttendanceMonitor.acquireAttendanceCooldownGate()`](server/src/services/attendanceMonitor.ts:47)
+
+**Operational implication:** Redis is not “optional” for correctness in horizontal scaling. If Redis is unavailable, the system falls back to in-memory state and correctness becomes **single-instance only**.
+
 #### Instance Count Recommendations
 
 | Total Users  | Instances | Load Balancer Config           |
