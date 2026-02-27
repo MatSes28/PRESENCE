@@ -58,6 +58,37 @@ process.on("warning", (warning) => {
   if (warning.stack)
     console.warn("[DIAG][NodeWarning] stack:\n", warning.stack);
 });
+
+// Extra guardrails: log any oversized timer delay with a stack trace at the callsite.
+// This catches cases where Node would clamp the duration (and/or where warnings are not visible).
+const MAX_TIMER_DELAY_MS = 2_147_483_647; // Max signed 32-bit int (Node timers limit)
+
+const __origSetTimeout = globalThis.setTimeout;
+globalThis.setTimeout = ((handler: any, timeout?: any, ...args: any[]) => {
+  if (typeof timeout === "number" && timeout > MAX_TIMER_DELAY_MS) {
+    // Stack here points to the callsite that attempted the oversized timer.
+    const stack = new Error().stack;
+    console.error(
+      "[DIAG][TimerOverflow] setTimeout delay exceeds 2^31-1ms; Node will clamp.",
+      { timeout, max: MAX_TIMER_DELAY_MS },
+    );
+    if (stack) console.error("[DIAG][TimerOverflow] stack:\n", stack);
+  }
+  return (__origSetTimeout as any)(handler as any, timeout as any, ...args);
+}) as any;
+
+const __origSetInterval = globalThis.setInterval;
+globalThis.setInterval = ((handler: any, timeout?: any, ...args: any[]) => {
+  if (typeof timeout === "number" && timeout > MAX_TIMER_DELAY_MS) {
+    const stack = new Error().stack;
+    console.error(
+      "[DIAG][TimerOverflow] setInterval delay exceeds 2^31-1ms; Node will clamp.",
+      { timeout, max: MAX_TIMER_DELAY_MS },
+    );
+    if (stack) console.error("[DIAG][TimerOverflow] stack:\n", stack);
+  }
+  return (__origSetInterval as any)(handler as any, timeout as any, ...args);
+}) as any;
 import {
   generalRateLimit,
   attendanceRateLimit,
