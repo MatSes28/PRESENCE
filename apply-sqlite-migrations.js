@@ -555,6 +555,57 @@ try {
     `CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_resource ON audit_logs_archive(resource)`,
     `CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_resource_id ON audit_logs_archive(resource_id)`,
     `CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_success ON audit_logs_archive(success)`,
+
+    // ==================== Enterprise integrations ====================
+
+    `CREATE TABLE IF NOT EXISTS integrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      kind TEXT DEFAULT 'custom' NOT NULL,
+      provider TEXT DEFAULT 'custom' NOT NULL,
+      config TEXT DEFAULT '{}' NOT NULL,
+      enabled INTEGER DEFAULT 0 NOT NULL,
+      last_sync_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_integrations_enabled ON integrations(enabled)`,
+    `CREATE INDEX IF NOT EXISTS idx_integrations_kind ON integrations(kind)`,
+    `CREATE INDEX IF NOT EXISTS idx_integrations_provider ON integrations(provider)`,
+
+    `CREATE TABLE IF NOT EXISTS integration_sync_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      integration_id INTEGER NOT NULL,
+      job_type TEXT NOT NULL,
+      status TEXT DEFAULT 'running' NOT NULL,
+      idempotency_key TEXT,
+      started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      finished_at TIMESTAMP,
+      stats TEXT DEFAULT '{}' NOT NULL,
+      error TEXT,
+      FOREIGN KEY (integration_id) REFERENCES integrations(id) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_integration_sync_runs_integration_id ON integration_sync_runs(integration_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_integration_sync_runs_status ON integration_sync_runs(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_integration_sync_runs_started_at ON integration_sync_runs(started_at)`,
+
+    `CREATE TABLE IF NOT EXISTS integration_sync_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id INTEGER NOT NULL,
+      entity_type TEXT NOT NULL,
+      action TEXT NOT NULL,
+      external_id TEXT,
+      local_id TEXT,
+      status TEXT DEFAULT 'ok' NOT NULL,
+      message TEXT,
+      diff TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      FOREIGN KEY (run_id) REFERENCES integration_sync_runs(id) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_integration_sync_events_run_id ON integration_sync_events(run_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_integration_sync_events_entity_type ON integration_sync_events(entity_type)`,
+    `CREATE INDEX IF NOT EXISTS idx_integration_sync_events_status ON integration_sync_events(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_integration_sync_events_created_at ON integration_sync_events(created_at)`,
   ];
 
   // Apply each table creation
