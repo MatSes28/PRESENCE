@@ -83,6 +83,40 @@ class CacheService {
     return `${fullPrefix}${key}`;
   }
 
+  /**
+   * Whether Redis-backed cache is available.
+   * Note: in non-production, Redis is typically disabled.
+   */
+  available(): boolean {
+    return this.isConnected;
+  }
+
+  /**
+   * Low-level helper: set a raw key only if it does not already exist.
+   * Useful for replay protection / idempotency keys.
+   */
+  async setIfNotExists(
+    key: string,
+    value: string,
+    ttlSeconds: number,
+    prefix?: string,
+  ): Promise<boolean> {
+    if (!this.isConnected) return false;
+
+    try {
+      const cacheKey = this.generateKey(key, prefix);
+      const result = await this.client.set(cacheKey, value, {
+        NX: true,
+        EX: ttlSeconds,
+      });
+      // node-redis returns "OK" on success, null if not set.
+      return result === "OK";
+    } catch (error) {
+      console.error("Cache setIfNotExists error:", error);
+      return false;
+    }
+  }
+
   // Generic cache operations
   async set<T>(
     key: string,

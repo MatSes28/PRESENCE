@@ -9,22 +9,34 @@ interface WebSocketClient extends WebSocket {
   deviceId?: string;
   userId?: number;
   isAlive?: boolean;
+  // Device auth token captured from query param on connect.
+  // Used for optional signed-event verification.
+  deviceAuthToken?: string;
+  deviceAuthType?: "apiKey" | "certificate";
 }
 
 interface WSMessage {
   type: string;
   payload: any;
   timestamp?: string;
+  // Signed event envelope fields (Phase 2: integrity & anti-replay)
+  nonce?: string;
+  signature?: string;
+  v?: number;
 }
 
 const clients = new Map<string, WebSocketClient>();
 const deviceClients = new Map<string, WebSocketClient>();
 
+type DeviceAuthResult =
+  | { ok: true; authType: "apiKey" | "certificate" }
+  | { ok: false; reason: string };
+
 // Device authentication function
 async function authenticateDevice(
   deviceId: string,
-  authToken?: string | null
-): Promise<boolean> {
+  authToken?: string | null,
+): Promise<DeviceAuthResult> {
   try {
     // Import iotDeviceManager dynamically to avoid circular imports
     const { iotDeviceManager } = await import("./iotDeviceManager.js");
@@ -38,7 +50,7 @@ async function authenticateDevice(
 
     if (device.length === 0) {
       console.log(`Device ${deviceId} not found in database`);
-      return false;
+      return { ok: false, reason: "device_not_found" };
     }
 
     const dbDevice = device[0];
@@ -46,43 +58,230 @@ async function authenticateDevice(
     // Check if device is active
     if (!dbDevice.isActive) {
       console.log(`Device ${deviceId} is not active`);
-      return false;
+      return { ok: false, reason: "device_inactive" };
     }
 
     // If no auth token provided, deny access
     if (!authToken) {
       console.log(
-        `Device ${deviceId} attempted connection without authentication token`
+        `Device ${deviceId} attempted connection without authentication token`,
       );
-      return false;
+      return { ok: false, reason: "missing_auth_token" };
     }
 
     // Try API key authentication first
-    const apiKeyAuth = await iotDeviceManager.authenticateDeviceByApiKey(
-      authToken
-    );
+    const apiKeyAuth =
+      await iotDeviceManager.authenticateDeviceByApiKey(authToken);
     if (apiKeyAuth && apiKeyAuth.deviceId === deviceId) {
       console.log(`Device ${deviceId} authenticated successfully via API key`);
-      return true;
+      return { ok: true, authType: "apiKey" };
     }
 
     // Try certificate fingerprint authentication
-    const certAuth = await iotDeviceManager.authenticateDeviceByCertificate(
-      authToken
-    );
+    const certAuth =
+      await iotDeviceManager.authenticateDeviceByCertificate(authToken);
     if (certAuth && certAuth.deviceId === deviceId) {
       console.log(
-        `Device ${deviceId} authenticated successfully via certificate`
+        `Device ${deviceId} authenticated successfully via certificate`,
       );
-      return true;
+      return { ok: true, authType: "certificate" };
     }
 
     console.log(`Device ${deviceId} authentication failed - invalid token`);
-    return false;
+    return { ok: false, reason: "invalid_token" };
   } catch (error) {
     console.error("Device authentication error:", error);
+    return { ok: false, reason: "auth_error" };
+  }
+}
+
+function isProductionLike(): boolean {
+  const env = (process.env.NODE_ENV || "").toLowerCase();
+  if (env === "production") return true;
+  // Railway sets RAILWAY_ENVIRONMENT (commonly "production")
+  if ((process.env.RAILWAY_ENVIRONMENT || "").toLowerCase() === "production") {
+    return true;
+  }
+  return false;
+}
+
+function requireSignedDeviceEvents(): boolean {
+  // In production-like environments, require signed events by default.
+  // In development, allow unsigned events unless explicitly required.
+  const forced = (process.env.IOT_REQUIRE_SIGNED_EVENTS || "").toLowerCase();
+  if (forced === "true" || forced === "1" || forced === "yes") return true;
+  if (forced === "false" || forced === "0" || forced === "no") return false;
+  return isProductionLike();
+}
+
+function canonicalJson(value: unknown): string {
+  const seen = new WeakSet<object>();
+
+  const normalize = (v: any): any => {
+    if (v === null || v === undefined) return v;
+    if (typeof v !== "object") return v;
+    if (seen.has(v)) {
+      throw new Error("Cyclic structure in payload");
+    }
+    seen.add(v);
+
+    if (Array.isArray(v)) {
+      return v.map(normalize);
+    }
+
+    const out: Record<string, any> = {};
+    for (const key of Object.keys(v).sort()) {
+      out[key] = normalize(v[key]);
+    }
+    return out;
+  };
+
+  return JSON.stringify(normalize(value));
+}
+
+function safeTimingEqualHex(aHex: string, bHex: string): boolean {
+  try {
+    const a = Buffer.from(aHex, "hex");
+    const b = Buffer.from(bHex, "hex");
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
     return false;
   }
+}
+
+// Minimal in-memory anti-replay cache.
+// TODO (Phase 2 item 15): persist via Redis/DB so restarts don't reset replay window.
+const recentNoncesByDevice = new Map<string, Map<string, number>>();
+const lastTimestampByDevice = new Map<string, number>();
+
+function validateTimestampWindow(tsMs: number) {
+  const WINDOW_MS = 2 * 60 * 1000; // accept +/- 2 minutes clock skew
+  const now = Date.now();
+  if (Math.abs(now - tsMs) > WINDOW_MS) {
+    throw new Error("timestamp_out_of_window");
+  }
+}
+
+function checkReplay(deviceId: string, tsMs: number, nonce: string) {
+  const WINDOW_MS = 2 * 60 * 1000;
+
+  // Enforce monotonic-ish timestamps (allow small backward skew).
+  const lastTs = lastTimestampByDevice.get(deviceId);
+  if (lastTs !== undefined && tsMs + WINDOW_MS < lastTs) {
+    throw new Error("timestamp_replay");
+  }
+
+  const deviceNonces = recentNoncesByDevice.get(deviceId);
+  if (deviceNonces?.has(nonce)) {
+    throw new Error("nonce_replay");
+  }
+}
+
+function markSeen(deviceId: string, tsMs: number, nonce: string) {
+  const NONCE_TTL_MS = 10 * 60 * 1000; // keep nonces for 10 minutes
+  const now = Date.now();
+
+  const lastTs = lastTimestampByDevice.get(deviceId);
+  if (lastTs === undefined || tsMs > lastTs) {
+    lastTimestampByDevice.set(deviceId, tsMs);
+  }
+
+  let deviceNonces = recentNoncesByDevice.get(deviceId);
+  if (!deviceNonces) {
+    deviceNonces = new Map();
+    recentNoncesByDevice.set(deviceId, deviceNonces);
+  }
+
+  // Cleanup expired nonces opportunistically.
+  for (const [n, usedAt] of deviceNonces) {
+    if (now - usedAt > NONCE_TTL_MS) deviceNonces.delete(n);
+  }
+
+  deviceNonces.set(nonce, now);
+}
+
+function verifySignedDeviceEvent(
+  ws: WebSocketClient,
+  message: WSMessage,
+  deviceId: string,
+): void {
+  // Only verify for device-originated attendance/security-sensitive events.
+  const SIGNED_TYPES = new Set([
+    "rfid_scan",
+    "sensor_trigger",
+    "attendance_record",
+    "heartbeat",
+  ]);
+
+  if (!SIGNED_TYPES.has(message.type)) return;
+
+  const mustVerify = requireSignedDeviceEvents();
+  const hasEnvelope = !!message.signature || !!message.nonce || !!message.v;
+
+  if (ws.deviceAuthType !== "apiKey") {
+    // We cannot verify HMAC signatures without a shared secret.
+    // Certificate-based auth *may* rely on mTLS at the reverse proxy; if not present,
+    // signature verification is recommended.
+    if (mustVerify && hasEnvelope) {
+      // If device sends a signed envelope but we can't verify (no apiKey), fail closed.
+      throw new Error("unsupported_auth_for_signed_events");
+    }
+    if (mustVerify) {
+      throw new Error("signed_events_required_but_no_shared_secret");
+    }
+    return;
+  }
+
+  if (!ws.deviceAuthToken) {
+    if (mustVerify) throw new Error("missing_device_auth_token");
+    return;
+  }
+
+  // If policy requires signing, enforce envelope presence.
+  if (mustVerify) {
+    if (!message.timestamp) throw new Error("missing_timestamp");
+    if (!message.nonce) throw new Error("missing_nonce");
+    if (!message.signature) throw new Error("missing_signature");
+  } else {
+    // If not required and no signature provided, accept.
+    if (!message.signature) return;
+    if (!message.timestamp || !message.nonce) {
+      throw new Error("partial_signature_envelope");
+    }
+  }
+
+  const tsMs = Date.parse(message.timestamp!);
+  if (!Number.isFinite(tsMs)) throw new Error("invalid_timestamp");
+
+  validateTimestampWindow(tsMs);
+
+  const nonce = String(message.nonce || "");
+  if (nonce.length < 8 || nonce.length > 128) throw new Error("invalid_nonce");
+
+  // Replay checks without side-effects; we only mark as seen after signature passes.
+  checkReplay(deviceId, tsMs, nonce);
+
+  // Signature: HMAC-SHA256 over a canonical string.
+  // IMPORTANT: use canonical JSON for payload to avoid signature ambiguity.
+  const payloadJson = canonicalJson(message.payload ?? null);
+  const payloadHash = crypto
+    .createHash("sha256")
+    .update(payloadJson)
+    .digest("hex");
+  const stringToSign = `${deviceId}|${message.type}|${message.timestamp}|${nonce}|${payloadHash}`;
+  const expectedSig = crypto
+    .createHmac("sha256", ws.deviceAuthToken)
+    .update(stringToSign)
+    .digest("hex");
+
+  const providedSig = String(message.signature || "");
+  if (!safeTimingEqualHex(providedSig, expectedSig)) {
+    throw new Error("invalid_signature");
+  }
+
+  // Signature valid => mark nonce/timestamp as seen.
+  markSeen(deviceId, tsMs, nonce);
 }
 
 export function setupWebSocket(wss: WebSocketServer) {
@@ -103,19 +302,22 @@ export function setupWebSocket(wss: WebSocketServer) {
 
       // Authenticate device connections
       if (isDevice && deviceId) {
-        const isAuthenticated = await authenticateDevice(deviceId, authToken);
-        if (!isAuthenticated) {
+        const auth = await authenticateDevice(deviceId, authToken);
+        if (!auth.ok) {
           console.log(`Device authentication failed for ${deviceId}`);
           ws.send(
             JSON.stringify({
               type: "error",
               payload: { message: "Authentication failed" },
               timestamp: new Date().toISOString(),
-            })
+            }),
           );
           ws.close(1008, "Authentication failed");
           return;
         }
+        ws.deviceId = deviceId;
+        ws.deviceAuthToken = authToken || undefined;
+        ws.deviceAuthType = auth.authType;
         console.log(`Device ${deviceId} authenticated successfully`);
       }
 
@@ -127,23 +329,64 @@ export function setupWebSocket(wss: WebSocketServer) {
 
       // Handle incoming messages
       ws.on("message", (data: Buffer) => {
-        try {
-          const message: WSMessage = JSON.parse(data.toString());
+        let message: WSMessage;
 
-          if (isDevice) {
-            handleDeviceMessage(ws, message, deviceId);
-          } else {
-            handleWebMessage(ws, message, userId);
-          }
+        try {
+          message = JSON.parse(data.toString());
         } catch (error) {
           console.error("Failed to parse WebSocket message:", error);
           ws.send(
             JSON.stringify({
               type: "error",
-              payload: { message: "Invalid message format" },
+              payload: { message: "Invalid JSON" },
               timestamp: new Date().toISOString(),
-            })
+            }),
           );
+          return;
+        }
+
+        if (isDevice) {
+          if (!deviceId) {
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                payload: { message: "Missing deviceId" },
+                timestamp: new Date().toISOString(),
+              }),
+            );
+            return;
+          }
+
+          try {
+            // Phase 2: signed event envelopes + anti-replay.
+            verifySignedDeviceEvent(ws, message, deviceId);
+          } catch (err: any) {
+            const reason = err?.message || "integrity_check_failed";
+            console.warn(
+              `Device message integrity check failed for ${deviceId}: ${reason}`,
+            );
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                payload: { message: "Integrity check failed", reason },
+                timestamp: new Date().toISOString(),
+              }),
+            );
+            if (requireSignedDeviceEvents()) {
+              ws.close(1008, "Integrity check failed");
+            }
+            return;
+          }
+
+          void handleDeviceMessage(ws, message, deviceId).catch((err) => {
+            console.error("Error handling device message:", err);
+          });
+        } else {
+          try {
+            handleWebMessage(ws, message, userId);
+          } catch (error) {
+            console.error("Failed to handle web message:", error);
+          }
         }
       });
 
@@ -161,7 +404,7 @@ export function setupWebSocket(wss: WebSocketServer) {
           } catch (error) {
             console.error(
               `Error updating device status for ${deviceId}:`,
-              error
+              error,
             );
           }
         } else if (userId) {
@@ -195,9 +438,9 @@ export function setupWebSocket(wss: WebSocketServer) {
             timestamp: new Date().toISOString(),
           },
           timestamp: new Date().toISOString(),
-        })
+        }),
       );
-    }
+    },
   );
 
   // Connection health check
@@ -225,7 +468,7 @@ export function setupWebSocket(wss: WebSocketServer) {
 async function handleDeviceMessage(
   ws: WebSocketClient,
   message: WSMessage,
-  deviceId?: string | null
+  deviceId?: string | null,
 ) {
   if (!deviceId) {
     console.error("Device message received without deviceId");
@@ -239,12 +482,12 @@ async function handleDeviceMessage(
   const validation = await iotDeviceManager.validateAndAuthorizeCommand(
     deviceId,
     message.type,
-    message.payload
+    message.payload,
   );
 
   if (!validation.authorized) {
     console.log(
-      `Command validation failed for device ${deviceId}: ${validation.reason}`
+      `Command validation failed for device ${deviceId}: ${validation.reason}`,
     );
     ws.send(
       JSON.stringify({
@@ -254,7 +497,7 @@ async function handleDeviceMessage(
           reason: validation.reason,
         },
         timestamp: new Date().toISOString(),
-      })
+      }),
     );
     return;
   }
@@ -263,7 +506,7 @@ async function handleDeviceMessage(
     case "rfid_scan":
       // Handle RFID scan from ESP32
       console.log(
-        `[RFID SCAN] Received from device ${deviceId}: ${message.payload.rfidUid}`
+        `[RFID SCAN] Received from device ${deviceId}: ${message.payload.rfidUid}`,
       );
 
       let processingResult = null;
@@ -294,12 +537,35 @@ async function handleDeviceMessage(
 
     case "sensor_trigger":
       // Handle ultrasonic sensor trigger
-      broadcastToWebClients("sensor_trigger", {
-        deviceId,
-        sensorType: message.payload.sensorType, // 'entry' or 'exit'
-        distance: message.payload.distance,
-        timestamp: message.payload.timestamp || new Date().toISOString(),
-      });
+      {
+        let processingResult: any = null;
+        try {
+          const { attendanceMonitor } = await import("./attendanceMonitor.js");
+          processingResult = await attendanceMonitor.processSensorTrigger({
+            deviceId,
+            sensorType: message.payload.sensorType,
+            distance: message.payload.distance,
+            timestamp: message.payload.timestamp || new Date().toISOString(),
+          });
+        } catch (error: any) {
+          console.error(
+            `[SENSOR TRIGGER] Error processing sensor trigger from ${deviceId}:`,
+            error,
+          );
+          processingResult = {
+            success: false,
+            message: error?.message || "Error",
+          };
+        }
+
+        broadcastToWebClients("sensor_trigger", {
+          deviceId,
+          sensorType: message.payload.sensorType, // 'entry' or 'exit'
+          distance: message.payload.distance,
+          timestamp: message.payload.timestamp || new Date().toISOString(),
+          processingResult,
+        });
+      }
       break;
 
     case "attendance_record":
@@ -326,7 +592,7 @@ async function handleDeviceMessage(
       } catch (error) {
         console.error(
           `Error processing heartbeat for device ${deviceId}:`,
-          error
+          error,
         );
       }
       break;
@@ -338,7 +604,7 @@ async function handleDeviceMessage(
           type: "pong",
           payload: { message: "pong" },
           timestamp: new Date().toISOString(),
-        })
+        }),
       );
       break;
 
@@ -349,7 +615,7 @@ async function handleDeviceMessage(
           type: "error",
           payload: { message: `Unknown command: ${message.type}` },
           timestamp: new Date().toISOString(),
-        })
+        }),
       );
   }
 }
@@ -357,7 +623,7 @@ async function handleDeviceMessage(
 function handleWebMessage(
   ws: WebSocketClient,
   message: WSMessage,
-  userId?: string | null
+  userId?: string | null,
 ) {
   switch (message.type) {
     case "subscribe_attendance":
@@ -372,7 +638,7 @@ function handleWebMessage(
           deviceId: id,
           status: client.readyState === WebSocket.OPEN ? "online" : "offline",
           lastSeen: new Date().toISOString(),
-        })
+        }),
       );
 
       ws.send(
@@ -380,7 +646,7 @@ function handleWebMessage(
           type: "device_status",
           payload: deviceStatus,
           timestamp: new Date().toISOString(),
-        })
+        }),
       );
       break;
 
@@ -411,7 +677,7 @@ export function sendToDevice(deviceId: string, type: string, payload: any) {
         type,
         payload,
         timestamp: new Date().toISOString(),
-      })
+      }),
     );
     return true;
   }

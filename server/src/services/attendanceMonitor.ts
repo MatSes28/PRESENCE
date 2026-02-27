@@ -64,8 +64,6 @@ class AttendanceMonitor {
           message: "RFID processing paused (emergency stop active).",
         };
       }
-      // Store recent RFID scan for sensor validation
-      this.storeRecentRFIDScan(scan);
 
       // Find student by RFID UID
       const student = await db
@@ -145,6 +143,10 @@ class AttendanceMonitor {
         };
       }
 
+      // Only store scans that are eligible to count as a presence proof signal.
+      // This avoids using unknown/invalid/rejected RFID scans to validate sensor triggers.
+      this.storeRecentRFIDScan(scan);
+
       // Check if student already has a record for this session
       const existingRecord = await db
         .select()
@@ -206,9 +208,15 @@ class AttendanceMonitor {
         return { success: false, message: "Invalid sensor type" };
       }
 
-      // Find active class session
+      // Use trigger timestamp (device) if valid, otherwise fall back to server time.
       const now = new Date();
-      const currentSession = await this.findActiveClassSession(now);
+      const triggerTime = new Date(trigger.timestamp);
+      const effectiveTime = Number.isFinite(triggerTime.getTime())
+        ? triggerTime
+        : now;
+
+      // Find active class session
+      const currentSession = await this.findActiveClassSession(effectiveTime);
 
       if (!currentSession) {
         console.log("No active class session for sensor trigger");
@@ -227,8 +235,11 @@ class AttendanceMonitor {
         return { success: false, message: "Invalid distance" };
       }
 
-      // Look for recent RFID scans within validation window
-      const recentScans = await this.findRecentRFIDScans(trigger.deviceId, now);
+      // Look for recent RFID scans within validation window (device-bound)
+      const recentScans = await this.findRecentRFIDScans(
+        trigger.deviceId,
+        effectiveTime,
+      );
 
       if (recentScans.length === 0) {
         console.log(
@@ -242,8 +253,20 @@ class AttendanceMonitor {
         };
       }
 
-      // Validate the most recent scan
-      const recentScan = recentScans[0];
+      // Validate the most recent scan (the newest scan within the window).
+      const recentScan = recentScans[recentScans.length - 1];
+      const correlationWindowMs = 5000; // 5s: tighter linkage between RFID and proximity
+      const ageMs = effectiveTime.getTime() - recentScan.timestamp.getTime();
+      if (ageMs < 0 || ageMs > correlationWindowMs) {
+        console.log(
+          `RFID-to-sensor correlation failed (age=${ageMs}ms). Potential replay/ghost.`,
+        );
+        await this.createDiscrepancyRecord(trigger, currentSession.id);
+        return {
+          success: false,
+          message: "Sensor trigger without timely RFID correlation",
+        };
+      }
       const student = await db
         .select()
         .from(students)
