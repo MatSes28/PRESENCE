@@ -408,6 +408,97 @@ export const auditLogs = pgTable("audit_logs", {
 });
 
 // =============================================================================
+// GDPR / Privacy / DSAR (Data Subject Access Requests)
+// =============================================================================
+
+export const gdprConsents = pgTable("gdpr_consents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: integer("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  consentType: varchar("consent_type", { length: 64 }).notNull(),
+  consented: boolean("consented").notNull(),
+  consentVersion: varchar("consent_version", { length: 32 }).notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(),
+  userAgent: text("user_agent"),
+  justification: text("justification"),
+  metadata: jsonb("metadata").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+  revokedAt: timestamp("revoked_at"),
+});
+
+export const dataSubjectRequests = pgTable("data_subject_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: integer("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  requestType: varchar("request_type", { length: 32 }).notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  requestedBy: integer("requested_by")
+    .references(() => users.id)
+    .notNull(),
+  reason: text("reason"),
+  corrections: jsonb("corrections"),
+  reviewedBy: integer("reviewed_by").references(() => users.id),
+  reviewNotes: text("review_notes"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const privacyAuditLogs = pgTable("privacy_audit_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: integer("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  action: varchar("action", { length: 64 }).notNull(),
+  dataAccessed: text("data_accessed").notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(),
+  userAgent: text("user_agent"),
+  justification: text("justification").notNull(),
+  metadata: jsonb("metadata").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const legalHolds = pgTable("legal_holds", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  subjectUserId: integer("subject_user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  scope: varchar("scope", { length: 32 }).notNull().default("erasure"),
+  reason: text("reason").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdBy: integer("created_by")
+    .references(() => users.id)
+    .notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+});
+
+// Audit log archive tier (for retention without losing integrity links)
+export const auditLogsArchive = pgTable("audit_logs_archive", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  userId: integer("user_id").references(() => users.id),
+  action: varchar("action", { length: 100 }).notNull(),
+  resource: varchar("resource", { length: 100 }).notNull(),
+  resourceId: varchar("resource_id", { length: 255 }),
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(),
+  userAgent: text("user_agent"),
+  sessionId: varchar("session_id", { length: 255 }),
+  success: boolean("success").default(true).notNull(),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata"),
+  hash: varchar("hash", { length: 128 }),
+  previousHash: varchar("previous_hash", { length: 128 }),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// =============================================================================
 // Enterprise integrations (SIS/LMS/HR/SSO tooling)
 // =============================================================================
 

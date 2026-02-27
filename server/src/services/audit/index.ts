@@ -4,6 +4,7 @@ import { auditEventLogger } from "./auditEvents.js";
 import { auditSecurityService } from "./auditSecurity.js";
 import { auditComplianceService } from "./auditCompliance.js";
 import { auditRetentionService } from "./auditRetention.js";
+import { auditIntegrityService } from "./auditIntegrity.js";
 
 // Re-export types for external use
 export type { AuditEvent } from "./auditLogger.js";
@@ -41,22 +42,25 @@ class AuditService {
   // Data retention management
   readonly retention = auditRetentionService;
 
+  // Integrity verification
+  readonly integrity = auditIntegrityService;
+
   // Legacy method aliases for backward compatibility
   async logEvent(
-    event: Parameters<typeof auditLogger.logEvent>[0]
+    event: Parameters<typeof auditLogger.logEvent>[0],
   ): Promise<void> {
     return auditLogger.logEvent(event);
   }
 
   async queryEvents(
-    query: Parameters<typeof auditQueryService.queryEvents>[0]
+    query: Parameters<typeof auditQueryService.queryEvents>[0],
   ): Promise<ReturnType<typeof auditQueryService.queryEvents>> {
     return auditQueryService.queryEvents(query);
   }
 
   async getAuditStats(
     startDate: Date,
-    endDate: Date
+    endDate: Date,
   ): Promise<ReturnType<typeof auditQueryService.getAuditStats>> {
     return auditQueryService.getAuditStats(startDate, endDate);
   }
@@ -68,7 +72,7 @@ class AuditService {
     userAgent: string,
     sessionId: string,
     success: boolean,
-    errorMessage?: string
+    errorMessage?: string,
   ): Promise<void> {
     return auditEventLogger.logUserLogin(
       userId,
@@ -76,7 +80,7 @@ class AuditService {
       userAgent,
       sessionId,
       success,
-      errorMessage
+      errorMessage,
     );
   }
 
@@ -84,13 +88,13 @@ class AuditService {
     userId: number,
     ipAddress: string,
     userAgent: string,
-    sessionId: string
+    sessionId: string,
   ): Promise<void> {
     return auditEventLogger.logUserLogout(
       userId,
       ipAddress,
       userAgent,
-      sessionId
+      sessionId,
     );
   }
 
@@ -98,13 +102,13 @@ class AuditService {
     userId: number,
     ipAddress: string,
     userAgent: string,
-    sessionId: string
+    sessionId: string,
   ): Promise<void> {
     return auditEventLogger.logPasswordChange(
       userId,
       ipAddress,
       userAgent,
-      sessionId
+      sessionId,
     );
   }
 
@@ -116,7 +120,7 @@ class AuditService {
     newValues: any,
     ipAddress: string,
     userAgent: string,
-    sessionId: string
+    sessionId: string,
   ): Promise<void> {
     return auditEventLogger.logResourceCreate(
       userId,
@@ -125,7 +129,7 @@ class AuditService {
       newValues,
       ipAddress,
       userAgent,
-      sessionId
+      sessionId,
     );
   }
 
@@ -137,7 +141,7 @@ class AuditService {
     newValues: any,
     ipAddress: string,
     userAgent: string,
-    sessionId: string
+    sessionId: string,
   ): Promise<void> {
     return auditEventLogger.logResourceUpdate(
       userId,
@@ -147,7 +151,7 @@ class AuditService {
       newValues,
       ipAddress,
       userAgent,
-      sessionId
+      sessionId,
     );
   }
 
@@ -158,7 +162,7 @@ class AuditService {
     oldValues: any,
     ipAddress: string,
     userAgent: string,
-    sessionId: string
+    sessionId: string,
   ): Promise<void> {
     return auditEventLogger.logResourceDelete(
       userId,
@@ -167,7 +171,7 @@ class AuditService {
       oldValues,
       ipAddress,
       userAgent,
-      sessionId
+      sessionId,
     );
   }
 
@@ -181,7 +185,7 @@ class AuditService {
     newValues: any,
     ipAddress: string,
     userAgent: string,
-    sessionId?: string
+    sessionId?: string,
   ): Promise<void> {
     return auditEventLogger.logAttendanceRecord(
       userId,
@@ -192,7 +196,7 @@ class AuditService {
       newValues,
       ipAddress,
       userAgent,
-      sessionId
+      sessionId,
     );
   }
 
@@ -202,14 +206,14 @@ class AuditService {
     rfidUid: string,
     success: boolean,
     studentId?: number,
-    errorMessage?: string
+    errorMessage?: string,
   ): Promise<void> {
     return auditEventLogger.logRFIDScan(
       deviceId,
       rfidUid,
       success,
       studentId,
-      errorMessage
+      errorMessage,
     );
   }
 
@@ -217,13 +221,13 @@ class AuditService {
     deviceId: string,
     sensorType: "entry" | "exit",
     distance: number,
-    success: boolean
+    success: boolean,
   ): Promise<void> {
     return auditEventLogger.logSensorTrigger(
       deviceId,
       sensorType,
       distance,
-      success
+      success,
     );
   }
 
@@ -236,7 +240,7 @@ class AuditService {
     details: any,
     ipAddress: string,
     userAgent: string,
-    sessionId: string
+    sessionId: string,
   ): Promise<void> {
     return auditEventLogger.logAdminAction(
       adminId,
@@ -246,7 +250,7 @@ class AuditService {
       details,
       ipAddress,
       userAgent,
-      sessionId
+      sessionId,
     );
   }
 
@@ -257,14 +261,14 @@ class AuditService {
     details: any,
     ipAddress: string,
     userAgent: string,
-    sessionId?: string
+    sessionId?: string,
   ): Promise<void> {
     // For security events, use the security service
     return auditSecurityService.logFailedLoginAttempt(
       userId || 0,
       ipAddress,
       userAgent,
-      `Security event: ${eventType}`
+      `Security event: ${eventType}`,
     );
   }
 
@@ -273,20 +277,20 @@ class AuditService {
     userId: number | null,
     ipAddress: string,
     userAgent: string,
-    reason: string
+    reason: string,
   ): Promise<void> {
     return auditSecurityService.logFailedLoginAttempt(
       userId,
       ipAddress,
       userAgent,
-      reason
+      reason,
     );
   }
 
   async logSystemEvent(
     eventType: string,
     details: any,
-    severity: "low" | "medium" | "high" | "critical" = "low"
+    severity: "low" | "medium" | "high" | "critical" = "low",
   ): Promise<void> {
     return auditEventLogger.logSystemEvent(eventType, details, severity);
   }
@@ -295,12 +299,12 @@ class AuditService {
   async generateComplianceReport(
     startDate: Date,
     endDate: Date,
-    reportType: "access" | "changes" | "security" | "full"
+    reportType: "access" | "changes" | "security" | "full",
   ): Promise<any> {
     return auditComplianceService.generateComplianceReport(
       startDate,
       endDate,
-      reportType
+      reportType,
     );
   }
 
@@ -320,7 +324,7 @@ class AuditService {
   // Security monitoring methods
   async detectSuspiciousActivity(
     userId: number,
-    events: Parameters<typeof auditSecurityService.detectSuspiciousActivity>[1]
+    events: Parameters<typeof auditSecurityService.detectSuspiciousActivity>[1],
   ): Promise<any[]> {
     return auditSecurityService.detectSuspiciousActivity(userId, events);
   }
@@ -330,6 +334,12 @@ class AuditService {
     return auditRetentionService.getRetentionPolicy();
   }
 
+  async verifyIntegrity(
+    options?: Parameters<typeof auditIntegrityService.verifyHashChain>[0],
+  ) {
+    return auditIntegrityService.verifyHashChain(options);
+  }
+
   async validateComplianceRequirements(): Promise<any> {
     return auditComplianceService.validateComplianceRequirements();
   }
@@ -337,12 +347,12 @@ class AuditService {
   async generateRegulatoryReport(
     regulator: "gdpr" | "sox" | "hipaa" | "pci",
     startDate: Date,
-    endDate: Date
+    endDate: Date,
   ): Promise<any> {
     return auditComplianceService.generateRegulatoryReport(
       regulator,
       startDate,
-      endDate
+      endDate,
     );
   }
 }
@@ -358,4 +368,5 @@ export {
   auditSecurityService,
   auditComplianceService,
   auditRetentionService,
+  auditIntegrityService,
 };

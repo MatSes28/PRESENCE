@@ -454,6 +454,107 @@ try {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
+
+    // ==================== GDPR / Privacy / DSAR tables ====================
+
+    `CREATE TABLE IF NOT EXISTS gdpr_consents (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      consent_type TEXT NOT NULL,
+      consented INTEGER NOT NULL,
+      consent_version TEXT NOT NULL,
+      ip_address TEXT NOT NULL,
+      user_agent TEXT,
+      justification TEXT,
+      metadata TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      expires_at TIMESTAMP,
+      revoked_at TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_gdpr_consents_user_id ON gdpr_consents(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_gdpr_consents_type ON gdpr_consents(consent_type)`,
+    `CREATE INDEX IF NOT EXISTS idx_gdpr_consents_created_at ON gdpr_consents(created_at)`,
+
+    `CREATE TABLE IF NOT EXISTS data_subject_requests (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      request_type TEXT NOT NULL,
+      status TEXT DEFAULT 'pending' NOT NULL,
+      requested_by INTEGER NOT NULL,
+      reason TEXT,
+      corrections TEXT,
+      reviewed_by INTEGER,
+      review_notes TEXT,
+      completed_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (requested_by) REFERENCES users(id),
+      FOREIGN KEY (reviewed_by) REFERENCES users(id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_dsr_user_id ON data_subject_requests(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_dsr_status ON data_subject_requests(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_dsr_type ON data_subject_requests(request_type)`,
+    `CREATE INDEX IF NOT EXISTS idx_dsr_created_at ON data_subject_requests(created_at)`,
+
+    `CREATE TABLE IF NOT EXISTS privacy_audit_logs (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      action TEXT NOT NULL,
+      data_accessed TEXT NOT NULL,
+      ip_address TEXT NOT NULL,
+      user_agent TEXT,
+      justification TEXT NOT NULL,
+      metadata TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_privacy_audit_user_id ON privacy_audit_logs(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_privacy_audit_action ON privacy_audit_logs(action)`,
+    `CREATE INDEX IF NOT EXISTS idx_privacy_audit_created_at ON privacy_audit_logs(created_at)`,
+
+    `CREATE TABLE IF NOT EXISTS legal_holds (
+      id TEXT PRIMARY KEY,
+      subject_user_id INTEGER NOT NULL,
+      scope TEXT DEFAULT 'erasure' NOT NULL,
+      reason TEXT NOT NULL,
+      active INTEGER DEFAULT 1 NOT NULL,
+      created_by INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      expires_at TIMESTAMP,
+      FOREIGN KEY (subject_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_legal_holds_subject ON legal_holds(subject_user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_legal_holds_active ON legal_holds(active)`,
+
+    `CREATE TABLE IF NOT EXISTS audit_logs_archive (
+      id TEXT PRIMARY KEY,
+      timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      user_id INTEGER,
+      action TEXT NOT NULL,
+      resource TEXT NOT NULL,
+      resource_id TEXT,
+      old_values TEXT,
+      new_values TEXT,
+      ip_address TEXT NOT NULL,
+      user_agent TEXT,
+      session_id TEXT,
+      success INTEGER DEFAULT 1 NOT NULL,
+      error_message TEXT,
+      metadata TEXT,
+      hash TEXT,
+      previous_hash TEXT,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_timestamp ON audit_logs_archive(timestamp)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_user_id ON audit_logs_archive(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_action ON audit_logs_archive(action)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_resource ON audit_logs_archive(resource)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_resource_id ON audit_logs_archive(resource_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_archive_success ON audit_logs_archive(success)`,
   ];
 
   // Apply each table creation

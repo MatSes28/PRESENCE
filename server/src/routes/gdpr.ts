@@ -126,6 +126,7 @@ router.post(
         userId,
         requestedBy,
         corrections,
+        reason,
       );
 
       // Log privacy rectification request
@@ -149,6 +150,76 @@ router.post(
         success: false,
         message: "Internal server error",
       });
+    }
+  },
+);
+
+// ==================== Admin DSAR management ====================
+
+// List data subject requests (admin)
+router.get("/requests", requireAuth, requireAdmin, async (req: any, res) => {
+  try {
+    const { userId, status, requestType, limit, offset } = req.query;
+    const data = await gdprService.listDataSubjectRequests({
+      userId: userId ? parseInt(userId as string) : undefined,
+      status: status as string,
+      requestType: requestType as string,
+      limit: limit ? parseInt(limit as string) : 100,
+      offset: offset ? parseInt(offset as string) : 0,
+    });
+
+    res.json({ success: true, data, count: data.length });
+  } catch (error) {
+    console.error("GDPR list requests error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Review a DSAR request (admin)
+router.post(
+  "/requests/:requestId/review",
+  requireAuth,
+  requireAdmin,
+  validateRequest({
+    status: (value) => {
+      const valid = ["processing", "completed", "rejected"];
+      if (!valid.includes(value))
+        return `Status must be one of: ${valid.join(", ")}`;
+      return null;
+    },
+    reviewNotes: (value) => {
+      if (
+        value !== undefined &&
+        (typeof value !== "string" || value.length < 5)
+      ) {
+        return "reviewNotes must be at least 5 characters";
+      }
+      return null;
+    },
+    reviewedBy: (value) => {
+      if (!value || typeof value !== "number")
+        return "reviewedBy (admin user id) is required";
+      return null;
+    },
+  }),
+  async (req: any, res) => {
+    try {
+      const { requestId } = req.params;
+      const { status, reviewNotes, reviewedBy } = req.body;
+
+      await gdprService.reviewDataSubjectRequest({
+        requestId,
+        status,
+        reviewedBy,
+        reviewNotes,
+      });
+
+      res.json({ success: true, message: "Request updated" });
+    } catch (error) {
+      console.error("GDPR review request error:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
     }
   },
 );

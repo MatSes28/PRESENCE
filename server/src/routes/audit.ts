@@ -8,6 +8,26 @@ const router = Router();
 // Apply authentication to all audit routes
 router.use(requireAuth);
 
+// Verify audit log hash-chain integrity
+router.get("/verify-integrity", requireAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate, limit } = req.query;
+
+    const report = await auditService.verifyIntegrity({
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+      limit: limit ? parseInt(limit as string) : undefined,
+    });
+
+    res.json({ success: true, data: report });
+  } catch (error) {
+    console.error("Error verifying audit integrity:", error);
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to verify integrity" });
+  }
+});
+
 // Get audit statistics
 router.get("/stats", requireAdmin, async (req, res) => {
   try {
@@ -98,7 +118,7 @@ router.get("/compliance-report", requireAdmin, async (req, res) => {
     const report = await auditService.generateComplianceReport(
       start,
       end,
-      type
+      type,
     );
 
     res.json({
@@ -184,7 +204,7 @@ router.get("/aggregated-stats", requireAdmin, async (req, res) => {
 
     const stats = await logAggregationService.generateAggregatedStats(
       start,
-      end
+      end,
     );
 
     res.json({
@@ -257,7 +277,7 @@ router.get("/realtime", requireAdmin, async (req, res) => {
 
     const logs = await logAggregationService.getRealTimeLogs(
       sinceDate,
-      limitNum
+      limitNum,
     );
 
     res.json({
@@ -293,7 +313,7 @@ router.get("/export", requireAdmin, async (req, res) => {
       start,
       end,
       exportFormat,
-      filters
+      filters,
     );
 
     // Set appropriate headers based on format
@@ -306,21 +326,21 @@ router.get("/export", requireAdmin, async (req, res) => {
         res.setHeader("Content-Type", "application/json");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${fileName}.json"`
+          `attachment; filename="${fileName}.json"`,
         );
         break;
       case "csv":
         res.setHeader("Content-Type", "text/csv");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${fileName}.csv"`
+          `attachment; filename="${fileName}.csv"`,
         );
         break;
       case "xml":
         res.setHeader("Content-Type", "application/xml");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="${fileName}.xml"`
+          `attachment; filename="${fileName}.xml"`,
         );
         break;
     }

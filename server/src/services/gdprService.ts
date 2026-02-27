@@ -5,8 +5,12 @@ import {
   attendanceRecords,
   emailNotifications,
   userSessions,
+  gdprConsents,
+  dataSubjectRequests,
+  privacyAuditLogs,
+  legalHolds,
 } from "../schema.js";
-import { eq, and, lt, sql } from "drizzle-orm";
+import { eq, and, or, lt, sql, desc } from "drizzle-orm";
 import crypto from "crypto";
 
 interface ConsentRecord {
@@ -55,6 +59,27 @@ interface PrivacyAuditLog {
 class GDPRService {
   private currentConsentVersion = "1.0.0";
 
+  private async hasActiveLegalHold(
+    subjectUserId: number,
+    scope: string | null = null,
+  ): Promise<boolean> {
+    const now = new Date();
+    const holds = await db
+      .select({ id: legalHolds.id })
+      .from(legalHolds)
+      .where(
+        and(
+          eq(legalHolds.subjectUserId, subjectUserId),
+          eq(legalHolds.active, true),
+          scope ? eq(legalHolds.scope, scope) : sql`1=1`,
+          sql`(${legalHolds.expiresAt} IS NULL OR ${legalHolds.expiresAt} > ${now})`,
+        ),
+      )
+      .limit(1);
+
+    return holds.length > 0;
+  }
+
   // Consent Management
   async recordConsent(
     userId: number,
@@ -86,18 +111,28 @@ class GDPRService {
       `User ${consented ? "granted" : "revoked"} consent for ${consentType}`,
     );
 
-    // In a real implementation, this would be stored in a consent table
-    // For now, we'll store it in a temporary structure until database schema is updated
-    console.log("GDPR Consent Recorded:", consentRecord);
+    // Persist consent record (append-only; versioned)
+    await db.insert(gdprConsents).values({
+      id: consentRecord.id,
+      userId: consentRecord.userId,
+      consentType: consentRecord.consentType,
+      consented: consentRecord.consented,
+      consentVersion: consentRecord.consentVersion,
+      ipAddress: consentRecord.ipAddress,
+      userAgent: consentRecord.userAgent,
+      justification: `User ${consented ? "granted" : "revoked"} consent for ${consentType}`,
+      metadata: {},
+      createdAt: consentRecord.consentDate,
+      expiresAt: consentRecord.expiresAt,
+      revokedAt: consented ? null : new Date(),
+    });
   }
 
   async checkConsent(
     userId: number,
     consentType: ConsentRecord["consentType"],
   ): Promise<boolean> {
-    // Check if user has given consent for the specified type
-    // In a real implementation, this would query the consent table
-    // For now, we'll return true for development but log the check
+    const now = new Date();
 
     await this.logPrivacyEvent(
       userId,
@@ -108,9 +143,20 @@ class GDPRService {
       `Checking consent for ${consentType}`,
     );
 
-    // TODO: Implement actual database check when consent table is available
-    // For now, return true to allow functionality during development
-    return true;
+    const latest = await db
+      .select({ consented: gdprConsents.consented })
+      .from(gdprConsents)
+      .where(
+        and(
+          eq(gdprConsents.userId, userId),
+          eq(gdprConsents.consentType, consentType),
+          sql`(${gdprConsents.expiresAt} IS NULL OR ${gdprConsents.expiresAt} > ${now})`,
+        ),
+      )
+      .orderBy(desc(gdprConsents.createdAt))
+      .limit(1);
+
+    return latest[0]?.consented ?? false;
   }
 
   async revokeConsent(
@@ -140,11 +186,16 @@ class GDPRService {
       throw new Error("User not found");
     }
 
-    // Get related data
+    // Get related data (best-effort mapping)
+    const userEmail = userData[0]?.email || null;
     const studentData = await db
       .select()
       .from(students)
-      .where(eq(students.id, userId));
+      .where(
+        userEmail
+          ? or(eq(students.id, userId), eq(students.email, userEmail))
+          : eq(students.id, userId),
+      );
 
     const attendanceData = await db
       .select()
@@ -173,20 +224,24 @@ class GDPRService {
     userId: number,
     requestedBy: number,
     corrections: any,
+    reason?: string,
   ): Promise<string> {
     const requestId = crypto.randomUUID();
 
-    // Log the rectification request
-    console.log("GDPR Rectification Request:", {
-      requestId,
+    await db.insert(dataSubjectRequests).values({
+      id: requestId,
       userId,
+      requestType: "rectification",
+      status: "pending",
       requestedBy,
-      corrections,
-      timestamp: new Date(),
+      reason: reason || null,
+      corrections: corrections || null,
+      reviewedBy: null,
+      reviewNotes: null,
+      completedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
-
-    // TODO: Store in data_subject_requests table
-    // TODO: Implement automated rectification workflow
 
     return requestId;
   }
@@ -199,17 +254,20 @@ class GDPRService {
   ): Promise<string> {
     const requestId = crypto.randomUUID();
 
-    // Log the erasure request
-    console.log("GDPR Erasure Request:", {
-      requestId,
+    await db.insert(dataSubjectRequests).values({
+      id: requestId,
       userId,
+      requestType: "erasure",
+      status: "pending",
       requestedBy,
       reason,
-      timestamp: new Date(),
+      corrections: null,
+      reviewedBy: null,
+      reviewNotes: null,
+      completedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
-
-    // TODO: Implement data anonymization/deletion workflow
-    // This is complex and should be done carefully with legal review
 
     return requestId;
   }
@@ -226,6 +284,21 @@ class GDPRService {
     };
 
     try {
+      if (await this.hasActiveLegalHold(userId, "erasure")) {
+        throw new Error(
+          "Erasure blocked by an active legal hold. Contact the data protection officer.",
+        );
+      }
+
+      // Capture pre-erasure identifiers for best-effort linkage.
+      const existingUser = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      const originalEmail = existingUser[0]?.email || null;
+
       // Anonymize user data instead of deleting (for audit trails)
       await db
         .update(users)
@@ -239,13 +312,9 @@ class GDPRService {
 
       results.userAnonymized = true;
 
-      // Delete attendance records
-      const attendanceResult = await db
-        .delete(attendanceRecords)
-        .where(eq(attendanceRecords.studentId, userId))
-        .returning();
-
-      results.attendanceRecordsDeleted = attendanceResult.length;
+      // Attendance records may be covered by academic integrity retention.
+      // Default behavior: retain records; rely on pseudonymization of user/student.
+      results.attendanceRecordsDeleted = 0;
 
       // Delete email notifications
       const notificationResult = await db
@@ -262,6 +331,53 @@ class GDPRService {
         .returning();
 
       results.sessionsDeleted = sessionResult.length;
+
+      // Pseudonymize student record when it exists.
+      await db
+        .update(students)
+        .set({
+          name: "[ERASED]",
+          studentId: `ERASED_${userId}`,
+          email: null,
+          rfidUid: null,
+          parentEmail: `deleted_${userId}@anonymous.local`,
+          parentName: null,
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(
+          originalEmail
+            ? or(eq(students.id, userId), eq(students.email, originalEmail))
+            : eq(students.id, userId),
+        );
+
+      // Mark the most recent erasure request as completed (if present)
+      const pending = await db
+        .select({ id: dataSubjectRequests.id })
+        .from(dataSubjectRequests)
+        .where(
+          and(
+            eq(dataSubjectRequests.userId, userId),
+            eq(dataSubjectRequests.requestType, "erasure"),
+            sql`${dataSubjectRequests.status} IN ('pending','processing')`,
+          ),
+        )
+        .orderBy(desc(dataSubjectRequests.createdAt))
+        .limit(1);
+
+      if (pending[0]?.id) {
+        await db
+          .update(dataSubjectRequests)
+          .set({
+            status: "completed",
+            reviewedBy: approvedBy,
+            reviewNotes:
+              "Erasure executed (pseudonymization + session/notification deletion)",
+            completedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(dataSubjectRequests.id, pending[0].id));
+      }
 
       // Log the erasure execution
       await this.logPrivacyEvent(
@@ -314,12 +430,20 @@ class GDPRService {
     restrictionType: "attendance" | "notifications" | "all",
     requestedBy: number,
   ): Promise<void> {
-    // TODO: Implement processing restrictions
-    console.log("GDPR Processing Restriction:", {
+    const requestId = crypto.randomUUID();
+    await db.insert(dataSubjectRequests).values({
+      id: requestId,
       userId,
-      restrictionType,
+      requestType: "restriction",
+      status: "pending",
       requestedBy,
-      timestamp: new Date(),
+      reason: `restrictionType=${restrictionType}`,
+      corrections: null,
+      reviewedBy: null,
+      reviewNotes: null,
+      completedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
   }
 
@@ -329,12 +453,20 @@ class GDPRService {
     processingType: string,
     requestedBy: number,
   ): Promise<void> {
-    // TODO: Implement processing objections
-    console.log("GDPR Processing Objection:", {
+    const requestId = crypto.randomUUID();
+    await db.insert(dataSubjectRequests).values({
+      id: requestId,
       userId,
-      processingType,
+      requestType: "objection",
+      status: "pending",
       requestedBy,
-      timestamp: new Date(),
+      reason: processingType,
+      corrections: null,
+      reviewedBy: null,
+      reviewNotes: null,
+      completedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
   }
 
@@ -358,9 +490,64 @@ class GDPRService {
       justification,
     };
 
-    console.log("GDPR Privacy Audit:", auditLog);
+    await db.insert(privacyAuditLogs).values({
+      id: auditLog.id,
+      userId: auditLog.userId,
+      action: auditLog.action,
+      dataAccessed: auditLog.dataAccessed,
+      ipAddress: auditLog.ipAddress,
+      userAgent: auditLog.userAgent,
+      justification: auditLog.justification,
+      metadata: {},
+      createdAt: auditLog.timestamp,
+    });
+  }
 
-    // TODO: Store in privacy_audit_log table
+  // Admin: list DSAR requests
+  async listDataSubjectRequests(filters: {
+    userId?: number;
+    status?: string;
+    requestType?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<any[]> {
+    const conditions: any[] = [];
+    if (filters.userId)
+      conditions.push(eq(dataSubjectRequests.userId, filters.userId));
+    if (filters.status)
+      conditions.push(eq(dataSubjectRequests.status, filters.status));
+    if (filters.requestType)
+      conditions.push(eq(dataSubjectRequests.requestType, filters.requestType));
+
+    const whereClause = conditions.length ? and(...conditions) : undefined;
+
+    const query = db
+      .select()
+      .from(dataSubjectRequests)
+      .orderBy(desc(dataSubjectRequests.createdAt))
+      .limit(filters.limit || 100)
+      .offset(filters.offset || 0);
+
+    return whereClause ? query.where(whereClause) : query;
+  }
+
+  // Admin: review / complete DSAR
+  async reviewDataSubjectRequest(params: {
+    requestId: string;
+    status: "processing" | "completed" | "rejected";
+    reviewedBy: number;
+    reviewNotes?: string;
+  }): Promise<void> {
+    await db
+      .update(dataSubjectRequests)
+      .set({
+        status: params.status,
+        reviewedBy: params.reviewedBy,
+        reviewNotes: params.reviewNotes || null,
+        completedAt: params.status === "completed" ? new Date() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(dataSubjectRequests.id, params.requestId));
   }
 
   // Data Retention Management
