@@ -20,6 +20,44 @@ import {
   requireEnv,
   validateEnvironmentOrThrow,
 } from "./config/env.js";
+
+// --------------------------------------------------------------------------------------
+// Diagnostics: capture Node.js runtime warnings with stack traces.
+//
+// We observed `TimeoutOverflowWarning` in Railway logs (setTimeout delay > 2^31-1 ms).
+// Node clamps such delays down to 1ms, which can cause unexpected tight loops.
+// This handler prints the warning stack so we can identify the callsite in production.
+// --------------------------------------------------------------------------------------
+process.on("warning", (warning) => {
+  // Avoid dumping large objects/secrets; keep the log actionable.
+  const base = {
+    name: warning.name,
+    message: warning.message,
+    // Helpful for diagnosing env-driven overflows (e.g. SESSION_MAX_AGE set in ms).
+    env: {
+      NODE_ENV: process.env.NODE_ENV,
+      RAILWAY_ENVIRONMENT: process.env.RAILWAY_ENVIRONMENT
+        ? "present"
+        : "absent",
+      SESSION_MAX_AGE: process.env.SESSION_MAX_AGE,
+    },
+  };
+
+  if (warning.name === "TimeoutOverflowWarning") {
+    console.error(
+      "[DIAG][TimeoutOverflowWarning] Detected timer overflow; please inspect stack:",
+      base,
+    );
+    if (warning.stack)
+      console.error("[DIAG][TimeoutOverflowWarning] stack:\n", warning.stack);
+    return;
+  }
+
+  // Log other warnings at warn level.
+  console.warn("[DIAG][NodeWarning]", base);
+  if (warning.stack)
+    console.warn("[DIAG][NodeWarning] stack:\n", warning.stack);
+});
 import {
   generalRateLimit,
   attendanceRateLimit,
