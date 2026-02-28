@@ -18,15 +18,17 @@ class AlertingService {
   private lastAlertTimes: Map<string, Date> = new Map();
 
   constructor() {
-    // Default configuration - can be made configurable later
+    const adminEmail = process.env.ADMIN_EMAIL?.trim();
     this.config = {
-      recipients: [
-        {
-          email: process.env.ADMIN_EMAIL || "admin@clirdec.edu.ph",
-          name: "System Administrator",
-          alertTypes: ["critical", "high"],
-        },
-      ],
+      recipients: adminEmail
+        ? [
+            {
+              email: adminEmail,
+              name: process.env.ADMIN_NAME?.trim() || "System Administrator",
+              alertTypes: ["critical", "high"],
+            },
+          ]
+        : [],
       cooldownMinutes: 15, // Don't send alerts for the same issue within 15 minutes
       enabled: process.env.ALERTING_ENABLED !== "false",
     };

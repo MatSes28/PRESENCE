@@ -449,38 +449,44 @@ class ReportSchedulerService {
   }
 
   private initializeDefaultSchedules(): void {
-    // Daily attendance summary for admins
+    const recipients = this.getReportRecipients();
+    if (recipients.length === 0) return;
+
     this.createSchedule({
       name: "Daily Attendance Summary",
       type: "daily",
-      recipients: ["admin@clsu.edu.ph"], // Would be configurable
+      recipients,
       reportType: "attendance",
       filters: {},
-      scheduleTime: "18:00", // 6 PM daily
+      scheduleTime: "18:00",
       isActive: true,
     });
 
-    // Weekly performance report
     this.createSchedule({
       name: "Weekly Performance Report",
       type: "weekly",
-      recipients: ["admin@clsu.edu.ph"],
+      recipients,
       reportType: "performance",
       filters: {},
-      scheduleTime: "08:00", // Monday 8 AM
+      scheduleTime: "08:00",
       isActive: true,
     });
 
-    // Monthly analytics report
     this.createSchedule({
       name: "Monthly Analytics Report",
       type: "monthly",
-      recipients: ["admin@clsu.edu.ph"],
+      recipients,
       reportType: "analytics",
       filters: {},
-      scheduleTime: "09:00", // 1st of month 9 AM
+      scheduleTime: "09:00",
       isActive: true,
     });
+  }
+
+  private getReportRecipients(): string[] {
+    const raw = process.env.REPORT_RECIPIENTS || process.env.ADMIN_EMAIL;
+    if (!raw || !raw.trim()) return [];
+    return raw.split(",").map((e) => e.trim()).filter(Boolean);
   }
 
   // Additional helper methods would be implemented...
