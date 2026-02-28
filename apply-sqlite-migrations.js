@@ -325,6 +325,7 @@ try {
       FOREIGN KEY (student_id) REFERENCES students(id),
       FOREIGN KEY (class_session_id) REFERENCES class_sessions(id)
     )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS attendance_records_student_session_unique ON attendance_records(student_id, class_session_id)`,
 
     // Computers table
     `CREATE TABLE IF NOT EXISTS computers (

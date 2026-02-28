@@ -4,19 +4,9 @@ import { sendToDevice, broadcastToWebClients } from "../services/websocket.js";
 import { validateRequest, validationRules } from "../middleware/validation.js";
 import { v4 as uuidv4 } from "uuid";
 import { auditEventLogger } from "../services/audit/auditEvents.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
-
-// Middleware to check authentication
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required",
-    });
-  }
-  next();
-};
 
 // Middleware to check device API key authentication
 const requireDeviceAuth = async (req: any, res: any, next: any) => {

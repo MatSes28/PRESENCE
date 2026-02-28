@@ -3,6 +3,7 @@ import db from "../storage.js";
 import { users, systemSettings } from "../schema.js";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -44,28 +45,6 @@ const setSetting = async (
       description,
     });
   }
-};
-
-// Middleware to check authentication
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required",
-    });
-  }
-  next();
-};
-
-// Middleware to check admin access
-const requireAdmin = (req: any, res: any, next: any) => {
-  if (!req.session?.userId || req.session?.userRole !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access required",
-    });
-  }
-  next();
 };
 
 // Update user profile

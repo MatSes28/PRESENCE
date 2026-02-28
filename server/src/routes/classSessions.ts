@@ -8,23 +8,21 @@ import {
   users,
 } from "../schema.js";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
-// Middleware to check authentication
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required",
-    });
-  }
-  next();
-};
-
-// Get all class sessions
+// Get all class sessions (faculty see only their own)
 router.get("/", requireAuth, async (req, res) => {
   try {
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
+
+    const baseConditions = [];
+    if (userRole === "faculty") {
+      baseConditions.push(eq(schedules.facultyId, userId!));
+    }
+
     const sessions = await db
       .select({
         session: classSessions,
@@ -44,6 +42,9 @@ router.get("/", requireAuth, async (req, res) => {
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
       .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
       .innerJoin(users, eq(schedules.facultyId, users.id))
+      .where(
+        baseConditions.length > 0 ? and(...baseConditions) : undefined
+      )
       .orderBy(desc(classSessions.date));
 
     res.json({
@@ -59,16 +60,19 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
-// Get session by ID
+// Get session by ID (faculty can only access their own sessions)
 router.get("/:id", requireAuth, async (req, res) => {
   try {
     const sessionId = parseInt(req.params.id);
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
 
     const session = await db
       .select({
         session: classSessions,
         schedule: {
           id: schedules.id,
+          facultyId: schedules.facultyId,
           subject: subjects.name,
           classroom: classrooms.name,
           faculty: users.name,
@@ -89,6 +93,13 @@ router.get("/:id", requireAuth, async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Class session not found",
+      });
+    }
+
+    if (userRole === "faculty" && session[0].schedule.facultyId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: You do not have access to this class session",
       });
     }
 

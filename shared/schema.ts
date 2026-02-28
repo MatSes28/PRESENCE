@@ -8,6 +8,7 @@ import {
   serial,
   varchar,
   jsonb,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -116,27 +117,33 @@ export const classSessions = pgTable("class_sessions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Attendance Records table
-export const attendanceRecords = pgTable("attendance_records", {
-  id: serial("id").primaryKey(),
-  studentId: integer("student_id")
-    .references(() => students.id)
-    .notNull(),
-  classSessionId: integer("class_session_id")
-    .references(() => classSessions.id)
-    .notNull(),
-  entryTime: timestamp("entry_time"),
-  exitTime: timestamp("exit_time"),
-  status: varchar("status", { length: 20 }), // present, late, absent
-  rfidDetected: boolean("rfid_detected").default(false).notNull(),
-  sensorDetected: boolean("sensor_detected").default(false).notNull(),
-  isValid: boolean("is_valid").default(false).notNull(),
-  discrepancyFlag: boolean("discrepancy_flag").default(false).notNull(),
-  notes: text("notes"),
-  isActive: boolean("is_active").default(true).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+// Attendance Records table (one record per student per class session)
+export const attendanceRecords = pgTable(
+  "attendance_records",
+  {
+    id: serial("id").primaryKey(),
+    studentId: integer("student_id")
+      .references(() => students.id)
+      .notNull(),
+    classSessionId: integer("class_session_id")
+      .references(() => classSessions.id)
+      .notNull(),
+    entryTime: timestamp("entry_time"),
+    exitTime: timestamp("exit_time"),
+    status: varchar("status", { length: 20 }), // present, late, absent
+    rfidDetected: boolean("rfid_detected").default(false).notNull(),
+    sensorDetected: boolean("sensor_detected").default(false).notNull(),
+    isValid: boolean("is_valid").default(false).notNull(),
+    discrepancyFlag: boolean("discrepancy_flag").default(false).notNull(),
+    notes: text("notes"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    studentSessionUnique: unique().on(t.studentId, t.classSessionId),
+  })
+);
 
 // Computers table (for lab management)
 export const computers = pgTable("computers", {
