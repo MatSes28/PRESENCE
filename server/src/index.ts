@@ -419,8 +419,10 @@ app.use(
           ...sessionDbConfig,
           tableName: "user_sessions", // Will be created automatically
           createTableIfMissing: true,
-          // Clean up expired sessions every hour
-          pruneSessionInterval: 60 * 60 * 1000, // 1 hour
+          // Clean up expired sessions every hour.
+          // NOTE: connect-pg-simple expects this value in SECONDS, not milliseconds.
+          // Passing ms can overflow Node timers once converted internally.
+          pruneSessionInterval: 60 * 60, // 1 hour (seconds)
         }),
     secret: isTestEnv
       ? process.env.SESSION_SECRET ||
@@ -727,6 +729,19 @@ async function initializeDatabaseColumns() {
       .catch(() => {});
     await pool
       .query("ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS method VARCHAR")
+      .catch(() => {});
+
+    // Ensure students RFID hash column exists for deterministic UID lookup.
+    // This is required by current queries and may be missing on older Railway DBs.
+    await pool
+      .query(
+        "ALTER TABLE students ADD COLUMN IF NOT EXISTS rfid_uid_hash VARCHAR(64)",
+      )
+      .catch(() => {});
+    await pool
+      .query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS students_rfid_uid_hash_unique ON students (rfid_uid_hash)",
+      )
       .catch(() => {});
     await pool
       .query(
