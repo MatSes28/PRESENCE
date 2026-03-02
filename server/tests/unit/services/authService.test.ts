@@ -1,4 +1,9 @@
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+import { createRequire } from "module";
 import { authService } from "../../../src/services/authService";
+
+// ESM-safe require() for accessing mocked CommonJS modules in assertions.
+const require = createRequire(import.meta.url);
 
 // Mock external dependencies
 jest.mock("bcryptjs", () => ({

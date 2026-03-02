@@ -85,6 +85,79 @@ npm run test:e2e:ui
 npm run test:ci
 ```
 
+### Reproducible Integration Tests (CI Strategy)
+
+Use one of the two standardized CI lanes below. Keep the same lane configuration in local development when reproducing failures.
+
+#### Lane A: SQLite (fast + deterministic)
+
+```bash
+# 1) Use SQLite for test runtime
+set NODE_ENV=test
+set USE_SQLITE=true
+set SQLITE_PATH=./server/presence.test.db
+
+# 2) Bootstrap SQLite schema in snake_case (idempotent)
+node apply-sqlite-migrations.js
+
+# 3) Run integration tests
+npm run test:integration --workspace=server
+```
+
+Recommended CI behavior for SQLite lane:
+
+- Use a fresh SQLite file per run (for example by deleting `presence.test.db` before setup)
+- Always run `node apply-sqlite-migrations.js` before integration tests
+- Keep `NODE_ENV=test` and avoid sharing database files between parallel jobs
+
+#### Lane B: Ephemeral PostgreSQL (prod-like)
+
+```bash
+# Required env for Postgres-backed tests
+set NODE_ENV=test
+set DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db
+set DATABASE_DIALECT=postgresql
+set USE_SQLITE=false
+
+# Ensure schema is ready (Drizzle push)
+npm run db:push --workspace=server
+
+# Run integration tests
+npm run test:integration --workspace=server
+```
+
+Recommended CI behavior for Postgres lane:
+
+- Start PostgreSQL as an ephemeral service/container per pipeline run
+- Wait for readiness before running migrations/tests (`pg_isready`)
+- Use a dedicated test DB name (`test_db`) and do not reuse production/staging DBs
+
+### E2E on Staging (Runnable Baseline)
+
+Playwright can target staging directly without starting local `webServer` by setting `PLAYWRIGHT_BASE_URL`.
+
+```bash
+set PLAYWRIGHT_BASE_URL=https://staging.your-domain.example
+set PLAYWRIGHT_TEST_EMAIL=admin@clirdec.edu
+set PLAYWRIGHT_TEST_PASSWORD=replace-with-staging-admin-password
+
+# Execute baseline browser flows against staging
+npm run test:e2e --workspace=server
+```
+
+Baseline flows covered by current suite:
+
+- Attendance workflow: `tests/e2e/attendance-flow.test.ts`
+- Device registration workflow: `tests/e2e/device-registration.test.ts`
+- Reporting workflow: `tests/e2e/reporting-workflow.test.ts`
+
+Staging execution notes:
+
+- Run with one worker (`workers=1`) to reduce flakiness on shared staging infrastructure
+- Use a dedicated staging admin account for automation only
+- Ensure baseline fixture data exists (at minimum: one classroom, one subject, one active session)
+- Store outputs (`playwright-report/`, `test-results/e2e-junit.xml`, `test-results/e2e-results.json`) as CI artifacts
+
 ## 📊 Test Configuration
 
 ### Jest Configuration (`jest.config.js`)

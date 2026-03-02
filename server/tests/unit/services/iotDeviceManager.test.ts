@@ -1,4 +1,9 @@
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+import { createRequire } from "module";
 import { iotDeviceManager } from "../../../src/services/iotDeviceManager";
+
+// ESM-safe require() for accessing mocked modules in assertions.
+const require = createRequire(import.meta.url);
 
 // Mock external dependencies
 jest.mock("../../../src/storage.js", () => {
@@ -54,7 +59,7 @@ jest.mock("crypto", () => ({
 jest.mock("dgram", () => ({
   createSocket: jest.fn(() => ({
     on: jest.fn(),
-    bind: jest.fn((port, callback) => callback()),
+    bind: jest.fn((port: any, callback: any) => callback && callback()),
     send: jest.fn(),
     close: jest.fn(),
   })),

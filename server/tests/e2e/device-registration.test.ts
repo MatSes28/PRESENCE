@@ -1,13 +1,16 @@
 import { test, expect } from "@playwright/test";
 
+const E2E_EMAIL = process.env.PLAYWRIGHT_TEST_EMAIL || "admin@clirdec.edu";
+const E2E_PASSWORD = process.env.PLAYWRIGHT_TEST_PASSWORD || "admin123";
+
 test.describe("Device Registration E2E Tests", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the application
-    await page.goto("http://localhost:3000");
+    await page.goto("/");
 
     // Login
-    await page.fill('input[name="email"]', "admin@clirdec.edu");
-    await page.fill('input[name="password"]', "admin123");
+    await page.fill('input[name="email"]', E2E_EMAIL);
+    await page.fill('input[name="password"]', E2E_PASSWORD);
     await page.click('button[type="submit"]');
 
     // Wait for dashboard to load
@@ -23,7 +26,7 @@ test.describe("Device Registration E2E Tests", () => {
 
     // Verify page loads
     await expect(
-      page.locator("h3").filter({ hasText: "IoT Device Management" })
+      page.locator("h3").filter({ hasText: "IoT Device Management" }),
     ).toBeVisible();
 
     // Click Add Device button
@@ -41,7 +44,7 @@ test.describe("Device Registration E2E Tests", () => {
 
     // Verify success notification
     await expect(
-      page.locator("text=Device registered successfully")
+      page.locator("text=Device registered successfully"),
     ).toBeVisible();
 
     // Verify device appears in table
@@ -74,7 +77,7 @@ test.describe("Device Registration E2E Tests", () => {
 
       // Verify registration success
       await expect(
-        page.locator("text=Device registered successfully")
+        page.locator("text=Device registered successfully"),
       ).toBeVisible();
     } else {
       // No devices found - verify empty state
@@ -152,7 +155,7 @@ test.describe("Device Registration E2E Tests", () => {
 
       // Verify command response
       await expect(
-        page.locator("text=Command sent successfully")
+        page.locator("text=Command sent successfully"),
       ).toBeVisible();
 
       // Send restart command
@@ -180,7 +183,7 @@ test.describe("Device Registration E2E Tests", () => {
 
     // Check device table has status column
     await expect(
-      page.locator("th").filter({ hasText: "Status" })
+      page.locator("th").filter({ hasText: "Status" }),
     ).toBeVisible();
 
     // Verify status badges exist
@@ -189,7 +192,7 @@ test.describe("Device Registration E2E Tests", () => {
       // Check for online/offline/maintenance status
       const badgeText = await statusBadges.first().textContent();
       expect(["online", "offline", "maintenance"]).toContain(
-        badgeText?.toLowerCase()
+        badgeText?.toLowerCase(),
       );
     }
   });
@@ -276,7 +279,7 @@ test.describe("Device Registration E2E Tests", () => {
 
       // Verify completion
       await expect(
-        page.locator("text=Firmware update completed")
+        page.locator("text=Firmware update completed"),
       ).toBeVisible();
     } else {
       test.skip(true, "No devices available for firmware update test");

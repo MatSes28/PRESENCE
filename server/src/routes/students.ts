@@ -88,7 +88,7 @@ router.get("/", requireAuth, async (req, res) => {
         } catch (error) {
           console.warn(
             `Failed to decrypt RFID for student ${student.id}:`,
-            error
+            error,
           );
         }
 
@@ -96,13 +96,13 @@ router.get("/", requireAuth, async (req, res) => {
           if (student.parentEmail) {
             parentEmail = encryptionService.decryptParentData(
               student.parentEmail,
-              student.parentName || ""
+              student.parentName || "",
             ).email;
           }
         } catch (error) {
           console.warn(
             `Failed to decrypt parent email for student ${student.id}:`,
-            error
+            error,
           );
         }
 
@@ -110,14 +110,14 @@ router.get("/", requireAuth, async (req, res) => {
           if (student.parentName) {
             const decryptedParent = encryptionService.decryptParentData(
               student.parentEmail || "",
-              student.parentName
+              student.parentName,
             );
             parentName = decryptedParent.phone;
           }
         } catch (error) {
           console.warn(
             `Failed to decrypt parent name for student ${student.id}:`,
-            error
+            error,
           );
         }
 
@@ -154,7 +154,7 @@ router.get("/", requireAuth, async (req, res) => {
       } catch (error) {
         console.warn(
           `Failed to decrypt RFID for student ${student.id}:`,
-          error
+          error,
         );
       }
 
@@ -162,13 +162,13 @@ router.get("/", requireAuth, async (req, res) => {
         if (student.parentEmail) {
           parentEmail = encryptionService.decryptParentData(
             student.parentEmail,
-            student.parentName || ""
+            student.parentName || "",
           ).email;
         }
       } catch (error) {
         console.warn(
           `Failed to decrypt parent email for student ${student.id}:`,
-          error
+          error,
         );
       }
 
@@ -176,14 +176,14 @@ router.get("/", requireAuth, async (req, res) => {
         if (student.parentName) {
           const decryptedParent = encryptionService.decryptParentData(
             student.parentEmail || "",
-            student.parentName
+            student.parentName,
           );
           parentName = decryptedParent.phone;
         }
       } catch (error) {
         console.warn(
           `Failed to decrypt parent name for student ${student.id}:`,
-          error
+          error,
         );
       }
 
@@ -237,13 +237,13 @@ router.get("/:id", requireAuth, async (req, res) => {
       parentEmail: encryptedStudent.parentEmail
         ? encryptionService.decryptParentData(
             encryptedStudent.parentEmail,
-            encryptedStudent.parentName || ""
+            encryptedStudent.parentName || "",
           ).email
         : null,
       parentName: encryptedStudent.parentName
         ? encryptionService.decryptParentData(
             encryptedStudent.parentEmail || "",
-            encryptedStudent.parentName
+            encryptedStudent.parentName,
           ).phone
         : null,
     };
@@ -310,12 +310,16 @@ router.post(
         });
       }
 
-      // Check if RFID UID already exists (if provided)
-      if (rfidUid) {
+      const rfidUidHash = rfidUid
+        ? encryptionService.hashRFIDUidForLookup(rfidUid)
+        : null;
+
+      // Check if RFID UID already exists (if provided) using deterministic hash.
+      if (rfidUidHash) {
         const existingRFID = await db
           .select()
           .from(students)
-          .where(eq(students.rfidUid, rfidUid))
+          .where(eq(students.rfidUidHash, rfidUidHash))
           .limit(1);
 
         if (existingRFID.length > 0) {
@@ -332,7 +336,7 @@ router.post(
         : null;
       const encryptedParentData = encryptionService.encryptParentData(
         parentEmail,
-        parentName || ""
+        parentName || "",
       );
 
       const [newStudent] = await db
@@ -343,6 +347,7 @@ router.post(
           email,
           year,
           section,
+          rfidUidHash,
           rfidUid: encryptedRfid,
           parentEmail: encryptedParentData.email,
           parentName: encryptedParentData.phone, // Using phone field for parentName since it's encrypted together
@@ -361,7 +366,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Update student (admin only)
@@ -371,16 +376,20 @@ router.put("/:id", requireAdmin, async (req, res) => {
     const { name, email, year, section, rfidUid, parentEmail, parentName } =
       req.body;
 
+    const rfidUidHash = rfidUid
+      ? encryptionService.hashRFIDUidForLookup(rfidUid)
+      : undefined;
+
     // Check if RFID UID conflicts with other students
-    if (rfidUid) {
+    if (rfidUidHash) {
       const existingRFID = await db
         .select()
         .from(students)
         .where(
           and(
-            eq(students.rfidUid, rfidUid),
-            sql`${students.id} != ${studentId}`
-          )
+            eq(students.rfidUidHash, rfidUidHash),
+            sql`${students.id} != ${studentId}`,
+          ),
         )
         .limit(1);
 
@@ -408,6 +417,7 @@ router.put("/:id", requireAdmin, async (req, res) => {
       updatedAt: new Date(),
     };
 
+    if (rfidUidHash !== undefined) updateData.rfidUidHash = rfidUidHash;
     if (encryptedRfid !== undefined) updateData.rfidUid = encryptedRfid;
     if (encryptedParentData) {
       updateData.parentEmail = encryptedParentData.email;
@@ -436,13 +446,13 @@ router.put("/:id", requireAdmin, async (req, res) => {
       parentEmail: updatedStudent.parentEmail
         ? encryptionService.decryptParentData(
             updatedStudent.parentEmail,
-            updatedStudent.parentName || ""
+            updatedStudent.parentName || "",
           ).email
         : null,
       parentName: updatedStudent.parentName
         ? encryptionService.decryptParentData(
             updatedStudent.parentEmail || "",
-            updatedStudent.parentName
+            updatedStudent.parentName,
           ).phone
         : null,
     };
@@ -518,7 +528,7 @@ router.get("/:id/attendance", requireAuth, async (req, res) => {
       .from(attendanceRecords)
       .innerJoin(
         classSessions,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .where(eq(attendanceRecords.studentId, studentId))
       .orderBy(desc(attendanceRecords.createdAt))
@@ -551,11 +561,13 @@ router.post("/:id/assign-rfid", requireAdmin, async (req, res) => {
       });
     }
 
+    const rfidUidHash = encryptionService.hashRFIDUidForLookup(rfidUid);
+
     // Check if RFID UID is already assigned
     const existingRFID = await db
       .select()
       .from(students)
-      .where(eq(students.rfidUid, rfidUid))
+      .where(eq(students.rfidUidHash, rfidUidHash))
       .limit(1);
 
     if (existingRFID.length > 0) {
@@ -570,6 +582,7 @@ router.post("/:id/assign-rfid", requireAdmin, async (req, res) => {
     const [updatedStudent] = await db
       .update(students)
       .set({
+        rfidUidHash,
         rfidUid: encryptedRfid,
         updatedAt: new Date(),
       })
@@ -592,13 +605,13 @@ router.post("/:id/assign-rfid", requireAdmin, async (req, res) => {
       parentEmail: updatedStudent.parentEmail
         ? encryptionService.decryptParentData(
             updatedStudent.parentEmail,
-            updatedStudent.parentName || ""
+            updatedStudent.parentName || "",
           ).email
         : null,
       parentName: updatedStudent.parentName
         ? encryptionService.decryptParentData(
             updatedStudent.parentEmail || "",
-            updatedStudent.parentName
+            updatedStudent.parentName,
           ).phone
         : null,
     };
@@ -664,10 +677,13 @@ router.post(
 
                 // Check if RFID UID already exists (if provided)
                 if (row.rfidUid) {
+                  const rfidUidHash = encryptionService.hashRFIDUidForLookup(
+                    row.rfidUid,
+                  );
                   const existingRFID = await db
                     .select()
                     .from(students)
-                    .where(eq(students.rfidUid, row.rfidUid))
+                    .where(eq(students.rfidUidHash, rfidUidHash))
                     .limit(1);
 
                   if (existingRFID.length > 0) {
@@ -682,7 +698,7 @@ router.post(
                   : null;
                 const encryptedParentData = encryptionService.encryptParentData(
                   row.parentEmail,
-                  row.parentName || ""
+                  row.parentName || "",
                 );
 
                 await db.insert(students).values({
@@ -691,6 +707,9 @@ router.post(
                   email: row.email || null,
                   year: row.year || null,
                   section: row.section || null,
+                  rfidUidHash: row.rfidUid
+                    ? encryptionService.hashRFIDUidForLookup(row.rfidUid)
+                    : null,
                   rfidUid: encryptedRfid,
                   parentEmail: encryptedParentData.email,
                   parentName: encryptedParentData.phone,
@@ -731,7 +750,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 export default router;

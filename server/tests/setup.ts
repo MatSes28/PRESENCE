@@ -1,4 +1,12 @@
 import { afterAll, afterEach, jest } from "@jest/globals";
+import { createRequire } from "module";
+
+// ESM compatibility:
+// Some legacy unit tests use `require()` to access mocked modules.
+// Jest runs tests as ESM (ts-jest default-esm), so `require` is not defined by default.
+// Provide a global require so existing tests keep working.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(globalThis as any).require = createRequire(import.meta.url);
 
 // Extend global types
 declare global {
@@ -29,45 +37,61 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Mock external services
-jest.mock("../src/services/websocket.js", () => ({
-  setupWebSocket: jest.fn(),
-  getWebSocketClient: jest.fn(() => ({
-    on: jest.fn(),
-    off: jest.fn(),
-    emit: jest.fn(),
-    getDeviceStatus: jest.fn(),
-  })),
-}));
+function mockWebsocket() {
+  return {
+    setupWebSocket: jest.fn(),
+    getWebSocketClient: jest.fn(() => ({
+      on: jest.fn(),
+      off: jest.fn(),
+      emit: jest.fn(),
+      getDeviceStatus: jest.fn(),
+    })),
+  };
+}
+
+// Match both NodeNext-style specifiers (with .js) and TS specifiers (without .js)
+jest.mock("../src/services/websocket.js", mockWebsocket);
+jest.mock("../src/services/websocket", mockWebsocket);
 
 // Mock email service
-jest.mock("../src/services/emailService.js", () => ({
-  sendEmail: jest.fn(),
-  sendWelcomeEmail: jest.fn(),
-  sendPasswordResetEmail: jest.fn(),
-}));
+function mockEmailService() {
+  return {
+    sendEmail: jest.fn(),
+    sendWelcomeEmail: jest.fn(),
+    sendPasswordResetEmail: jest.fn(),
+  };
+}
+
+jest.mock("../src/services/emailService.js", mockEmailService);
+jest.mock("../src/services/emailService", mockEmailService);
 
 // Mock monitoring service to avoid actual logging during tests
-jest.mock("../src/services/monitoringService.js", () => ({
-  monitoringService: {
-    logError: jest.fn(),
-    logWarning: jest.fn(),
-    logInfo: jest.fn(),
-    startTrace: jest.fn(() => "test-trace-id"),
-    endTrace: jest.fn(),
-    createRequestMiddleware: jest.fn(
-      () => (req: any, res: any, next: any) => next(),
-    ),
-    getHealthStatus: jest.fn(() => ({
-      status: "healthy",
-      uptime: 1000,
-      system: {},
-      database: {},
-      application: {},
-      timestamp: new Date(),
-    })),
-    getPrometheusMetrics: jest.fn(() => "# Test metrics"),
-  },
-}));
+function mockMonitoringService() {
+  return {
+    monitoringService: {
+      logError: jest.fn(),
+      logWarning: jest.fn(),
+      logInfo: jest.fn(),
+      startTrace: jest.fn(() => "test-trace-id"),
+      endTrace: jest.fn(),
+      createRequestMiddleware: jest.fn(
+        () => (req: any, res: any, next: any) => next(),
+      ),
+      getHealthStatus: jest.fn(() => ({
+        status: "healthy",
+        uptime: 1000,
+        system: {},
+        database: {},
+        application: {},
+        timestamp: new Date(),
+      })),
+      getPrometheusMetrics: jest.fn(() => "# Test metrics"),
+    },
+  };
+}
+
+jest.mock("../src/services/monitoringService.js", mockMonitoringService);
+jest.mock("../src/services/monitoringService", mockMonitoringService);
 
 // Global test utilities
 global.testUtils = {

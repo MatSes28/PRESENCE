@@ -1010,6 +1010,53 @@ output.elasticsearch:
 
 ## Backup & Recovery
 
+### Single-Building Rollout Guardrails
+
+Use this profile when deploying to one school building/site before any horizontal scaling.
+
+### Runtime Topology
+
+- Run a single API instance and a single WebSocket instance.
+- Avoid cluster/autoscaling modes during initial rollout.
+- For Docker Compose, keep `api=1` replica.
+
+### Monitoring Baseline (Required Before Go-Live)
+
+- `/health` endpoint is continuously reachable
+- API error-rate and latency alerts are configured
+- Host CPU / memory / disk dashboards are active
+- Database health and backup-job status are visible
+
+Recommended starting alert thresholds:
+
+- 5xx error rate > 2% for 5 minutes
+- p95 API latency > 1000ms for 10 minutes
+- Memory utilization > 85% for 10 minutes
+- Free disk < 15%
+
+### Backup Baseline (Required Before Go-Live)
+
+- Daily PostgreSQL backups with at least 30-day retention
+- One off-host backup copy (object storage or separate host)
+- Restore drill verified in staging before production launch
+
+Validation commands:
+
+```bash
+# Backup
+pg_dump "$DATABASE_URL" > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Restore verification (non-production target)
+psql "$STAGING_DATABASE_URL" < backup_YYYYMMDD_HHMMSS.sql
+```
+
+### Rollout Safety Gates
+
+- One change set per deployment window
+- Keep rollback plan/script ready before deploy
+- Capture pre/post-deploy health snapshots
+- Scale-out only after a stable 7-day baseline
+
 ### Database Backup
 
 #### Automated Backups

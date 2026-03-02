@@ -20,6 +20,7 @@ import {
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { isProductionLike } from "../src/config/env.js";
+import { encryptionService } from "../src/services/encryptionService.js";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -260,7 +261,28 @@ async function seedTestData() {
 
     const createdStudents = [];
     for (const student of studentData) {
-      const result = await db.insert(students).values(student).returning();
+      const encryptedRfid = student.rfidUid
+        ? encryptionService.encryptRFID(student.rfidUid)
+        : null;
+      const rfidUidHash = student.rfidUid
+        ? encryptionService.hashRFIDUidForLookup(student.rfidUid)
+        : null;
+      const encryptedParent = encryptionService.encryptParentData(
+        student.parentEmail,
+        student.parentName,
+      );
+
+      const result = await db
+        .insert(students)
+        .values({
+          ...student,
+          rfidUid: encryptedRfid,
+          rfidUidHash,
+          parentEmail: encryptedParent.email,
+          // NOTE: existing schema stores encrypted parent "phone" in parentName column.
+          parentName: encryptedParent.phone,
+        })
+        .returning();
       createdStudents.push(result[0]);
       console.log(`✅ Created student: ${student.name} (${student.studentId})`);
     }

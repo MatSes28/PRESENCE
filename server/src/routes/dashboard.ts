@@ -1059,7 +1059,10 @@ router.get(
         db
           .select({ count: sql<number>`count(*)` })
           .from(students)
-          .where(and(isNotNull(students.rfidUid), ne(students.rfidUid, ""))),
+          // Count students with an assigned RFID token (hash present)
+          .where(
+            and(isNotNull(students.rfidUidHash), ne(students.rfidUidHash, "")),
+          ),
         db.select({ count: sql<number>`count(*)` }).from(students),
       ]);
       const countWithRfid = Number(withRfid[0]?.count ?? 0);

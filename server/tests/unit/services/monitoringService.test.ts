@@ -1,3 +1,4 @@
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 import { monitoringService } from "../../../src/services/monitoringService";
 import {
   ValidationError,

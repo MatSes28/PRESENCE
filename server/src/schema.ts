@@ -40,6 +40,11 @@ export const students = pgTable("students", {
   college: varchar("college", { length: 100 })
     .default("College of Engineering")
     .notNull(), // Always College of Engineering
+  /**
+   * Deterministic lookup token for RFID UID (HMAC-SHA256).
+   * Used for uniqueness + lookups without storing plaintext UIDs.
+   */
+  rfidUidHash: varchar("rfid_uid_hash", { length: 64 }).unique(),
   rfidUid: varchar("rfid_uid", { length: 50 }).unique(),
   parentEmail: varchar("parent_email", { length: 255 }).notNull(), // Made mandatory
   parentName: varchar("parent_name", { length: 255 }),
@@ -120,9 +125,7 @@ export const classSessions = pgTable("class_sessions", {
 // Attendance Records table
 export const attendanceRecords = pgTable("attendance_records", {
   id: serial("id").primaryKey(),
-  studentId: integer("student_id")
-    .references(() => students.id)
-    .notNull(),
+  studentId: integer("student_id").references(() => students.id),
   classSessionId: integer("class_session_id")
     .references(() => classSessions.id)
     .notNull(),

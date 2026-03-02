@@ -1,13 +1,16 @@
 import { test, expect } from "@playwright/test";
 
+const E2E_EMAIL = process.env.PLAYWRIGHT_TEST_EMAIL || "admin@clirdec.edu";
+const E2E_PASSWORD = process.env.PLAYWRIGHT_TEST_PASSWORD || "admin123";
+
 test.describe("Attendance Management E2E Tests", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the application
-    await page.goto("http://localhost:3000");
+    await page.goto("/");
 
     // Login if needed (assuming login form exists)
-    await page.fill('input[name="email"]', "admin@clirdec.edu");
-    await page.fill('input[name="password"]', "admin123");
+    await page.fill('input[name="email"]', E2E_EMAIL);
+    await page.fill('input[name="password"]', E2E_PASSWORD);
     await page.click('button[type="submit"]');
 
     // Wait for dashboard to load
@@ -21,7 +24,7 @@ test.describe("Attendance Management E2E Tests", () => {
 
     // Verify page loads
     await expect(
-      page.locator("h3").filter({ hasText: "Live Attendance Monitoring" })
+      page.locator("h3").filter({ hasText: "Live Attendance Monitoring" }),
     ).toBeVisible();
 
     // Test RFID simulation
@@ -31,7 +34,7 @@ test.describe("Attendance Management E2E Tests", () => {
 
     // Verify event appears in feed
     await expect(
-      page.locator("text=RFID card scanned: TEST123456")
+      page.locator("text=RFID card scanned: TEST123456"),
     ).toBeVisible();
 
     // Test sensor simulation
@@ -42,7 +45,7 @@ test.describe("Attendance Management E2E Tests", () => {
     const totalEventsStat = page
       .locator("text=Total Events")
       .locator("xpath=following-sibling::*");
-    const initialCount = await totalEventsStat.textContent();
+    const initialCount = (await totalEventsStat.textContent()) ?? "";
 
     // Trigger another event
     await page.click('button:has-text("Simulate Exit Sensor")');
@@ -63,7 +66,7 @@ test.describe("Attendance Management E2E Tests", () => {
     await page.selectOption('select[name="session"]', "1"); // Select first session
     await page.fill(
       'input[type="datetime-local"]',
-      new Date().toISOString().slice(0, 16)
+      new Date().toISOString().slice(0, 16),
     );
     await page.fill("textarea", "E2E test manual entry");
 
@@ -93,7 +96,7 @@ test.describe("Attendance Management E2E Tests", () => {
     const discrepancyStat = page
       .locator("text=Discrepancies")
       .locator("xpath=following-sibling::*");
-    const initialCount = await discrepancyStat.textContent();
+    const initialCount = (await discrepancyStat.textContent()) ?? "";
 
     // Trigger another discrepancy
     await rfidInput.fill("DISC789012");
@@ -109,13 +112,13 @@ test.describe("Attendance Management E2E Tests", () => {
 
     // Verify table headers
     await expect(
-      page.locator("th").filter({ hasText: "Student" })
+      page.locator("th").filter({ hasText: "Student" }),
     ).toBeVisible();
     await expect(
-      page.locator("th").filter({ hasText: "Status" })
+      page.locator("th").filter({ hasText: "Status" }),
     ).toBeVisible();
     await expect(
-      page.locator("th").filter({ hasText: "Check-in Time" })
+      page.locator("th").filter({ hasText: "Check-in Time" }),
     ).toBeVisible();
 
     // Verify table has data or shows empty state
@@ -129,7 +132,7 @@ test.describe("Attendance Management E2E Tests", () => {
     } else {
       // Verify empty state message
       await expect(
-        page.locator("text=No attendance records found")
+        page.locator("text=No attendance records found"),
       ).toBeVisible();
     }
   });
@@ -148,7 +151,7 @@ test.describe("Attendance Management E2E Tests", () => {
       // Fill contact form
       await page.fill(
         "textarea",
-        "This is an automated test message from the attendance system."
+        "This is an automated test message from the attendance system.",
       );
 
       // Submit contact form
@@ -158,7 +161,7 @@ test.describe("Attendance Management E2E Tests", () => {
       await expect(page.locator("text=Parent Contacted")).toBeVisible();
     } else {
       // Skip test if no absent records
-      test.skip("No absent records available for contact test");
+      test.skip(true, "No absent records available for contact test");
     }
   });
 
@@ -172,7 +175,7 @@ test.describe("Attendance Management E2E Tests", () => {
     // Verify loading state (if implemented)
     // This test mainly ensures the refresh functionality doesn't break
     await expect(
-      page.locator("h3").filter({ hasText: "Live Attendance Monitoring" })
+      page.locator("h3").filter({ hasText: "Live Attendance Monitoring" }),
     ).toBeVisible();
   });
 

@@ -1,13 +1,16 @@
 import { test, expect } from "@playwright/test";
 
+const E2E_EMAIL = process.env.PLAYWRIGHT_TEST_EMAIL || "admin@clirdec.edu";
+const E2E_PASSWORD = process.env.PLAYWRIGHT_TEST_PASSWORD || "admin123";
+
 test.describe("Reporting Workflow E2E Tests", () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the application
-    await page.goto("http://localhost:3000");
+    await page.goto("/");
 
     // Login
-    await page.fill('input[name="email"]', "admin@clirdec.edu");
-    await page.fill('input[name="password"]', "admin123");
+    await page.fill('input[name="email"]', E2E_EMAIL);
+    await page.fill('input[name="password"]', E2E_PASSWORD);
     await page.click('button[type="submit"]');
 
     // Wait for dashboard to load
@@ -21,7 +24,7 @@ test.describe("Reporting Workflow E2E Tests", () => {
 
     // Verify page loads
     await expect(
-      page.locator("h3").filter({ hasText: "Attendance Reports" })
+      page.locator("h3").filter({ hasText: "Attendance Reports" }),
     ).toBeVisible();
 
     // Select report type
@@ -41,7 +44,7 @@ test.describe("Reporting Workflow E2E Tests", () => {
 
     // Verify report generation
     await expect(
-      page.locator("text=Report generated successfully")
+      page.locator("text=Report generated successfully"),
     ).toBeVisible();
 
     // Verify report content
@@ -143,11 +146,11 @@ test.describe("Reporting Workflow E2E Tests", () => {
 
     await page.fill(
       'input[name="startDate"]',
-      lastMonth.toISOString().split("T")[0]
+      lastMonth.toISOString().split("T")[0],
     );
     await page.fill(
       'input[name="endDate"]',
-      new Date().toISOString().split("T")[0]
+      new Date().toISOString().split("T")[0],
     );
 
     // Generate filtered report
@@ -176,7 +179,7 @@ test.describe("Reporting Workflow E2E Tests", () => {
       // Fill schedule form
       await page.selectOption(
         'select[name="reportType"]',
-        "attendance_summary"
+        "attendance_summary",
       );
       await page.selectOption('select[name="frequency"]', "weekly");
       await page.fill('input[name="email"]', "admin@clirdec.edu");
@@ -186,7 +189,7 @@ test.describe("Reporting Workflow E2E Tests", () => {
 
       // Verify schedule created
       await expect(
-        page.locator("text=Schedule created successfully")
+        page.locator("text=Schedule created successfully"),
       ).toBeVisible();
     }
   });
@@ -209,13 +212,13 @@ test.describe("Reporting Workflow E2E Tests", () => {
       if (await reportList.isVisible()) {
         // Verify table has expected columns
         await expect(
-          page.locator("th").filter({ hasText: "Report Type" })
+          page.locator("th").filter({ hasText: "Report Type" }),
         ).toBeVisible();
         await expect(
-          page.locator("th").filter({ hasText: "Generated" })
+          page.locator("th").filter({ hasText: "Generated" }),
         ).toBeVisible();
         await expect(
-          page.locator("th").filter({ hasText: "Actions" })
+          page.locator("th").filter({ hasText: "Actions" }),
         ).toBeVisible();
       }
     }

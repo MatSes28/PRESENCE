@@ -1,4 +1,9 @@
+import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+import { createRequire } from "module";
 import { attendanceMonitor } from "../../../src/services/attendanceMonitor";
+
+// ESM-safe require() for accessing mocked modules in test setup.
+const require = createRequire(import.meta.url);
 
 // Mock database operations
 jest.mock("../../../src/storage.js", () => {

@@ -327,6 +327,80 @@ tail -f logs/app.log
 pg_dump $DATABASE_URL > backup.sql
 ```
 
+## Single-Building Rollout Guardrails
+
+Use this runbook when deploying for a single physical building/campus before any horizontal scaling.
+
+### 1) Enforce Single Application Instance
+
+- Use exactly one API process and one WebSocket process for initial rollout.
+- Do **not** use cluster autoscaling (`instances: "max"`) during single-building launch.
+- For Docker Compose, keep one API replica (`--scale api=1`).
+
+PM2 baseline for single-building:
+
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: "presence-api",
+      script: "dist/index.js",
+      instances: 1,
+      exec_mode: "fork",
+      max_memory_restart: "1G",
+      autorestart: true,
+    },
+    {
+      name: "presence-websocket",
+      script: "dist/websocket-server.js",
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+    },
+  ],
+};
+```
+
+### 2) Monitoring Guardrails (Mandatory)
+
+Before go-live, verify these signals are observable:
+
+- API health endpoint returns healthy continuously (`/health`)
+- Error rate alerting is active
+- Host CPU, memory, and disk utilization dashboards are visible
+- Database connectivity and slow-query indicators are monitored
+
+Minimum alert thresholds for single-building rollout:
+
+- API 5xx rate > 2% for 5 minutes
+- p95 API latency > 1000ms for 10 minutes
+- Host memory usage > 85% for 10 minutes
+- Disk free space < 15%
+
+### 3) Backup Guardrails (Mandatory)
+
+- Perform automated PostgreSQL backups at least daily
+- Keep at least 30 days of retention
+- Store backup copies outside the app host (object storage or separate backup host)
+- Test restore procedure before production launch and after any major schema change
+
+Recommended validation commands:
+
+```bash
+# Backup
+pg_dump "$DATABASE_URL" > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# Restore verification (to non-production DB)
+psql "$STAGING_DATABASE_URL" < backup_YYYYMMDD_HHMMSS.sql
+```
+
+### 4) Change-Control Guardrails
+
+- Deploy only one change set at a time
+- Keep rollback scripts ready (`deploy/scripts/rollback.sh`)
+- Capture pre-deploy and post-deploy health snapshots
+- Do not enable additional replicas until 7 days of stable operation
+
 ## Troubleshooting
 
 ### Common Issues

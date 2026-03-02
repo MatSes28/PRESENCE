@@ -9,6 +9,7 @@ import { eq, and, gte, lte } from "drizzle-orm";
 import { sendToDevice } from "./websocket.js";
 import { cacheService } from "./cacheService.js";
 import { isEmergencyStopActive } from "./rfidEmergencyStop.js";
+import { encryptionService } from "./encryptionService.js";
 
 interface RFIDScan {
   deviceId: string;
@@ -91,11 +92,12 @@ class AttendanceMonitor {
         };
       }
 
-      // Find student by RFID UID
+      // Find student by RFID UID (tokenized lookup)
+      const rfidUidHash = encryptionService.hashRFIDUidForLookup(scan.rfidUid);
       const student = await db
         .select()
         .from(students)
-        .where(eq(students.rfidUid, scan.rfidUid))
+        .where(eq(students.rfidUidHash, rfidUidHash))
         .limit(1);
 
       if (!student.length) {
@@ -169,6 +171,7 @@ class AttendanceMonitor {
 
       // Only store scans that are eligible to count as a presence proof signal.
       // This avoids using unknown/invalid/rejected RFID scans to validate sensor triggers.
+      // Store the raw UID in short-lived correlation state (Redis/in-memory) only.
       this.storeRecentRFIDScan(scan);
       // Cross-instance correlation: persist eligible scans to Redis (if available).
       await this.storeRecentRFIDScanRedis(scan);
@@ -231,12 +234,11 @@ class AttendanceMonitor {
         return { success: false, message: "Invalid sensor type" };
       }
 
-      // Use trigger timestamp (device) if valid, otherwise fall back to server time.
+      // Production correctness: use *server receipt time* as the canonical time
+      // for schedule matching + RFID↔sensor correlation.
+      // Device timestamps are used for signature/replay checks in [`verifySignedDeviceEvent()`](server/src/services/websocket.ts:204).
       const now = new Date();
-      const triggerTime = new Date(trigger.timestamp);
-      const effectiveTime = Number.isFinite(triggerTime.getTime())
-        ? triggerTime
-        : now;
+      const effectiveTime = now;
 
       // Find active class session
       const currentSession = await this.findActiveClassSession(effectiveTime);
@@ -290,10 +292,14 @@ class AttendanceMonitor {
           message: "Sensor trigger without timely RFID correlation",
         };
       }
+      const rfidUidHash = encryptionService.hashRFIDUidForLookup(
+        recentScan.rfidUid,
+      );
+
       const student = await db
         .select()
         .from(students)
-        .where(eq(students.rfidUid, recentScan.rfidUid))
+        .where(eq(students.rfidUidHash, rfidUidHash))
         .limit(1);
 
       if (!student.length) {
@@ -417,7 +423,8 @@ class AttendanceMonitor {
   }
 
   private storeRecentRFIDScan(scan: RFIDScan) {
-    const timestamp = new Date(scan.timestamp);
+    // Use server receipt time for correlation (device clocks can drift).
+    const timestamp = new Date();
     const scanData = {
       rfidUid: scan.rfidUid,
       timestamp,
@@ -452,8 +459,8 @@ class AttendanceMonitor {
     // Best-effort; local in-memory fallback is still used for single-instance.
     if (!cacheService.available()) return;
 
-    const ts = new Date(scan.timestamp);
-    const tsMs = Number.isFinite(ts.getTime()) ? ts.getTime() : Date.now();
+    // Use server receipt time for correlation.
+    const tsMs = Date.now();
     const cutoffMs = tsMs - this.validationWindow;
 
     await cacheService.addRecentRfidScan({
@@ -560,7 +567,8 @@ class AttendanceMonitor {
   ) {
     // Create a record flagged as discrepancy
     await db.insert(attendanceRecords).values({
-      studentId: 0, // Unknown student
+      // Unknown student: store NULL to avoid FK violations.
+      studentId: null,
       classSessionId: sessionId,
       sensorDetected: true,
       rfidDetected: false,
@@ -589,9 +597,19 @@ class AttendanceMonitor {
       sessionId = currentSession?.id || 0;
     }
 
+    // If we cannot associate to a real class session, do not write a dangling FK.
+    // (This should be handled by a dedicated discrepancies/audit table in a fuller design.)
+    if (!sessionId) {
+      console.warn(
+        "Skipping general discrepancy insert because no active session could be resolved:",
+        discrepancy.type,
+      );
+      return;
+    }
+
     // Create a record flagged as discrepancy
     await db.insert(attendanceRecords).values({
-      studentId: discrepancy.studentId || 0,
+      studentId: discrepancy.studentId ?? null,
       classSessionId: sessionId,
       sensorDetected: false,
       rfidDetected: !!discrepancy.rfidUid,
@@ -648,7 +666,11 @@ class AttendanceMonitor {
       sensorOnly: records.filter((r) => r.sensorDetected && !r.rfidDetected)
         .length,
       // Back-compat fields used by some UIs/tests
-      totalStudents: new Set(records.map((r) => r.studentId)).size,
+      totalStudents: new Set(
+        records
+          .map((r) => r.studentId)
+          .filter((v): v is number => typeof v === "number" && v > 0),
+      ).size,
       presentCount: records.filter((r) => r.status === "present").length,
       absentCount: records.filter((r) => r.status === "absent").length,
       attendanceRate:

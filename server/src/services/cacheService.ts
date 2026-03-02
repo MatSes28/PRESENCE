@@ -1,4 +1,5 @@
 import { createClient, RedisClientType } from "redis";
+import { isProductionLike } from "../config/env.js";
 
 interface CacheOptions {
   ttl?: number; // Time to live in seconds
@@ -22,17 +23,41 @@ class CacheService {
   private attendanceCooldownPrefix = "attendance_cooldown:";
 
   constructor() {
-    // Only connect to Redis in production or if explicitly enabled
+    const prodLike = isProductionLike();
+
+    // Treat Redis as REQUIRED when running multi-instance (INSTANCE_ID is set in scaling compose)
+    // or when explicitly enforced via REDIS_REQUIRED.
+    const redisRequired =
+      (process.env.REDIS_REQUIRED || "").toLowerCase() === "true" ||
+      (prodLike && !!process.env.INSTANCE_ID);
+
+    // Only connect to Redis in production-like environments OR when explicitly enabled.
+    // Allow explicit opt-out via REDIS_ENABLED=false.
+    const redisEnabledFlag = (process.env.REDIS_ENABLED || "").toLowerCase();
     const isRedisEnabled =
-      process.env.REDIS_ENABLED === "true" ||
-      process.env.NODE_ENV === "production";
+      redisEnabledFlag === "true" || (redisEnabledFlag !== "false" && prodLike);
 
     if (!isRedisEnabled) {
+      if (redisRequired) {
+        throw new Error(
+          "Redis is required (REDIS_REQUIRED=true or INSTANCE_ID set) but REDIS_ENABLED is not enabled.",
+        );
+      }
       this.isConnected = false;
       return;
     }
 
-    const redisUrl = process.env.REDIS_URL || "redis://127.0.0.1:6379";
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      if (redisRequired) {
+        throw new Error(
+          "Redis is required but REDIS_URL is missing. Set REDIS_URL and ensure Redis is reachable.",
+        );
+      }
+      // Single-instance dev convenience
+      this.isConnected = false;
+      return;
+    }
 
     // Redis configuration with production optimizations
     this.client = createClient({
@@ -43,7 +68,7 @@ class CacheService {
     });
 
     this.setupEventHandlers();
-    this.connect();
+    void this.connect(redisRequired);
   }
 
   private setupEventHandlers(): void {
@@ -73,10 +98,16 @@ class CacheService {
     });
   }
 
-  private async connect(): Promise<void> {
+  private async connect(redisRequired: boolean): Promise<void> {
     try {
       await this.client.connect();
     } catch (error) {
+      if (redisRequired) {
+        throw new Error(
+          `Failed to connect to Redis (required): ${(error as any)?.message || String(error)}`,
+        );
+      }
+
       console.warn("Failed to connect to Redis, caching disabled:", error);
       this.isConnected = false;
     }

@@ -109,7 +109,7 @@ router.get("/", requireAdminOrFaculty, async (req: any, res) => {
         },
       })
       .from(attendanceRecords)
-      .innerJoin(students, eq(attendanceRecords.studentId, students.id))
+      .leftJoin(students, eq(attendanceRecords.studentId, students.id))
       .innerJoin(
         classSessions,
         eq(attendanceRecords.classSessionId, classSessions.id),
@@ -164,7 +164,7 @@ router.get(
           schedule: schedules,
         })
         .from(attendanceRecords)
-        .innerJoin(students, eq(attendanceRecords.studentId, students.id))
+        .leftJoin(students, eq(attendanceRecords.studentId, students.id))
         .innerJoin(
           classSessions,
           eq(attendanceRecords.classSessionId, classSessions.id),
@@ -181,7 +181,7 @@ router.get(
 
       const row = recordRows[0] as any;
       const record = row.record;
-      const student = row.student;
+      const student = row.student || null;
 
       // Governance: faculty can only access their own sessions.
       const isFaculty = req.session?.userRole === "faculty";
@@ -203,19 +203,22 @@ router.get(
         offset: 0,
       });
 
-      const rfidForStudent = rfidEvents
-        .filter((e: any) => e?.metadata?.studentId === student.id)
-        .sort(
-          (a: any, b: any) =>
-            Math.abs(
-              new Date(a.timestamp).getTime() - new Date(center).getTime(),
-            ) -
-            Math.abs(
-              new Date(b.timestamp).getTime() - new Date(center).getTime(),
-            ),
-        );
+      const rfidCandidates = student
+        ? rfidEvents.filter((e: any) => e?.metadata?.studentId === student.id)
+        : rfidEvents;
 
-      const nearestRfid = rfidForStudent[0] || null;
+      const nearestRfid =
+        rfidCandidates
+          .slice()
+          .sort(
+            (a: any, b: any) =>
+              Math.abs(
+                new Date(a.timestamp).getTime() - new Date(center).getTime(),
+              ) -
+              Math.abs(
+                new Date(b.timestamp).getTime() - new Date(center).getTime(),
+              ),
+          )[0] || null;
       const deviceId = nearestRfid?.metadata?.deviceId as string | undefined;
 
       let sensorEvents: any[] = [];

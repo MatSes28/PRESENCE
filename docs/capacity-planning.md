@@ -91,6 +91,8 @@ Implementation references:
 
 **Operational implication:** Redis is not “optional” for correctness in horizontal scaling. If Redis is unavailable, the system falls back to in-memory state and correctness becomes **single-instance only**.
 
+**Deployment guardrail (implemented):** when running multi-instance deployments (e.g. `INSTANCE_ID` is set in [`docker-compose.scaling.yml`](docker-compose.scaling.yml:26)), set `REDIS_REQUIRED=true` so the API fails fast if `REDIS_URL` is missing or Redis is unreachable. See Redis gating logic in [`CacheService.constructor()`](server/src/services/cacheService.ts:24).
+
 #### Instance Count Recommendations
 
 | Total Users  | Instances | Load Balancer Config           |
