@@ -18,7 +18,8 @@
 - [ ] Device ID assigned (unique per device)
 - [ ] Heartbeat interval configured (30 seconds)
 - [ ] RFID scanning threshold set
-- [ ] Ultrasonic distance threshold configured
+- [ ] Entry/exit ultrasonic thresholds configured
+- [ ] Firmware sends explicit `sensorType` (`entry` | `exit`) to `/api/iot/sensor/ultrasonic`
 
 ### Device Programming
 
@@ -85,7 +86,7 @@
 ## ESP32-S3 Pin Configuration
 
 ```
-ESP32-S3 Pinout for RFID + Ultrasonic:
+ESP32-S3 Pinout for RFID + Dual Ultrasonic:
 
 RFID RC522:
 - SDA (SS): GPIO 5
@@ -94,13 +95,27 @@ RFID RC522:
 - MISO: GPIO 8
 - RST: GPIO 9
 
-Ultrasonic HC-SR04:
-- TRIG: GPIO 10
-- ECHO: GPIO 11
+Entry HC-SR04:
+- TRIG: GPIO 12
+- ECHO: GPIO 13
+
+Exit HC-SR04:
+- TRIG: GPIO 25
+- ECHO: GPIO 26
 
 Status LED:
 - LED_BUILTIN: GPIO 2 (onboard)
 ```
+
+## Firmware File Location
+
+- Baseline firmware is stored at [`ESP32_S3_DUAL_SENSOR_ATTENDANCE.ino`](ESP32_S3_DUAL_SENSOR_ATTENDANCE.ino).
+
+## Production Auth Requirement
+
+- For production deployments, avoid query-token auth in WebSocket URLs.
+- Use device API key via headers for device REST endpoints (`x-device-api-key`).
+- If WebSocket device messaging is used directly, prefer header/subprotocol auth and signed events.
 
 ## Device Firmware Configuration
 
@@ -127,25 +142,21 @@ const long SENSOR_SAMPLE_INTERVAL = 1000;  // 1 second
 ### Common Issues
 
 1. **Device not connecting to WiFi**
-
    - Check WiFi credentials
    - Verify signal strength
    - Check if MAC filtering is enabled on router
 
 2. **RFID not reading cards**
-
    - Check wiring connections
    - Verify SPI pin configuration
    - Check if card is compatible (MIFARE 1K)
 
 3. **Ultrasonic sensor giving wrong readings**
-
    - Check power supply (5V required)
    - Verify TRIG and ECHO pin connections
    - Ensure no obstacles in detection path
 
 4. **WebSocket connection failing**
-
    - Verify server URL and port
    - Check SSL/TLS certificate
    - Ensure firewall allows outbound connections

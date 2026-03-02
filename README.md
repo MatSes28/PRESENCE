@@ -77,7 +77,8 @@ clirdec-presence/
 ├── .vscode/               # VS Code configuration
 ├── railway.json           # Railway deployment config
 ├── .env.example           # Environment variables template
-└── ESP32_S3_DUAL_SENSOR_ATTENDANCE.ino  # IoT firmware
+├── ESP32_S3_DUAL_SENSOR_ATTENDANCE.ino  # ESP32-S3 baseline firmware
+└── docs/iot-deployment-checklist.md      # IoT deployment and wiring checklist
 ```
 
 ## 🚀 Quick Start
@@ -183,6 +184,19 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for complete guide.
 2. **WiFi Attendance Mode** - Real-time monitoring with motion detection
 
 See `ESP32_S3_DUAL_SENSOR_ATTENDANCE.ino` for firmware.
+
+### ESP32-S3 Message Contract (Current Backend)
+
+- RFID endpoint: `POST /api/iot/attendance/rfid` with `rfidUid`
+- Ultrasonic endpoint: `POST /api/iot/sensor/ultrasonic` with:
+  - `distance` (number)
+  - `sensorType` (`"entry"` or `"exit"`) **required**
+
+### Production Security Note (IoT Auth)
+
+- Device authentication via URL query token is not allowed in production-like environments.
+- Use device API key with `x-device-api-key` on IoT REST endpoints.
+- Keep device secrets out of URL query strings.
 
 ## 🔐 Security
 
