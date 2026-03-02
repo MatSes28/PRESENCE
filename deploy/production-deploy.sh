@@ -127,11 +127,13 @@ npm run db:push
 node scripts/verify-schema.mjs
 log_success "Database migrations completed"
 
-# Seed database if needed
-if [ "$ENVIRONMENT" != "production" ]; then
-    log_info "Seeding database with test data..."
+# Seed database: never in production (real data only). Test seed is dev-only.
+if [ "$ENVIRONMENT" != "production" ] && [ "$NODE_ENV" != "production" ]; then
+    log_info "Seeding database with test data (dev/staging only)..."
     npx tsx scripts/seed-test-data.ts
     log_success "Database seeded"
+else
+    log_info "Skipping test seed (production uses real data only)."
 fi
 
 # Set up Docker containers

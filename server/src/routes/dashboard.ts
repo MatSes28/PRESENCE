@@ -16,7 +16,7 @@ import { eq, and, gte, lte, sql, desc, isNotNull, ne } from "drizzle-orm";
 import { cacheService } from "../services/cacheService.js";
 import { notificationService } from "../services/notificationService.js";
 import { createUserRateLimit } from "../middleware/rateLimit.js";
-import { requireAdmin } from "../middleware/auth.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { iotDeviceManager } from "../services/iotDeviceManager.js";
 import {
   setEmergencyStop,
@@ -24,17 +24,6 @@ import {
 } from "../services/rfidEmergencyStop.js";
 
 const router = Router();
-
-// Middleware to check authentication
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required",
-    });
-  }
-  next();
-};
 
 // Rate limiting for authenticated dashboard operations
 const dashboardRateLimit = createUserRateLimit({

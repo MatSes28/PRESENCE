@@ -4,7 +4,6 @@ import {
   attendanceRecords,
   classSessions,
   students,
-  users,
   schedules,
   subjects,
   enrollments,
@@ -12,43 +11,9 @@ import {
 } from "../schema.js";
 import { eq, and, gte, lte, lt, desc, sql } from "drizzle-orm";
 import { reportSchedulerService } from "../services/reportScheduler.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
-
-// Middleware to check authentication
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required",
-    });
-  }
-  next();
-};
-
-// Middleware to check admin access
-const requireAdmin = async (req: any, res: any, next: any) => {
-  try {
-    const user = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, req.session.userId))
-      .limit(1);
-
-    if (!user.length || user[0].role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Admin access required",
-      });
-    }
-    next();
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Authorization check failed",
-    });
-  }
-};
 
 // Get all report schedules
 router.get("/schedules", requireAuth, async (req, res) => {

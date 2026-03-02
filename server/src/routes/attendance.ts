@@ -9,25 +9,14 @@ import {
   subjects,
   users,
 } from "../schema.js";
-import { eq, and, desc, gte, lte, sql } from "drizzle-orm";
+import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
 import { attendanceMonitor } from "../services/attendanceMonitor.js";
-import { requireAdmin } from "../middleware/auth.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { handleRouteError } from "../middleware/errorLogging.js";
 
 const router = Router();
 
-// Middleware to check authentication
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required",
-    });
-  }
-  next();
-};
-
-// Get attendance records with filters
+// Get attendance records with filters (faculty see only their sessions' records)
 router.get("/", requireAuth, async (req, res) => {
   try {
     const {
@@ -38,7 +27,30 @@ router.get("/", requireAuth, async (req, res) => {
       offset = 0,
     } = req.query;
 
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
+
     let whereConditions = [];
+
+    if (userRole === "faculty") {
+      const facultySessionIds = await db
+        .select({ id: classSessions.id })
+        .from(classSessions)
+        .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+        .where(eq(schedules.facultyId, userId!));
+      const ids = facultySessionIds.map((r) => r.id);
+      if (ids.length === 0) {
+        return res.json({
+          success: true,
+          records: [],
+          pagination: {
+            limit: parseInt(limit as string),
+            offset: parseInt(offset as string),
+          },
+        });
+      }
+      whereConditions.push(inArray(attendanceRecords.classSessionId, ids));
+    }
 
     if (studentId) {
       whereConditions.push(
@@ -57,7 +69,6 @@ router.get("/", requireAuth, async (req, res) => {
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 1);
 
-      // Find sessions for the date and check attendance records
       const sessions = await db
         .select()
         .from(classSessions)
@@ -70,9 +81,10 @@ router.get("/", requireAuth, async (req, res) => {
 
       if (sessions.length > 0) {
         whereConditions.push(
-          sql`${attendanceRecords.classSessionId} IN (${sessions
-            .map((s) => s.id)
-            .join(",")})`
+          inArray(
+            attendanceRecords.classSessionId,
+            sessions.map((s) => s.id)
+          )
         );
       }
     }
@@ -119,10 +131,32 @@ router.get("/", requireAuth, async (req, res) => {
   }
 });
 
-// Get attendance statistics for a session
+// Get attendance statistics for a session (faculty only for their sessions)
 router.get("/stats/:sessionId", requireAuth, async (req, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId);
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
+
+    if (userRole === "faculty") {
+      const sessionCheck = await db
+        .select({ facultyId: schedules.facultyId })
+        .from(classSessions)
+        .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+        .where(eq(classSessions.id, sessionId))
+        .limit(1);
+
+      if (
+        sessionCheck.length === 0 ||
+        sessionCheck[0].facultyId !== userId
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Access denied: You do not have access to this session's attendance",
+        });
+      }
+    }
 
     const stats = await attendanceMonitor.getAttendanceStats(sessionId);
 
@@ -135,7 +169,7 @@ router.get("/stats/:sessionId", requireAuth, async (req, res) => {
   }
 });
 
-// Manual attendance entry
+// Manual attendance entry (transactional; enforces one record per student per session)
 router.post("/manual", requireAuth, async (req, res) => {
   try {
     const { studentId, classSessionId, entryTime, exitTime, notes } = req.body;
@@ -147,19 +181,42 @@ router.post("/manual", requireAuth, async (req, res) => {
       });
     }
 
-    // Check if record already exists
-    const existingRecord = await db
-      .select()
-      .from(attendanceRecords)
-      .where(
-        and(
-          eq(attendanceRecords.studentId, studentId),
-          eq(attendanceRecords.classSessionId, classSessionId)
+    const newRecord = await db.transaction(async (tx) => {
+      const existingRecord = await tx
+        .select()
+        .from(attendanceRecords)
+        .where(
+          and(
+            eq(attendanceRecords.studentId, studentId),
+            eq(attendanceRecords.classSessionId, classSessionId)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (existingRecord.length > 0) {
+      if (existingRecord.length > 0) {
+        return null;
+      }
+
+      const [inserted] = await tx
+        .insert(attendanceRecords)
+        .values({
+          studentId,
+          classSessionId,
+          entryTime: entryTime ? new Date(entryTime) : null,
+          exitTime: exitTime ? new Date(exitTime) : null,
+          status: "present",
+          rfidDetected: false,
+          sensorDetected: false,
+          isValid: true,
+          discrepancyFlag: false,
+          notes: notes || "Manually entered",
+        })
+        .returning();
+
+      return inserted;
+    });
+
+    if (!newRecord) {
       return res.status(409).json({
         success: false,
         message:
@@ -167,28 +224,20 @@ router.post("/manual", requireAuth, async (req, res) => {
       });
     }
 
-    const [newRecord] = await db
-      .insert(attendanceRecords)
-      .values({
-        studentId,
-        classSessionId,
-        entryTime: entryTime ? new Date(entryTime) : null,
-        exitTime: exitTime ? new Date(exitTime) : null,
-        status: "present",
-        rfidDetected: false,
-        sensorDetected: false,
-        isValid: true,
-        discrepancyFlag: false,
-        notes: notes || "Manually entered",
-      })
-      .returning();
-
     res.status(201).json({
       success: true,
       message: "Attendance record created successfully",
       record: newRecord,
     });
-  } catch (error) {
+  } catch (error: any) {
+    const code = error?.code ?? error?.cause?.code;
+    if (code === "23505") {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Attendance record already exists for this student and session",
+      });
+    }
     await handleRouteError(error as Error, req, res, "manual_attendance_entry");
   }
 });
