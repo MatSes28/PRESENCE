@@ -154,8 +154,8 @@ class MQTTIoTService extends EventEmitter {
    */
   private async loadDeviceConfigurations(): Promise<void> {
     try {
-      const deviceRecords = await db.query.devices.findMany({
-        where: (devices, { isNotNull }) => isNotNull(devices.mqttTopic),
+      const deviceRecords = await db.query.iotDevices.findMany({
+        where: (iotDevices, { isNotNull }) => isNotNull(iotDevices.mqttTopic),
       });
 
       deviceRecords.forEach((device) => {
@@ -406,11 +406,11 @@ class MQTTIoTService extends EventEmitter {
           );
 
         // Find devices that haven't sent heartbeat recently
-        const offlineDevices = await db.query.devices.findMany({
-          where: (devices, { and, eq, lte }) =>
+        const offlineDevices = await db.query.iotDevices.findMany({
+          where: (iotDevices, { and, eq, lte }) =>
             and(
-              eq(devices.status, "active"),
-              lte(devices.lastSeen, timeoutThreshold),
+              eq(iotDevices.status, "active"),
+              lte(iotDevices.lastSeen, timeoutThreshold),
             ),
         });
 

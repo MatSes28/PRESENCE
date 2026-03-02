@@ -674,7 +674,7 @@ router.post(
   requireDeviceAuth,
   async (req: any, res: any) => {
     try {
-      const { distance, timestamp } = req.body;
+      const { distance, sensorType, timestamp } = req.body;
       const requestId = uuidv4();
 
       if (distance === undefined) {
@@ -684,13 +684,20 @@ router.post(
         });
       }
 
+      if (sensorType !== "entry" && sensorType !== "exit") {
+        return res.status(400).json({
+          success: false,
+          message: "sensorType must be 'entry' or 'exit'",
+        });
+      }
+
       // Process sensor data for presence detection using processSensorTrigger
       const { attendanceMonitor } =
         await import("../services/attendanceMonitor.js");
 
       const result = await attendanceMonitor.processSensorTrigger({
         deviceId: req.deviceId,
-        sensorType: distance > 100 ? "entry" : "exit",
+        sensorType,
         distance,
         timestamp: timestamp || new Date().toISOString(),
       });
@@ -699,7 +706,7 @@ router.post(
       try {
         await auditEventLogger.logSensorTrigger(
           req.deviceId,
-          distance > 100 ? "entry" : "exit",
+          sensorType,
           Number(distance),
           !!result?.success,
         );

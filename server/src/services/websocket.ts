@@ -114,6 +114,40 @@ function requireSignedDeviceEvents(): boolean {
   return isProductionLike();
 }
 
+function extractDeviceAuthToken(
+  request: IncomingMessage,
+  url: URL,
+): { token?: string; source?: "header" | "subprotocol" | "query" } {
+  const authHeader = request.headers["authorization"];
+  if (typeof authHeader === "string" && authHeader.trim()) {
+    const bearerPrefix = /^Bearer\s+/i;
+    const token = authHeader.replace(bearerPrefix, "").trim();
+    if (token) return { token, source: "header" };
+  }
+
+  const apiKeyHeader = request.headers["x-device-api-key"];
+  if (typeof apiKeyHeader === "string" && apiKeyHeader.trim()) {
+    return { token: apiKeyHeader.trim(), source: "header" };
+  }
+
+  const protocols = request.headers["sec-websocket-protocol"];
+  if (typeof protocols === "string" && protocols.trim()) {
+    const parts = protocols
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length > 0) {
+      const token = parts[parts.length - 1];
+      if (token) return { token, source: "subprotocol" };
+    }
+  }
+
+  const queryToken = url.searchParams.get("token")?.trim();
+  if (queryToken) return { token: queryToken, source: "query" };
+
+  return {};
+}
+
 function canonicalJson(value: unknown): string {
   const seen = new WeakSet<object>();
 
@@ -292,7 +326,8 @@ export function setupWebSocket(wss: WebSocketServer) {
       const isDevice = url.pathname === "/iot";
       const deviceId = url.searchParams.get("deviceId");
       const userId = url.searchParams.get("userId");
-      const authToken = url.searchParams.get("token");
+      const authTokenInfo = extractDeviceAuthToken(request, url);
+      const authToken = authTokenInfo.token;
 
       console.log(`New ${isDevice ? "device" : "web"} connection:`, {
         deviceId,
@@ -302,6 +337,21 @@ export function setupWebSocket(wss: WebSocketServer) {
 
       // Authenticate device connections
       if (isDevice && deviceId) {
+        if (authTokenInfo.source === "query" && isProductionLike()) {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              payload: {
+                message:
+                  "Authentication via query token is disabled in production",
+              },
+              timestamp: new Date().toISOString(),
+            }),
+          );
+          ws.close(1008, "Insecure auth transport");
+          return;
+        }
+
         const auth = await authenticateDevice(deviceId, authToken);
         if (!auth.ok) {
           console.log(`Device authentication failed for ${deviceId}`);
