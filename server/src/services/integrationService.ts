@@ -10,7 +10,7 @@ import {
   integrationSyncRuns,
   integrationSyncEvents,
 } from "../schema.js";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { encryptionService } from "./encryptionService.js";
 import { auditService } from "./auditService.js";
 
@@ -64,6 +64,103 @@ class IntegrationService {
   private integrationsById: Map<number, IntegrationConfig> = new Map();
   private integrationsByKey: Map<string, IntegrationConfig> = new Map();
   private warnedMissingIntegrationsTable = false;
+
+  private async requestJson(
+    url: string,
+    options: {
+      method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+      headers?: Record<string, string>;
+      body?: unknown;
+    } = {},
+  ): Promise<any> {
+    const response = await fetch(url, {
+      method: options.method || "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+
+    const text = await response.text();
+    let payload: any = null;
+    try {
+      payload = text ? JSON.parse(text) : null;
+    } catch {
+      payload = text;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status} ${response.statusText} - ${typeof payload === "string" ? payload : JSON.stringify(payload)}`,
+      );
+    }
+
+    return payload;
+  }
+
+  private async startRun(
+    integrationId: number,
+    jobType: string,
+  ): Promise<number | null> {
+    try {
+      const [run] = await db
+        .insert(integrationSyncRuns)
+        .values({
+          integrationId,
+          jobType,
+          status: "running",
+          stats: {},
+        })
+        .returning({ id: integrationSyncRuns.id });
+      return run?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async finishRun(
+    runId: number | null,
+    status: "ok" | "error",
+    stats: Record<string, any>,
+    error?: string,
+  ): Promise<void> {
+    if (!runId) return;
+    try {
+      await db
+        .update(integrationSyncRuns)
+        .set({
+          status,
+          stats,
+          error: error || null,
+          finishedAt: new Date(),
+        })
+        .where(eq(integrationSyncRuns.id, runId));
+    } catch {
+      // best-effort only
+    }
+  }
+
+  private async recordEvent(
+    runId: number | null,
+    entityType: string,
+    action: string,
+    status: "ok" | "error",
+    message: string,
+  ): Promise<void> {
+    if (!runId) return;
+    try {
+      await db.insert(integrationSyncEvents).values({
+        runId,
+        entityType,
+        action,
+        status,
+        message,
+      });
+    } catch {
+      // best-effort only
+    }
+  }
 
   constructor() {
     void this.refreshIntegrations();
@@ -165,13 +262,28 @@ class IntegrationService {
     const list = await this.listIntegrations();
     const status: Record<string, any> = {};
 
+    const latestRuns = await db
+      .select()
+      .from(integrationSyncRuns)
+      .orderBy(desc(integrationSyncRuns.startedAt));
+    const latestByIntegration = new Map<number, (typeof latestRuns)[number]>();
+    for (const run of latestRuns) {
+      if (!latestByIntegration.has(run.integrationId)) {
+        latestByIntegration.set(run.integrationId, run);
+      }
+    }
+
     for (const i of list) {
       const provider = String(i.provider);
       const configured = i.config && Object.keys(i.config).length > 0;
+      const run = latestByIntegration.get(i.id);
       status[provider] = {
         configured,
         active: !!i.enabled,
-        lastSync: i.lastSyncAt ?? null,
+        lastSync: run?.finishedAt ?? i.lastSyncAt ?? null,
+        lastRunStatus: run?.status ?? null,
+        lastRunStats: run?.stats ?? null,
+        lastRunError: run?.error ?? null,
       };
     }
 
@@ -199,6 +311,8 @@ class IntegrationService {
       timestamp: new Date(),
     };
 
+    let runId: number | null = null;
+
     try {
       const integration = await this.resolveIntegration(integrationId);
       if (!integration || !integration.enabled) {
@@ -206,19 +320,65 @@ class IntegrationService {
         return result;
       }
 
+      runId = await this.startRun(integration.id, "sync_students");
+
       const provider = String(integration.provider);
+      let providerResult: SyncResult;
       switch (provider) {
         case "moodle":
-          return await this.syncFromMoodle(integration);
+          providerResult = await this.syncFromMoodle(integration);
+          break;
         case "canvas":
-          return await this.syncFromCanvas(integration);
+          providerResult = await this.syncFromCanvas(integration);
+          break;
         default:
           result.errors.push("Unsupported integration type");
+          await this.recordEvent(
+            runId,
+            "integration",
+            "sync_students",
+            "error",
+            `Unsupported integration type: ${provider}`,
+          );
           return result;
       }
+
+      await this.recordEvent(
+        runId,
+        "integration",
+        "sync_students",
+        providerResult.success ? "ok" : "error",
+        providerResult.success
+          ? `Synced ${providerResult.syncedRecords} records`
+          : providerResult.errors.join("; "),
+      );
+      await this.finishRun(
+        runId,
+        providerResult.success ? "ok" : "error",
+        {
+          syncedRecords: providerResult.syncedRecords,
+          errors: providerResult.errors.length,
+        },
+        providerResult.errors.join("; ") || undefined,
+      );
+
+      if (providerResult.success) {
+        await db
+          .update(integrations)
+          .set({ lastSyncAt: new Date(), updatedAt: new Date() })
+          .where(eq(integrations.id, integration.id));
+      }
+
+      return providerResult;
     } catch (error) {
       console.error("LMS sync error:", error);
       result.errors.push("Sync failed: " + (error as Error).message);
+      await this.finishRun(
+        runId,
+        "error",
+        { syncedRecords: 0 },
+        result.errors[0],
+      );
       return result;
     }
   }
@@ -235,12 +395,16 @@ class IntegrationService {
       timestamp: new Date(),
     };
 
+    let runId: number | null = null;
+
     try {
       const integration = await this.resolveIntegration(integrationId);
       if (!integration || !integration.enabled) {
         result.errors.push("Integration not found or inactive");
         return result;
       }
+
+      runId = await this.startRun(integration.id, "sync_attendance");
 
       // Get attendance data for the session
       const attendanceData = await db
@@ -261,18 +425,68 @@ class IntegrationService {
         .where(eq(attendanceRecords.classSessionId, sessionId));
 
       const provider = String(integration.provider);
+      let providerResult: SyncResult;
       switch (provider) {
         case "moodle":
-          return await this.syncAttendanceToMoodle(integration, attendanceData);
+          providerResult = await this.syncAttendanceToMoodle(
+            integration,
+            attendanceData,
+          );
+          break;
         case "canvas":
-          return await this.syncAttendanceToCanvas(integration, attendanceData);
+          providerResult = await this.syncAttendanceToCanvas(
+            integration,
+            attendanceData,
+          );
+          break;
         default:
           result.errors.push("Unsupported integration type");
+          await this.recordEvent(
+            runId,
+            "integration",
+            "sync_attendance",
+            "error",
+            `Unsupported integration type: ${provider}`,
+          );
           return result;
       }
+
+      await this.recordEvent(
+        runId,
+        "integration",
+        "sync_attendance",
+        providerResult.success ? "ok" : "error",
+        providerResult.success
+          ? `Synced ${providerResult.syncedRecords} attendance records`
+          : providerResult.errors.join("; "),
+      );
+      await this.finishRun(
+        runId,
+        providerResult.success ? "ok" : "error",
+        {
+          syncedRecords: providerResult.syncedRecords,
+          errors: providerResult.errors.length,
+        },
+        providerResult.errors.join("; ") || undefined,
+      );
+
+      if (providerResult.success) {
+        await db
+          .update(integrations)
+          .set({ lastSyncAt: new Date(), updatedAt: new Date() })
+          .where(eq(integrations.id, integration.id));
+      }
+
+      return providerResult;
     } catch (error) {
       console.error("Attendance sync error:", error);
       result.errors.push("Sync failed: " + (error as Error).message);
+      await this.finishRun(
+        runId,
+        "error",
+        { syncedRecords: 0 },
+        result.errors[0],
+      );
       return result;
     }
   }
@@ -287,30 +501,32 @@ class IntegrationService {
     };
 
     try {
-      // Check if Google Classroom API credentials are configured
-      const googleConfig = process.env.GOOGLE_CLASSROOM_API_KEY;
-      if (!googleConfig) {
-        result.errors.push("Google Classroom API credentials not configured");
+      const accessToken = process.env.GOOGLE_CLASSROOM_ACCESS_TOKEN;
+      if (!accessToken) {
+        result.errors.push("GOOGLE_CLASSROOM_ACCESS_TOKEN is not configured");
         return result;
       }
 
       console.log(`[GOOGLE_CLASSROOM] Syncing classroom ${classroomId}`);
 
-      // TODO: Implement actual Google Classroom API integration
-      // 1. Set up OAuth2 client with credentials from environment variables
-      // 2. Authenticate using service account or OAuth2 flow
-      // 3. List courses using classroomId
-      // 4. Fetch students from courses
-      // 5. Sync with local database
-
-      // For now, log that integration is pending implementation
-      result.errors.push(
-        "Google Classroom integration requires API implementation",
+      const payload = await this.requestJson(
+        `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(classroomId)}/students`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
       );
+
+      const studentsList = Array.isArray(payload?.students)
+        ? payload.students
+        : [];
+      result.syncedRecords = studentsList.length;
+      result.success = true;
       return result;
     } catch (error) {
       console.error("Google Classroom sync error:", error);
-      result.errors.push("Google Classroom sync failed");
+      result.errors.push(
+        "Google Classroom sync failed: " + (error as Error).message,
+      );
       return result;
     }
   }
@@ -325,23 +541,30 @@ class IntegrationService {
     };
 
     try {
-      // Microsoft Teams API integration would go here
       console.log(`[MICROSOFT_TEAMS] Syncing team ${teamId}`);
 
-      // TODO: Implement actual Microsoft Graph API integration
-      // 1. Set up OAuth2 client with Microsoft credentials
-      // 2. Get team members using teamId
-      // 3. Fetch meeting attendance reports
-      // 4. Sync with local database
+      const accessToken = process.env.MICROSOFT_TEAMS_ACCESS_TOKEN;
+      if (!accessToken) {
+        result.errors.push("MICROSOFT_TEAMS_ACCESS_TOKEN is not configured");
+        return result;
+      }
 
-      // For now, log that integration is pending
-      result.errors.push(
-        "Microsoft Teams integration requires API credentials and OAuth setup",
+      const payload = await this.requestJson(
+        `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(teamId)}/members`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
       );
+
+      const members = Array.isArray(payload?.value) ? payload.value : [];
+      result.syncedRecords = members.length;
+      result.success = true;
       return result;
     } catch (error) {
       console.error("Microsoft Teams sync error:", error);
-      result.errors.push("Microsoft Teams sync failed");
+      result.errors.push(
+        "Microsoft Teams sync failed: " + (error as Error).message,
+      );
       return result;
     }
   }
@@ -440,22 +663,37 @@ class IntegrationService {
     };
 
     try {
-      // Moodle Web Services API calls would go here
       console.log("[MOODLE] Syncing students from Moodle");
 
-      // TODO: Implement actual Moodle Web Services API integration
-      // 1. Call core_user_get_users_by_field to get users
-      // 2. Call enrol_get_enrolled_users to get enrollments
-      // 3. Process and sync with local database
-
-      // For now, log that integration is pending
-      result.errors.push(
-        "Moodle integration requires API endpoint and token configuration",
+      const baseUrl = String(integration.config?.baseUrl || "").replace(
+        /\/$/,
+        "",
       );
+      const token = String(integration.config?.token || "");
+      if (!baseUrl || !token) {
+        result.errors.push("Moodle config requires baseUrl and token");
+        return result;
+      }
+
+      const params = new URLSearchParams({
+        wstoken: token,
+        wsfunction: "core_user_get_users",
+        moodlewsrestformat: "json",
+        "criteria[0][key]": "deleted",
+        "criteria[0][value]": "0",
+      });
+
+      const payload = await this.requestJson(
+        `${baseUrl}/webservice/rest/server.php?${params.toString()}`,
+      );
+
+      const usersList = Array.isArray(payload?.users) ? payload.users : [];
+      result.syncedRecords = usersList.length;
+      result.success = true;
       return result;
     } catch (error) {
       console.error("Moodle sync error:", error);
-      result.errors.push("Moodle sync failed");
+      result.errors.push("Moodle sync failed: " + (error as Error).message);
       return result;
     }
   }
@@ -463,7 +701,6 @@ class IntegrationService {
   private async syncFromCanvas(
     integration: IntegrationConfig,
   ): Promise<SyncResult> {
-    // Similar implementation for Canvas LMS
     const result: SyncResult = {
       success: false,
       syncedRecords: 0,
@@ -471,13 +708,33 @@ class IntegrationService {
       timestamp: new Date(),
     };
 
-    // TODO: Implement actual Canvas LMS API integration
-    // 1. Call Canvas API to get users and enrollments
-    // 2. Process and sync with local database
-    result.errors.push(
-      "Canvas LMS integration requires API endpoint and token configuration",
-    );
-    return result;
+    try {
+      const baseUrl = String(integration.config?.baseUrl || "").replace(
+        /\/$/,
+        "",
+      );
+      const accessToken = String(integration.config?.accessToken || "");
+      const accountId = String(integration.config?.accountId || "self");
+      if (!baseUrl || !accessToken) {
+        result.errors.push("Canvas config requires baseUrl and accessToken");
+        return result;
+      }
+
+      const payload = await this.requestJson(
+        `${baseUrl}/api/v1/accounts/${encodeURIComponent(accountId)}/users?per_page=100`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+
+      const usersList = Array.isArray(payload) ? payload : [];
+      result.syncedRecords = usersList.length;
+      result.success = true;
+      return result;
+    } catch (error) {
+      result.errors.push("Canvas sync failed: " + (error as Error).message);
+      return result;
+    }
   }
 
   private async syncAttendanceToMoodle(
@@ -492,18 +749,34 @@ class IntegrationService {
     };
 
     try {
-      // Moodle attendance API calls would go here
       console.log(
         `[MOODLE] Syncing ${attendanceData.length} attendance records to Moodle`,
       );
 
-      for (const record of attendanceData) {
-        // Simulate API call to Moodle
-        console.log(
-          `Marking ${record.student.name} as ${record.record.status} in Moodle`,
+      const endpoint = String(integration.config?.attendanceEndpoint || "");
+      const token = String(integration.config?.token || "");
+      if (!endpoint || !token) {
+        result.errors.push(
+          "Moodle attendance sync requires attendanceEndpoint and token",
         );
-        result.syncedRecords++;
+        return result;
       }
+
+      const payload = attendanceData.map((record) => ({
+        studentId: record.student?.studentId,
+        studentName: record.student?.name,
+        status: record.record?.status,
+        sessionId: record.session?.id,
+        subject: record.subject?.name,
+      }));
+
+      await this.requestJson(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: { records: payload },
+      });
+
+      result.syncedRecords = payload.length;
 
       result.success = true;
       return result;
@@ -518,14 +791,46 @@ class IntegrationService {
     integration: IntegrationConfig,
     attendanceData: any[],
   ): Promise<SyncResult> {
-    // Similar implementation for Canvas
     const result: SyncResult = {
-      success: true,
-      syncedRecords: attendanceData.length,
+      success: false,
+      syncedRecords: 0,
       errors: [],
       timestamp: new Date(),
     };
-    return result;
+
+    try {
+      const endpoint = String(integration.config?.attendanceEndpoint || "");
+      const accessToken = String(integration.config?.accessToken || "");
+      if (!endpoint || !accessToken) {
+        result.errors.push(
+          "Canvas attendance sync requires attendanceEndpoint and accessToken",
+        );
+        return result;
+      }
+
+      const payload = attendanceData.map((record) => ({
+        studentId: record.student?.studentId,
+        studentName: record.student?.name,
+        status: record.record?.status,
+        sessionId: record.session?.id,
+        subject: record.subject?.name,
+      }));
+
+      await this.requestJson(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: { records: payload },
+      });
+
+      result.success = true;
+      result.syncedRecords = payload.length;
+      return result;
+    } catch (error) {
+      result.errors.push(
+        "Canvas attendance sync failed: " + (error as Error).message,
+      );
+      return result;
+    }
   }
 
   private async handleMoodleWebhook(

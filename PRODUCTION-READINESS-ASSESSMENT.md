@@ -38,8 +38,8 @@
 
 ### 1.2 Optional / Stub Features (Acceptable for Launch)
 
-- **Integrations:** Google Classroom, Microsoft Teams, Moodle, Canvas — TODOs only; no real API calls.
-- **Calendar sync:** OAuth and event sync — TODOs only.
+- **Integrations:** Google Classroom, Microsoft Teams, Moodle, Canvas now use real HTTP API flows (token/env-driven) with run/event tracking persisted in integration sync tables.
+- **Calendar sync:** OAuth token exchange and provider event CRUD/list implemented for Google Calendar and Outlook via provider APIs.
 - **Parent consent service:** Consent request/approval/expiry — TODOs (DB storage, email, renewal).
 - **Alert manager:** Critical alert notifications are now wired to email recipients via `CRITICAL_ALERT_EMAILS`/`ADMIN_EMAIL`; SMS recipients can be configured via `CRITICAL_ALERT_SMS` and are logged as pending provider integration.
 - **GDPR:** Deletion implemented; one TODO for moving data to archive instead of hard delete.

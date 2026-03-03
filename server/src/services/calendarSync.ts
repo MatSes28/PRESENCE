@@ -7,6 +7,7 @@ import {
   classSessions,
 } from "../schema.js";
 import { eq, and, gte, lte } from "drizzle-orm";
+import { getEnv, requireEnv } from "../config/env.js";
 
 interface CalendarEvent {
   id: string;
@@ -40,6 +41,71 @@ interface SyncResult {
 class CalendarSyncService {
   private configs = new Map<string, CalendarConfig>();
 
+  private async requestJson(
+    url: string,
+    options: {
+      method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+      headers?: Record<string, string>;
+      body?: unknown;
+      allow404?: boolean;
+    } = {},
+  ): Promise<any> {
+    const response = await fetch(url, {
+      method: options.method || "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+
+    if (options.allow404 && response.status === 404) {
+      return null;
+    }
+
+    const text = await response.text();
+    let payload: any = null;
+    try {
+      payload = text ? JSON.parse(text) : null;
+    } catch {
+      payload = text;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status} ${response.statusText} - ${typeof payload === "string" ? payload : JSON.stringify(payload)}`,
+      );
+    }
+
+    return payload;
+  }
+
+  private async requestForm(url: string, body: URLSearchParams): Promise<any> {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
+    });
+
+    const text = await response.text();
+    let payload: any = null;
+    try {
+      payload = text ? JSON.parse(text) : null;
+    } catch {
+      payload = text;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status} ${response.statusText} - ${typeof payload === "string" ? payload : JSON.stringify(payload)}`,
+      );
+    }
+
+    return payload;
+  }
+
   // Configure calendar integration
   setCalendarConfig(userId: string, config: CalendarConfig): void {
     this.configs.set(userId, config);
@@ -53,7 +119,7 @@ class CalendarSyncService {
   async syncSchedulesToCalendar(
     userId: string,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
   ): Promise<SyncResult> {
     const config = this.getCalendarConfig(userId);
     if (!config) {
@@ -72,7 +138,7 @@ class CalendarSyncService {
       const schedulesData = await this.getUserSchedules(
         userId,
         startDate,
-        endDate
+        endDate,
       );
 
       // Convert schedules to calendar events
@@ -81,7 +147,7 @@ class CalendarSyncService {
       // Sync with external calendar
       const syncResult = await this.syncWithExternalCalendar(
         config,
-        calendarEvents
+        calendarEvents,
       );
 
       result.created = syncResult.created;
@@ -98,7 +164,7 @@ class CalendarSyncService {
   async syncCalendarToSchedules(
     userId: string,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
   ): Promise<SyncResult> {
     const config = this.getCalendarConfig(userId);
     if (!config) {
@@ -117,13 +183,13 @@ class CalendarSyncService {
       const externalEvents = await this.getExternalCalendarEvents(
         config,
         startDate,
-        endDate
+        endDate,
       );
 
       // Convert calendar events to schedules
       const schedulesData = await this.convertEventsToSchedules(
         externalEvents,
-        userId
+        userId,
       );
 
       // Save/update schedules in database
@@ -156,7 +222,7 @@ class CalendarSyncService {
   private async getUserSchedules(
     userId: string,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
   ): Promise<any[]> {
     return await db
       .select({
@@ -173,14 +239,14 @@ class CalendarSyncService {
         and(
           eq(schedules.facultyId, parseInt(userId)),
           gte(schedules.createdAt, startDate),
-          lte(schedules.createdAt, endDate)
-        )
+          lte(schedules.createdAt, endDate),
+        ),
       );
   }
 
   // Convert schedules to calendar events
   private async convertSchedulesToEvents(
-    schedulesData: any[]
+    schedulesData: any[],
   ): Promise<CalendarEvent[]> {
     const events: CalendarEvent[] = [];
 
@@ -194,8 +260,8 @@ class CalendarSyncService {
         .where(
           and(
             eq(classSessions.scheduleId, schedule.id),
-            gte(classSessions.date, new Date())
-          )
+            gte(classSessions.date, new Date()),
+          ),
         )
         .limit(10); // Next 10 sessions
 
@@ -232,7 +298,7 @@ class CalendarSyncService {
   // Sync events with external calendar
   private async syncWithExternalCalendar(
     config: CalendarConfig,
-    events: CalendarEvent[]
+    events: CalendarEvent[],
   ): Promise<SyncResult> {
     const result: SyncResult = {
       created: 0,
@@ -254,7 +320,7 @@ class CalendarSyncService {
   // Google Calendar integration
   private async syncWithGoogleCalendar(
     config: CalendarConfig,
-    events: CalendarEvent[]
+    events: CalendarEvent[],
   ): Promise<SyncResult> {
     const result: SyncResult = {
       created: 0,
@@ -278,7 +344,7 @@ class CalendarSyncService {
           // Check if event exists
           const exists = await this.checkGoogleEventExists(
             config,
-            event.externalId
+            event.externalId,
           );
 
           if (exists) {
@@ -290,7 +356,7 @@ class CalendarSyncService {
           }
         } catch (error) {
           result.errors.push(
-            `Failed to sync event ${event.id}: ${error.message}`
+            `Failed to sync event ${event.id}: ${error.message}`,
           );
         }
       }
@@ -304,7 +370,7 @@ class CalendarSyncService {
   // Outlook Calendar integration
   private async syncWithOutlookCalendar(
     config: CalendarConfig,
-    events: CalendarEvent[]
+    events: CalendarEvent[],
   ): Promise<SyncResult> {
     const result: SyncResult = {
       created: 0,
@@ -326,7 +392,7 @@ class CalendarSyncService {
 
           const exists = await this.checkOutlookEventExists(
             config,
-            event.externalId
+            event.externalId,
           );
 
           if (exists) {
@@ -338,7 +404,7 @@ class CalendarSyncService {
           }
         } catch (error) {
           result.errors.push(
-            `Failed to sync event ${event.id}: ${error.message}`
+            `Failed to sync event ${event.id}: ${error.message}`,
           );
         }
       }
@@ -353,7 +419,7 @@ class CalendarSyncService {
   private async getExternalCalendarEvents(
     config: CalendarConfig,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
   ): Promise<any[]> {
     if (config.provider === "google") {
       return await this.getGoogleCalendarEvents(config, startDate, endDate);
@@ -367,7 +433,7 @@ class CalendarSyncService {
   // Convert calendar events to schedules
   private async convertEventsToSchedules(
     events: any[],
-    userId: string
+    userId: string,
   ): Promise<any[]> {
     const schedules = [];
 
@@ -397,84 +463,203 @@ class CalendarSyncService {
   // Helper methods for Google Calendar
   private async checkGoogleEventExists(
     config: CalendarConfig,
-    externalId?: string
+    externalId?: string,
   ): Promise<boolean> {
-    // In production, this would call Google Calendar API
-    // For now, return false to always create new events
-    console.log(`[GOOGLE_CALENDAR] Checking if event exists: ${externalId}`);
-    return false;
+    if (!externalId) return false;
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(config.calendarId)}/events/${encodeURIComponent(externalId)}`;
+    const found = await this.requestJson(url, {
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+      },
+      allow404: true,
+    });
+    return !!found;
   }
 
   private async createGoogleEvent(
     config: CalendarConfig,
-    event: CalendarEvent
+    event: CalendarEvent,
   ): Promise<void> {
-    // In production, this would call Google Calendar API
     console.log(`[GOOGLE_CALENDAR] Creating event: ${event.title}`);
-    // TODO: Implement actual API call
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(config.calendarId)}/events`;
+    await this.requestJson(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+      },
+      body: {
+        id: event.externalId || undefined,
+        summary: event.title,
+        description: event.description,
+        location: event.location,
+        start: { dateTime: event.startTime.toISOString() },
+        end: { dateTime: event.endTime.toISOString() },
+      },
+    });
   }
 
   private async updateGoogleEvent(
     config: CalendarConfig,
-    event: CalendarEvent
+    event: CalendarEvent,
   ): Promise<void> {
-    // In production, this would call Google Calendar API
+    if (!event.externalId) {
+      throw new Error("Google event update requires externalId");
+    }
     console.log(`[GOOGLE_CALENDAR] Updating event: ${event.title}`);
-    // TODO: Implement actual API call
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(config.calendarId)}/events/${encodeURIComponent(event.externalId)}`;
+    await this.requestJson(url, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+      },
+      body: {
+        summary: event.title,
+        description: event.description,
+        location: event.location,
+        start: { dateTime: event.startTime.toISOString() },
+        end: { dateTime: event.endTime.toISOString() },
+      },
+    });
   }
 
   private async getGoogleCalendarEvents(
     config: CalendarConfig,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
   ): Promise<any[]> {
-    // In production, this would call Google Calendar API
     console.log(
-      `[GOOGLE_CALENDAR] Fetching events from ${startDate} to ${endDate}`
+      `[GOOGLE_CALENDAR] Fetching events from ${startDate} to ${endDate}`,
     );
-    // TODO: Implement actual API call to list events
-    return [];
+    const url =
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(config.calendarId)}/events` +
+      `?timeMin=${encodeURIComponent(startDate.toISOString())}` +
+      `&timeMax=${encodeURIComponent(endDate.toISOString())}` +
+      `&singleEvents=true&orderBy=startTime`;
+    const payload = await this.requestJson(url, {
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+      },
+    });
+
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    return items.map((item: any) => ({
+      id: item.id,
+      title: item.summary,
+      description: item.description,
+      startTime: new Date(item.start?.dateTime || item.start?.date),
+      endTime: new Date(item.end?.dateTime || item.end?.date),
+      location: item.location || "",
+    }));
   }
 
   // Helper methods for Outlook Calendar
   private async checkOutlookEventExists(
     config: CalendarConfig,
-    externalId?: string
+    externalId?: string,
   ): Promise<boolean> {
-    // In production, this would call Microsoft Graph API
-    console.log(`[OUTLOOK_CALENDAR] Checking if event exists: ${externalId}`);
-    return false;
+    if (!externalId) return false;
+    const url = `https://graph.microsoft.com/v1.0/me/events/${encodeURIComponent(externalId)}`;
+    const found = await this.requestJson(url, {
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+      },
+      allow404: true,
+    });
+    return !!found;
   }
 
   private async createOutlookEvent(
     config: CalendarConfig,
-    event: CalendarEvent
+    event: CalendarEvent,
   ): Promise<void> {
-    // In production, this would call Microsoft Graph API
     console.log(`[OUTLOOK_CALENDAR] Creating event: ${event.title}`);
-    // TODO: Implement actual API call
+    await this.requestJson("https://graph.microsoft.com/v1.0/me/events", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+      },
+      body: {
+        subject: event.title,
+        body: {
+          contentType: "Text",
+          content: event.description,
+        },
+        start: {
+          dateTime: event.startTime.toISOString(),
+          timeZone: "UTC",
+        },
+        end: {
+          dateTime: event.endTime.toISOString(),
+          timeZone: "UTC",
+        },
+        location: {
+          displayName: event.location,
+        },
+      },
+    });
   }
 
   private async updateOutlookEvent(
     config: CalendarConfig,
-    event: CalendarEvent
+    event: CalendarEvent,
   ): Promise<void> {
-    // In production, this would call Microsoft Graph API
+    if (!event.externalId) {
+      throw new Error("Outlook event update requires externalId");
+    }
     console.log(`[OUTLOOK_CALENDAR] Updating event: ${event.title}`);
-    // TODO: Implement actual API call
+    const url = `https://graph.microsoft.com/v1.0/me/events/${encodeURIComponent(event.externalId)}`;
+    await this.requestJson(url, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+      },
+      body: {
+        subject: event.title,
+        body: {
+          contentType: "Text",
+          content: event.description,
+        },
+        start: {
+          dateTime: event.startTime.toISOString(),
+          timeZone: "UTC",
+        },
+        end: {
+          dateTime: event.endTime.toISOString(),
+          timeZone: "UTC",
+        },
+        location: {
+          displayName: event.location,
+        },
+      },
+    });
   }
 
   private async getOutlookCalendarEvents(
     config: CalendarConfig,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
   ): Promise<any[]> {
-    // In production, this would call Microsoft Graph API
     console.log(
-      `[OUTLOOK_CALENDAR] Fetching events from ${startDate} to ${endDate}`
+      `[OUTLOOK_CALENDAR] Fetching events from ${startDate} to ${endDate}`,
     );
-    // TODO: Implement actual API call to list events
-    return [];
+    const url =
+      `https://graph.microsoft.com/v1.0/me/calendarView` +
+      `?startDateTime=${encodeURIComponent(startDate.toISOString())}` +
+      `&endDateTime=${encodeURIComponent(endDate.toISOString())}`;
+    const payload = await this.requestJson(url, {
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+      },
+    });
+    const items = Array.isArray(payload?.value) ? payload.value : [];
+    return items.map((item: any) => ({
+      id: item.id,
+      title: item.subject,
+      description: item.bodyPreview || "",
+      startTime: new Date(item.start?.dateTime),
+      endTime: new Date(item.end?.dateTime),
+      location: item.location?.displayName || "",
+    }));
   }
 
   // Utility methods
@@ -555,7 +740,7 @@ class CalendarSyncService {
   // Get OAuth authorization URL
   getAuthorizationUrl(
     provider: "google" | "outlook",
-    redirectUri: string
+    redirectUri: string,
   ): string {
     const scopes = [
       "https://www.googleapis.com/auth/calendar.events", // Google
@@ -588,25 +773,46 @@ class CalendarSyncService {
   async handleOAuthCallback(
     provider: "google" | "outlook",
     code: string,
-    redirectUri: string
+    redirectUri: string,
   ): Promise<{ accessToken: string; refreshToken?: string }> {
-    // In a real implementation, exchange code for tokens with OAuth provider
-    // For now, log the callback for debugging
     console.log(`[CALENDAR] OAuth callback received for ${provider}`);
 
-    // TODO: Implement actual OAuth token exchange
-    // For Google:
-    // 1. Exchange code for tokens using https://oauth2.googleapis.com/token
-    // 2. Store refresh token securely
-    //
-    // For Microsoft:
-    // 1. Exchange code for tokens using https://login.microsoftonline.com/common/oauth2/v2.0/token
-    // 2. Store refresh token securely
+    if (provider === "google") {
+      const payload = await this.requestForm(
+        "https://oauth2.googleapis.com/token",
+        new URLSearchParams({
+          code,
+          client_id: requireEnv("GOOGLE_CLIENT_ID"),
+          client_secret: requireEnv("GOOGLE_CLIENT_SECRET"),
+          redirect_uri: redirectUri,
+          grant_type: "authorization_code",
+        }),
+      );
+      return {
+        accessToken: String(payload?.access_token || ""),
+        refreshToken: payload?.refresh_token
+          ? String(payload.refresh_token)
+          : undefined,
+      };
+    }
 
-    // Return placeholder until OAuth is properly implemented
+    const tenantId = getEnv("OUTLOOK_TENANT_ID") || "common";
+    const payload = await this.requestForm(
+      `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+      new URLSearchParams({
+        code,
+        client_id: requireEnv("OUTLOOK_CLIENT_ID"),
+        client_secret: requireEnv("OUTLOOK_CLIENT_SECRET"),
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    );
+
     return {
-      accessToken: "pending_token_exchange",
-      refreshToken: "pending_refresh_token",
+      accessToken: String(payload?.access_token || ""),
+      refreshToken: payload?.refresh_token
+        ? String(payload.refresh_token)
+        : undefined,
     };
   }
 }
