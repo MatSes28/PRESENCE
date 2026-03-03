@@ -151,6 +151,28 @@ export const attendanceRecords = pgTable(
   }),
 );
 
+// Attendance Records Archive table (for GDPR/data-retention archival workflows)
+export const attendanceRecordsArchive = pgTable("attendance_records_archive", {
+  id: serial("id").primaryKey(),
+  originalRecordId: integer("original_record_id").notNull(),
+  studentId: integer("student_id"),
+  classSessionId: integer("class_session_id"),
+  entryTime: timestamp("entry_time"),
+  exitTime: timestamp("exit_time"),
+  status: varchar("status", { length: 20 }),
+  rfidDetected: boolean("rfid_detected").default(false).notNull(),
+  sensorDetected: boolean("sensor_detected").default(false).notNull(),
+  isValid: boolean("is_valid").default(false).notNull(),
+  discrepancyFlag: boolean("discrepancy_flag").default(false).notNull(),
+  notes: text("notes"),
+  originalCreatedAt: timestamp("original_created_at"),
+  originalUpdatedAt: timestamp("original_updated_at"),
+  archivedAt: timestamp("archived_at").defaultNow().notNull(),
+  archiveReason: varchar("archive_reason", { length: 100 })
+    .default("retention")
+    .notNull(),
+});
+
 // Computers table (for lab management)
 export const computers = pgTable("computers", {
   id: serial("id").primaryKey(),
@@ -438,6 +460,47 @@ export const gdprConsents = pgTable("gdpr_consents", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at"),
   revokedAt: timestamp("revoked_at"),
+});
+
+export const parentConsentRequests = pgTable("parent_consent_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  studentId: integer("student_id")
+    .references(() => students.id, { onDelete: "cascade" })
+    .notNull(),
+  parentEmail: varchar("parent_email", { length: 255 }).notNull(),
+  consentType: varchar("consent_type", { length: 64 }).notNull(),
+  requestDate: timestamp("request_date").defaultNow().notNull(),
+  status: varchar("status", { length: 16 }).notNull().default("pending"),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  requestedBy: integer("requested_by").references(() => users.id),
+  processedAt: timestamp("processed_at"),
+  processedIpAddress: varchar("processed_ip_address", { length: 45 }),
+  processedUserAgent: text("processed_user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const parentConsents = pgTable("parent_consents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  requestId: uuid("request_id").references(() => parentConsentRequests.id, {
+    onDelete: "set null",
+  }),
+  studentId: integer("student_id")
+    .references(() => students.id, { onDelete: "cascade" })
+    .notNull(),
+  parentEmail: varchar("parent_email", { length: 255 }).notNull(),
+  consentType: varchar("consent_type", { length: 64 }).notNull(),
+  consented: boolean("consented").notNull(),
+  consentDate: timestamp("consent_date").defaultNow().notNull(),
+  consentVersion: varchar("consent_version", { length: 32 }).notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(),
+  userAgent: text("user_agent"),
+  expiresAt: timestamp("expires_at"),
+  revokedAt: timestamp("revoked_at"),
+  metadata: jsonb("metadata").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const dataSubjectRequests = pgTable("data_subject_requests", {
@@ -835,6 +898,11 @@ export type NewClassSession = typeof classSessions.$inferInsert;
 export type AttendanceRecord = typeof attendanceRecords.$inferSelect;
 export type NewAttendanceRecord = typeof attendanceRecords.$inferInsert;
 
+export type AttendanceRecordArchive =
+  typeof attendanceRecordsArchive.$inferSelect;
+export type NewAttendanceRecordArchive =
+  typeof attendanceRecordsArchive.$inferInsert;
+
 export type Computer = typeof computers.$inferSelect;
 export type NewComputer = typeof computers.$inferInsert;
 
@@ -876,6 +944,12 @@ export type NewSystemSetting = typeof systemSettings.$inferInsert;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
+
+export type ParentConsentRequest = typeof parentConsentRequests.$inferSelect;
+export type NewParentConsentRequest = typeof parentConsentRequests.$inferInsert;
+
+export type ParentConsentRecord = typeof parentConsents.$inferSelect;
+export type NewParentConsentRecord = typeof parentConsents.$inferInsert;
 
 // Report History table - For tracking generated reports
 export const reportHistory = pgTable("report_history", {

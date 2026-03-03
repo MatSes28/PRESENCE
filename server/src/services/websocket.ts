@@ -4,6 +4,7 @@ import db from "../storage.js";
 import { iotDevices } from "../schema.js";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { cacheService } from "./cacheService.js";
 
 interface WebSocketClient extends WebSocket {
   deviceId?: string;
@@ -212,6 +213,29 @@ function checkReplay(deviceId: string, tsMs: number, nonce: string) {
   }
 }
 
+async function checkReplayPersisted(
+  deviceId: string,
+  tsMs: number,
+  nonce: string,
+) {
+  if (!cacheService.available()) return;
+
+  const WINDOW_MS = 2 * 60 * 1000;
+  const lastTs = await cacheService.getDeviceLastTimestamp(deviceId);
+  if (lastTs !== null && tsMs + WINDOW_MS < lastTs) {
+    throw new Error("timestamp_replay");
+  }
+
+  const acquired = await cacheService.acquireDeviceNonce({
+    deviceId,
+    nonce,
+    ttlSeconds: 10 * 60,
+  });
+  if (!acquired) {
+    throw new Error("nonce_replay");
+  }
+}
+
 function markSeen(deviceId: string, tsMs: number, nonce: string) {
   const NONCE_TTL_MS = 10 * 60 * 1000; // keep nonces for 10 minutes
   const now = Date.now();
@@ -235,11 +259,16 @@ function markSeen(deviceId: string, tsMs: number, nonce: string) {
   deviceNonces.set(nonce, now);
 }
 
-function verifySignedDeviceEvent(
+async function markSeenPersisted(deviceId: string, tsMs: number) {
+  if (!cacheService.available()) return;
+  await cacheService.setDeviceLastTimestamp(deviceId, tsMs, 10 * 60);
+}
+
+async function verifySignedDeviceEvent(
   ws: WebSocketClient,
   message: WSMessage,
   deviceId: string,
-): void {
+): Promise<void> {
   // Only verify for device-originated attendance/security-sensitive events.
   const SIGNED_TYPES = new Set([
     "rfid_scan",
@@ -295,6 +324,7 @@ function verifySignedDeviceEvent(
 
   // Replay checks without side-effects; we only mark as seen after signature passes.
   checkReplay(deviceId, tsMs, nonce);
+  await checkReplayPersisted(deviceId, tsMs, nonce);
 
   // Signature: HMAC-SHA256 over a canonical string.
   // IMPORTANT: use canonical JSON for payload to avoid signature ambiguity.
@@ -316,6 +346,7 @@ function verifySignedDeviceEvent(
 
   // Signature valid => mark nonce/timestamp as seen.
   markSeen(deviceId, tsMs, nonce);
+  await markSeenPersisted(deviceId, tsMs);
 }
 
 export function setupWebSocket(wss: WebSocketServer) {
@@ -378,7 +409,7 @@ export function setupWebSocket(wss: WebSocketServer) {
       });
 
       // Handle incoming messages
-      ws.on("message", (data: Buffer) => {
+      ws.on("message", async (data: Buffer) => {
         let message: WSMessage;
 
         try {
@@ -409,7 +440,7 @@ export function setupWebSocket(wss: WebSocketServer) {
 
           try {
             // Phase 2: signed event envelopes + anti-replay.
-            verifySignedDeviceEvent(ws, message, deviceId);
+            await verifySignedDeviceEvent(ws, message, deviceId);
           } catch (err: any) {
             const reason = err?.message || "integrity_check_failed";
             console.warn(

@@ -3,6 +3,7 @@ import {
   students,
   users,
   attendanceRecords,
+  attendanceRecordsArchive,
   emailNotifications,
   userSessions,
   gdprConsents,
@@ -566,8 +567,28 @@ class GDPRService {
         `GDPR: Archiving ${oldRecords.length} old attendance records`,
       );
 
-      // TODO: Move to archive table instead of deleting
-      // For now, just log the action
+      await db.insert(attendanceRecordsArchive).values(
+        oldRecords.map((r) => ({
+          originalRecordId: r.id,
+          studentId: r.studentId,
+          classSessionId: r.classSessionId,
+          entryTime: r.entryTime,
+          exitTime: r.exitTime,
+          status: r.status,
+          rfidDetected: r.rfidDetected,
+          sensorDetected: r.sensorDetected,
+          isValid: r.isValid,
+          discrepancyFlag: r.discrepancyFlag,
+          notes: r.notes,
+          originalCreatedAt: r.createdAt,
+          originalUpdatedAt: r.updatedAt,
+          archiveReason: "retention",
+        })),
+      );
+
+      await db
+        .delete(attendanceRecords)
+        .where(lt(attendanceRecords.createdAt, cutoffDate));
     }
 
     // Clean up old notifications

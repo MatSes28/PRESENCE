@@ -40,9 +40,10 @@
 
 - **Integrations:** Google Classroom, Microsoft Teams, Moodle, Canvas now use real HTTP API flows (token/env-driven) with run/event tracking persisted in integration sync tables.
 - **Calendar sync:** OAuth token exchange and provider event CRUD/list implemented for Google Calendar and Outlook via provider APIs.
-- **Parent consent service:** Consent request/approval/expiry — TODOs (DB storage, email, renewal).
+- **Parent consent service:** Request, token processing, status/revocation, renewal reminders, and expiry cleanup are now persisted and operational.
 - **Alert manager:** Critical alert notifications are now wired to email recipients via `CRITICAL_ALERT_EMAILS`/`ADMIN_EMAIL`; SMS recipients can be configured via `CRITICAL_ALERT_SMS` and are logged as pending provider integration.
-- **GDPR:** Deletion implemented; one TODO for moving data to archive instead of hard delete.
+- **GDPR:** Retention now archives aged attendance records into `attendance_records_archive` before deletion.
+- **WebSocket anti-replay:** Signed event replay checks now persist nonce/timestamp state via cache service for cross-instance resilience.
 - **Auth audit trail:** Security events are now persisted to the audit log via `auditService.logEvent` from auth service.
 - **Attendance → email:** Parent contact endpoint now resolves/decrypts parent email and sends actual email via `emailService`.
 

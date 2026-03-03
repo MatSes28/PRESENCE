@@ -259,6 +259,40 @@ class CacheService {
     );
   }
 
+  async acquireDeviceNonce(params: {
+    deviceId: string;
+    nonce: string;
+    ttlSeconds: number;
+  }): Promise<boolean> {
+    return this.setIfNotExists(
+      `device_nonce:${params.deviceId}:${params.nonce}`,
+      String(Date.now()),
+      params.ttlSeconds,
+      "ws_replay:",
+    );
+  }
+
+  async getDeviceLastTimestamp(deviceId: string): Promise<number | null> {
+    const val = await this.get<string>(
+      `device_last_ts:${deviceId}`,
+      "ws_replay:",
+    );
+    if (!val) return null;
+    const parsed = Number(val);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  async setDeviceLastTimestamp(
+    deviceId: string,
+    timestampMs: number,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    return this.set(`device_last_ts:${deviceId}`, String(timestampMs), {
+      ttl: ttlSeconds,
+      keyPrefix: "ws_replay:",
+    });
+  }
+
   // Generic cache operations
   async set<T>(
     key: string,

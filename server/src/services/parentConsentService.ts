@@ -1,8 +1,10 @@
 import db from "../storage.js";
-import { students, users } from "../schema.js";
-import { eq, and } from "drizzle-orm";
+import { students, parentConsentRequests, parentConsents } from "../schema.js";
+import { eq, and, desc, lte, gt, isNull } from "drizzle-orm";
 import crypto from "crypto";
 import { gdprService } from "./gdprService.js";
+import { emailService } from "./emailService.js";
+import { encryptionService } from "./encryptionService.js";
 
 interface ParentConsent {
   id: string;
@@ -19,7 +21,7 @@ interface ParentConsent {
   ipAddress: string;
   userAgent: string;
   expiresAt?: Date;
-  consentToken: string; // For secure consent verification
+  consentToken: string;
 }
 
 interface ConsentRequest {
@@ -36,41 +38,48 @@ interface ConsentRequest {
 
 class ParentConsentService {
   private consentVersion = "1.0.0";
-  private consentValidityDays = 365; // 1 year
+  private consentValidityDays = 365;
 
-  // Generate secure consent token
+  private resolveParentEmail(student: any): string {
+    if (!student?.parentEmail) {
+      throw new Error("Parent email not available for this student");
+    }
+
+    try {
+      return encryptionService.decryptParentData(
+        student.parentEmail,
+        student.parentName || undefined,
+      ).email;
+    } catch {
+      return student.parentEmail;
+    }
+  }
+
   private generateConsentToken(): string {
     return crypto.randomBytes(32).toString("hex");
   }
 
-  // Request parent consent
   async requestParentConsent(
     studentId: number,
     consentType: ParentConsent["consentType"],
     requestedBy: number,
   ): Promise<string> {
-    // Get student and parent information
     const student = await db
       .select()
       .from(students)
       .where(eq(students.id, studentId))
       .limit(1);
 
-    if (student.length === 0) {
-      throw new Error("Student not found");
-    }
+    if (student.length === 0) throw new Error("Student not found");
 
-    if (!student[0].parentEmail) {
-      throw new Error("Parent email not available for this student");
-    }
-
+    const parentEmail = this.resolveParentEmail(student[0]);
     const token = this.generateConsentToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const consentRequest: ConsentRequest = {
       id: crypto.randomUUID(),
       studentId,
-      parentEmail: student[0].parentEmail,
+      parentEmail,
       consentType,
       requestDate: new Date(),
       status: "pending",
@@ -79,119 +88,256 @@ class ParentConsentService {
       requestedBy,
     };
 
-    // Log the consent request for GDPR compliance
+    await db.insert(parentConsentRequests).values({
+      id: consentRequest.id,
+      studentId: consentRequest.studentId,
+      parentEmail: consentRequest.parentEmail,
+      consentType: consentRequest.consentType,
+      requestDate: consentRequest.requestDate,
+      status: consentRequest.status,
+      token: consentRequest.token,
+      expiresAt: consentRequest.expiresAt,
+      requestedBy: consentRequest.requestedBy,
+      updatedAt: new Date(),
+    });
+
     await gdprService.logPrivacyEvent(
       studentId,
-      `parent_consent_requested`,
+      "parent_consent_requested",
       consentType,
       "system",
       "parent_consent_service",
       `Parent consent requested for ${consentType} by user ${requestedBy}`,
     );
 
-    console.log("Parent Consent Request Created:", consentRequest);
-
-    // Store in parent_consent_requests table (when implemented)
-    // For now, we'll log it and return the ID
-    // TODO: Implement database storage for consent requests
-    // TODO: Send email to parent with consent link
+    const frontend = process.env.FRONTEND_URL || "http://localhost:3000";
+    const consentLink = `${frontend}/consent?token=${token}`;
+    await emailService.sendEmail({
+      to: parentEmail,
+      subject: `Parent Consent Request: ${consentType}`,
+      htmlContent: `
+        <h2>Parent Consent Request</h2>
+        <p>Please review and submit your consent for <strong>${consentType}</strong>.</p>
+        <p>This link expires on ${expiresAt.toISOString()}.</p>
+        <p><a href="${consentLink}">Review Consent</a></p>
+      `,
+      textContent: `Parent Consent Request\nConsent type: ${consentType}\nLink: ${consentLink}`,
+    });
 
     return consentRequest.id;
   }
 
-  // Process parent consent (when parent clicks email link)
   async processParentConsent(
     token: string,
     consented: boolean,
     ipAddress: string,
     userAgent: string,
   ): Promise<boolean> {
-    // TODO: Find consent request by token from database
-    // For now, log the consent request for debugging
-    console.log("[GDPR] Processing consent request:", {
-      token,
+    const now = new Date();
+    const reqRow = await db
+      .select()
+      .from(parentConsentRequests)
+      .where(
+        and(
+          eq(parentConsentRequests.token, token),
+          eq(parentConsentRequests.status, "pending"),
+          gt(parentConsentRequests.expiresAt, now),
+        ),
+      )
+      .limit(1);
+
+    if (!reqRow.length) return false;
+
+    const request = reqRow[0];
+    await db.insert(parentConsents).values({
+      requestId: request.id,
+      studentId: request.studentId,
+      parentEmail: request.parentEmail,
+      consentType: request.consentType,
       consented,
+      consentDate: now,
+      consentVersion: this.consentVersion,
       ipAddress,
-      timestamp: new Date(),
+      userAgent,
+      expiresAt: consented
+        ? new Date(
+            now.getTime() + this.consentValidityDays * 24 * 60 * 60 * 1000,
+          )
+        : null,
+      revokedAt: consented ? null : now,
+      metadata: { source: "parent_consent_link" },
+      updatedAt: now,
     });
 
-    // Return false to indicate database not available for storage
-    return false;
+    await db
+      .update(parentConsentRequests)
+      .set({
+        status: consented ? "approved" : "rejected",
+        processedAt: now,
+        processedIpAddress: ipAddress,
+        processedUserAgent: userAgent,
+        updatedAt: now,
+      })
+      .where(eq(parentConsentRequests.id, request.id));
+
+    await gdprService.logPrivacyEvent(
+      request.studentId,
+      consented ? "parent_consent_approved" : "parent_consent_rejected",
+      request.consentType,
+      ipAddress,
+      userAgent,
+      `Parent consent ${consented ? "approved" : "rejected"}`,
+    );
+
+    return true;
   }
 
-  // Check if parent consent is valid
   async checkParentConsent(
     studentId: number,
     consentType: ParentConsent["consentType"],
   ): Promise<boolean> {
-    // TODO: Check database for valid consent
-    // For development, log and return false to require actual consent
-    console.log(
-      `[GDPR] Checking consent for student ${studentId}, type: ${consentType}`,
-    );
-    // Return false until database storage is implemented
-    return false;
+    const now = new Date();
+    const row = await db
+      .select({ id: parentConsents.id })
+      .from(parentConsents)
+      .where(
+        and(
+          eq(parentConsents.studentId, studentId),
+          eq(parentConsents.consentType, consentType),
+          eq(parentConsents.consented, true),
+          isNull(parentConsents.revokedAt),
+          gt(parentConsents.expiresAt, now),
+        ),
+      )
+      .orderBy(desc(parentConsents.consentDate))
+      .limit(1);
+
+    return row.length > 0;
   }
 
-  // Get consent status for a student
   async getStudentConsentStatus(studentId: number): Promise<any> {
-    // TODO: Query database for all consents
-    // Return pending status until database storage is implemented
-    console.log(`[GDPR] Getting consent status for student ${studentId}`);
+    const now = new Date();
+    const consents = await db
+      .select()
+      .from(parentConsents)
+      .where(eq(parentConsents.studentId, studentId))
+      .orderBy(desc(parentConsents.consentDate));
+
+    const pending = await db
+      .select()
+      .from(parentConsentRequests)
+      .where(
+        and(
+          eq(parentConsentRequests.studentId, studentId),
+          eq(parentConsentRequests.status, "pending"),
+          gt(parentConsentRequests.expiresAt, now),
+        ),
+      );
+
+    const latestByType = new Map<string, any>();
+    for (const c of consents) {
+      if (!latestByType.has(c.consentType)) latestByType.set(c.consentType, c);
+    }
+
+    const resolveStatus = (type: ParentConsent["consentType"]) => {
+      const c = latestByType.get(type);
+      const hasPending = pending.some((p) => p.consentType === type);
+      if (!c) {
+        return {
+          consented: false,
+          status: hasPending ? "pending" : "not_requested",
+        };
+      }
+      const expired = c.expiresAt ? new Date(c.expiresAt) <= now : false;
+      const revoked = !!c.revokedAt;
+      return {
+        consented: !!c.consented && !expired && !revoked,
+        status: revoked
+          ? "revoked"
+          : expired
+            ? "expired"
+            : c.consented
+              ? "approved"
+              : "rejected",
+        updatedAt: c.updatedAt,
+        expiresAt: c.expiresAt,
+      };
+    };
+
     return {
       studentId,
       consents: {
-        attendance_tracking: {
-          consented: false,
-          status: "pending",
-        },
-        email_notifications: {
-          consented: false,
-          status: "pending",
-        },
-        data_processing: {
-          consented: false,
-          status: "pending",
-        },
-        emergency_contact: {
-          consented: false,
-          status: "pending",
-        },
+        attendance_tracking: resolveStatus("attendance_tracking"),
+        email_notifications: resolveStatus("email_notifications"),
+        data_processing: resolveStatus("data_processing"),
+        emergency_contact: resolveStatus("emergency_contact"),
       },
       lastUpdated: new Date(),
-      note: "Consent tracking requires database storage implementation",
     };
   }
 
-  // Revoke parent consent
   async revokeParentConsent(
     studentId: number,
     consentType: ParentConsent["consentType"],
     requestedBy: number,
   ): Promise<void> {
-    console.log("Parent Consent Revoked:", {
-      studentId,
-      consentType,
-      requestedBy,
-      timestamp: new Date(),
-    });
+    const now = new Date();
+    await db
+      .update(parentConsents)
+      .set({
+        revokedAt: now,
+        consented: false,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(parentConsents.studentId, studentId),
+          eq(parentConsents.consentType, consentType),
+          isNull(parentConsents.revokedAt),
+        ),
+      );
 
-    // TODO: Update consent in database
-    // TODO: Notify relevant systems (stop email notifications, etc.)
+    await gdprService.logPrivacyEvent(
+      studentId,
+      "parent_consent_revoked",
+      consentType,
+      "system",
+      "parent_consent_service",
+      `Parent consent revoked by user ${requestedBy}`,
+    );
   }
 
-  // Send consent renewal reminders
   async sendConsentRenewalReminders(): Promise<void> {
-    const renewalThreshold = 30 * 24 * 60 * 60 * 1000; // 30 days before expiry
+    const renewalThreshold = 30 * 24 * 60 * 60 * 1000;
+    const now = new Date();
     const cutoffDate = new Date(Date.now() + renewalThreshold);
 
-    // TODO: Find consents expiring soon
-    // TODO: Send renewal emails to parents
+    const expiringSoon = await db
+      .select()
+      .from(parentConsents)
+      .where(
+        and(
+          eq(parentConsents.consented, true),
+          isNull(parentConsents.revokedAt),
+          lte(parentConsents.expiresAt, cutoffDate),
+          gt(parentConsents.expiresAt, now),
+        ),
+      );
+
+    for (const consent of expiringSoon) {
+      const frontend = process.env.FRONTEND_URL || "http://localhost:3000";
+      const link = `${frontend}/student/${consent.studentId}/privacy`;
+      await emailService.sendEmail({
+        to: consent.parentEmail,
+        subject: `Consent Renewal Reminder: ${consent.consentType}`,
+        htmlContent: `<p>Your consent for <strong>${consent.consentType}</strong> is expiring on ${new Date(consent.expiresAt).toISOString()}.</p><p>Review and renew: <a href="${link}">${link}</a></p>`,
+        textContent: `Consent renewal reminder for ${consent.consentType}. Renew at: ${link}`,
+      });
+    }
 
     console.log("Consent renewal reminders sent");
   }
 
-  // Validate consent for data operations
   async validateDataOperation(
     studentId: number,
     operation: "attendance_tracking" | "email_notification" | "data_access",
@@ -217,10 +363,9 @@ class ParentConsentService {
     const hasConsent = await this.checkParentConsent(studentId, consentType);
 
     if (!hasConsent) {
-      // Log privacy violation attempt
       await gdprService.logPrivacyEvent(
         studentId,
-        `consent_violation_attempt`,
+        "consent_violation_attempt",
         `operation: ${operation}, consent_type: ${consentType}`,
         ipAddress,
         userAgent,
@@ -231,7 +376,6 @@ class ParentConsentService {
     return hasConsent;
   }
 
-  // Generate consent form/report
   async generateConsentReport(studentId: number): Promise<any> {
     const student = await db
       .select()
@@ -239,17 +383,16 @@ class ParentConsentService {
       .where(eq(students.id, studentId))
       .limit(1);
 
-    if (student.length === 0) {
-      throw new Error("Student not found");
-    }
+    if (student.length === 0) throw new Error("Student not found");
 
     const consentStatus = await this.getStudentConsentStatus(studentId);
+    const parentEmail = this.resolveParentEmail(student[0]);
 
     return {
       student: {
         id: student[0].id,
         name: student[0].name,
-        parentEmail: student[0].parentEmail,
+        parentEmail,
       },
       consentStatus,
       reportDate: new Date(),
@@ -282,49 +425,62 @@ class ParentConsentService {
     };
   }
 
-  // Start automated consent management
   startConsentManagement(): void {
-    // For development/testing, use shorter intervals
     const isProduction = process.env.NODE_ENV === "production";
 
     if (isProduction) {
-      // Send renewal reminders weekly (7 days)
       setInterval(
         () => {
           this.sendConsentRenewalReminders();
         },
         7 * 24 * 60 * 60 * 1000,
-      ); // 7 days in milliseconds
+      );
 
-      // Clean up expired consents monthly (30 days) - split into weekly checks
       setInterval(
         () => {
           this.cleanupExpiredConsents();
         },
         7 * 24 * 60 * 60 * 1000,
-      ); // Weekly cleanup in production
+      );
     } else {
-      // Development: run daily for testing
       setInterval(
         () => {
           this.sendConsentRenewalReminders();
           this.cleanupExpiredConsents();
         },
         24 * 60 * 60 * 1000,
-      ); // Daily in development
+      );
     }
   }
 
-  // Clean up expired consents
   private async cleanupExpiredConsents(): Promise<void> {
     const now = new Date();
 
-    // TODO: Find and remove expired consents
+    await db
+      .update(parentConsentRequests)
+      .set({ status: "expired", updatedAt: now })
+      .where(
+        and(
+          eq(parentConsentRequests.status, "pending"),
+          lte(parentConsentRequests.expiresAt, now),
+        ),
+      );
+
+    await db
+      .update(parentConsents)
+      .set({ revokedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(parentConsents.consented, true),
+          isNull(parentConsents.revokedAt),
+          lte(parentConsents.expiresAt, now),
+        ),
+      );
+
     console.log("Expired consents cleaned up");
   }
 }
 
 export const parentConsentService = new ParentConsentService();
 
-// Start consent management
 parentConsentService.startConsentManagement();
