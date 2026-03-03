@@ -237,15 +237,15 @@ See `ESP32_S3_DUAL_SENSOR_ATTENDANCE.ino` for firmware.
 
 ### Manual Testing Checklist
 
-- [ ] Login/logout flow
-- [ ] Student CRUD operations
-- [ ] RFID attendance logging
-- [ ] Email notifications
-- [ ] Computer assignments
-- [ ] Report generation
-- [ ] Mobile responsiveness
-- [ ] WebSocket connections
-- [ ] Ghost attendance detection
+- [x] Login/logout flow
+- [x] Student CRUD operations
+- [x] RFID attendance logging
+- [x] Email notifications
+- [x] Computer assignments
+- [x] Report generation
+- [x] Mobile responsiveness
+- [x] WebSocket connections
+- [x] Ghost attendance detection
 
 ## 🐛 Troubleshooting
 

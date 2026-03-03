@@ -38,8 +38,9 @@ class WebSocketClient {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectInterval = 3000;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private messageHandlers: Map<string, ((data: any) => void)[]> = new Map();
+  private manualDisconnect = false;
 
   constructor(private userId?: number) {}
 
@@ -49,6 +50,8 @@ class WebSocketClient {
         resolve();
         return;
       }
+
+      this.manualDisconnect = false;
 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const host = window.location.host;
@@ -62,6 +65,7 @@ class WebSocketClient {
         this.ws.onopen = () => {
           console.log("WebSocket connected");
           this.reconnectAttempts = 0;
+          this.emit("connect", { connectedAt: new Date().toISOString() });
           resolve();
         };
 
@@ -76,20 +80,27 @@ class WebSocketClient {
 
         this.ws.onclose = () => {
           console.log("WebSocket disconnected");
-          this.attemptReconnect();
+          this.emit("disconnect", { disconnectedAt: new Date().toISOString() });
+          if (!this.manualDisconnect) {
+            this.attemptReconnect();
+          }
         };
 
         this.ws.onerror = (error) => {
           console.error("WebSocket error:", error);
+          this.emit("error", error);
           reject(error);
         };
       } catch (error) {
+        this.emit("error", error);
         reject(error);
       }
     });
   }
 
   disconnect() {
+    this.manualDisconnect = true;
+
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
@@ -102,6 +113,10 @@ class WebSocketClient {
   }
 
   private attemptReconnect() {
+    if (this.manualDisconnect) {
+      return;
+    }
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error("Max reconnection attempts reached");
       return;
@@ -109,7 +124,7 @@ class WebSocketClient {
 
     this.reconnectAttempts++;
     console.log(
-      `Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+      `Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
     );
 
     this.reconnectTimeout = setTimeout(() => {
@@ -224,7 +239,7 @@ export const getWebSocketClient = (userId?: number): WebSocketClient => {
 };
 
 export const connectWebSocket = async (
-  userId?: number
+  userId?: number,
 ): Promise<WebSocketClient> => {
   const client = getWebSocketClient(userId);
   await client.connect();
