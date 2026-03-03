@@ -7,6 +7,7 @@ import db from "../storage.js";
 import { users, userSessions } from "../schema.js";
 import { eq, and, lt, sql, desc } from "drizzle-orm";
 import { requireEnv } from "../config/env.js";
+import { auditService } from "./auditService.js";
 
 interface TwoFactorSetup {
   secret: string;
@@ -354,7 +355,6 @@ class AuthService {
     ipAddress: string,
     userAgent: string,
   ): Promise<void> {
-    // In a real implementation, this would be stored in a security_events table
     const event = {
       eventType,
       userId,
@@ -365,7 +365,25 @@ class AuthService {
     };
 
     console.log("Security Event:", event);
-    // TODO: Store in database for audit trail
+
+    // Persist to audit log for security trail visibility.
+    await auditService.logEvent({
+      userId,
+      action: `SECURITY_${eventType.toUpperCase()}`,
+      resource: "security",
+      resourceId: userId ? String(userId) : null,
+      oldValues: null,
+      newValues: null,
+      ipAddress,
+      userAgent,
+      sessionId: undefined,
+      success: true,
+      errorMessage: undefined,
+      metadata: {
+        eventType,
+        details,
+      },
+    });
   }
 
   // Suspicious activity detection

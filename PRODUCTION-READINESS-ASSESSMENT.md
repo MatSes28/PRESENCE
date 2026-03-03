@@ -8,14 +8,14 @@
 
 ## Executive Summary
 
-| Area | Status | Notes |
-|------|--------|--------|
-| **Core features** | ✅ Mostly ready | Attendance, RFID/sensor, sessions, reports, enrollments, IoT and web flows are implemented and protected. Some optional features are stubs. |
-| **Security** | ⚠️ Strong with critical gaps | Fail-closed env, CORS, rate limits, password reset, and input sanitization are in place. **Faculty data isolation is missing in class sessions and attendance.** |
-| **Scalability** | ✅ Documented | Horizontal scaling with Redis for correlation/cooldown is documented; WebSocket stickiness via HAProxy. Redis required for multi-instance correctness. |
-| **Reliability** | ⚠️ Good, tests incomplete | Health/ready/metrics, error handling, and DB-backed sessions are solid. Integration/E2E not runnable in a clean environment; no validated load run. |
-| **Data integrity** | ⚠️ Minor risks | Drizzle ORM and constraints in place. Manual attendance has check-then-insert (theoretical race). Some flows could use explicit transactions. |
-| **User experience** | ✅ Adequate | Validation, error responses, and caching support UX. |
+| Area                | Status                       | Notes                                                                                                                                                            |
+| ------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Core features**   | ✅ Mostly ready              | Attendance, RFID/sensor, sessions, reports, enrollments, IoT and web flows are implemented and protected. Some optional features are stubs.                      |
+| **Security**        | ⚠️ Strong with critical gaps | Fail-closed env, CORS, rate limits, password reset, and input sanitization are in place. **Faculty data isolation is missing in class sessions and attendance.** |
+| **Scalability**     | ✅ Documented                | Horizontal scaling with Redis for correlation/cooldown is documented; WebSocket stickiness via HAProxy. Redis required for multi-instance correctness.           |
+| **Reliability**     | ⚠️ Good, tests incomplete    | Health/ready/metrics, error handling, and DB-backed sessions are solid. Integration/E2E not runnable in a clean environment; no validated load run.              |
+| **Data integrity**  | ⚠️ Minor risks               | Drizzle ORM and constraints in place. Manual attendance has check-then-insert (theoretical race). Some flows could use explicit transactions.                    |
+| **User experience** | ✅ Adequate                  | Validation, error responses, and caching support UX.                                                                                                             |
 
 **Overall readiness score: 72/100**
 
@@ -41,10 +41,10 @@
 - **Integrations:** Google Classroom, Microsoft Teams, Moodle, Canvas — TODOs only; no real API calls.
 - **Calendar sync:** OAuth and event sync — TODOs only.
 - **Parent consent service:** Consent request/approval/expiry — TODOs (DB storage, email, renewal).
-- **Alert manager:** Critical alerts — TODO for actual notifications (email/SMS).
+- **Alert manager:** Critical alert notifications are now wired to email recipients via `CRITICAL_ALERT_EMAILS`/`ADMIN_EMAIL`; SMS recipients can be configured via `CRITICAL_ALERT_SMS` and are logged as pending provider integration.
 - **GDPR:** Deletion implemented; one TODO for moving data to archive instead of hard delete.
-- **Auth audit trail:** Login/sensitive events — TODO to persist in DB.
-- **Attendance → email:** One TODO to integrate with email service for actual notification.
+- **Auth audit trail:** Security events are now persisted to the audit log via `auditService.logEvent` from auth service.
+- **Attendance → email:** Parent contact endpoint now resolves/decrypts parent email and sends actual email via `emailService`.
 
 If you need any of these for day-one, they are gaps; otherwise treat as post-launch.
 
@@ -65,16 +65,16 @@ If you need any of these for day-one, they are gaps; otherwise treat as post-lau
 
 ### 2.2 Critical Issues (Must Fix Before Launch)
 
-1. **Faculty data isolation — class sessions**  
-   - **Where:** `server/src/routes/classSessions.ts` — `GET /` and `GET /:id`.  
-   - **Issue:** Any authenticated user (including faculty) can list all class sessions and fetch any session by ID. There is no filter by `schedules.facultyId = req.session.userId` for faculty.  
-   - **Risk:** Faculty can see other faculty’s sessions (and infer schedule/teaching load).  
+1. **Faculty data isolation — class sessions**
+   - **Where:** `server/src/routes/classSessions.ts` — `GET /` and `GET /:id`.
+   - **Issue:** Any authenticated user (including faculty) can list all class sessions and fetch any session by ID. There is no filter by `schedules.facultyId = req.session.userId` for faculty.
+   - **Risk:** Faculty can see other faculty’s sessions (and infer schedule/teaching load).
    - **Fix:** For `userRole === "faculty"`, restrict to sessions where `schedules.facultyId = userId`. Apply same rule to GET `/:id` (return 403 if faculty and session not theirs).
 
-2. **Faculty data isolation — attendance**  
-   - **Where:** `server/src/routes/attendance.ts` — `GET /` (list) and `GET /stats/:sessionId`.  
-   - **Issue:** No role-based filtering. Any authenticated user can query any attendance by `studentId`/`classSessionId`/date and any session’s stats.  
-   - **Risk:** Faculty (or a compromised account) can read other faculty’s attendance data.  
+2. **Faculty data isolation — attendance**
+   - **Where:** `server/src/routes/attendance.ts` — `GET /` (list) and `GET /stats/:sessionId`.
+   - **Issue:** No role-based filtering. Any authenticated user can query any attendance by `studentId`/`classSessionId`/date and any session’s stats.
+   - **Risk:** Faculty (or a compromised account) can read other faculty’s attendance data.
    - **Fix:** For faculty, restrict:
      - List: only records for class sessions where `schedules.facultyId = req.session.userId`.
      - Stats: allow only if the session’s schedule belongs to that faculty; otherwise 403.
@@ -133,10 +133,10 @@ Recommendation: Before go-live, get integration tests green in CI (test DB or SQ
 
 ## 7. Critical Issues Summary (Must Fix Before Launch)
 
-| # | Issue | Location | Action |
-|---|--------|----------|--------|
-| 1 | Faculty isolation — class sessions | `server/src/routes/classSessions.ts` | Restrict GET `/` and GET `/:id` to faculty’s sessions (filter by `schedules.facultyId`). |
-| 2 | Faculty isolation — attendance | `server/src/routes/attendance.ts` | Restrict GET `/` and GET `/stats/:sessionId` to faculty’s class sessions. |
+| #   | Issue                              | Location                             | Action                                                                                   |
+| --- | ---------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------- |
+| 1   | Faculty isolation — class sessions | `server/src/routes/classSessions.ts` | Restrict GET `/` and GET `/:id` to faculty’s sessions (filter by `schedules.facultyId`). |
+| 2   | Faculty isolation — attendance     | `server/src/routes/attendance.ts`    | Restrict GET `/` and GET `/stats/:sessionId` to faculty’s class sessions.                |
 
 **Fixes applied (2026-02-28):** Faculty isolation is implemented in `classSessions.ts` and `attendance.ts`; both use shared `requireAuth`. Consistency: `settings.ts`, `dashboard.ts`, `reports.ts`, `iot.ts` now use shared auth middleware. Data integrity: migration `0012` adds unique `(student_id, class_session_id)`; manual attendance uses a transaction and returns 409 on duplicate.
 
@@ -160,15 +160,15 @@ All other items are either already solid, optional (stubs), or recommended impro
 
 ## 9. Readiness Score and Recommendation
 
-| Category | Weight | Score (0–100) | Weighted |
-|----------|--------|----------------|----------|
-| Core features | 25% | 85 | 21.25 |
-| Security | 30% | 70 | 21.00 |
-| Scalability | 10% | 85 | 8.50 |
-| Reliability | 20% | 65 | 13.00 |
-| Data integrity | 10% | 80 | 8.00 |
-| User experience | 5% | 85 | 4.25 |
-| **Total** | 100% | — | **76.0** |
+| Category        | Weight | Score (0–100) | Weighted |
+| --------------- | ------ | ------------- | -------- |
+| Core features   | 25%    | 85            | 21.25    |
+| Security        | 30%    | 70            | 21.00    |
+| Scalability     | 10%    | 85            | 8.50     |
+| Reliability     | 20%    | 65            | 13.00    |
+| Data integrity  | 10%    | 80            | 8.00     |
+| User experience | 5%     | 85            | 4.25     |
+| **Total**       | 100%   | —             | **76.0** |
 
 (Score reflects current state; security is penalized for the two critical isolation gaps. After fixing them, security would be in the mid‑80s and total ~80.)
 

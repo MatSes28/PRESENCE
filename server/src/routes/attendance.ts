@@ -13,6 +13,8 @@ import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
 import { attendanceMonitor } from "../services/attendanceMonitor.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { handleRouteError } from "../middleware/errorLogging.js";
+import { emailService } from "../services/emailService.js";
+import { encryptionService } from "../services/encryptionService.js";
 
 const router = Router();
 
@@ -54,13 +56,16 @@ router.get("/", requireAuth, async (req, res) => {
 
     if (studentId) {
       whereConditions.push(
-        eq(attendanceRecords.studentId, parseInt(studentId as string))
+        eq(attendanceRecords.studentId, parseInt(studentId as string)),
       );
     }
 
     if (classSessionId) {
       whereConditions.push(
-        eq(attendanceRecords.classSessionId, parseInt(classSessionId as string))
+        eq(
+          attendanceRecords.classSessionId,
+          parseInt(classSessionId as string),
+        ),
       );
     }
 
@@ -75,16 +80,16 @@ router.get("/", requireAuth, async (req, res) => {
         .where(
           and(
             gte(classSessions.date, startDate),
-            lte(classSessions.date, endDate)
-          )
+            lte(classSessions.date, endDate),
+          ),
         );
 
       if (sessions.length > 0) {
         whereConditions.push(
           inArray(
             attendanceRecords.classSessionId,
-            sessions.map((s) => s.id)
-          )
+            sessions.map((s) => s.id),
+          ),
         );
       }
     }
@@ -111,7 +116,7 @@ router.get("/", requireAuth, async (req, res) => {
       .innerJoin(students, eq(attendanceRecords.studentId, students.id))
       .innerJoin(
         classSessions,
-        eq(attendanceRecords.classSessionId, classSessions.id)
+        eq(attendanceRecords.classSessionId, classSessions.id),
       )
       .where(whereClause)
       .orderBy(desc(attendanceRecords.createdAt))
@@ -146,10 +151,7 @@ router.get("/stats/:sessionId", requireAuth, async (req, res) => {
         .where(eq(classSessions.id, sessionId))
         .limit(1);
 
-      if (
-        sessionCheck.length === 0 ||
-        sessionCheck[0].facultyId !== userId
-      ) {
+      if (sessionCheck.length === 0 || sessionCheck[0].facultyId !== userId) {
         return res.status(403).json({
           success: false,
           message:
@@ -188,8 +190,8 @@ router.post("/manual", requireAuth, async (req, res) => {
         .where(
           and(
             eq(attendanceRecords.studentId, studentId),
-            eq(attendanceRecords.classSessionId, classSessionId)
-          )
+            eq(attendanceRecords.classSessionId, classSessionId),
+          ),
         )
         .limit(1);
 
@@ -337,8 +339,8 @@ router.get("/sessions/active", requireAuth, async (req, res) => {
         and(
           eq(classSessions.status, "active"),
           gte(classSessions.date, new Date(now.getTime() - 2 * 60 * 60 * 1000)), // Within last 2 hours
-          lte(classSessions.date, new Date(now.getTime() + 2 * 60 * 60 * 1000)) // Within next 2 hours
-        )
+          lte(classSessions.date, new Date(now.getTime() + 2 * 60 * 60 * 1000)), // Within next 2 hours
+        ),
       )
       .orderBy(classSessions.date);
 
@@ -515,15 +517,56 @@ router.post("/:studentId/contact", requireAuth, async (req, res) => {
 
     const studentData = student[0];
 
-    // Here you would integrate with email service
-    // For now, we'll just log it
+    if (!studentData.parentEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Student has no parent email on record",
+      });
+    }
+
+    let parentEmail = "";
+    try {
+      parentEmail = encryptionService.decryptParentData(
+        studentData.parentEmail,
+        studentData.parentName || undefined,
+      ).email;
+    } catch (decryptError) {
+      console.error("Failed to decrypt parent email:", decryptError);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to resolve parent contact",
+      });
+    }
+
     console.log(`Contacting parent of ${studentData.name}: ${message}`);
 
-    // TODO: Integrate with email service to send actual notification
+    const sent = await emailService.sendEmail({
+      to: parentEmail,
+      subject: `Parent Contact Notice - ${studentData.name}`,
+      htmlContent: `
+        <div style="font-family: Arial, sans-serif; line-height:1.6; color:#222;">
+          <h2>Parent Contact Notice</h2>
+          <p>Student: <strong>${studentData.name}</strong></p>
+          <p>Message from CLIRDEC:PRESENCE faculty/admin:</p>
+          <blockquote style="border-left:4px solid #ccc; margin:0; padding:8px 12px; color:#444;">
+            ${String(message || "No message provided")}
+          </blockquote>
+          <p style="font-size:12px; color:#666; margin-top:16px;">Sent at: ${new Date().toLocaleString()}</p>
+        </div>
+      `,
+      textContent: `Parent Contact Notice\nStudent: ${studentData.name}\n\nMessage:\n${String(message || "No message provided")}`,
+    });
+
+    if (!sent) {
+      return res.status(502).json({
+        success: false,
+        message: "Failed to send parent notification email",
+      });
+    }
 
     res.json({
       success: true,
-      message: "Parent contacted successfully",
+      message: "Parent contacted successfully via email",
     });
   } catch (error) {
     console.error("Contact parent error:", error);

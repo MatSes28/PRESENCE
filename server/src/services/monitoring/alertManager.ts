@@ -1,4 +1,5 @@
 import { loggerService } from "./logger.js";
+import { emailService } from "../emailService.js";
 
 // Alert Configuration
 export interface AlertRule {
@@ -27,6 +28,83 @@ export class AlertManager {
   private alertRules: AlertRule[] = [];
   private activeAlerts: Map<string, Alert> = new Map();
   private alertCooldowns: Map<string, Date> = new Map();
+
+  private getAlertRecipients(): string[] {
+    const configured =
+      process.env.CRITICAL_ALERT_EMAILS || process.env.ADMIN_EMAIL;
+    if (!configured) return [];
+    return configured
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+
+  private async sendCriticalAlertNotifications(alert: Alert): Promise<void> {
+    const recipients = this.getAlertRecipients();
+    if (recipients.length === 0) return;
+
+    const subject = `[CRITICAL ALERT] ${alert.message}`;
+    const metricsPreview = JSON.stringify(alert.metrics, null, 2);
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; line-height:1.5; color:#222;">
+        <h2 style="color:#b91c1c;">Critical System Alert</h2>
+        <p><strong>Rule:</strong> ${alert.ruleId}</p>
+        <p><strong>Severity:</strong> ${alert.severity}</p>
+        <p><strong>Timestamp:</strong> ${alert.timestamp.toISOString()}</p>
+        <p><strong>Message:</strong> ${alert.message}</p>
+        <p><strong>Alert ID:</strong> ${alert.id}</p>
+        <h3>Metrics Snapshot</h3>
+        <pre style="background:#f5f5f5; padding:12px; border-radius:6px; overflow:auto;">${metricsPreview}</pre>
+      </div>
+    `;
+
+    const textContent = [
+      "Critical System Alert",
+      `Rule: ${alert.ruleId}`,
+      `Severity: ${alert.severity}`,
+      `Timestamp: ${alert.timestamp.toISOString()}`,
+      `Message: ${alert.message}`,
+      `Alert ID: ${alert.id}`,
+      "",
+      "Metrics Snapshot:",
+      metricsPreview,
+    ].join("\n");
+
+    for (const to of recipients) {
+      const ok = await emailService.sendEmail({
+        to,
+        subject,
+        htmlContent,
+        textContent,
+      });
+
+      if (!ok) {
+        loggerService.getLogger().warn("Critical alert email send failed", {
+          type: "alert_notification_failure",
+          alertId: alert.id,
+          recipient: to,
+        });
+      }
+    }
+
+    const smsTargets = (process.env.CRITICAL_ALERT_SMS || "")
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+    if (smsTargets.length > 0) {
+      loggerService
+        .getLogger()
+        .warn(
+          "Critical alert SMS targets configured but SMS provider not integrated",
+          {
+            type: "alert_sms_pending_integration",
+            alertId: alert.id,
+            recipients: smsTargets,
+          },
+        );
+    }
+  }
 
   constructor() {
     this.initializeAlertRules();
@@ -204,17 +282,24 @@ export class AlertManager {
       alert,
     });
 
-    // TODO: Send notifications (email, SMS, etc.) for critical alerts
     if (rule.severity === "critical") {
       console.error(`🚨 CRITICAL ALERT: ${rule.message}`);
-      // In production, this would send SMS/email notifications
+      void this.sendCriticalAlertNotifications(alert).catch((error) => {
+        loggerService
+          .getLogger()
+          .error("Critical alert notification dispatch failed", {
+            type: "alert_notification_error",
+            alertId: alert.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+      });
     }
   }
 
   // Get all active alerts
   public getActiveAlerts(): Alert[] {
     return Array.from(this.activeAlerts.values()).filter(
-      (alert) => !alert.resolved
+      (alert) => !alert.resolved,
     );
   }
 
