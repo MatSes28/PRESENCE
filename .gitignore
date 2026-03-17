@@ -8,3 +8,13 @@ dist/
 build/
 .DS_Store
 .vscode/settings.json
+
+# Test/runtime artifacts
+server/logs/
+server/test-results/
+server/playwright-report/
+
+# Local SQLite files
+*.db
+*.db-shm
+*.db-wal
