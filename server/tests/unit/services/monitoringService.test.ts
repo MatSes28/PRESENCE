@@ -1,9 +1,9 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
-import { monitoringService } from "../../../src/services/monitoringService";
+import { monitoringService } from "../../../src/services/monitoringService.js";
 import {
   ValidationError,
   AuthenticationError,
-} from "../../../src/middleware/errorHandler";
+} from "../../../src/middleware/errorHandler.js";
 
 // Mock winston to avoid actual file logging during tests
 jest.mock("winston", () => ({
@@ -76,9 +76,7 @@ describe("MonitoringService", () => {
 
       const traceId = monitoringService.startTrace(operation, metadata);
       expect(typeof traceId).toBe("string");
-      // NOTE: monitoringService is globally mocked in `tests/setup.ts`.
-      // Keep this assertion aligned with the global mock.
-      expect(traceId).toBe("test-trace-id");
+      expect(traceId.length).toBeGreaterThan(0);
 
       monitoringService.endTrace(traceId, true, { responseTime: 150 });
       expect(true).toBe(true);
@@ -118,15 +116,14 @@ describe("MonitoringService", () => {
       const metrics = await monitoringService.getPrometheusMetrics();
 
       expect(typeof metrics).toBe("string");
-      // NOTE: monitoringService is globally mocked in `tests/setup.ts`.
-      expect(metrics).toContain("# Test metrics");
+      expect(metrics).toContain("# HELP");
     });
 
     it("should include system metrics in Prometheus format", async () => {
       const metrics = await monitoringService.getPrometheusMetrics();
 
-      // NOTE: monitoringService is globally mocked in `tests/setup.ts`.
-      expect(metrics).toContain("# Test metrics");
+      expect(metrics).toContain("presence_system_cpu_usage");
+      expect(metrics).toContain("presence_system_memory_usage");
     });
   });
 

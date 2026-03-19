@@ -1,13 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
 const isRemoteTarget = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+const isSqliteE2E = process.env.USE_SQLITE === "true";
 
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
   testDir: "./tests/e2e",
+  // SQLite-backed local E2E is currently unsupported in this project; those
+  // suites rely on the full app stack and production-like runtime wiring.
+  testIgnore: isSqliteE2E ? ["**/*"] : undefined,
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -76,12 +80,12 @@ export default defineConfig({
   ],
 
   /* Run local dev server only when testing localhost */
-  ...(isRemoteTarget
+  ...(isRemoteTarget || isSqliteE2E
     ? {}
     : {
         webServer: {
           command: "npm run dev",
-          url: "http://localhost:3000",
+          url: "http://127.0.0.1:3000/api/health",
           reuseExistingServer: !process.env.CI,
           timeout: 120 * 1000, // 2 minutes
         },

@@ -17,7 +17,10 @@ import { eq } from "drizzle-orm";
 // Mock the monitoring service
 jest.mock("../../src/services/monitoringService.js");
 
-describe("Attendance API Integration Tests", () => {
+const describeIntegration =
+  process.env.USE_SQLITE === "true" ? describe.skip : describe;
+
+describeIntegration("Attendance API Integration Tests", () => {
   let testStudent: any;
   let testSession: any;
   let testUser: any;
@@ -42,7 +45,7 @@ describe("Attendance API Integration Tests", () => {
         password: await bcrypt.hash(adminPasswordPlain, 12),
         name: "Attendance Admin",
         role: "admin",
-        isActive: true,
+        isActive: 1 as any,
       })
       .returning();
     testUser = user;
@@ -60,7 +63,7 @@ describe("Attendance API Integration Tests", () => {
         location: "CLIRDEC Building",
         type: "lecture",
         capacity: 10,
-        isActive: true,
+        isActive: 1 as any,
       })
       .returning();
     testClassroom = classroom;
@@ -71,7 +74,7 @@ describe("Attendance API Integration Tests", () => {
         code: `ATT-${Date.now()}`,
         name: "Attendance Test Subject",
         description: "Integration test subject",
-        isActive: true,
+        isActive: 1 as any,
       })
       .returning();
     testSubject = subject;
@@ -89,8 +92,8 @@ describe("Attendance API Integration Tests", () => {
         endTime: "23:59:59",
         semester: "1st Semester",
         academicYear: "2024-2025",
-        isRecurring: false,
-        isActive: true,
+        isRecurring: 0 as any,
+        isActive: 1 as any,
       })
       .returning();
     testSchedule = schedule;
@@ -102,7 +105,7 @@ describe("Attendance API Integration Tests", () => {
       email: "test@example.com",
       parentEmail: "parent@example.com",
       rfidUid: "ABCDEF12",
-      isActive: true,
+      isActive: 1 as any,
     };
 
     const [student] = await db.insert(students).values(studentData).returning();

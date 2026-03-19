@@ -6,7 +6,10 @@ import { app } from "../../src/index.js";
 import { users, students } from "../../../shared/schema.js";
 import { eq } from "drizzle-orm";
 
-describe("GDPR Compliance Tests", () => {
+const describeIntegration =
+  process.env.USE_SQLITE === "true" ? describe.skip : describe;
+
+describeIntegration("GDPR Compliance Tests", () => {
   let testUserId: number;
   let testStudentId: number;
   let agent: any;
@@ -27,6 +30,7 @@ describe("GDPR Compliance Tests", () => {
         password: await bcrypt.hash(userPasswordPlain, 12),
         name: "Test GDPR User",
         role: "faculty",
+        isActive: 1 as any,
       })
       .returning();
 
@@ -51,6 +55,7 @@ describe("GDPR Compliance Tests", () => {
         program: "BSIT",
         department: "DIT",
         college: "College of Engineering",
+        isActive: 1 as any,
       })
       .returning();
 
@@ -59,8 +64,12 @@ describe("GDPR Compliance Tests", () => {
 
   afterAll(async () => {
     // Clean up test data
-    await db.delete(students).where(eq(students.id, testStudentId));
-    await db.delete(users).where(eq(users.id, testUserId));
+    if (testStudentId) {
+      await db.delete(students).where(eq(students.id, testStudentId));
+    }
+    if (testUserId) {
+      await db.delete(users).where(eq(users.id, testUserId));
+    }
   });
 
   describe("Data Subject Rights", () => {

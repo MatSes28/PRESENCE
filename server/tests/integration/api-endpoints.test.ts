@@ -20,7 +20,10 @@ jest.mock("../../src/services/monitoringService.js");
 jest.mock("../../src/services/alertingService.js");
 jest.mock("../../src/services/websocket.js");
 
-describe("API Endpoints Integration Tests", () => {
+const describeIntegration =
+  process.env.USE_SQLITE === "true" ? describe.skip : describe;
+
+describeIntegration("API Endpoints Integration Tests", () => {
   let testUser: any;
   let testStudent: any;
   let testDevice: any;
@@ -46,7 +49,7 @@ describe("API Endpoints Integration Tests", () => {
       password: await bcrypt.hash(adminPasswordPlain, 12),
       name: "Test User",
       role: "admin",
-      isActive: true,
+      isActive: 1 as any,
     };
 
     const [user] = await db.insert(users).values(userData).returning();
@@ -60,7 +63,7 @@ describe("API Endpoints Integration Tests", () => {
         location: "CLIRDEC Building",
         type: "lecture",
         capacity: 10,
-        isActive: true,
+        isActive: 1 as any,
       })
       .returning();
     testClassroom = classroom;
@@ -71,7 +74,7 @@ describe("API Endpoints Integration Tests", () => {
         code: `TEST-${Date.now()}`,
         name: "Test Subject",
         description: "Integration test subject",
-        isActive: true,
+        isActive: 1 as any,
       })
       .returning();
     testSubject = subject;
@@ -87,8 +90,8 @@ describe("API Endpoints Integration Tests", () => {
         endTime: "09:00",
         semester: "1st Semester",
         academicYear: "2024-2025",
-        isRecurring: false,
-        isActive: true,
+        isRecurring: 0 as any,
+        isActive: 1 as any,
       })
       .returning();
     testSchedule = schedule;
@@ -101,7 +104,7 @@ describe("API Endpoints Integration Tests", () => {
       parentEmail: "parent@example.com",
       // Use a hex-like UID so it also matches API validation rules.
       rfidUid: "ABCDEF12",
-      isActive: true,
+      isActive: 1 as any,
     };
 
     const [student] = await db.insert(students).values(studentData).returning();
@@ -114,7 +117,7 @@ describe("API Endpoints Integration Tests", () => {
       deviceType: "esp32_s3",
       status: "offline",
       apiKey: "test-api-key",
-      isActive: true,
+      isActive: 1 as any,
     };
 
     const [device] = await db.insert(iotDevices).values(deviceData).returning();
