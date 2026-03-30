@@ -499,6 +499,51 @@ try {
     `CREATE INDEX IF NOT EXISTS idx_dsr_type ON data_subject_requests(request_type)`,
     `CREATE INDEX IF NOT EXISTS idx_dsr_created_at ON data_subject_requests(created_at)`,
 
+    `CREATE TABLE IF NOT EXISTS parent_consent_requests (
+      id TEXT PRIMARY KEY,
+      student_id INTEGER NOT NULL,
+      parent_email TEXT NOT NULL,
+      consent_type TEXT NOT NULL,
+      request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      status TEXT DEFAULT 'pending' NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      expires_at TIMESTAMP NOT NULL,
+      requested_by INTEGER,
+      processed_at TIMESTAMP,
+      processed_ip_address TEXT,
+      processed_user_agent TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+      FOREIGN KEY (requested_by) REFERENCES users(id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_parent_consent_requests_student_id ON parent_consent_requests(student_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_parent_consent_requests_status ON parent_consent_requests(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_parent_consent_requests_token ON parent_consent_requests(token)`,
+
+    `CREATE TABLE IF NOT EXISTS parent_consents (
+      id TEXT PRIMARY KEY,
+      request_id TEXT,
+      student_id INTEGER NOT NULL,
+      parent_email TEXT NOT NULL,
+      consent_type TEXT NOT NULL,
+      consented INTEGER NOT NULL,
+      consent_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      consent_version TEXT NOT NULL,
+      ip_address TEXT NOT NULL,
+      user_agent TEXT,
+      expires_at TIMESTAMP,
+      revoked_at TIMESTAMP,
+      metadata TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      FOREIGN KEY (request_id) REFERENCES parent_consent_requests(id) ON DELETE SET NULL,
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_parent_consents_student_id ON parent_consents(student_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_parent_consents_type ON parent_consents(consent_type)`,
+    `CREATE INDEX IF NOT EXISTS idx_parent_consents_consent_date ON parent_consents(consent_date)`,
+
     `CREATE TABLE IF NOT EXISTS privacy_audit_logs (
       id TEXT PRIMARY KEY,
       user_id INTEGER NOT NULL,
@@ -529,6 +574,26 @@ try {
     )`,
     `CREATE INDEX IF NOT EXISTS idx_legal_holds_subject ON legal_holds(subject_user_id)`,
     `CREATE INDEX IF NOT EXISTS idx_legal_holds_active ON legal_holds(active)`,
+
+    `CREATE TABLE IF NOT EXISTS attendance_records_archive (
+      id INTEGER PRIMARY KEY,
+      student_id INTEGER NOT NULL,
+      class_session_id INTEGER NOT NULL,
+      entry_time TIMESTAMP,
+      exit_time TIMESTAMP,
+      status TEXT,
+      rfid_detected INTEGER DEFAULT 0 NOT NULL,
+      sensor_detected INTEGER DEFAULT 0 NOT NULL,
+      is_valid INTEGER DEFAULT 0 NOT NULL,
+      discrepancy_flag INTEGER DEFAULT 0 NOT NULL,
+      notes TEXT,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      created_at TIMESTAMP,
+      updated_at TIMESTAMP,
+      archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_attendance_records_archive_student_id ON attendance_records_archive(student_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_attendance_records_archive_session_id ON attendance_records_archive(class_session_id)`,
 
     `CREATE TABLE IF NOT EXISTS audit_logs_archive (
       id TEXT PRIMARY KEY,

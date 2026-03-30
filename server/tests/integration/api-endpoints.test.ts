@@ -1,5 +1,6 @@
 import request from "supertest";
 import { jest } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import db from "../../src/storage.js";
 import { app } from "../../src/index.js";
 import bcrypt from "bcryptjs";
@@ -20,8 +21,7 @@ jest.mock("../../src/services/monitoringService.js");
 jest.mock("../../src/services/alertingService.js");
 jest.mock("../../src/services/websocket.js");
 
-const describeIntegration =
-  process.env.USE_SQLITE === "true" ? describe.skip : describe;
+const describeIntegration = describe;
 
 describeIntegration("API Endpoints Integration Tests", () => {
   let testUser: any;

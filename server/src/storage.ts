@@ -31,6 +31,41 @@ if (useSqlite) {
 
   const sqlite = new Database(sqlitePath);
 
+  const normalizeSqliteParam = (value: unknown): unknown => {
+    if (value === undefined) return null;
+    if (value === null) return null;
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === "boolean") return value ? 1 : 0;
+    if (Array.isArray(value)) return JSON.stringify(value);
+    if (typeof value === "object") return JSON.stringify(value);
+    return value;
+  };
+
+  const normalizeSqliteParams = (params: unknown[]) =>
+    params.map((param) => normalizeSqliteParam(param));
+
+  const originalPrepare = sqlite.prepare.bind(sqlite);
+  sqlite.prepare = ((sql: string) => {
+    const statement = originalPrepare(sql);
+    const originalRun = statement.run.bind(statement);
+    const originalGet = statement.get.bind(statement);
+    const originalAll = statement.all.bind(statement);
+    const originalIterate = statement.iterate.bind(statement);
+
+    statement.run = ((...params: unknown[]) =>
+      originalRun(...normalizeSqliteParams(params))) as typeof statement.run;
+    statement.get = ((...params: unknown[]) =>
+      originalGet(...normalizeSqliteParams(params))) as typeof statement.get;
+    statement.all = ((...params: unknown[]) =>
+      originalAll(...normalizeSqliteParams(params))) as typeof statement.all;
+    statement.iterate = ((...params: unknown[]) =>
+      originalIterate(
+        ...normalizeSqliteParams(params),
+      )) as typeof statement.iterate;
+
+    return statement;
+  }) as typeof sqlite.prepare;
+
   // Compatibility: some schemas/defaults (and generated queries) assume Postgres-style helpers.
   // Provide a minimal `now()` function so SQLite DEFAULT now() works in local/test databases.
   // Returns an ISO timestamp string.

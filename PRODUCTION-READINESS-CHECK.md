@@ -30,24 +30,20 @@ Reason: there are still **blocking gaps in system-level validation** (integratio
 
 ## ❌ Blockers (must fix/validate before claiming “ready”)
 
-### 1) Integration tests are not currently runnable in a clean environment
+### 1) Integration tests must still be validated in this workspace run
 
-Running [`npm run test:integration --workspace=server`](server/package.json:17) fails because tests attempt real DB operations, but the test environment defaults to a Postgres URL with placeholder credentials.
+The repo is now configured so the integration suites are runnable against the imported Express app instance and no longer skip automatically when SQLite is enabled.
 
-Evidence:
+Required validation:
 
-- Postgres auth errors: `password authentication failed for user "test"`.
+- Run [`npm run test:integration --workspace=server`](server/package.json:17) in a clean environment and confirm green.
+- Keep one reproducible CI lane:
+  - SQLite for deterministic repo-level validation, or
+  - ephemeral PostgreSQL for production-like validation.
 
-Required resolution:
+### 2) E2E suite still requires environment-backed validation
 
-- Either provision a real CI test Postgres (recommended) and set `DATABASE_URL` to it, **or** force SQLite for integration runs via `USE_SQLITE=true` and update tests accordingly.
-- Additionally, current integration tests use `request("http://localhost:3000")` (see [`server/tests/integration/api-endpoints.test.ts`](server/tests/integration/api-endpoints.test.ts:1)), which implies a server must already be running. For reliability, these tests should either:
-  - start/stop the server in `beforeAll/afterAll`, or
-  - use Supertest against an Express app instance rather than an external URL.
-
-### 2) E2E suite not validated here
-
-No green run of [`npm run test:e2e --workspace=server`](server/package.json:18) is recorded in this session. E2E is required to claim readiness because it covers real auth/session/cookie flows in a browser.
+[`npm run test:e2e --workspace=server`](server/package.json:18) no longer forces a SQLite no-op path, but a green run is still required in a real target environment because browser tests depend on valid accounts, routes, and fixture data.
 
 ### 3) Load tests require explicit credentials and device API key
 

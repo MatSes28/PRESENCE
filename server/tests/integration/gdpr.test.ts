@@ -6,8 +6,7 @@ import { app } from "../../src/index.js";
 import { users, students } from "../../../shared/schema.js";
 import { eq } from "drizzle-orm";
 
-const describeIntegration =
-  process.env.USE_SQLITE === "true" ? describe.skip : describe;
+const describeIntegration = describe;
 
 describeIntegration("GDPR Compliance Tests", () => {
   let testUserId: number;

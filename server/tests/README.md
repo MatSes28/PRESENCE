@@ -56,7 +56,7 @@ npm run test:unit
 # Run all integration tests
 npm run test:integration
 
-# Run all E2E tests
+# Run all E2E tests against localhost or a configured Playwright base URL
 npm run test:e2e
 
 # Run load tests
@@ -143,6 +143,12 @@ set PLAYWRIGHT_TEST_PASSWORD=replace-with-staging-admin-password
 
 # Execute baseline browser flows against staging
 npm run test:e2e --workspace=server
+```
+
+Optional staging alias:
+
+```bash
+npm run test:e2e:staging --workspace=server
 ```
 
 Baseline flows covered by current suite:

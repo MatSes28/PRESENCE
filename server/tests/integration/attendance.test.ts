@@ -1,5 +1,6 @@
 import request from "supertest";
 import { jest } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import bcrypt from "bcryptjs";
 import db from "../../src/storage.js";
 import { app } from "../../src/index.js";
@@ -17,8 +18,7 @@ import { eq } from "drizzle-orm";
 // Mock the monitoring service
 jest.mock("../../src/services/monitoringService.js");
 
-const describeIntegration =
-  process.env.USE_SQLITE === "true" ? describe.skip : describe;
+const describeIntegration = describe;
 
 describeIntegration("Attendance API Integration Tests", () => {
   let testStudent: any;
