@@ -175,6 +175,10 @@ router.get("/stats/:sessionId", requireAuth, async (req, res) => {
 router.post("/manual", requireAuth, async (req, res) => {
   try {
     const { studentId, classSessionId, entryTime, exitTime, notes } = req.body;
+    const useSqlite =
+      process.env.USE_SQLITE === "true" ||
+      process.env.NODE_ENV === "development" ||
+      process.env.SQLITE_PATH !== undefined;
 
     if (!studentId || !classSessionId) {
       return res.status(400).json({
@@ -183,8 +187,21 @@ router.post("/manual", requireAuth, async (req, res) => {
       });
     }
 
-    const newRecord = await db.transaction(async (tx) => {
-      const existingRecord = await tx
+    const buildInsertValues = () => ({
+      studentId,
+      classSessionId,
+      entryTime: entryTime ? new Date(entryTime) : null,
+      exitTime: exitTime ? new Date(exitTime) : null,
+      status: "present",
+      rfidDetected: false,
+      sensorDetected: false,
+      isValid: true,
+      discrepancyFlag: false,
+      notes: notes || "Manually entered",
+    });
+
+    const insertWithoutTransaction = async () => {
+      const existingRecord = await db
         .select()
         .from(attendanceRecords)
         .where(
@@ -199,24 +216,39 @@ router.post("/manual", requireAuth, async (req, res) => {
         return null;
       }
 
-      const [inserted] = await tx
+      const [inserted] = await db
         .insert(attendanceRecords)
-        .values({
-          studentId,
-          classSessionId,
-          entryTime: entryTime ? new Date(entryTime) : null,
-          exitTime: exitTime ? new Date(exitTime) : null,
-          status: "present",
-          rfidDetected: false,
-          sensorDetected: false,
-          isValid: true,
-          discrepancyFlag: false,
-          notes: notes || "Manually entered",
-        })
+        .values(buildInsertValues())
         .returning();
 
       return inserted;
-    });
+    };
+
+    const newRecord = useSqlite
+      ? await insertWithoutTransaction()
+      : await db.transaction(async (tx) => {
+          const existingRecord = await tx
+            .select()
+            .from(attendanceRecords)
+            .where(
+              and(
+                eq(attendanceRecords.studentId, studentId),
+                eq(attendanceRecords.classSessionId, classSessionId),
+              ),
+            )
+            .limit(1);
+
+          if (existingRecord.length > 0) {
+            return null;
+          }
+
+          const [inserted] = await tx
+            .insert(attendanceRecords)
+            .values(buildInsertValues())
+            .returning();
+
+          return inserted;
+        });
 
     if (!newRecord) {
       return res.status(409).json({
