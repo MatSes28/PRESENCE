@@ -142,6 +142,9 @@ class WebSocketClient {
 
     // Handle specific message types
     switch (message.type) {
+      case "connected":
+        this.emit("connected", message.payload);
+        break;
       case "rfid_scan":
         this.emit("rfidScan", message.payload as RFIDScan);
         break;
