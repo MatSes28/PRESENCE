@@ -12,8 +12,9 @@ describeIntegration("GDPR Compliance Tests", () => {
   let testUserId: number;
   let testStudentId: number;
   let agent: any;
+  const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  const userEmail = "test-gdpr@example.com";
+  const userEmail = `test-gdpr-${uniqueSuffix}@example.com`;
   const userPasswordPlain = "StrongPass123!";
 
   beforeAll(async () => {
@@ -45,10 +46,10 @@ describeIntegration("GDPR Compliance Tests", () => {
     const testStudent = await db
       .insert(students)
       .values({
-        studentId: "TEST001",
+        studentId: `GDPR-${uniqueSuffix}`,
         name: "Test Student",
-        email: "student@example.com",
-        parentEmail: "parent@example.com",
+        email: `student-${uniqueSuffix}@example.com`,
+        parentEmail: `parent-${uniqueSuffix}@example.com`,
         year: 3,
         section: "A",
         program: "BSIT",

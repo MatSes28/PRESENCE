@@ -28,8 +28,9 @@ describeIntegration("Attendance API Integration Tests", () => {
   let testSubject: any;
   let testSchedule: any;
   let agent: any;
+  const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  const adminEmail = "attendance-admin@example.com";
+  const adminEmail = `attendance-admin-${uniqueSuffix}@example.com`;
   const adminPasswordPlain = "StrongPass123!";
 
   beforeAll(async () => {
@@ -100,11 +101,11 @@ describeIntegration("Attendance API Integration Tests", () => {
 
     // Create test data
     const studentData = {
-      studentId: "TEST001",
+      studentId: `ATT-${uniqueSuffix}`,
       name: "Test Student",
-      email: "test@example.com",
-      parentEmail: "parent@example.com",
-      rfidUid: "ABCDEF12",
+      email: `attendance-${uniqueSuffix}@example.com`,
+      parentEmail: `parent-${uniqueSuffix}@example.com`,
+      rfidUid: `CD${Date.now().toString(16).slice(-6)}`.toUpperCase(),
       isActive: 1 as any,
     };
 

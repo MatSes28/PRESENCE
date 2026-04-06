@@ -32,8 +32,9 @@ describeIntegration("API Endpoints Integration Tests", () => {
   let testSubject: any;
   let testSchedule: any;
   let agent: any;
+  const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  const adminEmail = "test@example.com";
+  const adminEmail = `test-${uniqueSuffix}@example.com`;
   const adminPasswordPlain = "StrongPass123!";
 
   beforeAll(async () => {
@@ -98,12 +99,12 @@ describeIntegration("API Endpoints Integration Tests", () => {
 
     // Create test student
     const studentData = {
-      studentId: "TEST001",
+      studentId: `TEST-${uniqueSuffix}`,
       name: "Test Student",
-      email: "student@example.com",
-      parentEmail: "parent@example.com",
+      email: `student-${uniqueSuffix}@example.com`,
+      parentEmail: `parent-${uniqueSuffix}@example.com`,
       // Use a hex-like UID so it also matches API validation rules.
-      rfidUid: "ABCDEF12",
+      rfidUid: `AB${Date.now().toString(16).slice(-6)}`.toUpperCase(),
       isActive: 1 as any,
     };
 
@@ -112,11 +113,11 @@ describeIntegration("API Endpoints Integration Tests", () => {
 
     // Create test IoT device
     const deviceData = {
-      deviceId: "TEST_DEVICE_001",
+      deviceId: `TEST_DEVICE_${uniqueSuffix}`,
       classroomId: classroom.id,
       deviceType: "esp32_s3",
       status: "offline",
-      apiKey: "test-api-key",
+      apiKeyHash: `test-api-key-hash-${uniqueSuffix}`,
       isActive: 1 as any,
     };
 

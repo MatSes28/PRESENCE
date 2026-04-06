@@ -58,6 +58,21 @@ try {
     }
   };
 
+  const addColumnIfMissing = (tableName, columnName, columnDefinition) => {
+    const cols = getColumns(tableName);
+    if (cols.includes(columnName)) return;
+    try {
+      db.exec(
+        `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`,
+      );
+      console.log(`✅ Added ${tableName}.${columnName}`);
+    } catch (error) {
+      console.warn(
+        `⚠️  Warning adding ${tableName}.${columnName}: ${error.message}`,
+      );
+    }
+  };
+
   const migrateCamelToSnake = () => {
     // NOTE: Add mappings only when they exist; the helper checks presence.
 
@@ -207,6 +222,11 @@ try {
     renameColumnIfNeeded("iot_devices", "certificateData", "certificate_data");
     renameColumnIfNeeded("iot_devices", "apiKey", "api_key");
     renameColumnIfNeeded("iot_devices", "isActive", "is_active");
+
+    addColumnIfMissing("iot_devices", "config", "TEXT");
+    addColumnIfMissing("iot_devices", "api_key_hash", "TEXT");
+    addColumnIfMissing("iot_devices", "certificate", "TEXT");
+    addColumnIfMissing("iot_devices", "certificate_expires_at", "TIMESTAMP");
   };
 
   // 1) Migrate any existing legacy camelCase columns.
@@ -380,6 +400,9 @@ try {
       signal_strength INTEGER,
       config TEXT,
       api_key TEXT NOT NULL UNIQUE,
+      api_key_hash TEXT,
+      certificate TEXT,
+      certificate_expires_at TIMESTAMP,
       certificate_fingerprint TEXT,
       certificate_data TEXT,
       is_active INTEGER DEFAULT 1 NOT NULL,
