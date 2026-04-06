@@ -249,10 +249,24 @@ class IoTDeviceManagerService extends EventEmitter {
    * Get all devices
    */
   async getAllDevices(): Promise<IoTDevice[]> {
+    console.info("[iotDeviceManager.getAllDevices] query start");
     const result = await db
       .select()
       .from(iotDevices)
       .orderBy(desc(iotDevices.lastSeen));
+
+    console.info("[iotDeviceManager.getAllDevices] query success", {
+      count: result.length,
+      firstRow: result[0]
+        ? {
+            id: result[0].id,
+            deviceId: result[0].deviceId,
+            classroomId: result[0].classroomId,
+            status: result[0].status,
+            deviceType: result[0].deviceType,
+          }
+        : null,
+    });
 
     return result.map((device) => ({
       id: String(device.id),
