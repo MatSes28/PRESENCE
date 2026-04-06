@@ -51,34 +51,14 @@ const requireDeviceAuth = async (req: any, res: any, next: any) => {
 // Get all IoT devices with classroom info
 router.get("/devices", requireAuth, async (req, res) => {
   try {
-    console.info("[iot/devices] request started", {
-      userId: (req as any).user?.id ?? null,
-    });
     const devices = await registryIotDeviceManager.getAllDevices();
-
-    console.info("[iot/devices] request succeeded", {
-      count: Array.isArray(devices) ? devices.length : null,
-      firstDevice:
-        Array.isArray(devices) && devices.length > 0
-          ? {
-              id: devices[0]?.id,
-              deviceId: devices[0]?.deviceId,
-              classroomId: devices[0]?.classroomId,
-              status: devices[0]?.status,
-            }
-          : null,
-    });
 
     res.json({
       success: true,
       devices,
     });
   } catch (error) {
-    console.error("[iot/devices] request failed", {
-      error,
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    console.error("Get IoT devices error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
