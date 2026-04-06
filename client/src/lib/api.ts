@@ -51,18 +51,7 @@ class ApiClient {
     };
 
     try {
-      console.info("[api.request] starting", {
-        url,
-        method: config.method || "GET",
-        credentials: config.credentials,
-      });
       const response = await fetch(url, config);
-      console.info("[api.request] response received", {
-        url,
-        status: response.status,
-        ok: response.ok,
-        contentType: response.headers.get("content-type"),
-      });
       const data = await response.json();
 
       if (!response.ok) {
@@ -80,11 +69,7 @@ class ApiClient {
 
       return data;
     } catch (error) {
-      console.error("[api.request] failed", {
-        url,
-        method: config.method || "GET",
-        error,
-      });
+      console.error("API request failed:", error);
       throw error;
     }
   }
@@ -857,7 +842,7 @@ class ApiClient {
   }
 
   async getPerformanceMetrics() {
-    return this.request("/dashboard/performance/metrics");
+    return this.request("/dashboard/system-metrics");
   }
 }
 

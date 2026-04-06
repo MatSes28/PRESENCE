@@ -804,16 +804,12 @@ router.get(
 
 // Get performance metrics dashboard data
 router.get(
-  "/performance/metrics",
+  "/system-metrics",
   requireAuth,
   dashboardRateLimit,
   async (req, res) => {
     try {
       const { period = "24h" } = req.query;
-      console.info("[dashboard/performance/metrics] request started", {
-        period,
-        userId: (req as any).user?.id ?? null,
-      });
 
       // Calculate date range
       const endDate = new Date();
@@ -833,11 +829,6 @@ router.get(
           startDate.setHours(endDate.getHours() - 24);
       }
 
-      console.info("[dashboard/performance/metrics] date range", {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-      });
-
       // Get API response times (from error logs which track response times)
       const apiResponseTimes = await db
         .select({
@@ -853,11 +844,6 @@ router.get(
             sql`${errorLogs.responseTime} IS NOT NULL`,
           ),
         );
-
-      console.info("[dashboard/performance/metrics] apiResponseTimes", {
-        rows: apiResponseTimes.length,
-        sample: apiResponseTimes[0] ?? null,
-      });
 
       // Get request counts by endpoint from error logs
       const requestsByEndpoint = await db
@@ -876,11 +862,6 @@ router.get(
         .groupBy(errorLogs.endpoint)
         .orderBy(desc(sql<number>`COUNT(*)`))
         .limit(10);
-
-      console.info("[dashboard/performance/metrics] requestsByEndpoint", {
-        rows: requestsByEndpoint.length,
-        topEndpoint: requestsByEndpoint[0] ?? null,
-      });
 
       // Get error counts (4xx and 5xx status codes)
       const errorCount = await db
@@ -908,11 +889,6 @@ router.get(
           ),
         );
 
-      console.info("[dashboard/performance/metrics] counts", {
-        errorCount: errorCount[0]?.count ?? null,
-        totalRequests: totalRequests[0]?.count ?? null,
-      });
-
       // Get database query performance (using response time as proxy for query time)
       const dbQueryStats = await db
         .select({
@@ -926,11 +902,6 @@ router.get(
             sql`${errorLogs.responseTime} IS NOT NULL`,
           ),
         );
-
-      console.info("[dashboard/performance/metrics] dbQueryStats", {
-        rows: dbQueryStats.length,
-        sample: dbQueryStats[0] ?? null,
-      });
 
       // Calculate system health metrics
       const avgResponseTime = apiResponseTimes[0]?.avgResponseTime || 0;
@@ -965,22 +936,12 @@ router.get(
         period,
       };
 
-      console.info("[dashboard/performance/metrics] response ready", {
-        performanceScore: metrics.performanceScore,
-        totalRequests: metrics.api.totalRequests,
-        errorRate: metrics.api.errorRate,
-      });
-
       res.json({
         success: true,
         data: metrics,
       });
     } catch (error) {
-      console.error("[dashboard/performance/metrics] failed", {
-        error,
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
+      console.error("Performance metrics error:", error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch performance metrics",
