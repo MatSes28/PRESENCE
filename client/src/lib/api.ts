@@ -37,7 +37,7 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}/api${endpoint}`;
 
@@ -51,7 +51,18 @@ class ApiClient {
     };
 
     try {
+      console.info("[api.request] starting", {
+        url,
+        method: config.method || "GET",
+        credentials: config.credentials,
+      });
       const response = await fetch(url, config);
+      console.info("[api.request] response received", {
+        url,
+        status: response.status,
+        ok: response.ok,
+        contentType: response.headers.get("content-type"),
+      });
       const data = await response.json();
 
       if (!response.ok) {
@@ -60,7 +71,7 @@ class ApiClient {
           triggerOn401();
         }
         const error = new Error(
-          data.message || `Request failed with status ${response.status}`
+          data.message || `Request failed with status ${response.status}`,
         );
         (error as any).status = response.status;
         (error as any).data = data;
@@ -69,7 +80,11 @@ class ApiClient {
 
       return data;
     } catch (error) {
-      console.error("API request failed:", error);
+      console.error("[api.request] failed", {
+        url,
+        method: config.method || "GET",
+        error,
+      });
       throw error;
     }
   }
@@ -103,7 +118,7 @@ class ApiClient {
     token: string,
     email: string,
     newPassword: string,
-    confirmPassword: string
+    confirmPassword: string,
   ) {
     return this.request("/auth/reset-password", {
       method: "POST",
@@ -168,7 +183,7 @@ class ApiClient {
       facultyId?: string;
       department?: string;
       gender?: string;
-    }>
+    }>,
   ) {
     return this.request(`/users/${id}`, {
       method: "PUT",
@@ -205,7 +220,7 @@ class ApiClient {
       ipAddress: string;
       macAddress: string;
       status: string;
-    }>
+    }>,
   ) {
     return this.request(`/computers/${id}`, {
       method: "PUT",
@@ -254,7 +269,7 @@ class ApiClient {
       cost?: number;
       parts?: any;
       notes?: string;
-    }>
+    }>,
   ) {
     return this.request(`/computers/maintenance/${id}`, {
       method: "PUT",
@@ -340,7 +355,7 @@ class ApiClient {
       code: string;
       description: string;
       credits: number;
-    }>
+    }>,
   ) {
     return this.request(`/subjects/${id}`, {
       method: "PUT",
@@ -374,7 +389,7 @@ class ApiClient {
       email: string;
       rfidUid: string;
       parentEmail: string;
-    }>
+    }>,
   ) {
     return this.request(`/students/${id}`, {
       method: "PUT",
@@ -390,7 +405,7 @@ class ApiClient {
 
   async getStudentAttendance(
     id: number,
-    params?: { limit?: number; offset?: number }
+    params?: { limit?: number; offset?: number },
   ) {
     const query = params ? `?${new URLSearchParams(params as any)}` : "";
     return this.request(`/students/${id}/attendance${query}`);
@@ -464,13 +479,17 @@ class ApiClient {
     return this.request("/dashboard/rfid/test-reader", { method: "POST" });
   }
   async calibrateRfidSensors() {
-    return this.request("/dashboard/rfid/calibrate-sensors", { method: "POST" });
+    return this.request("/dashboard/rfid/calibrate-sensors", {
+      method: "POST",
+    });
   }
   async checkCardDatabase() {
     return this.request("/dashboard/rfid/check-card-database");
   }
   async resetDeviceCache() {
-    return this.request("/dashboard/rfid/reset-device-cache", { method: "POST" });
+    return this.request("/dashboard/rfid/reset-device-cache", {
+      method: "POST",
+    });
   }
   async emergencyStopRfid() {
     return this.request("/dashboard/rfid/emergency-stop", { method: "POST" });
@@ -573,7 +592,7 @@ class ApiClient {
       endTime: string;
       semester: string;
       academicYear: string;
-    }>
+    }>,
   ) {
     return this.request(`/schedules/${id}`, {
       method: "PUT",
@@ -712,10 +731,10 @@ class ApiClient {
   async predictPerformance(
     studentId: number,
     computerId: number,
-    sessionId: number
+    sessionId: number,
   ) {
     return this.request(
-      `/ai-analytics/predict-performance/${studentId}/${computerId}/${sessionId}`
+      `/ai-analytics/predict-performance/${studentId}/${computerId}/${sessionId}`,
     );
   }
 
