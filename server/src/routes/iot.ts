@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { iotDeviceManager as registryIotDeviceManager } from "../services/iot-device-manager/index.js";
 import { iotDeviceManager } from "../services/iotDeviceManager.js";
 import { sendToDevice, broadcastToWebClients } from "../services/websocket.js";
 import { validateRequest, validationRules } from "../middleware/validation.js";
@@ -53,7 +54,7 @@ router.get("/devices", requireAuth, async (req, res) => {
     console.info("[iot/devices] request started", {
       userId: (req as any).user?.id ?? null,
     });
-    const devices = await iotDeviceManager.getAllDevices();
+    const devices = await registryIotDeviceManager.getAllDevices();
 
     console.info("[iot/devices] request succeeded", {
       count: Array.isArray(devices) ? devices.length : null,
