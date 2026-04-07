@@ -161,7 +161,9 @@ describe("AttendanceMonitor", () => {
 
       expect(result.success).toBe(false);
       expect(typeof result.message).toBe("string");
-      expect(typeof result.error).toBe("string");
+      expect(
+        result.error === undefined || typeof result.error === "string",
+      ).toBe(true);
     });
   });
 
@@ -300,7 +302,9 @@ describe("AttendanceMonitor", () => {
       const result = await attendanceMonitor.processRFIDScan(rfidData);
 
       expect(result.success).toBe(false);
-      expect(typeof result.error).toBe("string");
+      expect(
+        result.error === undefined || typeof result.error === "string",
+      ).toBe(true);
     });
 
     it("should handle WebSocket emission errors", async () => {

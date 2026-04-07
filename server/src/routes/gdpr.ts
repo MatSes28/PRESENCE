@@ -532,7 +532,7 @@ router.post(
 
       res.json({
         success: true,
-        message: `Consent revoked for: ${consentType}`,
+        message: `Parent consent revoked for: ${consentType}`,
       });
     } catch (error) {
       console.error("Revoke consent error:", error);

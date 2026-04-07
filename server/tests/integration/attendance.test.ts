@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import bcrypt from "bcryptjs";
 import db from "../../src/storage.js";
 import { app } from "../../src/index.js";
+import { attendanceMonitor } from "../../src/services/attendanceMonitor.js";
 import {
   attendanceRecords,
   students,
@@ -12,7 +13,7 @@ import {
   classrooms,
   subjects,
   schedules,
-} from "../../../shared/schema.js";
+} from "../../src/schema.js";
 import { eq } from "drizzle-orm";
 
 // Mock the monitoring service
@@ -125,6 +126,14 @@ describeIntegration("Attendance API Integration Tests", () => {
     testSession = session;
   });
 
+  const clearSessionAttendance = async () => {
+    attendanceMonitor.resetStateForTests();
+    if (!testSession?.id) return;
+    await db
+      .delete(attendanceRecords)
+      .where(eq(attendanceRecords.classSessionId, testSession.id));
+  };
+
   afterAll(async () => {
     // Clean up test data
     await db
@@ -139,6 +148,10 @@ describeIntegration("Attendance API Integration Tests", () => {
   });
 
   describe("POST /api/attendance/manual", () => {
+    beforeEach(async () => {
+      await clearSessionAttendance();
+    });
+
     it("should create manual attendance record", async () => {
       const attendanceData = {
         studentId: testStudent.id,
@@ -194,29 +207,18 @@ describeIntegration("Attendance API Integration Tests", () => {
 
   describe("GET /api/attendance", () => {
     beforeAll(async () => {
-      // Create some test attendance records
-      await db.insert(attendanceRecords).values([
-        {
-          studentId: testStudent.id,
-          classSessionId: testSession.id,
-          entryTime: new Date(),
-          rfidDetected: true,
-          sensorDetected: true,
-          isValid: true,
-          discrepancyFlag: false,
-          notes: "Test record 1",
-        },
-        {
-          studentId: testStudent.id,
-          classSessionId: testSession.id,
-          entryTime: new Date(Date.now() - 3600000), // 1 hour ago
-          rfidDetected: false,
-          sensorDetected: true,
-          isValid: true,
-          discrepancyFlag: false,
-          notes: "Test record 2",
-        },
-      ]);
+      await clearSessionAttendance();
+      await db.insert(attendanceRecords).values({
+        studentId: testStudent.id,
+        classSessionId: testSession.id,
+        entryTime: new Date(),
+        status: "present",
+        rfidDetected: true,
+        sensorDetected: true,
+        isValid: true,
+        discrepancyFlag: false,
+        notes: "Test record 1",
+      });
     });
 
     it("should retrieve attendance records", async () => {
@@ -263,12 +265,14 @@ describeIntegration("Attendance API Integration Tests", () => {
     let testRecord: any;
 
     beforeAll(async () => {
+      await clearSessionAttendance();
       const [record] = await db
         .insert(attendanceRecords)
         .values({
           studentId: testStudent.id,
           classSessionId: testSession.id,
           entryTime: new Date(),
+          status: "present",
           rfidDetected: true,
           sensorDetected: true,
           isValid: true,
@@ -291,7 +295,7 @@ describeIntegration("Attendance API Integration Tests", () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.record.isValid).toBe(false);
+      expect(Boolean(response.body.record.isValid)).toBe(false);
       expect(response.body.record.notes).toBe("Updated notes");
     });
 
@@ -310,12 +314,14 @@ describeIntegration("Attendance API Integration Tests", () => {
     let testRecord: any;
 
     beforeEach(async () => {
+      await clearSessionAttendance();
       const [record] = await db
         .insert(attendanceRecords)
         .values({
           studentId: testStudent.id,
           classSessionId: testSession.id,
           entryTime: new Date(),
+          status: "present",
           rfidDetected: true,
           sensorDetected: true,
           isValid: true,
@@ -344,6 +350,10 @@ describeIntegration("Attendance API Integration Tests", () => {
   });
 
   describe("POST /api/attendance/simulate-rfid", () => {
+    beforeEach(async () => {
+      await clearSessionAttendance();
+    });
+
     it("should simulate RFID scan", async () => {
       const rfidData = {
         rfidUid: testStudent.rfidUid,
@@ -370,6 +380,10 @@ describeIntegration("Attendance API Integration Tests", () => {
   });
 
   describe("POST /api/attendance/simulate-sensor", () => {
+    beforeEach(async () => {
+      await clearSessionAttendance();
+    });
+
     it("should simulate sensor trigger", async () => {
       // Prime the attendance monitor with a recent RFID scan for validation.
       await agent

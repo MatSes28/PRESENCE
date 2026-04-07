@@ -1,6 +1,13 @@
 import request from "supertest";
 import { jest } from "@jest/globals";
-import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "@jest/globals";
 import db from "../../src/storage.js";
 import { app } from "../../src/index.js";
 import bcrypt from "bcryptjs";
@@ -13,7 +20,7 @@ import {
   iotDevices,
   attendanceRecords,
   classSessions,
-} from "../../../shared/schema.js";
+} from "../../src/schema.js";
 import { eq } from "drizzle-orm";
 
 // Mock services
@@ -80,15 +87,16 @@ describeIntegration("API Endpoints Integration Tests", () => {
       .returning();
     testSubject = subject;
 
+    const now = new Date();
     const [schedule] = await db
       .insert(schedules)
       .values({
         subjectId: subject.id,
         classroomId: classroom.id,
         facultyId: user.id,
-        dayOfWeek: 1,
-        startTime: "08:00",
-        endTime: "09:00",
+        dayOfWeek: now.getDay(),
+        startTime: "00:00:00",
+        endTime: "23:59:59",
         semester: "1st Semester",
         academicYear: "2024-2025",
         isRecurring: 0 as any,
@@ -117,7 +125,7 @@ describeIntegration("API Endpoints Integration Tests", () => {
       classroomId: classroom.id,
       deviceType: "esp32_s3",
       status: "offline",
-      apiKeyHash: `test-api-key-hash-${uniqueSuffix}`,
+      apiKey: `pk_test_${uniqueSuffix}`,
       isActive: 1 as any,
     };
 
@@ -337,6 +345,12 @@ describeIntegration("API Endpoints Integration Tests", () => {
     });
 
     describe("POST /api/attendance/simulate-rfid", () => {
+      beforeEach(async () => {
+        await db
+          .delete(attendanceRecords)
+          .where(eq(attendanceRecords.classSessionId, testSession.id));
+      });
+
       it("should process an RFID simulation", async () => {
         const rfidData = {
           rfidUid: testStudent.rfidUid,
@@ -501,7 +515,7 @@ describeIntegration("API Endpoints Integration Tests", () => {
       const response = await request(app).get("/api/students").expect(401);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toContain("Unauthorized");
+      expect(response.body.message).toContain("Authentication required");
     });
 
     it("should handle not found endpoints", async () => {

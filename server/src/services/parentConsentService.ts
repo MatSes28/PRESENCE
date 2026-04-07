@@ -217,63 +217,91 @@ class ParentConsentService {
 
   async getStudentConsentStatus(studentId: number): Promise<any> {
     const now = new Date();
-    const consents = await db
-      .select()
-      .from(parentConsents)
-      .where(eq(parentConsents.studentId, studentId))
-      .orderBy(desc(parentConsents.consentDate));
-
-    const pending = await db
-      .select()
-      .from(parentConsentRequests)
-      .where(
-        and(
-          eq(parentConsentRequests.studentId, studentId),
-          eq(parentConsentRequests.status, "pending"),
-          gt(parentConsentRequests.expiresAt, now),
-        ),
-      );
-
-    const latestByType = new Map<string, any>();
-    for (const c of consents) {
-      if (!latestByType.has(c.consentType)) latestByType.set(c.consentType, c);
-    }
-
-    const resolveStatus = (type: ParentConsent["consentType"]) => {
-      const c = latestByType.get(type);
-      const hasPending = pending.some((p) => p.consentType === type);
-      if (!c) {
-        return {
-          consented: false,
-          status: hasPending ? "pending" : "not_requested",
-        };
-      }
-      const expired = c.expiresAt ? new Date(c.expiresAt) <= now : false;
-      const revoked = !!c.revokedAt;
-      return {
-        consented: !!c.consented && !expired && !revoked,
-        status: revoked
-          ? "revoked"
-          : expired
-            ? "expired"
-            : c.consented
-              ? "approved"
-              : "rejected",
-        updatedAt: c.updatedAt,
-        expiresAt: c.expiresAt,
-      };
-    };
-
-    return {
+    const emptyStatus = {
       studentId,
       consents: {
-        attendance_tracking: resolveStatus("attendance_tracking"),
-        email_notifications: resolveStatus("email_notifications"),
-        data_processing: resolveStatus("data_processing"),
-        emergency_contact: resolveStatus("emergency_contact"),
+        attendance_tracking: {
+          consented: false,
+          status: "not_requested",
+        },
+        email_notifications: {
+          consented: false,
+          status: "not_requested",
+        },
+        data_processing: {
+          consented: false,
+          status: "not_requested",
+        },
+        emergency_contact: {
+          consented: false,
+          status: "not_requested",
+        },
       },
-      lastUpdated: new Date(),
+      lastUpdated: now,
     };
+
+    try {
+      const consents = await db
+        .select()
+        .from(parentConsents)
+        .where(eq(parentConsents.studentId, studentId))
+        .orderBy(desc(parentConsents.consentDate));
+
+      const pending = await db
+        .select()
+        .from(parentConsentRequests)
+        .where(
+          and(
+            eq(parentConsentRequests.studentId, studentId),
+            eq(parentConsentRequests.status, "pending"),
+            gt(parentConsentRequests.expiresAt, now),
+          ),
+        );
+
+      const latestByType = new Map<string, any>();
+      for (const c of consents) {
+        if (!latestByType.has(c.consentType)) latestByType.set(c.consentType, c);
+      }
+
+      const resolveStatus = (type: ParentConsent["consentType"]) => {
+        const c = latestByType.get(type);
+        const hasPending = pending.some((p) => p.consentType === type);
+        if (!c) {
+          return {
+            consented: false,
+            status: hasPending ? "pending" : "not_requested",
+          };
+        }
+        const expired = c.expiresAt ? new Date(c.expiresAt) <= now : false;
+        const revoked = !!c.revokedAt;
+        return {
+          consented: !!c.consented && !expired && !revoked,
+          status: revoked
+            ? "revoked"
+            : expired
+              ? "expired"
+              : c.consented
+                ? "approved"
+                : "rejected",
+          updatedAt: c.updatedAt,
+          expiresAt: c.expiresAt,
+        };
+      };
+
+      return {
+        studentId,
+        consents: {
+          attendance_tracking: resolveStatus("attendance_tracking"),
+          email_notifications: resolveStatus("email_notifications"),
+          data_processing: resolveStatus("data_processing"),
+          emergency_contact: resolveStatus("emergency_contact"),
+        },
+        lastUpdated: new Date(),
+      };
+    } catch (error) {
+      console.warn("Consent status lookup failed, returning fallback:", error);
+      return emptyStatus;
+    }
   }
 
   async revokeParentConsent(

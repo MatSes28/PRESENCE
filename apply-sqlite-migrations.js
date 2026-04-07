@@ -83,10 +83,12 @@ try {
 
     // students
     renameColumnIfNeeded("students", "studentId", "student_id");
+    renameColumnIfNeeded("students", "rfidUidHash", "rfid_uid_hash");
     renameColumnIfNeeded("students", "rfidUid", "rfid_uid");
     renameColumnIfNeeded("students", "parentEmail", "parent_email");
     renameColumnIfNeeded("students", "parentName", "parent_name");
     renameColumnIfNeeded("students", "isActive", "is_active");
+    addColumnIfMissing("students", "rfid_uid_hash", "TEXT");
 
     // schedules
     renameColumnIfNeeded("schedules", "dayOfWeek", "day_of_week");
@@ -261,6 +263,7 @@ try {
       program TEXT DEFAULT 'BSIT' NOT NULL,
       department TEXT DEFAULT 'DIT' NOT NULL,
       college TEXT DEFAULT 'College of Engineering' NOT NULL,
+      rfid_uid_hash TEXT UNIQUE,
       rfid_uid TEXT UNIQUE,
       parent_email TEXT NOT NULL,
       parent_name TEXT,
@@ -662,6 +665,17 @@ try {
     `CREATE INDEX IF NOT EXISTS idx_integrations_kind ON integrations(kind)`,
     `CREATE INDEX IF NOT EXISTS idx_integrations_provider ON integrations(provider)`,
 
+    `CREATE TABLE IF NOT EXISTS system_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT NOT NULL UNIQUE,
+      value TEXT NOT NULL,
+      description TEXT,
+      category TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    )`,
+
     `CREATE TABLE IF NOT EXISTS integration_sync_runs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       integration_id INTEGER NOT NULL,
@@ -714,6 +728,11 @@ try {
       console.warn(`⚠️  Warning creating table: ${error.message}`);
     }
   }
+
+  addColumnIfMissing("students", "rfid_uid_hash", "TEXT");
+  db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS students_rfid_uid_hash_unique ON students(rfid_uid_hash)",
+  );
 
   console.log("✅ Database migrations applied successfully!");
 

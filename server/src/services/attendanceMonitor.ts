@@ -45,6 +45,12 @@ class AttendanceMonitor {
 
   private rfidScanTtlSeconds = 60; // keep scans slightly longer than validationWindow
 
+  resetStateForTests(): void {
+    this.activeSessions.clear();
+    this.recentRFIDScans.clear();
+    this.recentAttendance.clear();
+  }
+
   private async acquireAttendanceCooldownGate(
     attendanceKey: string,
     now: Date,
@@ -67,6 +73,36 @@ class AttendanceMonitor {
     }
     this.recentAttendance.set(attendanceKey, now);
     return true;
+  }
+
+  private async findStudentByRfidUid(rfidUid: string) {
+    const normalized = rfidUid.trim();
+    const rfidUidHash = encryptionService.hashRFIDUidForLookup(normalized);
+
+    try {
+      const byHash = await db
+        .select()
+        .from(students)
+        .where(eq(students.rfidUidHash, rfidUidHash))
+        .limit(1);
+
+      if (byHash.length) {
+        return byHash[0];
+      }
+    } catch (error) {
+      console.warn(
+        "RFID hash lookup failed, falling back to legacy UID lookup:",
+        (error as Error).message,
+      );
+    }
+
+    const byPlainUid = await db
+      .select()
+      .from(students)
+      .where(eq(students.rfidUid, normalized))
+      .limit(1);
+
+    return byPlainUid[0] ?? null;
   }
 
   async processRFIDScan(scan: RFIDScan): Promise<{
@@ -93,19 +129,12 @@ class AttendanceMonitor {
       }
 
       // Find student by RFID UID (tokenized lookup)
-      const rfidUidHash = encryptionService.hashRFIDUidForLookup(scan.rfidUid);
-      const student = await db
-        .select()
-        .from(students)
-        .where(eq(students.rfidUidHash, rfidUidHash))
-        .limit(1);
+      const studentData = await this.findStudentByRfidUid(scan.rfidUid);
 
-      if (!student.length) {
+      if (!studentData) {
         console.log(`Unknown RFID UID: ${scan.rfidUid}`);
         return { success: false, message: "Unknown RFID card" };
       }
-
-      const studentData = student[0];
 
       // Find active class session for current time
       const now = new Date();
@@ -292,28 +321,20 @@ class AttendanceMonitor {
           message: "Sensor trigger without timely RFID correlation",
         };
       }
-      const rfidUidHash = encryptionService.hashRFIDUidForLookup(
-        recentScan.rfidUid,
-      );
+      const studentData = await this.findStudentByRfidUid(recentScan.rfidUid);
 
-      const student = await db
-        .select()
-        .from(students)
-        .where(eq(students.rfidUidHash, rfidUidHash))
-        .limit(1);
-
-      if (!student.length) {
+      if (!studentData) {
         return { success: false, message: "Student not found" };
       }
 
       // Anti-passback validation for sensor triggers
-      const attendanceKey = `${student[0].id}-${currentSession.id}`;
+      const attendanceKey = `${studentData.id}-${currentSession.id}`;
       const existingRecord = await db
         .select()
         .from(attendanceRecords)
         .where(
           and(
-            eq(attendanceRecords.studentId, student[0].id),
+            eq(attendanceRecords.studentId, studentData.id),
             eq(attendanceRecords.classSessionId, currentSession.id),
           ),
         )
@@ -326,7 +347,7 @@ class AttendanceMonitor {
           !existingRecord[0].exitTime
         ) {
           console.log(
-            `Anti-passback violation: Student ${student[0].id} already entered without exiting`,
+            `Anti-passback violation: Student ${studentData.id} already entered without exiting`,
           );
           return {
             success: false,
@@ -336,7 +357,7 @@ class AttendanceMonitor {
 
         if (trigger.sensorType === "exit" && !existingRecord[0].entryTime) {
           console.log(
-            `Invalid exit: Student ${student[0].id} has no entry record`,
+            `Invalid exit: Student ${studentData.id} has no entry record`,
           );
           return {
             success: false,
@@ -354,7 +375,7 @@ class AttendanceMonitor {
         );
       } else {
         await this.createAttendanceRecord({
-          studentId: student[0].id,
+          studentId: studentData.id,
           classSessionId: currentSession.id,
           rfidDetected: false,
           sensorDetected: true,
@@ -365,7 +386,7 @@ class AttendanceMonitor {
       return {
         success: true,
         message: "Sensor trigger processed",
-        student: student[0],
+        student: studentData,
         session: currentSession,
         triggerType: trigger.sensorType,
       };

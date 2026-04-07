@@ -438,23 +438,36 @@ router.put("/:id", requireAdmin, async (req, res) => {
     }
 
     // Decrypt for response
+    let decryptedRfid = updatedStudent.rfidUid || null;
+    if (updatedStudent.rfidUid) {
+      try {
+        decryptedRfid = encryptionService.decryptRFID(updatedStudent.rfidUid);
+      } catch {
+        decryptedRfid = updatedStudent.rfidUid;
+      }
+    }
+
+    let decryptedParentEmail = updatedStudent.parentEmail || null;
+    let decryptedParentName = updatedStudent.parentName || null;
+    if (updatedStudent.parentEmail) {
+      try {
+        const decryptedParent = encryptionService.decryptParentData(
+          updatedStudent.parentEmail,
+          updatedStudent.parentName || "",
+        );
+        decryptedParentEmail = decryptedParent.email;
+        decryptedParentName = decryptedParent.phone || null;
+      } catch {
+        decryptedParentEmail = updatedStudent.parentEmail;
+        decryptedParentName = updatedStudent.parentName || null;
+      }
+    }
+
     const decryptedStudent = {
       ...updatedStudent,
-      rfidUid: updatedStudent.rfidUid
-        ? encryptionService.decryptRFID(updatedStudent.rfidUid)
-        : null,
-      parentEmail: updatedStudent.parentEmail
-        ? encryptionService.decryptParentData(
-            updatedStudent.parentEmail,
-            updatedStudent.parentName || "",
-          ).email
-        : null,
-      parentName: updatedStudent.parentName
-        ? encryptionService.decryptParentData(
-            updatedStudent.parentEmail || "",
-            updatedStudent.parentName,
-          ).phone
-        : null,
+      rfidUid: decryptedRfid,
+      parentEmail: decryptedParentEmail,
+      parentName: decryptedParentName,
     };
 
     res.json({

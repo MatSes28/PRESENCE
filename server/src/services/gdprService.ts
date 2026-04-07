@@ -491,17 +491,21 @@ class GDPRService {
       justification,
     };
 
-    await db.insert(privacyAuditLogs).values({
-      id: auditLog.id,
-      userId: auditLog.userId,
-      action: auditLog.action,
-      dataAccessed: auditLog.dataAccessed,
-      ipAddress: auditLog.ipAddress,
-      userAgent: auditLog.userAgent,
-      justification: auditLog.justification,
-      metadata: {},
-      createdAt: auditLog.timestamp,
-    });
+    try {
+      await db.insert(privacyAuditLogs).values({
+        id: auditLog.id,
+        userId: auditLog.userId,
+        action: auditLog.action,
+        dataAccessed: auditLog.dataAccessed,
+        ipAddress: auditLog.ipAddress,
+        userAgent: auditLog.userAgent,
+        justification: auditLog.justification,
+        metadata: {},
+        createdAt: auditLog.timestamp,
+      });
+    } catch (error) {
+      console.warn("Privacy audit log write failed:", error);
+    }
   }
 
   // Admin: list DSAR requests
