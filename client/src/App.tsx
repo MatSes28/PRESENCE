@@ -82,8 +82,6 @@ function AppContent() {
   const { addNotification } = useNotifications();
   const [, setLocation] = useLocation();
 
-  console.log("AppContent render - user:", user, "loading:", loading);
-
   // 10-minute inactivity auto-logout: show message then logout
   const handleInactivityLogout = () => {
     addNotification({
@@ -114,7 +112,6 @@ function AppContent() {
   // Handle redirect after successful login
   useEffect(() => {
     if (!loading && user) {
-      console.log("User authenticated, redirecting to dashboard");
       setLocation("/");
     }
   }, [user, loading, setLocation]);
@@ -128,7 +125,6 @@ function AppContent() {
   }
 
   if (!user) {
-    console.log("No user, showing login form");
     return (
       <Router>
         <Suspense fallback={<PageFallback />}>
@@ -141,7 +137,6 @@ function AppContent() {
     );
   }
 
-  console.log("User authenticated, showing dashboard");
   return (
     <Router>
       <Suspense fallback={<PageFallback />}>

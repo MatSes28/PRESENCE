@@ -63,6 +63,16 @@ export const Students = () => {
     studentId: commonValidationRules.studentId,
     name: commonValidationRules.name,
     email: { ...commonValidationRules.email, required: false },
+    rfidUid: {
+      required: false,
+      custom: (value: string) => {
+        if (!value?.trim()) return null;
+        if (!/^[a-fA-F0-9]{8,32}$/.test(value.trim())) {
+          return "RFID must be 8-32 hexadecimal characters";
+        }
+        return null;
+      },
+    },
     parentEmail: commonValidationRules.email, // Now required
   });
 
@@ -224,10 +234,18 @@ export const Students = () => {
       }
     } catch (error) {
       console.error("Failed to save student:", error);
+      const fieldErrors = (error as any)?.data?.errors;
+      const fieldMessage =
+        fieldErrors && typeof fieldErrors === "object"
+          ? Object.values(fieldErrors).find((value) => typeof value === "string")
+          : null;
+
       addNotification({
         type: "error",
-        title: "Network Error",
+        title: "Save Failed",
         message:
+          (typeof fieldMessage === "string" && fieldMessage) ||
+          (error instanceof Error && error.message) ||
           "Failed to save student. Please check your connection and try again.",
       });
     } finally {

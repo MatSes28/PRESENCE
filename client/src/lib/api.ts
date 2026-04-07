@@ -618,26 +618,26 @@ class ApiClient {
   }
 
   async createClassSessionsForDate(date: string) {
-    return this.request("/class-sessions/auto-create", {
+    return this.request("/sessions/auto-create", {
       method: "POST",
       body: JSON.stringify({ date }),
     });
   }
 
   async activateSessions() {
-    return this.request("/class-sessions/auto-activate", {
+    return this.request("/sessions/auto-activate", {
       method: "POST",
     });
   }
 
   async endSessions() {
-    return this.request("/class-sessions/auto-end", {
+    return this.request("/sessions/auto-end", {
       method: "POST",
     });
   }
 
   async updateSessionStatus(id: number, status: string) {
-    return this.request(`/class-sessions/${id}/status`, {
+    return this.request(`/sessions/${id}/status`, {
       method: "PUT",
       body: JSON.stringify({ status }),
     });

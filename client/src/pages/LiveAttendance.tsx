@@ -47,6 +47,9 @@ export const LiveAttendance = () => {
   });
   const [students, setStudents] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [sensorSimulationPending, setSensorSimulationPending] = useState<
+    "entry" | "exit" | null
+  >(null);
 
   // Advanced filtering state
   const [filters, setFilters] = useState({
@@ -87,6 +90,22 @@ export const LiveAttendance = () => {
       student: r.student,
       session: r.session,
     }));
+  };
+
+  const getApiErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    const fieldErrors = (error as any)?.data?.errors;
+    if (fieldErrors && typeof fieldErrors === "object") {
+      const firstFieldError = Object.values(fieldErrors)[0];
+      if (typeof firstFieldError === "string") {
+        return firstFieldError;
+      }
+    }
+
+    return fallback;
   };
 
   // Fetch initial attendance data (real API, no mock)
@@ -209,7 +228,6 @@ export const LiveAttendance = () => {
         });
 
         wsClient.on("deviceStatus", (data: any) => {
-          console.log("Device status received:", data);
           if (Array.isArray(data)) {
             setStats((prev) => ({
               ...prev,
@@ -305,12 +323,20 @@ export const LiveAttendance = () => {
       addNotification({
         type: "error",
         title: "Simulation Error",
-        message: "Failed to simulate RFID tap. Check your connection.",
+        message: getApiErrorMessage(
+          error,
+          "Failed to simulate RFID tap. Check your connection.",
+        ),
       });
     }
   };
 
   const simulateSensorTrigger = async (sensorType: "entry" | "exit") => {
+    if (sensorSimulationPending) {
+      return;
+    }
+
+    setSensorSimulationPending(sensorType);
     try {
       const response = await api.simulateSensor(sensorType, 50);
 
@@ -335,8 +361,13 @@ export const LiveAttendance = () => {
       addNotification({
         type: "error",
         title: "Simulation Error",
-        message: "Failed to simulate sensor trigger. Check your connection.",
+        message: getApiErrorMessage(
+          error,
+          "Failed to simulate sensor trigger. Check your connection.",
+        ),
       });
+    } finally {
+      setSensorSimulationPending(null);
     }
   };
 
@@ -880,15 +911,21 @@ export const LiveAttendance = () => {
           <div className="flex space-x-4">
             <button
               onClick={() => simulateSensorTrigger("entry")}
-              className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg"
+              disabled={sensorSimulationPending !== null}
+              className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60 text-white font-medium rounded-lg"
             >
-              Simulate Entry Sensor
+              {sensorSimulationPending === "entry"
+                ? "Simulating..."
+                : "Simulate Entry Sensor"}
             </button>
             <button
               onClick={() => simulateSensorTrigger("exit")}
-              className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg"
+              disabled={sensorSimulationPending !== null}
+              className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 text-white font-medium rounded-lg"
             >
-              Simulate Exit Sensor
+              {sensorSimulationPending === "exit"
+                ? "Simulating..."
+                : "Simulate Exit Sensor"}
             </button>
           </div>
         </div>
