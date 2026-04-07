@@ -55,9 +55,8 @@ class WebSocketClient {
 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const host = window.location.host;
-      const userParam = this.userId ? `&userId=${this.userId}` : "";
 
-      const wsUrl = `${protocol}//${host}/ws?client=web${userParam}`;
+      const wsUrl = `${protocol}//${host}/ws?client=web`;
 
       try {
         this.ws = new WebSocket(wsUrl);

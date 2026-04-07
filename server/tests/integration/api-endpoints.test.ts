@@ -17,6 +17,7 @@ import {
   classrooms,
   subjects,
   schedules,
+  enrollments,
   iotDevices,
   attendanceRecords,
   classSessions,
@@ -119,6 +120,14 @@ describeIntegration("API Endpoints Integration Tests", () => {
     const [student] = await db.insert(students).values(studentData).returning();
     testStudent = student;
 
+    await db.insert(enrollments).values({
+      studentId: student.id,
+      subjectId: subject.id,
+      semester: "1st Semester",
+      academicYear: "2024-2025",
+      isActive: 1 as any,
+    });
+
     // Create test IoT device
     const deviceData = {
       deviceId: `TEST_DEVICE_${uniqueSuffix}`,
@@ -157,6 +166,7 @@ describeIntegration("API Endpoints Integration Tests", () => {
     await db
       .delete(attendanceRecords)
       .where(eq(attendanceRecords.studentId, testStudent.id));
+    await db.delete(enrollments).where(eq(enrollments.studentId, testStudent.id));
     await db.delete(classSessions).where(eq(classSessions.id, testSession.id));
 
     // Cleanup in FK-safe order

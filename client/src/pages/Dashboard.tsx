@@ -451,16 +451,21 @@ export const Dashboard = () => {
 
     // Subscribe to real-time updates
     wsClient.on("rfidScan", (data) => {
-      setRealTimeData((prev) => [data, ...prev.slice(0, 9)]);
+      setRealTimeData((prev) => [
+        { ...data, type: "rfid_scan" },
+        ...prev.slice(0, 9),
+      ]);
       setDashboardStats((prev) => ({
         ...prev,
         totalEvents: prev.totalEvents + 1,
-        presentStudents: prev.presentStudents + 1,
       }));
     });
 
     wsClient.on("sensorTrigger", (data) => {
-      setRealTimeData((prev) => [data, ...prev.slice(0, 9)]);
+      setRealTimeData((prev) => [
+        { ...data, type: "sensor_trigger" },
+        ...prev.slice(0, 9),
+      ]);
       setDashboardStats((prev) => ({
         ...prev,
         totalEvents: prev.totalEvents + 1,
@@ -468,7 +473,10 @@ export const Dashboard = () => {
     });
 
     wsClient.on("attendanceRecord", (data) => {
-      setRealTimeData((prev) => [data, ...prev.slice(0, 9)]);
+      setRealTimeData((prev) => [
+        { ...data, type: "attendance_record" },
+        ...prev.slice(0, 9),
+      ]);
       setDashboardStats((prev) => ({
         ...prev,
         totalEvents: prev.totalEvents + 1,
@@ -619,11 +627,14 @@ export const Dashboard = () => {
       if (sessionFormData.action === "create") {
         // Create sessions for today
         response = await api.createClassSessionsForDate(
-          new Date().toISOString().split("T")[0]
+          new Date().toISOString().split("T")[0],
+          parseInt(sessionFormData.scheduleId),
         );
       } else {
         // Activate existing sessions
-        response = await api.activateSessions();
+        response = await api.activateSessions(
+          parseInt(sessionFormData.scheduleId),
+        );
       }
 
       if (response.success) {
@@ -880,7 +891,8 @@ export const Dashboard = () => {
                   {new Date(data.timestamp).toLocaleTimeString()}
                 </p>
                 <p className="text-sm text-white">
-                  {data.type === "rfid_scan" && `RFID: ${data.rfidUid}`}
+                  {data.type === "rfid_scan" &&
+                    `RFID: ${data.maskedRfidUid || data.rfidUid || "Card scanned"}`}
                   {data.type === "sensor_trigger" &&
                     `${data.sensorType} sensor: ${data.distance}cm`}
                   {data.type === "attendance_record" && `Attendance recorded`}

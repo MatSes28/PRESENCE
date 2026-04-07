@@ -8,7 +8,7 @@ import {
   users,
 } from "../schema.js";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAdminOrFaculty, requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -117,9 +117,9 @@ router.get("/:id", requireAuth, async (req, res) => {
 });
 
 // Auto-create sessions based on schedule (called by cron job or manually)
-router.post("/auto-create", requireAuth, async (req, res) => {
+router.post("/auto-create", requireAdminOrFaculty, async (req, res) => {
   try {
-    const { date } = req.body;
+    const { date, scheduleId } = req.body;
 
     if (!date) {
       return res.status(400).json({
@@ -132,10 +132,20 @@ router.post("/auto-create", requireAuth, async (req, res) => {
     const dayOfWeek = targetDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
 
     // Find all schedules for this day
+    const scheduleFilters = [eq(schedules.dayOfWeek, dayOfWeek)];
+
+    if (scheduleId) {
+      scheduleFilters.push(eq(schedules.id, Number(scheduleId)));
+    }
+
+    if (req.session?.userRole === "faculty") {
+      scheduleFilters.push(eq(schedules.facultyId, req.session.userId!));
+    }
+
     const daySchedules = await db
       .select()
       .from(schedules)
-      .where(eq(schedules.dayOfWeek, dayOfWeek));
+      .where(and(...scheduleFilters));
 
     const createdSessions = [];
 
@@ -186,9 +196,34 @@ router.post("/auto-create", requireAuth, async (req, res) => {
 });
 
 // Auto-activate sessions based on schedule time
-router.post("/auto-activate", requireAuth, async (req, res) => {
+router.post("/auto-activate", requireAdminOrFaculty, async (req, res) => {
   try {
     const now = new Date();
+    const { scheduleId } = req.body;
+
+    const activationFilters = [
+      eq(classSessions.status, "scheduled"),
+      // Session date matches today
+      gte(
+        classSessions.date,
+        new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      ),
+      lte(
+        classSessions.date,
+        new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+      ),
+      // Current time is within session time window
+      lte(schedules.startTime, now.toTimeString().slice(0, 8)),
+      gte(schedules.endTime, now.toTimeString().slice(0, 8)),
+    ];
+
+    if (scheduleId) {
+      activationFilters.push(eq(schedules.id, Number(scheduleId)));
+    }
+
+    if (req.session?.userRole === "faculty") {
+      activationFilters.push(eq(schedules.facultyId, req.session.userId!));
+    }
 
     // Find sessions that should be active now
     const sessionsToActivate = await db
@@ -198,23 +233,7 @@ router.post("/auto-activate", requireAuth, async (req, res) => {
       })
       .from(classSessions)
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
-      .where(
-        and(
-          eq(classSessions.status, "scheduled"),
-          // Session date matches today
-          gte(
-            classSessions.date,
-            new Date(now.getFullYear(), now.getMonth(), now.getDate())
-          ),
-          lte(
-            classSessions.date,
-            new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-          ),
-          // Current time is within session time window
-          lte(schedules.startTime, now.toTimeString().slice(0, 8)),
-          gte(schedules.endTime, now.toTimeString().slice(0, 8))
-        )
-      );
+      .where(and(...activationFilters));
 
     const activatedSessions = [];
 

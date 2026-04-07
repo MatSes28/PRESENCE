@@ -625,6 +625,7 @@ router.post(
 
       const result = await attendanceMonitor.processRFIDScan({
         deviceId: req.deviceId,
+        classroomId: req.deviceClassroomId,
         rfidUid,
         timestamp: timestamp || new Date().toISOString(),
       });
@@ -645,7 +646,7 @@ router.post(
       }
 
       // Broadcast to web clients
-      broadcastToWebClients("rfidScan", {
+      broadcastToWebClients("rfid_scan", {
         requestId,
         deviceId: req.deviceId,
         rfidUid,
@@ -698,6 +699,7 @@ router.post(
 
       const result = await attendanceMonitor.processSensorTrigger({
         deviceId: req.deviceId,
+        classroomId: req.deviceClassroomId,
         sensorType,
         distance,
         timestamp: timestamp || new Date().toISOString(),
@@ -719,11 +721,11 @@ router.post(
       }
 
       // Broadcast to web clients
-      broadcastToWebClients("sensorData", {
+      broadcastToWebClients("sensor_trigger", {
         requestId,
         deviceId: req.deviceId,
-        sensorType: "ultrasonic",
-        value: distance,
+        sensorType,
+        distance,
         result,
         timestamp: new Date().toISOString(),
       });
@@ -750,7 +752,7 @@ router.post(
   requireDeviceAuth,
   async (req: any, res: any) => {
     try {
-      const { rfidUid, distance, timestamp } = req.body;
+      const { rfidUid, distance, timestamp, sensorType } = req.body;
       const requestId = uuidv4();
 
       if (!rfidUid && distance === undefined) {
@@ -772,6 +774,7 @@ router.post(
       if (rfidUid) {
         rfidResult = await attendanceMonitor.processRFIDScan({
           deviceId: req.deviceId,
+          classroomId: req.deviceClassroomId,
           rfidUid,
           timestamp: timestamp || new Date().toISOString(),
         });
@@ -796,9 +799,15 @@ router.post(
       // Process sensor trigger if distance is present
       let sensorResult = null;
       if (distance !== undefined) {
+        const inferredSensorType =
+          sensorType === "entry" || sensorType === "exit"
+            ? sensorType
+            : "entry";
+
         sensorResult = await attendanceMonitor.processSensorTrigger({
           deviceId: req.deviceId,
-          sensorType: distance > 100 ? "entry" : "exit",
+          classroomId: req.deviceClassroomId,
+          sensorType: inferredSensorType,
           distance,
           timestamp: timestamp || new Date().toISOString(),
         });
@@ -807,7 +816,7 @@ router.post(
         try {
           await auditEventLogger.logSensorTrigger(
             req.deviceId,
-            distance > 100 ? "entry" : "exit",
+            inferredSensorType,
             Number(distance),
             !!(sensorResult as any)?.success,
           );
@@ -826,10 +835,11 @@ router.post(
       };
 
       // Broadcast to web clients
-      broadcastToWebClients("combinedSensorData", {
+      broadcastToWebClients("sensor_trigger", {
         requestId,
         deviceId: req.deviceId,
         rfidUid,
+        sensorType: sensorType || null,
         distance,
         result,
         timestamp: new Date().toISOString(),
@@ -859,7 +869,7 @@ router.post("/status", requireDeviceAuth, async (req: any, res: any) => {
     await iotDeviceManager.updateDeviceStatus(req.deviceId, status, config);
 
     // Broadcast status update
-    broadcastToWebClients("deviceStatusUpdate", {
+    broadcastToWebClients("device_status", {
       deviceId: req.deviceId,
       status,
       config,

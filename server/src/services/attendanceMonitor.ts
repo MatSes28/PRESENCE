@@ -4,6 +4,8 @@ import {
   students,
   classSessions,
   schedules,
+  enrollments,
+  iotDevices,
 } from "../schema.js";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { sendToDevice } from "./websocket.js";
@@ -15,6 +17,7 @@ interface RFIDScan {
   deviceId: string;
   rfidUid: string;
   timestamp: string;
+  classroomId?: number | null;
 }
 
 interface SensorTrigger {
@@ -22,6 +25,7 @@ interface SensorTrigger {
   sensorType: "entry" | "exit";
   distance: number;
   timestamp: string;
+  classroomId?: number | null;
 }
 
 interface AttendanceRecord {
@@ -31,6 +35,14 @@ interface AttendanceRecord {
   exitTime?: Date;
   rfidDetected: boolean;
   sensorDetected: boolean;
+}
+
+interface ActiveSessionMatch {
+  session: typeof classSessions.$inferSelect;
+  schedule: Pick<
+    typeof schedules.$inferSelect,
+    "id" | "subjectId" | "classroomId" | "facultyId"
+  >;
 }
 
 class AttendanceMonitor {
@@ -105,6 +117,109 @@ class AttendanceMonitor {
     return byPlainUid[0] ?? null;
   }
 
+  private toPublicStudent(student: typeof students.$inferSelect) {
+    return {
+      id: student.id,
+      studentId: student.studentId,
+      name: student.name,
+    };
+  }
+
+  private toPublicSession(match: ActiveSessionMatch) {
+    return {
+      ...match.session,
+      classroomId: match.schedule.classroomId,
+      facultyId: match.schedule.facultyId,
+      subjectId: match.schedule.subjectId,
+      scheduleId: match.schedule.id,
+    };
+  }
+
+  private async resolveDeviceClassroomId(
+    deviceId: string,
+    classroomId?: number | null,
+  ): Promise<number | null> {
+    if (typeof classroomId === "number" && Number.isFinite(classroomId)) {
+      return classroomId;
+    }
+
+    if (!deviceId || deviceId === "simulator") {
+      return null;
+    }
+
+    const device = await db
+      .select({ classroomId: iotDevices.classroomId })
+      .from(iotDevices)
+      .where(eq(iotDevices.deviceId, deviceId))
+      .limit(1);
+
+    return device[0]?.classroomId ?? null;
+  }
+
+  private async findActiveClassSessionMatch(
+    currentTime: Date,
+    options: { classroomId?: number | null; studentId?: number } = {},
+  ): Promise<ActiveSessionMatch | null> {
+    const dayOfWeek = currentTime.getDay();
+    const currentTimeStr = currentTime.toTimeString().slice(0, 8);
+    const startOfDay = new Date(
+      currentTime.getFullYear(),
+      currentTime.getMonth(),
+      currentTime.getDate(),
+    );
+    const endOfDay = new Date(
+      currentTime.getFullYear(),
+      currentTime.getMonth(),
+      currentTime.getDate() + 1,
+    );
+
+    const filters = [
+      eq(schedules.dayOfWeek, dayOfWeek),
+      eq(classSessions.status, "active"),
+      lte(schedules.startTime, currentTimeStr),
+      gte(schedules.endTime, currentTimeStr),
+      gte(classSessions.date, startOfDay),
+      lte(classSessions.date, endOfDay),
+    ];
+
+    if (options.classroomId) {
+      filters.push(eq(schedules.classroomId, options.classroomId));
+    }
+
+    const baseQuery = db
+      .select({
+        session: classSessions,
+        schedule: {
+          id: schedules.id,
+          subjectId: schedules.subjectId,
+          classroomId: schedules.classroomId,
+          facultyId: schedules.facultyId,
+        },
+      })
+      .from(schedules)
+      .innerJoin(classSessions, eq(schedules.id, classSessions.scheduleId));
+
+    const matches = options.studentId
+      ? await baseQuery
+          .innerJoin(
+            enrollments,
+            and(
+              eq(enrollments.subjectId, schedules.subjectId),
+              eq(enrollments.studentId, options.studentId),
+              eq(enrollments.isActive, true),
+            ),
+          )
+          .where(and(...filters))
+          .orderBy(classSessions.date)
+          .limit(1)
+      : await baseQuery
+          .where(and(...filters))
+          .orderBy(classSessions.date)
+          .limit(1);
+
+    return matches[0] ?? null;
+  }
+
   async processRFIDScan(scan: RFIDScan): Promise<{
     success: boolean;
     message?: string;
@@ -136,11 +251,20 @@ class AttendanceMonitor {
         return { success: false, message: "Unknown RFID card" };
       }
 
+      const publicStudent = this.toPublicStudent(studentData);
+
       // Find active class session for current time
       const now = new Date();
-      const currentSession = await this.findActiveClassSession(now);
+      const classroomId = await this.resolveDeviceClassroomId(
+        scan.deviceId,
+        scan.classroomId,
+      );
+      const currentSessionMatch = await this.findActiveClassSessionMatch(now, {
+        classroomId,
+        studentId: studentData.id,
+      });
 
-      if (!currentSession) {
+      if (!currentSessionMatch) {
         console.log(`No active class session for student ${studentData.id}`);
         // Create discrepancy record for RFID scan outside class time
         await this.createGeneralDiscrepancyRecord({
@@ -153,6 +277,8 @@ class AttendanceMonitor {
         });
         return { success: false, message: "No active class session" };
       }
+
+      const currentSession = currentSessionMatch.session;
 
       // Anti-passback validation
       const attendanceKey = `${studentData.id}-${currentSession.id}`;
@@ -233,8 +359,8 @@ class AttendanceMonitor {
       return {
         success: true,
         message: "RFID scan processed",
-        student: studentData,
-        session: currentSession,
+        student: publicStudent,
+        session: this.toPublicSession(currentSessionMatch),
       };
     } catch (error) {
       console.error("Error processing RFID scan:", error);
@@ -269,14 +395,6 @@ class AttendanceMonitor {
       const now = new Date();
       const effectiveTime = now;
 
-      // Find active class session
-      const currentSession = await this.findActiveClassSession(effectiveTime);
-
-      if (!currentSession) {
-        console.log("No active class session for sensor trigger");
-        return { success: false, message: "No active class session" };
-      }
-
       // Enhanced sensor validation logic
       // Check for minimum distance threshold to filter out false triggers
       const MIN_DISTANCE_CM = 5;
@@ -289,6 +407,11 @@ class AttendanceMonitor {
         return { success: false, message: "Invalid distance" };
       }
 
+      const classroomId = await this.resolveDeviceClassroomId(
+        trigger.deviceId,
+        trigger.classroomId,
+      );
+
       // Look for recent RFID scans within validation window (device-bound)
       const recentScans = await this.findRecentRFIDScans(
         trigger.deviceId,
@@ -296,11 +419,21 @@ class AttendanceMonitor {
       );
 
       if (recentScans.length === 0) {
+        const currentSessionMatch = await this.findActiveClassSessionMatch(
+          effectiveTime,
+          { classroomId },
+        );
+
+        if (!currentSessionMatch) {
+          console.log("No active class session for sensor trigger");
+          return { success: false, message: "No active class session" };
+        }
+
         console.log(
           "Sensor trigger without recent RFID scan - potential ghost attendance",
         );
         // Create discrepancy record
-        await this.createDiscrepancyRecord(trigger, currentSession.id);
+        await this.createDiscrepancyRecord(trigger, currentSessionMatch.session.id);
         return {
           success: false,
           message: "Sensor trigger without RFID validation",
@@ -315,7 +448,16 @@ class AttendanceMonitor {
         console.log(
           `RFID-to-sensor correlation failed (age=${ageMs}ms). Potential replay/ghost.`,
         );
-        await this.createDiscrepancyRecord(trigger, currentSession.id);
+        const currentSessionMatch = await this.findActiveClassSessionMatch(
+          effectiveTime,
+          { classroomId },
+        );
+        if (currentSessionMatch) {
+          await this.createDiscrepancyRecord(
+            trigger,
+            currentSessionMatch.session.id,
+          );
+        }
         return {
           success: false,
           message: "Sensor trigger without timely RFID correlation",
@@ -326,6 +468,22 @@ class AttendanceMonitor {
       if (!studentData) {
         return { success: false, message: "Student not found" };
       }
+
+      const publicStudent = this.toPublicStudent(studentData);
+      const currentSessionMatch = await this.findActiveClassSessionMatch(
+        effectiveTime,
+        {
+          classroomId,
+          studentId: studentData.id,
+        },
+      );
+
+      if (!currentSessionMatch) {
+        console.log("No enrolled active class session for sensor trigger");
+        return { success: false, message: "No active class session" };
+      }
+
+      const currentSession = currentSessionMatch.session;
 
       // Anti-passback validation for sensor triggers
       const attendanceKey = `${studentData.id}-${currentSession.id}`;
@@ -386,8 +544,8 @@ class AttendanceMonitor {
       return {
         success: true,
         message: "Sensor trigger processed",
-        student: studentData,
-        session: currentSession,
+        student: publicStudent,
+        session: this.toPublicSession(currentSessionMatch),
         triggerType: trigger.sensorType,
       };
     } catch (error) {
@@ -398,49 +556,6 @@ class AttendanceMonitor {
         error: (error as any)?.message || String(error),
       };
     }
-  }
-
-  private async findActiveClassSession(currentTime: Date) {
-    // Find class sessions that are currently active based on schedule
-    const dayOfWeek = currentTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const currentTimeStr = currentTime.toTimeString().slice(0, 8); // HH:MM:SS format
-
-    // Find schedules for today that are currently active
-    const activeSchedules = await db
-      .select({
-        schedule: schedules,
-        session: classSessions,
-      })
-      .from(schedules)
-      .innerJoin(classSessions, eq(schedules.id, classSessions.scheduleId))
-      .where(
-        and(
-          eq(schedules.dayOfWeek, dayOfWeek),
-          eq(classSessions.status, "active"),
-          lte(schedules.startTime, currentTimeStr),
-          gte(schedules.endTime, currentTimeStr),
-          // Session date matches today
-          gte(
-            classSessions.date,
-            new Date(
-              currentTime.getFullYear(),
-              currentTime.getMonth(),
-              currentTime.getDate(),
-            ),
-          ),
-          lte(
-            classSessions.date,
-            new Date(
-              currentTime.getFullYear(),
-              currentTime.getMonth(),
-              currentTime.getDate() + 1,
-            ),
-          ),
-        ),
-      );
-
-    // Return the first active session
-    return activeSchedules.length > 0 ? activeSchedules[0].session : null;
   }
 
   private storeRecentRFIDScan(scan: RFIDScan) {
@@ -586,19 +701,10 @@ class AttendanceMonitor {
     trigger: SensorTrigger,
     sessionId: number,
   ) {
-    // Create a record flagged as discrepancy
-    await db.insert(attendanceRecords).values({
-      // Unknown student: store NULL to avoid FK violations.
-      studentId: null,
-      classSessionId: sessionId,
-      sensorDetected: true,
-      rfidDetected: false,
-      isValid: false,
-      discrepancyFlag: true,
-      notes: `Sensor trigger without RFID validation: ${trigger.sensorType} sensor, distance: ${trigger.distance}cm`,
-    });
-
-    console.log(`Created discrepancy record for sensor trigger`);
+    console.warn(
+      `Skipping sensor discrepancy insert for session ${sessionId}: attendance_records requires a student_id`,
+      trigger,
+    );
   }
 
   private async createGeneralDiscrepancyRecord(discrepancy: {
@@ -614,8 +720,12 @@ class AttendanceMonitor {
     let sessionId = discrepancy.sessionId;
     if (!sessionId) {
       const now = new Date();
-      const currentSession = await this.findActiveClassSession(now);
-      sessionId = currentSession?.id || 0;
+      const classroomId = await this.resolveDeviceClassroomId(discrepancy.deviceId);
+      const currentSession = await this.findActiveClassSessionMatch(now, {
+        classroomId,
+        studentId: discrepancy.studentId,
+      });
+      sessionId = currentSession?.session.id || 0;
     }
 
     // If we cannot associate to a real class session, do not write a dangling FK.
@@ -628,9 +738,16 @@ class AttendanceMonitor {
       return;
     }
 
-    // Create a record flagged as discrepancy
+    if (!discrepancy.studentId) {
+      console.warn(
+        "Skipping general discrepancy insert without student context:",
+        discrepancy,
+      );
+      return;
+    }
+
     await db.insert(attendanceRecords).values({
-      studentId: discrepancy.studentId ?? null,
+      studentId: discrepancy.studentId,
       classSessionId: sessionId,
       sensorDetected: false,
       rfidDetected: !!discrepancy.rfidUid,

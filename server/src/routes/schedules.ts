@@ -6,26 +6,23 @@ import multer from "multer";
 import csv from "csv-parser";
 import { Readable } from "stream";
 import { scheduleManagerService } from "../services/scheduleManager.js";
+import {
+  requireAdmin,
+  requireAdminOrFaculty,
+  requireAuth,
+} from "../middleware/auth.js";
 
 const router = Router();
 
 // Configure multer for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Middleware to check authentication
-const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session?.userId) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required",
-    });
-  }
-  next();
-};
-
 // Get all schedules
-router.get("/", async (req, res) => {
+router.get("/", requireAuth, async (req, res) => {
   try {
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
+
     const allSchedules = await db
       .select({
         id: schedules.id,
@@ -46,6 +43,9 @@ router.get("/", async (req, res) => {
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
       .innerJoin(classrooms, eq(schedules.classroomId, classrooms.id))
       .innerJoin(users, eq(schedules.facultyId, users.id))
+      .where(
+        userRole === "faculty" ? eq(schedules.facultyId, userId!) : undefined,
+      )
       .orderBy(desc(schedules.createdAt));
 
     res.json({
@@ -62,13 +62,22 @@ router.get("/", async (req, res) => {
 });
 
 // Get schedule by ID
-router.get("/:id", async (req, res) => {
+router.get("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const userRole = req.session?.userRole;
+    const userId = req.session?.userId;
     const schedule = await db
       .select()
       .from(schedules)
-      .where(eq(schedules.id, parseInt(id)));
+      .where(
+        and(
+          eq(schedules.id, parseInt(id)),
+          userRole === "faculty"
+            ? eq(schedules.facultyId, userId!)
+            : sql`true`,
+        ),
+      );
     if (schedule.length === 0) {
       return res.status(404).json({ error: "Schedule not found" });
     }
@@ -80,7 +89,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // Create new schedule
-router.post("/", async (req, res) => {
+router.post("/", requireAdminOrFaculty, async (req, res) => {
   try {
     const {
       subjectId,
@@ -99,13 +108,23 @@ router.post("/", async (req, res) => {
       allowTimeAdjustment,
     } = req.body;
 
+    const effectiveFacultyId =
+      req.session?.userRole === "faculty" ? req.session.userId : facultyId;
+
+    if (!subjectId || !classroomId || !effectiveFacultyId) {
+      return res.status(400).json({
+        success: false,
+        message: "Subject, classroom, and faculty are required",
+      });
+    }
+
     if (isRecurring) {
       // Create recurring schedule with automatic conflict resolution
-      const scheduleId = await scheduleManagerService.createRecurringSchedule({
-        subjectId,
-        classroomId,
-        facultyId,
-        dayOfWeek,
+        const scheduleId = await scheduleManagerService.createRecurringSchedule({
+          subjectId,
+          classroomId,
+          facultyId: effectiveFacultyId,
+          dayOfWeek,
         startTime,
         endTime,
         semester,
@@ -131,7 +150,7 @@ router.post("/", async (req, res) => {
         .values({
           subjectId,
           classroomId,
-          facultyId,
+          facultyId: effectiveFacultyId,
           dayOfWeek,
           startTime,
           endTime,
@@ -152,7 +171,7 @@ router.post("/", async (req, res) => {
 });
 
 // Update schedule
-router.put("/:id", async (req, res) => {
+router.put("/:id", requireAdminOrFaculty, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -165,12 +184,36 @@ router.put("/:id", async (req, res) => {
       semester,
       academicYear,
     } = req.body;
+
+    const existingSchedule = await db
+      .select({ id: schedules.id, facultyId: schedules.facultyId })
+      .from(schedules)
+      .where(eq(schedules.id, parseInt(id)))
+      .limit(1);
+
+    if (existingSchedule.length === 0) {
+      return res.status(404).json({ error: "Schedule not found" });
+    }
+
+    if (
+      req.session?.userRole === "faculty" &&
+      existingSchedule[0].facultyId !== req.session.userId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: You do not have access to this schedule",
+      });
+    }
+
+    const effectiveFacultyId =
+      req.session?.userRole === "faculty" ? req.session.userId : facultyId;
+
     const updatedSchedule = await db
       .update(schedules)
       .set({
         subjectId,
         classroomId,
-        facultyId,
+        facultyId: effectiveFacultyId,
         dayOfWeek,
         startTime,
         endTime,
@@ -179,9 +222,7 @@ router.put("/:id", async (req, res) => {
       })
       .where(eq(schedules.id, parseInt(id)))
       .returning();
-    if (updatedSchedule.length === 0) {
-      return res.status(404).json({ error: "Schedule not found" });
-    }
+
     res.json(updatedSchedule[0]);
   } catch (error) {
     console.error("Error updating schedule:", error);
@@ -190,16 +231,35 @@ router.put("/:id", async (req, res) => {
 });
 
 // Delete schedule
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAdminOrFaculty, async (req, res) => {
   try {
     const { id } = req.params;
+
+    const existingSchedule = await db
+      .select({ id: schedules.id, facultyId: schedules.facultyId })
+      .from(schedules)
+      .where(eq(schedules.id, parseInt(id)))
+      .limit(1);
+
+    if (existingSchedule.length === 0) {
+      return res.status(404).json({ error: "Schedule not found" });
+    }
+
+    if (
+      req.session?.userRole === "faculty" &&
+      existingSchedule[0].facultyId !== req.session.userId
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: You do not have access to this schedule",
+      });
+    }
+
     const deletedSchedule = await db
       .delete(schedules)
       .where(eq(schedules.id, parseInt(id)))
       .returning();
-    if (deletedSchedule.length === 0) {
-      return res.status(404).json({ error: "Schedule not found" });
-    }
+
     res.json({ message: "Schedule deleted successfully" });
   } catch (error) {
     console.error("Error deleting schedule:", error);
@@ -210,7 +270,7 @@ router.delete("/:id", async (req, res) => {
 // CSV Upload endpoint
 router.post(
   "/upload-csv",
-  requireAuth,
+  requireAdmin,
   upload.single("csv"),
   async (req, res) => {
     try {

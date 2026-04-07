@@ -57,6 +57,11 @@ const Subjects = lazy(() =>
 const Classrooms = lazy(() =>
   import("./pages/Classrooms").then((m) => ({ default: m.Classrooms })),
 );
+const SubjectEnrollment = lazy(() =>
+  import("./pages/SubjectEnrollment").then((m) => ({
+    default: m.SubjectEnrollment,
+  })),
+);
 const EnrollmentManagement = lazy(() =>
   import("./pages/EnrollmentManagement").then((m) => ({
     default: m.EnrollmentManagement,
@@ -257,6 +262,16 @@ function AppContent() {
           )}
         />
         <Route
+          path="/subject-enrollment"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <SubjectEnrollment />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
           path="/enrollments"
           component={() => (
             <Layout>
@@ -317,6 +332,14 @@ function AppContent() {
               <ProtectedRoute allowedRoles={["admin"]}>
                 <UserManagement />
               </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="*"
+          component={() => (
+            <Layout>
+              <Dashboard />
             </Layout>
           )}
         />

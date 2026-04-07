@@ -1,8 +1,6 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
 import { createServer } from "http";
 import { createServer as createHttpsServer } from "https";
 import { WebSocketServer } from "ws";
@@ -17,9 +15,9 @@ import { setupWebSocket } from "./services/websocket.js";
 import { sql, eq } from "drizzle-orm";
 import {
   isProductionLike,
-  requireEnv,
   validateEnvironmentOrThrow,
 } from "./config/env.js";
+import { sessionMiddleware } from "./session.js";
 
 // --------------------------------------------------------------------------------------
 // Diagnostics: capture Node.js runtime warnings with stack traces.
@@ -392,55 +390,7 @@ app.use(sanitizeInput);
 app.use(preventSQLInjection);
 
 // Session configuration with PostgreSQL store
-const PgSession = connectPgSimple(session);
-
-const isTestEnv =
-  process.env.NODE_ENV === "test" ||
-  // Jest sets JEST_WORKER_ID; keep working even if NODE_ENV isn't set.
-  typeof process.env.JEST_WORKER_ID !== "undefined";
-
-// Parse database URL for session store SSL config
-const sessionDbConfig = {
-  connectionString: process.env.DATABASE_URL,
-  ...(isProductionLike() && {
-    ssl: {
-      rejectUnauthorized: false, // Allow self-signed certificates (Railway)
-    },
-  }),
-};
-
-app.use(
-  session({
-    // Use an in-memory store in tests to avoid requiring Postgres session tables.
-    // CI/prod continue using the Postgres-backed store.
-    store: isTestEnv
-      ? new session.MemoryStore()
-      : new PgSession({
-          ...sessionDbConfig,
-          tableName: "user_sessions", // Will be created automatically
-          createTableIfMissing: true,
-          // Clean up expired sessions every hour.
-          // NOTE: connect-pg-simple expects this value in SECONDS, not milliseconds.
-          // Passing ms can overflow Node timers once converted internally.
-          pruneSessionInterval: 60 * 60, // 1 hour (seconds)
-        }),
-    secret: isTestEnv
-      ? process.env.SESSION_SECRET ||
-        "test-session-secret-please-change-32chars"
-      : requireEnv("SESSION_SECRET", { minLength: 32 }),
-    name: "presence.sid", // Change default session name for security
-    resave: false,
-    saveUninitialized: false,
-    rolling: true, // Reset expiration on activity
-    cookie: {
-      secure: isProductionLike() && !isTestEnv,
-      httpOnly: true,
-      sameSite: (process.env.SESSION_COOKIE_SAMESITE as any) || "lax",
-      maxAge: parseInt(process.env.SESSION_MAX_AGE || "28800000"), // default 8 hours
-      path: "/",
-    },
-  }),
-);
+app.use(sessionMiddleware);
 
 // Serve static files from client build
 const publicPath = path.join(__dirname, "../../../public");

@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import db from "../storage.js";
-import { users, passwordResetTokens, userSessions } from "../schema.js";
+import { users, passwordResetTokens } from "../schema.js";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { emailService } from "../services/emailService.js";
 import { auditService } from "../services/auditService.js";
@@ -224,6 +224,14 @@ router.post(
           });
         });
 
+        await authService.syncExpressSession(
+          req.sessionID,
+          user.id,
+          req.ip || req.connection.remoteAddress || "unknown",
+          req.get("User-Agent") || "unknown",
+          new Date(Date.now() + parseInt(process.env.SESSION_MAX_AGE || "28800000")),
+        );
+
         // Log successful login
         await auditService.logUserLogin(
           user.id,
@@ -268,6 +276,10 @@ router.post(
 router.post("/logout", async (req, res) => {
   const userId = req.session?.userId;
   const sessionId = req.sessionID;
+
+   if (sessionId) {
+    await authService.invalidateSession(sessionId);
+   }
 
   if (req.session) {
     req.session.destroy(async (err) => {
@@ -861,18 +873,9 @@ router.post(
           .update(users)
           .set({ password: hashedPassword, updatedAt: now })
           .where(eq(users.id, userResult[0].id));
-
-        // Invalidate all existing sessions for security
-        await tx
-          .update(userSessions)
-          .set({ isActive: false })
-          .where(
-            and(
-              eq(userSessions.userId, userResult[0].id),
-              eq(userSessions.isActive, true),
-            ),
-          );
       });
+
+      await authService.invalidateAllUserSessions(userResult[0].id);
 
       console.log(`[AUTH] Password reset completed for ${email}`);
 

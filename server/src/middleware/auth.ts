@@ -1,14 +1,27 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { authService } from "../services/authService.js";
+import { isTestEnv } from "../session.js";
 
 // Middleware to require authentication
-export const requireAuth = (
+export const requireAuth = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   // First, check for session-based authentication
   if (req.session?.userId) {
+    if (!isTestEnv && req.sessionID) {
+      const activeSession = await authService.validateSession(req.sessionID);
+      if (!activeSession || activeSession.userId !== req.session.userId) {
+        req.session.destroy(() => undefined);
+        return res.status(401).json({
+          success: false,
+          message: "Session expired. Please log in again.",
+        });
+      }
+    }
+
     return next();
   }
 

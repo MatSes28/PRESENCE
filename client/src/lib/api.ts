@@ -393,7 +393,12 @@ class ApiClient {
     params?: { limit?: number; offset?: number },
   ) {
     const query = params ? `?${new URLSearchParams(params as any)}` : "";
-    return this.request(`/students/${id}/attendance${query}`);
+    const response = await this.request(`/students/${id}/attendance${query}`);
+    return {
+      ...response,
+      data: (response as any).data ?? (response as any).attendance ?? [],
+      attendance: (response as any).attendance ?? (response as any).data ?? [],
+    };
   }
 
   async assignRFID(id: number, rfidUid: string) {
@@ -445,11 +450,25 @@ class ApiClient {
   }
 
   async getSubjectStudents(subjectId: number) {
-    return this.request(`/enrollments/subject/${subjectId}/students`);
+    const response = await this.request(`/enrollments/subject/${subjectId}`);
+    return {
+      ...response,
+      data:
+        (response as any).data ?? (response as any).enrollments ?? [],
+      enrollments:
+        (response as any).enrollments ?? (response as any).data ?? [],
+    };
   }
 
   async getEnrollmentsForStudent(studentId: number) {
-    return this.request(`/enrollments/student/${studentId}`);
+    const response = await this.request(`/enrollments/student/${studentId}`);
+    return {
+      ...response,
+      data:
+        (response as any).data ?? (response as any).enrollments ?? [],
+      enrollments:
+        (response as any).enrollments ?? (response as any).data ?? [],
+    };
   }
 
   async simulateRFID(rfidUid: string) {
@@ -638,16 +657,17 @@ class ApiClient {
     return this.request(`/sessions/${id}`);
   }
 
-  async createClassSessionsForDate(date: string) {
+  async createClassSessionsForDate(date: string, scheduleId?: number) {
     return this.request("/sessions/auto-create", {
       method: "POST",
-      body: JSON.stringify({ date }),
+      body: JSON.stringify({ date, scheduleId }),
     });
   }
 
-  async activateSessions() {
+  async activateSessions(scheduleId?: number) {
     return this.request("/sessions/auto-activate", {
       method: "POST",
+      body: JSON.stringify({ scheduleId }),
     });
   }
 

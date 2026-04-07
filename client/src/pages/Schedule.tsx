@@ -30,6 +30,11 @@ const DAYS_OF_WEEK = [
   "Saturday",
 ];
 
+const getDefaultAcademicYear = () => {
+  const startYear = new Date().getFullYear();
+  return `${startYear}-${startYear + 1}`;
+};
+
 export const Schedule = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
@@ -49,7 +54,7 @@ export const Schedule = () => {
     startTime: "08:00",
     endTime: "09:30",
     semester: "1st Semester",
-    academicYear: new Date().getFullYear().toString(),
+    academicYear: getDefaultAcademicYear(),
   });
   const [uploadingCsv, setUploadingCsv] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -72,7 +77,9 @@ export const Schedule = () => {
       const [subjectsRes, classroomsRes, usersRes] = await Promise.all([
         api.getSubjects(),
         api.getClassrooms(),
-        api.getUsers(),
+        user?.role === "admin"
+          ? api.getUsers()
+          : Promise.resolve({ success: true, data: [user] }),
       ]);
 
       const subjectsRaw = (subjectsRes as any)?.data;
@@ -85,7 +92,9 @@ export const Schedule = () => {
 
       const usersRaw = (usersRes as any)?.data;
       if (usersRes.success && Array.isArray(usersRaw)) {
-        setFaculty(usersRaw.filter((u: any) => u.role === "faculty"));
+        setFaculty(
+          usersRaw.filter((u: any) => u && (u.role === "faculty" || u.role === "admin")),
+        );
       } else {
         setFaculty([]);
       }
@@ -129,11 +138,7 @@ export const Schedule = () => {
 
   const fetchSessions = async () => {
     try {
-      const response = await fetch("/api/sessions");
-      const data = await response.json();
-      if (data.success) {
-        // Process sessions data if needed
-      }
+      await api.getClassSessions();
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
       // Don't show error notification for sessions, as it's not critical for schedule display
@@ -354,7 +359,7 @@ export const Schedule = () => {
       startTime: "08:00",
       endTime: "09:30",
       semester: "1st Semester",
-      academicYear: new Date().getFullYear().toString(),
+      academicYear: getDefaultAcademicYear(),
     });
     setEditingSchedule(null);
     setShowAddForm(false);
@@ -650,7 +655,7 @@ export const Schedule = () => {
                   <option value="">Select Faculty</option>
                   {faculty.map((member: any) => (
                     <option key={member.id} value={member.id}>
-                      {member.firstName} {member.lastName}
+                      {member.name}
                     </option>
                   ))}
                 </select>

@@ -13,6 +13,7 @@ import {
   classrooms,
   subjects,
   schedules,
+  enrollments,
 } from "../../src/schema.js";
 import { eq } from "drizzle-orm";
 
@@ -113,6 +114,14 @@ describeIntegration("Attendance API Integration Tests", () => {
     const [student] = await db.insert(students).values(studentData).returning();
     testStudent = student;
 
+    await db.insert(enrollments).values({
+      studentId: student.id,
+      subjectId: subject.id,
+      semester: "1st Semester",
+      academicYear: "2024-2025",
+      isActive: 1 as any,
+    });
+
     const sessionData = {
       scheduleId: schedule.id,
       date: new Date(),
@@ -139,6 +148,7 @@ describeIntegration("Attendance API Integration Tests", () => {
     await db
       .delete(attendanceRecords)
       .where(eq(attendanceRecords.studentId, testStudent.id));
+    await db.delete(enrollments).where(eq(enrollments.studentId, testStudent.id));
     await db.delete(classSessions).where(eq(classSessions.id, testSession.id));
     await db.delete(schedules).where(eq(schedules.id, testSchedule.id));
     await db.delete(subjects).where(eq(subjects.id, testSubject.id));

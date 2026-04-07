@@ -140,140 +140,114 @@ export const LiveAttendance = () => {
       return;
     }
 
-    let wsClient: any;
-    let reconnectTimeout: NodeJS.Timeout;
+    const wsClient = getWebSocketClient(user.id);
 
-    const connectWebSocket = () => {
+    const handleConnect = () => {
+      setIsConnected(true);
+      addNotification({
+        type: "success",
+        title: "Connected",
+        message: "Real-time attendance monitoring active",
+      });
+
       try {
-        wsClient = getWebSocketClient(user.id);
-
-        // Connection status
-        wsClient.on("connect", () => {
-          console.log("WebSocket connected");
-          setIsConnected(true);
-          addNotification({
-            type: "success",
-            title: "Connected",
-            message: "Real-time attendance monitoring active",
-          });
-        });
-
-        wsClient.on("disconnect", () => {
-          console.log("WebSocket disconnected");
-          setIsConnected(false);
-          addNotification({
-            type: "warning",
-            title: "Disconnected",
-            message:
-              "Real-time updates unavailable. Attempting to reconnect...",
-          });
-
-          // Attempt to reconnect after 5 seconds
-          reconnectTimeout = setTimeout(() => {
-            console.log("Attempting to reconnect WebSocket...");
-            connectWebSocket();
-          }, 5000);
-        });
-
-        wsClient.on("error", (error: any) => {
-          console.error("WebSocket error:", error);
-          addNotification({
-            type: "error",
-            title: "Connection Error",
-            message:
-              "WebSocket connection failed. Real-time updates unavailable.",
-          });
-        });
-
-        // Real-time attendance events
-        wsClient.on("rfidScan", (data: any) => {
-          console.log("RFID scan received:", data);
-          addEvent({
-            id: Date.now().toString(),
-            type: "rfid_scan",
-            rfidUid: data.rfidUid,
-            timestamp: data.timestamp || new Date().toISOString(),
-            deviceId: data.deviceId || "unknown",
-            status: "valid",
-          });
-        });
-
-        wsClient.on("sensorTrigger", (data: any) => {
-          console.log("Sensor trigger received:", data);
-          addEvent({
-            id: Date.now().toString(),
-            type: "sensor_trigger",
-            sensorType: data.sensorType,
-            distance: data.distance,
-            timestamp: data.timestamp || new Date().toISOString(),
-            deviceId: data.deviceId || "unknown",
-            status: data.distance <= 100 ? "valid" : "invalid",
-          });
-        });
-
-        wsClient.on("attendanceRecord", (data: any) => {
-          console.log("Attendance record received:", data);
-          addEvent({
-            id: Date.now().toString(),
-            type: "attendance_record",
-            studentId: data.studentId,
-            studentName: data.studentName,
-            timestamp: data.timestamp || new Date().toISOString(),
-            deviceId: data.deviceId || "unknown",
-            status: data.isValid ? "valid" : "discrepancy",
-          });
-          updateStats(data);
-          // Refetch so the table shows the new record with full DB shape (student, session)
-          refreshAttendanceDataRef.current();
-        });
-
-        wsClient.on("deviceStatus", (data: any) => {
-          if (Array.isArray(data)) {
-            setStats((prev) => ({
-              ...prev,
-              activeDevices: data.filter((d: any) => d.status === "online")
-                .length,
-            }));
-          }
-        });
-
-        // Get initial device status
-        try {
-          wsClient.getDeviceStatus();
-        } catch (error) {
-          console.warn("Failed to get initial device status:", error);
-        }
+        wsClient.getDeviceStatus();
       } catch (error) {
-        console.error("Failed to initialize WebSocket:", error);
-        addNotification({
-          type: "error",
-          title: "WebSocket Error",
-          message: "Failed to initialize real-time connection",
-        });
+        console.warn("Failed to get initial device status:", error);
       }
     };
 
-    connectWebSocket();
+    const handleDisconnect = () => {
+      setIsConnected(false);
+      addNotification({
+        type: "warning",
+        title: "Disconnected",
+        message: "Real-time updates unavailable. Reconnecting automatically...",
+      });
+    };
+
+    const handleError = (error: any) => {
+      console.error("WebSocket error:", error);
+      addNotification({
+        type: "error",
+        title: "Connection Error",
+        message: "WebSocket connection failed. Real-time updates unavailable.",
+      });
+    };
+
+    const handleRfidScan = (data: any) => {
+      addEvent({
+        id: Date.now().toString(),
+        type: "rfid_scan",
+        rfidUid: data.maskedRfidUid || data.rfidUid,
+        timestamp: data.timestamp || new Date().toISOString(),
+        deviceId: data.deviceId || "unknown",
+        status: "valid",
+      });
+    };
+
+    const handleSensorTrigger = (data: any) => {
+      addEvent({
+        id: Date.now().toString(),
+        type: "sensor_trigger",
+        sensorType: data.sensorType,
+        distance: data.distance,
+        timestamp: data.timestamp || new Date().toISOString(),
+        deviceId: data.deviceId || "unknown",
+        status: data.distance <= 100 ? "valid" : "invalid",
+      });
+    };
+
+    const handleAttendanceRecord = (data: any) => {
+      addEvent({
+        id: Date.now().toString(),
+        type: "attendance_record",
+        studentId: data.studentId,
+        studentName: data.studentName,
+        timestamp: data.timestamp || new Date().toISOString(),
+        deviceId: data.deviceId || "unknown",
+        status: data.isValid ? "valid" : "discrepancy",
+      });
+      updateStats(data);
+      refreshAttendanceDataRef.current();
+    };
+
+    const handleDeviceStatus = (data: any) => {
+      if (Array.isArray(data)) {
+        setStats((prev) => ({
+          ...prev,
+          activeDevices: data.filter((d: any) => d.status === "online").length,
+        }));
+      }
+    };
+
+    wsClient.on("connect", handleConnect);
+    wsClient.on("disconnect", handleDisconnect);
+    wsClient.on("error", handleError);
+    wsClient.on("rfidScan", handleRfidScan);
+    wsClient.on("sensorTrigger", handleSensorTrigger);
+    wsClient.on("attendanceRecord", handleAttendanceRecord);
+    wsClient.on("deviceStatus", handleDeviceStatus);
+
+    setIsConnected(wsClient.isConnected());
+    wsClient.connect().catch((error) => {
+      console.error("Failed to initialize WebSocket:", error);
+    });
 
     return () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-      if (wsClient) {
-        try {
-          wsClient.off("connect");
-          wsClient.off("disconnect");
-          wsClient.off("error");
-          wsClient.off("rfidScan");
-          wsClient.off("sensorTrigger");
-          wsClient.off("attendanceRecord");
-          wsClient.off("deviceStatus");
-        } catch (error) {
-          console.warn("Error cleaning up WebSocket listeners:", error);
-        }
+      try {
+        wsClient.off("connect", handleConnect);
+        wsClient.off("disconnect", handleDisconnect);
+        wsClient.off("error", handleError);
+        wsClient.off("rfidScan", handleRfidScan);
+        wsClient.off("sensorTrigger", handleSensorTrigger);
+        wsClient.off("attendanceRecord", handleAttendanceRecord);
+        wsClient.off("deviceStatus", handleDeviceStatus);
+      } catch (error) {
+        console.warn("Error cleaning up WebSocket listeners:", error);
       }
     };
-  }, [user?.id]);
+  }, [user?.id, addNotification]);
 
   const addEvent = (event: AttendanceEvent) => {
     setEvents((prev) => [event, ...prev.slice(0, 49)]); // Keep last 50 events
@@ -727,8 +701,8 @@ export const LiveAttendance = () => {
   };
 
 
-  // Load students and sessions for manual entry (real API, no mock)
-  const loadManualEntryData = async () => {
+  // Load students and sessions for manual entry and filters
+  const loadReferenceData = async () => {
     try {
       const [studentsRes, sessionsRes] = await Promise.all([
         api.getStudents(),
@@ -746,6 +720,12 @@ export const LiveAttendance = () => {
       console.error("Failed to load manual entry data:", error);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      loadReferenceData();
+    }
+  }, [user?.id]);
 
   // Handle manual attendance entry
   const handleManualEntry = async () => {
@@ -804,7 +784,7 @@ export const LiveAttendance = () => {
   // Load data when modal opens
   useEffect(() => {
     if (showManualEntry) {
-      loadManualEntryData();
+      loadReferenceData();
     }
   }, [showManualEntry]);
 
@@ -837,7 +817,9 @@ export const LiveAttendance = () => {
   const getEventDescription = (event: AttendanceEvent) => {
     switch (event.type) {
       case "rfid_scan":
-        return `RFID card scanned: ${event.rfidUid}`;
+        return event.rfidUid
+          ? `RFID card scanned: ${event.rfidUid}`
+          : "RFID card scanned";
       case "sensor_trigger":
         return `${event.sensorType} sensor triggered (${event.distance}cm)`;
       case "attendance_record":

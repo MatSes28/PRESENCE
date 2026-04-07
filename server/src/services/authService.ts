@@ -5,9 +5,10 @@ import qrcode from "qrcode";
 import crypto from "crypto";
 import db from "../storage.js";
 import { users, userSessions } from "../schema.js";
-import { eq, and, lt, sql, desc } from "drizzle-orm";
+import { eq, and, gt, sql, desc } from "drizzle-orm";
 import { requireEnv } from "../config/env.js";
 import { auditService } from "./auditService.js";
+import { isTestEnv, sessionStore } from "../session.js";
 
 interface TwoFactorSetup {
   secret: string;
@@ -173,6 +174,71 @@ class AuthService {
     return sessionId;
   }
 
+  async syncExpressSession(
+    sessionId: string,
+    userId: number,
+    ipAddress: string,
+    userAgent: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    if (isTestEnv) {
+      return;
+    }
+
+    const deviceFingerprint = this.generateDeviceFingerprint(
+      userAgent,
+      ipAddress,
+    );
+
+    try {
+      const updateResult: any = await db.execute(sql`
+        UPDATE user_sessions
+        SET
+          session_id = ${sessionId},
+          user_id = ${userId},
+          ip_address = ${ipAddress},
+          user_agent = ${userAgent},
+          device_fingerprint = ${deviceFingerprint},
+          expires_at = ${expiresAt},
+          is_active = true
+        WHERE sid = ${sessionId} OR session_id = ${sessionId}
+      `);
+
+      if ((updateResult?.rowCount ?? 0) === 0) {
+        await db.execute(sql`
+          INSERT INTO user_sessions (
+            session_id,
+            user_id,
+            ip_address,
+            user_agent,
+            device_fingerprint,
+            expires_at,
+            is_active
+          )
+          VALUES (
+            ${sessionId},
+            ${userId},
+            ${ipAddress},
+            ${userAgent},
+            ${deviceFingerprint},
+            ${expiresAt},
+            true
+          )
+          ON CONFLICT (session_id)
+          DO UPDATE SET
+            user_id = EXCLUDED.user_id,
+            ip_address = EXCLUDED.ip_address,
+            user_agent = EXCLUDED.user_agent,
+            device_fingerprint = EXCLUDED.device_fingerprint,
+            expires_at = EXCLUDED.expires_at,
+            is_active = true
+        `);
+      }
+    } catch (error) {
+      console.warn("Failed to sync express session metadata:", error);
+    }
+  }
+
   async validateSession(sessionId: string): Promise<SessionInfo | null> {
     try {
       const session = await db
@@ -182,10 +248,7 @@ class AuthService {
           and(
             eq(userSessions.sessionId, sessionId),
             eq(userSessions.isActive, true),
-            lt(
-              userSessions.createdAt,
-              new Date(Date.now() + 8 * 60 * 60 * 1000),
-            ), // Not expired
+            gt(userSessions.expiresAt, new Date()),
           ),
         )
         .limit(1);
@@ -213,6 +276,12 @@ class AuthService {
 
   async invalidateSession(sessionId: string): Promise<void> {
     try {
+      if (!isTestEnv) {
+        await new Promise<void>((resolve) => {
+          sessionStore.destroy(sessionId, () => resolve());
+        });
+      }
+
       await db
         .update(userSessions)
         .set({
@@ -227,6 +296,24 @@ class AuthService {
 
   async invalidateAllUserSessions(userId: number): Promise<void> {
     try {
+      if (!isTestEnv) {
+        const sessions = await db
+          .select({ sessionId: userSessions.sessionId })
+          .from(userSessions)
+          .where(
+            and(eq(userSessions.userId, userId), eq(userSessions.isActive, true)),
+          );
+
+        await Promise.all(
+          sessions.map(
+            ({ sessionId }) =>
+              new Promise<void>((resolve) => {
+                sessionStore.destroy(sessionId, () => resolve());
+              }),
+          ),
+        );
+      }
+
       await db
         .update(userSessions)
         .set({
@@ -250,10 +337,7 @@ class AuthService {
           and(
             eq(userSessions.userId, userId),
             eq(userSessions.isActive, true),
-            lt(
-              userSessions.createdAt,
-              new Date(Date.now() + 8 * 60 * 60 * 1000),
-            ), // Not expired
+            gt(userSessions.expiresAt, new Date()),
           ),
         )
         .orderBy(desc(userSessions.createdAt));

@@ -5,10 +5,12 @@ import { iotDevices } from "../schema.js";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 import { cacheService } from "./cacheService.js";
+import { getAuthenticatedSessionFromRequest } from "../session.js";
 
 interface WebSocketClient extends WebSocket {
   deviceId?: string;
   userId?: number;
+  userRole?: string;
   isAlive?: boolean;
   // Device auth token captured from query param on connect.
   // Used for optional signed-event verification.
@@ -359,10 +361,18 @@ export function setupWebSocket(wss: WebSocketServer) {
       const userId = url.searchParams.get("userId");
       const authTokenInfo = extractDeviceAuthToken(request, url);
       const authToken = authTokenInfo.token;
+      const authenticatedSession = !isDevice
+        ? await getAuthenticatedSessionFromRequest(request)
+        : null;
+      const authenticatedUserId = authenticatedSession?.sessionData?.userId
+        ? Number(authenticatedSession.sessionData.userId)
+        : null;
+      const authenticatedUserRole =
+        authenticatedSession?.sessionData?.userRole || null;
 
       console.log(`New ${isDevice ? "device" : "web"} connection:`, {
         deviceId,
-        userId,
+        userId: authenticatedUserId ?? userId,
         remoteAddress: request.socket?.remoteAddress,
       });
 
@@ -400,6 +410,16 @@ export function setupWebSocket(wss: WebSocketServer) {
         ws.deviceAuthToken = authToken || undefined;
         ws.deviceAuthType = auth.authType;
         console.log(`Device ${deviceId} authenticated successfully`);
+      } else if (!authenticatedUserId) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            payload: { message: "Authentication required" },
+            timestamp: new Date().toISOString(),
+          }),
+        );
+        ws.close(1008, "Authentication required");
+        return;
       }
 
       // Setup ping/pong for connection health
@@ -464,7 +484,7 @@ export function setupWebSocket(wss: WebSocketServer) {
           });
         } else {
           try {
-            handleWebMessage(ws, message, userId);
+            handleWebMessage(ws, message, String(authenticatedUserId));
           } catch (error) {
             console.error("Failed to handle web message:", error);
           }
@@ -488,9 +508,9 @@ export function setupWebSocket(wss: WebSocketServer) {
               error,
             );
           }
-        } else if (userId) {
-          clients.delete(userId.toString());
-          console.log(`Web client disconnected: ${userId}`);
+        } else if (authenticatedUserId) {
+          clients.delete(authenticatedUserId.toString());
+          console.log(`Web client disconnected: ${authenticatedUserId}`);
         }
       });
 
@@ -503,9 +523,10 @@ export function setupWebSocket(wss: WebSocketServer) {
       if (isDevice && deviceId) {
         ws.deviceId = deviceId;
         deviceClients.set(deviceId, ws);
-      } else if (userId) {
-        ws.userId = parseInt(userId);
-        clients.set(userId, ws);
+      } else if (authenticatedUserId) {
+        ws.userId = authenticatedUserId;
+        ws.userRole = authenticatedUserRole || undefined;
+        clients.set(String(authenticatedUserId), ws);
       }
 
       // Send welcome message
@@ -736,10 +757,84 @@ function handleWebMessage(
   }
 }
 
+function maskRfidUid(rfidUid?: string) {
+  if (!rfidUid) return undefined;
+
+  if (rfidUid.length <= 4) {
+    return "*".repeat(rfidUid.length);
+  }
+
+  return `${"*".repeat(Math.max(0, rfidUid.length - 4))}${rfidUid.slice(-4)}`;
+}
+
+function sanitizeProcessingResult(result: any) {
+  if (!result || typeof result !== "object") {
+    return result;
+  }
+
+  const sanitized = { ...result };
+
+  if (sanitized.student && typeof sanitized.student === "object") {
+    sanitized.student = {
+      id: sanitized.student.id,
+      studentId: sanitized.student.studentId,
+      name: sanitized.student.name,
+    };
+  }
+
+  if (sanitized.session && typeof sanitized.session === "object") {
+    sanitized.session = {
+      id: sanitized.session.id,
+      status: sanitized.session.status,
+      date: sanitized.session.date,
+      classroomId: sanitized.session.classroomId,
+      facultyId: sanitized.session.facultyId,
+      subjectId: sanitized.session.subjectId,
+      scheduleId: sanitized.session.scheduleId,
+    };
+  }
+
+  if (typeof sanitized.rfidUid === "string") {
+    sanitized.maskedRfidUid = maskRfidUid(sanitized.rfidUid);
+    delete sanitized.rfidUid;
+  }
+
+  return sanitized;
+}
+
+function sanitizeRealtimePayload(type: string, payload: any) {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  const sanitized = { ...payload };
+
+  if (typeof sanitized.rfidUid === "string") {
+    sanitized.maskedRfidUid = maskRfidUid(sanitized.rfidUid);
+    delete sanitized.rfidUid;
+  }
+
+  if (type === "rfid_scan" || type === "rfidScan") {
+    sanitized.cardDetected = true;
+  }
+
+  if ("processingResult" in sanitized) {
+    sanitized.processingResult = sanitizeProcessingResult(
+      sanitized.processingResult,
+    );
+  }
+
+  if ("result" in sanitized) {
+    sanitized.result = sanitizeProcessingResult(sanitized.result);
+  }
+
+  return sanitized;
+}
+
 function broadcastToWebClients(type: string, payload: any) {
   const message = JSON.stringify({
     type,
-    payload,
+    payload: sanitizeRealtimePayload(type, payload),
     timestamp: new Date().toISOString(),
   });
 

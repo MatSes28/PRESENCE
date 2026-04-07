@@ -267,6 +267,8 @@ router.get(
   async (req, res) => {
     try {
       const today = new Date();
+      const userRole = req.session?.userRole;
+      const userId = req.session?.userId;
       const startOfDay = new Date(
         today.getFullYear(),
         today.getMonth(),
@@ -301,6 +303,9 @@ router.get(
             gte(classSessions.date, startOfDay),
             lte(classSessions.date, endOfDay),
             eq(classSessions.status, "active"),
+            userRole === "faculty"
+              ? eq(schedules.facultyId, userId!)
+              : undefined,
           ),
         )
         .groupBy(

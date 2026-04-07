@@ -32,6 +32,11 @@ interface Enrollment {
   subject?: Subject;
 }
 
+const getDefaultAcademicYear = () => {
+  const startYear = new Date().getFullYear();
+  return `${startYear}-${startYear + 1}`;
+};
+
 export const SubjectEnrollment = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
@@ -42,7 +47,7 @@ export const SubjectEnrollment = () => {
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [semester, setSemester] = useState("1st Semester");
-  const [academicYear, setAcademicYear] = useState("2023-2024");
+  const [academicYear, setAcademicYear] = useState(getDefaultAcademicYear());
   const [showEnrollForm, setShowEnrollForm] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
