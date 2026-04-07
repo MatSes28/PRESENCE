@@ -536,12 +536,33 @@ class ApiClient {
 
   async createClassroom(classroom: {
     name: string;
+    type: "lecture" | "laboratory";
     location?: string;
     capacity?: number;
   }) {
     return this.request("/classrooms", {
       method: "POST",
       body: JSON.stringify(classroom),
+    });
+  }
+
+  async updateClassroom(
+    id: number,
+    classroom: Partial<{
+      name: string;
+      location: string;
+      capacity?: number;
+    }>,
+  ) {
+    return this.request(`/classrooms/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(classroom),
+    });
+  }
+
+  async deleteClassroom(id: number) {
+    return this.request(`/classrooms/${id}`, {
+      method: "DELETE",
     });
   }
 
