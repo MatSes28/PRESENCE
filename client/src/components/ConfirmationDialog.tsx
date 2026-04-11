@@ -23,12 +23,25 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const titleId = `confirmation-dialog-title-${title.replace(/\s+/g, "-").toLowerCase()}`;
+  const descriptionId = `confirmation-dialog-description-${title.replace(/\s+/g, "-").toLowerCase()}`;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-md w-full mx-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-md w-full mx-4"
+      >
         <div className="p-6">
-          <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-          <p className="text-gray-300 mb-6">{message}</p>
+          <h3 id={titleId} className="text-lg font-semibold text-white mb-2">
+            {title}
+          </h3>
+          <p id={descriptionId} className="text-gray-300 mb-6">
+            {message}
+          </p>
 
           <div className="flex space-x-3">
             <button

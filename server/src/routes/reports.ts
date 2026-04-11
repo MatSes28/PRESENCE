@@ -1,5 +1,6 @@
 import { Router } from "express";
 import db from "../storage.js";
+import PDFDocument from "pdfkit";
 import {
   attendanceRecords,
   classSessions,
@@ -14,6 +15,91 @@ import { reportSchedulerService } from "../services/reportScheduler.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
+
+const toPrintableValue = (value: any): string => {
+  if (value == null) return "";
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "object") {
+    return Object.values(value)
+      .filter((entry) => entry != null && entry !== "")
+      .map((entry) => toPrintableValue(entry))
+      .join(" - ");
+  }
+  return String(value);
+};
+
+const flattenReportRow = (row: Record<string, any>, prefix = "") => {
+  return Object.entries(row).reduce<Record<string, string>>((acc, [key, value]) => {
+    const nextKey = prefix ? `${prefix}_${key}` : key;
+
+    if (value && typeof value === "object" && !(value instanceof Date)) {
+      Object.assign(acc, flattenReportRow(value as Record<string, any>, nextKey));
+    } else {
+      acc[nextKey] = toPrintableValue(value);
+    }
+
+    return acc;
+  }, {});
+};
+
+const flattenReportRows = (rows: any[]) => rows.map((row) => flattenReportRow(row));
+
+const buildPdfBuffer = async (title: string, rows: Record<string, string>[]) => {
+  const doc = new PDFDocument({ margin: 40 });
+  const chunks: Buffer[] = [];
+
+  doc.on("data", (chunk) => chunks.push(chunk));
+
+  const bufferPromise = new Promise<Buffer>((resolve, reject) => {
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+  });
+
+  doc.fontSize(18).text(title, { align: "center" });
+  doc.moveDown();
+  doc.fontSize(10).text(`Generated at ${new Date().toLocaleString()}`, {
+    align: "center",
+  });
+  doc.moveDown(2);
+
+  if (rows.length === 0) {
+    doc.fontSize(12).text("No report data available for the selected filters.");
+    doc.end();
+    return bufferPromise;
+  }
+
+  const headers = Object.keys(rows[0]);
+  const maxColumns = Math.max(headers.length, 1);
+  const columnWidth = Math.max(80, 500 / maxColumns);
+
+  doc.fontSize(9);
+  headers.forEach((header, index) => {
+    doc.text(header.replace(/_/g, " ").toUpperCase(), 40 + index * columnWidth, doc.y, {
+      width: columnWidth - 8,
+      continued: index < headers.length - 1,
+    });
+  });
+  doc.moveDown();
+  doc.moveTo(40, doc.y).lineTo(560, doc.y).stroke("#cccccc");
+  doc.moveDown(0.5);
+
+  rows.slice(0, 150).forEach((row) => {
+    if (doc.y > 720) {
+      doc.addPage();
+    }
+
+    headers.forEach((header, index) => {
+      doc.text(row[header] || "", 40 + index * columnWidth, doc.y, {
+        width: columnWidth - 8,
+        continued: index < headers.length - 1,
+      });
+    });
+    doc.moveDown();
+  });
+
+  doc.end();
+  return bufferPromise;
+};
 
 // Get all report schedules
 router.get("/schedules", requireAuth, async (req, res) => {
@@ -263,6 +349,8 @@ router.get("/templates", requireAuth, async (req, res) => {
 // Get attendance records for preview (used by frontend Reports page)
 router.get("/attendance-records", requireAuth, async (req, res) => {
   try {
+    const isFaculty = req.session?.userRole === "faculty";
+    const facultyUserId = Number(req.session?.userId);
     const {
       limit = 10,
       offset = 0,
@@ -310,6 +398,10 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
       conditions.push(eq(attendanceRecords.status, status as string));
     }
 
+    if (isFaculty) {
+      conditions.push(eq(schedules.facultyId, facultyUserId));
+    }
+
     const baseQuery = db
       .select({
         record: attendanceRecords,
@@ -331,6 +423,18 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
     const query =
       conditions.length > 0 ? baseQuery.where(and(...conditions)) : baseQuery;
 
+    const countQuery = db
+      .select({ total: sql<number>`count(*)` })
+      .from(attendanceRecords)
+      .leftJoin(students, eq(attendanceRecords.studentId, students.id))
+      .leftJoin(classSessions, eq(attendanceRecords.classSessionId, classSessions.id))
+      .leftJoin(schedules, eq(classSessions.scheduleId, schedules.id));
+
+    const [{ total = 0 } = { total: 0 }] =
+      conditions.length > 0
+        ? await countQuery.where(and(...conditions))
+        : await countQuery;
+
     const records = await query
       .orderBy(desc(attendanceRecords.createdAt))
       .limit(parseInt(limit as string))
@@ -339,6 +443,7 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
     res.json({
       success: true,
       data: records,
+      total: Number(total),
     });
   } catch (error) {
     console.error("Get attendance records error:", error);
@@ -352,6 +457,8 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
 // Generate report (used by frontend Reports page)
 router.post("/generate-report", requireAuth, async (req, res) => {
   try {
+    const isFaculty = req.session?.userRole === "faculty";
+    const facultyUserId = Number(req.session?.userId);
     const {
       type,
       format = "csv",
@@ -413,7 +520,9 @@ router.post("/generate-report", requireAuth, async (req, res) => {
         if (classroomId) {
           conditions.push(eq(schedules.classroomId, parseInt(classroomId)));
         }
-        if (facultyId) {
+        if (isFaculty) {
+          conditions.push(eq(schedules.facultyId, facultyUserId));
+        } else if (facultyId) {
           conditions.push(eq(schedules.facultyId, parseInt(facultyId)));
         }
 
@@ -480,13 +589,15 @@ router.post("/generate-report", requireAuth, async (req, res) => {
         });
     }
 
+    const flattenedData = flattenReportRows(data);
+
     // Generate CSV or return JSON data
-    if (format === "csv" && data.length > 0) {
+    if (format === "csv") {
       // Convert data to CSV
-      const headers = Object.keys(data[0]).join(",");
-      const rows = data.map((row: any) =>
+      const headers = flattenedData.length > 0 ? Object.keys(flattenedData[0]).join(",") : "";
+      const rows = flattenedData.map((row: any) =>
         Object.values(row)
-          .map((val) => `"${val || ""}"`)
+          .map((val) => `"${String(val ?? "").replace(/"/g, '""')}"`)
           .join(","),
       );
       const csv = [headers, ...rows].join("\n");
@@ -497,6 +608,20 @@ router.post("/generate-report", requireAuth, async (req, res) => {
         `attachment; filename="attendance_report_${new Date().toISOString().split("T")[0]}.csv"`,
       );
       return res.send(csv);
+    }
+
+    if (format === "pdf") {
+      const pdfBuffer = await buildPdfBuffer(
+        `${type.charAt(0).toUpperCase() + type.slice(1)} Report`,
+        flattenedData,
+      );
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${type}_report_${new Date().toISOString().split("T")[0]}.pdf"`,
+      );
+      return res.send(pdfBuffer);
     }
 
     // For JSON format or empty data, return the data directly
@@ -557,6 +682,8 @@ router.get("/history", requireAuth, async (req, res) => {
 // Get real-time attendance statistics
 router.get("/real-time-stats", requireAuth, async (req, res) => {
   try {
+    const isFaculty = req.session?.userRole === "faculty";
+    const facultyUserId = Number(req.session?.userId);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -569,10 +696,13 @@ router.get("/real-time-stats", requireAuth, async (req, res) => {
         count: sql<number>`count(*)`,
       })
       .from(attendanceRecords)
+      .innerJoin(classSessions, eq(attendanceRecords.classSessionId, classSessions.id))
+      .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .where(
         and(
           gte(attendanceRecords.createdAt, today),
           lt(attendanceRecords.createdAt, tomorrow),
+          isFaculty ? eq(schedules.facultyId, facultyUserId) : undefined,
         ),
       )
       .groupBy(attendanceRecords.status);
@@ -583,11 +713,13 @@ router.get("/real-time-stats", requireAuth, async (req, res) => {
         count: sql<number>`count(*)`,
       })
       .from(classSessions)
+      .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .where(
         and(
           gte(classSessions.date, today),
           lt(classSessions.date, tomorrow),
           eq(classSessions.status, "active"),
+          isFaculty ? eq(schedules.facultyId, facultyUserId) : undefined,
         ),
       );
 

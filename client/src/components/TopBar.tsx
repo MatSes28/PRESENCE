@@ -6,8 +6,14 @@ import { ConfirmationDialog } from "./ConfirmationDialog";
 const pageTitles: Record<string, string> = {
   "/": "Dashboard",
   "/attendance": "Live Attendance",
+  "/discrepancies": "Discrepancies",
   "/schedule": "Schedule",
   "/students": "Students",
+  "/faculty": "Faculty Management",
+  "/classrooms": "Room Management",
+  "/subjects": "Subjects",
+  "/subject-enrollment": "Subject Enrollment",
+  "/enrollments": "Enrollment Management",
   "/roster": "Class Roster",
   "/monitor": "Monitor",
   "/iot": "IoT Devices",
@@ -15,6 +21,8 @@ const pageTitles: Record<string, string> = {
   "/testing": "System Testing",
   "/reports": "Reports",
   "/users": "User Management",
+  "/roles": "User Management",
+  "/ai-analytics": "AI Analytics",
   "/compliance": "Compliance",
   "/help": "Help Center",
   "/settings": "Settings",
@@ -33,7 +41,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   const [location] = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const currentTitle = pageTitles[location] || "Dashboard";
+  const currentTitle =
+    pageTitles[location] ||
+    (location.startsWith("/students/") ? "Student Details" : "Dashboard");
 
   const handleLogout = async () => {
     setShowLogoutConfirm(false);
@@ -86,7 +96,11 @@ export const TopBar: React.FC<TopBarProps> = ({
         {/* Right Side Actions */}
         <div className="flex items-center space-x-4">
           {/* Notifications */}
-          <button className="p-2 text-gray-400 hover:text-gray-200 transition-colors">
+          <button
+            type="button"
+            aria-label="Notifications coming soon"
+            className="p-2 text-gray-400 hover:text-gray-200 transition-colors"
+          >
             🔔
           </button>
 

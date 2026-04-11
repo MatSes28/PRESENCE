@@ -130,7 +130,7 @@ const navigationSections: NavSection[] = [
       },
       {
         path: "/roles",
-        label: "Roles & Permissions",
+        label: "User Management",
         icon: "🔐",
         roles: ["admin"],
       },
@@ -216,6 +216,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
               {/* Section Header */}
               <button
                 onClick={() => toggleSection(section.title)}
+                aria-expanded={isExpanded}
+                aria-controls={`sidebar-section-${section.title.replace(/\s+/g, "-").toLowerCase()}`}
                 className="w-full flex items-center justify-between px-3 py-2 text-gray-300 hover:bg-gray-800 rounded-lg transition-colors ios-button"
               >
                 <div className="flex items-center">
@@ -239,7 +241,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
 
               {/* Section Items */}
               {isExpanded && (
-                <ul className="ml-2 mt-1 space-y-1 border-l-2 border-gray-700">
+                <ul
+                  id={`sidebar-section-${section.title.replace(/\s+/g, "-").toLowerCase()}`}
+                  className="ml-2 mt-1 space-y-1 border-l-2 border-gray-700"
+                >
                   {section.items.map((item) => (
                     <li key={item.path}>
                       <Link href={item.path}>

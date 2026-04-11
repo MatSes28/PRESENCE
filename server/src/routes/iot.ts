@@ -5,7 +5,7 @@ import { sendToDevice, broadcastToWebClients } from "../services/websocket.js";
 import { validateRequest, validationRules } from "../middleware/validation.js";
 import { v4 as uuidv4 } from "uuid";
 import { auditEventLogger } from "../services/audit/auditEvents.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAdmin, requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -96,7 +96,7 @@ router.get("/devices/:deviceId", requireAuth, async (req, res) => {
 // Register new device
 router.post(
   "/devices",
-  requireAuth,
+  requireAdmin,
   validateRequest({
     deviceId: (value) => {
       if (!value) return "Device ID is required";
@@ -151,7 +151,7 @@ router.post(
 );
 
 // Update device configuration
-router.put("/devices/:deviceId/config", requireAuth, async (req, res) => {
+router.put("/devices/:deviceId/config", requireAdmin, async (req, res) => {
   try {
     const { deviceId } = req.params;
     const { config } = req.body;
@@ -179,7 +179,7 @@ router.put("/devices/:deviceId/config", requireAuth, async (req, res) => {
 });
 
 // Send command to device
-router.post("/devices/:deviceId/command", requireAuth, async (req, res) => {
+router.post("/devices/:deviceId/command", requireAdmin, async (req, res) => {
   try {
     const { deviceId } = req.params;
     const { command, params } = req.body;
@@ -218,7 +218,7 @@ router.post("/devices/:deviceId/command", requireAuth, async (req, res) => {
 });
 
 // Restart device
-router.post("/devices/:deviceId/restart", requireAuth, async (req, res) => {
+router.post("/devices/:deviceId/restart", requireAdmin, async (req, res) => {
   try {
     const { deviceId } = req.params;
 
@@ -245,7 +245,7 @@ router.post("/devices/:deviceId/restart", requireAuth, async (req, res) => {
 });
 
 // Update device firmware
-router.post("/devices/:deviceId/firmware", requireAuth, async (req, res) => {
+router.post("/devices/:deviceId/firmware", requireAdmin, async (req, res) => {
   try {
     const { deviceId } = req.params;
     const { firmwareUrl } = req.body;
@@ -399,7 +399,7 @@ router.get(
 );
 
 // Get device API key (for device setup)
-router.get("/devices/:deviceId/api-key", requireAuth, async (req, res) => {
+router.get("/devices/:deviceId/api-key", requireAdmin, async (req, res) => {
   try {
     const { deviceId } = req.params;
 
@@ -429,7 +429,7 @@ router.get("/devices/:deviceId/api-key", requireAuth, async (req, res) => {
 // Regenerate device API key
 router.post(
   "/devices/:deviceId/regenerate-api-key",
-  requireAuth,
+  requireAdmin,
   async (req, res) => {
     try {
       const { deviceId } = req.params;
@@ -460,7 +460,7 @@ router.post(
 );
 
 // Update device certificate
-router.post("/devices/:deviceId/certificate", requireAuth, async (req, res) => {
+router.post("/devices/:deviceId/certificate", requireAdmin, async (req, res) => {
   try {
     const { deviceId } = req.params;
     const { certificateData, fingerprint } = req.body;
@@ -979,7 +979,7 @@ router.post(
 // ============================================
 
 // Get maintenance recommendations
-router.get("/maintenance", requireAuth, async (req, res) => {
+router.get("/maintenance", requireAdmin, async (req, res) => {
   try {
     const recommendations =
       await iotDeviceManager.getMaintenanceRecommendations();
@@ -998,7 +998,7 @@ router.get("/maintenance", requireAuth, async (req, res) => {
 });
 
 // Perform bulk health check
-router.post("/health-check/bulk", requireAuth, async (req, res) => {
+router.post("/health-check/bulk", requireAdmin, async (req, res) => {
   try {
     const result = await iotDeviceManager.performBulkHealthCheck();
 
@@ -1016,7 +1016,7 @@ router.post("/health-check/bulk", requireAuth, async (req, res) => {
 });
 
 // Get all health metrics
-router.get("/health/all", requireAuth, async (req, res) => {
+router.get("/health/all", requireAdmin, async (req, res) => {
   try {
     const metrics = await iotDeviceManager.getAllHealthMetrics();
 

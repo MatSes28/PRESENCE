@@ -2,21 +2,20 @@ import { Router } from "express";
 import { eq } from "drizzle-orm";
 import db from "../storage.js";
 import { users } from "../schema.js";
+import { requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
+const toSafeUser = (user: any) => {
+  const { password, ...safeUser } = user;
+  return safeUser;
+};
+
 // GET /api/users - Get all users (admin only)
-router.get("/", async (req, res) => {
-  // Check if user is admin
-  if (!req.session?.userId || req.session?.userRole !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access required",
-    });
-  }
+router.get("/", requireAdmin, async (req, res) => {
   try {
     const allUsers = await db.select().from(users);
-    res.json({ success: true, data: allUsers });
+    res.json({ success: true, data: allUsers.map(toSafeUser) });
   } catch (error) {
     console.error("Error fetching users:", error);
     res.status(500).json({ success: false, message: "Failed to fetch users" });
@@ -24,14 +23,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET /api/users/:id - Get user by ID (admin only)
-router.get("/:id", async (req, res) => {
-  // Check if user is admin
-  if (!req.session?.userId || req.session?.userRole !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access required",
-    });
-  }
+router.get("/:id", requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
     const user = await db
@@ -46,7 +38,7 @@ router.get("/:id", async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    res.json({ success: true, data: user[0] });
+    res.json({ success: true, data: toSafeUser(user[0]) });
   } catch (error) {
     console.error("Error fetching user:", error);
     res.status(500).json({ success: false, message: "Failed to fetch user" });
@@ -54,14 +46,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // POST /api/users - Create new user (admin only)
-router.post("/", async (req, res) => {
-  // Check if user is admin
-  if (!req.session?.userId || req.session?.userRole !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access required",
-    });
-  }
+router.post("/", requireAdmin, async (req, res) => {
   try {
     const { email, name, role, password, facultyId, department, gender } =
       req.body;
@@ -106,9 +91,7 @@ router.post("/", async (req, res) => {
       .returning();
 
     // Remove password from response
-    const { password: _, ...userWithoutPassword } = newUser[0];
-
-    res.status(201).json({ success: true, data: userWithoutPassword });
+    res.status(201).json({ success: true, data: toSafeUser(newUser[0]) });
   } catch (error) {
     console.error("Error creating user:", error);
     res.status(500).json({ success: false, message: "Failed to create user" });
@@ -116,14 +99,7 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /api/users/:id - Update user (admin only)
-router.put("/:id", async (req, res) => {
-  // Check if user is admin
-  if (!req.session?.userId || req.session?.userRole !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access required",
-    });
-  }
+router.put("/:id", requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
     const { email, name, role, facultyId, department, gender } = req.body;
@@ -178,9 +154,7 @@ router.put("/:id", async (req, res) => {
       .returning();
 
     // Remove password from response
-    const { password: _, ...userWithoutPassword } = updatedUser[0];
-
-    res.json({ success: true, data: userWithoutPassword });
+    res.json({ success: true, data: toSafeUser(updatedUser[0]) });
   } catch (error) {
     console.error("Error updating user:", error);
     res.status(500).json({ success: false, message: "Failed to update user" });
@@ -188,15 +162,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE /api/users/:id - Delete user (admin only)
-router.delete("/:id", async (req, res) => {
-  // Check if user is admin
-  if (!req.session?.userId || req.session?.userRole !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access required",
-    });
-  }
-
+router.delete("/:id", requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
 

@@ -308,7 +308,7 @@ describeIntegration("API Endpoints Integration Tests", () => {
         const response = await request(app)
           .post(`/api/iot/devices/${testDevice.deviceId}/command`)
           .send(commandData)
-          .expect(401);
+          .expect(403);
 
         expect(response.body.success).toBe(false);
       });

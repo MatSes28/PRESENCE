@@ -6,6 +6,30 @@ import { promMetrics } from "../services/monitoring/promMetrics.js";
 
 const router = Router();
 
+const isInternalMetricsRequest = (ipAddress?: string | null) => {
+  if (!ipAddress) return false;
+
+  const normalized = ipAddress.replace(/^::ffff:/, "").toLowerCase();
+
+  if (
+    normalized === "127.0.0.1" ||
+    normalized === "::1" ||
+    normalized === "localhost"
+  ) {
+    return true;
+  }
+
+  if (normalized.startsWith("10.") || normalized.startsWith("192.168.")) {
+    return true;
+  }
+
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(normalized)) {
+    return true;
+  }
+
+  return normalized.startsWith("fc") || normalized.startsWith("fd");
+};
+
 // Comprehensive health check endpoint for production monitoring
 router.get("/", async (req: Request, res: Response) => {
   const health = {
@@ -100,6 +124,20 @@ router.get("/metrics", async (req: Request, res: Response) => {
     return res
       .status(404)
       .json({ success: false, message: "Metrics disabled" });
+  }
+
+  const allowPublicMetrics = process.env.METRICS_PUBLIC === "true";
+  const isInternalRequest = isInternalMetricsRequest(
+    req.ip || req.socket.remoteAddress,
+  );
+  const isAdminRequest =
+    Boolean(req.session?.userId) && req.session?.userRole === "admin";
+
+  if (!allowPublicMetrics && !isInternalRequest && !isAdminRequest) {
+    return res.status(403).json({
+      success: false,
+      message: "Metrics access denied",
+    });
   }
 
   const memUsage = process.memoryUsage();

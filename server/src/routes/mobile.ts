@@ -16,6 +16,56 @@ import * as QRCode from "qrcode";
 
 const router = Router();
 
+async function getSessionScope(sessionId: number) {
+  const sessionScope = await db
+    .select({
+      sessionId: classSessions.id,
+      status: classSessions.status,
+      date: classSessions.date,
+      facultyId: schedules.facultyId,
+      subjectId: schedules.subjectId,
+    })
+    .from(classSessions)
+    .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+    .where(eq(classSessions.id, sessionId))
+    .limit(1);
+
+  return sessionScope[0] ?? null;
+}
+
+async function userCanAccessSession(req: any, sessionId: number) {
+  const sessionScope = await getSessionScope(sessionId);
+  if (!sessionScope) {
+    return { exists: false, allowed: false, sessionScope: null };
+  }
+
+  if (req.session?.userRole === "admin") {
+    return { exists: true, allowed: true, sessionScope };
+  }
+
+  return {
+    exists: true,
+    allowed: sessionScope.facultyId === Number(req.session?.userId),
+    sessionScope,
+  };
+}
+
+async function isStudentEnrolledInSubject(studentId: number, subjectId: number) {
+  const enrollment = await db
+    .select({ id: enrollments.id })
+    .from(enrollments)
+    .where(
+      and(
+        eq(enrollments.studentId, studentId),
+        eq(enrollments.subjectId, subjectId),
+        eq(enrollments.isActive, true),
+      ),
+    )
+    .limit(1);
+
+  return enrollment.length > 0;
+}
+
 function requireMobileSession(req: any, res: any, next: any) {
   // Allow CORS preflight.
   if (req.method === "OPTIONS") return next();
@@ -287,11 +337,33 @@ router.get("/dashboard/:userId", async (req, res) => {
 // QR Code generation for attendance
 router.get("/qr/generate/:sessionId", async (req, res) => {
   try {
-    const { sessionId } = req.params;
+    const parsedSessionId = parseInt(req.params.sessionId, 10);
+
+    if (!Number.isFinite(parsedSessionId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid session ID",
+      });
+    }
+
+    const access = await userCanAccessSession(req, parsedSessionId);
+    if (!access.exists) {
+      return res.status(404).json({
+        success: false,
+        message: "Session not found",
+      });
+    }
+
+    if (!access.allowed) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied for this session",
+      });
+    }
 
     // Generate QR code data
     const qrData = {
-      sessionId: parseInt(sessionId),
+      sessionId: parsedSessionId,
       type: "attendance_check",
       timestamp: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes
@@ -345,11 +417,48 @@ router.post("/qr/attendance", async (req, res) => {
       });
     }
 
+    const parsedStudentId = parseInt(studentId, 10);
+    const parsedSessionId = parseInt(sessionData.sessionId, 10);
+
+    if (!Number.isFinite(parsedStudentId) || !Number.isFinite(parsedSessionId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid studentId and sessionId are required",
+      });
+    }
+
     // Check if session exists and is active
+    const access = await userCanAccessSession(req, parsedSessionId);
+    if (!access.exists) {
+      return res.status(404).json({
+        success: false,
+        message: "Session not found",
+      });
+    }
+
+    if (!access.allowed) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied for this session",
+      });
+    }
+
+    if (
+      !(await isStudentEnrolledInSubject(
+        parsedStudentId,
+        access.sessionScope!.subjectId,
+      ))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Student is not enrolled in this class",
+      });
+    }
+
     const session = await db
       .select()
       .from(classSessions)
-      .where(eq(classSessions.id, sessionData.sessionId))
+      .where(eq(classSessions.id, parsedSessionId))
       .limit(1);
 
     if (!session.length) {
@@ -365,8 +474,8 @@ router.post("/qr/attendance", async (req, res) => {
       .from(attendanceRecords)
       .where(
         and(
-          eq(attendanceRecords.studentId, parseInt(studentId)),
-          eq(attendanceRecords.classSessionId, sessionData.sessionId),
+          eq(attendanceRecords.studentId, parsedStudentId),
+          eq(attendanceRecords.classSessionId, parsedSessionId),
         ),
       )
       .limit(1);
@@ -396,8 +505,8 @@ router.post("/qr/attendance", async (req, res) => {
     const [newRecord] = await db
       .insert(attendanceRecords)
       .values({
-        studentId: parseInt(studentId),
-        classSessionId: sessionData.sessionId,
+        studentId: parsedStudentId,
+        classSessionId: parsedSessionId,
         entryTime: now,
         status,
         rfidDetected: rfidDetected || false,
@@ -408,8 +517,8 @@ router.post("/qr/attendance", async (req, res) => {
 
     // Send notification
     await notificationService.sendAttendanceNotification(
-      parseInt(studentId),
-      sessionData.sessionId,
+      parsedStudentId,
+      parsedSessionId,
       status,
     );
 
@@ -434,7 +543,7 @@ router.post("/qr/attendance", async (req, res) => {
 // Offline sync endpoint
 router.post("/sync", async (req, res) => {
   try {
-    const { userId, offlineData, deviceInfo } = req.body;
+    const { offlineData, deviceInfo } = req.body;
 
     // Process offline attendance records
     const results = {
@@ -445,10 +554,53 @@ router.post("/sync", async (req, res) => {
     if (offlineData?.attendanceRecords) {
       for (const record of offlineData.attendanceRecords) {
         try {
+          const parsedStudentId = parseInt(record.studentId, 10);
+          const parsedSessionId = parseInt(record.sessionId, 10);
+
+          if (
+            !Number.isFinite(parsedStudentId) ||
+            !Number.isFinite(parsedSessionId)
+          ) {
+            results.attendanceRecords.failed++;
+            continue;
+          }
+
+          const access = await userCanAccessSession(req, parsedSessionId);
+          if (!access.exists || !access.allowed) {
+            results.attendanceRecords.failed++;
+            continue;
+          }
+
+          if (
+            !(await isStudentEnrolledInSubject(
+              parsedStudentId,
+              access.sessionScope!.subjectId,
+            ))
+          ) {
+            results.attendanceRecords.failed++;
+            continue;
+          }
+
+          const existingRecord = await db
+            .select({ id: attendanceRecords.id })
+            .from(attendanceRecords)
+            .where(
+              and(
+                eq(attendanceRecords.studentId, parsedStudentId),
+                eq(attendanceRecords.classSessionId, parsedSessionId),
+              ),
+            )
+            .limit(1);
+
+          if (existingRecord.length > 0) {
+            results.attendanceRecords.success++;
+            continue;
+          }
+
           // Validate and insert offline record
           await db.insert(attendanceRecords).values({
-            studentId: record.studentId,
-            classSessionId: record.sessionId,
+            studentId: parsedStudentId,
+            classSessionId: parsedSessionId,
             entryTime: new Date(record.timestamp),
             status: record.status,
             rfidDetected: false,
@@ -487,7 +639,29 @@ router.post("/sync", async (req, res) => {
 // Get mobile-optimized session data
 router.get("/sessions/:sessionId/mobile", async (req, res) => {
   try {
-    const { sessionId } = req.params;
+    const parsedSessionId = parseInt(req.params.sessionId, 10);
+
+    if (!Number.isFinite(parsedSessionId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid session ID",
+      });
+    }
+
+    const access = await userCanAccessSession(req, parsedSessionId);
+    if (!access.exists) {
+      return res.status(404).json({
+        success: false,
+        message: "Session not found",
+      });
+    }
+
+    if (!access.allowed) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied for this session",
+      });
+    }
 
     const sessionData = await db
       .select({
@@ -498,7 +672,7 @@ router.get("/sessions/:sessionId/mobile", async (req, res) => {
       .from(classSessions)
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .innerJoin(subjects, eq(schedules.subjectId, subjects.id))
-      .where(eq(classSessions.id, parseInt(sessionId)))
+      .where(eq(classSessions.id, parsedSessionId))
       .limit(1);
 
     if (!sessionData.length) {
@@ -515,7 +689,7 @@ router.get("/sessions/:sessionId/mobile", async (req, res) => {
         count: count(attendanceRecords.id),
       })
       .from(attendanceRecords)
-      .where(eq(attendanceRecords.classSessionId, parseInt(sessionId)))
+      .where(eq(attendanceRecords.classSessionId, parsedSessionId))
       .groupBy(attendanceRecords.status);
 
     // Get enrolled students count

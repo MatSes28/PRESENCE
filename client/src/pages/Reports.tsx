@@ -1,6 +1,45 @@
 import { useState, useEffect } from "react";
 import { useNotifications } from "../components/NotificationSystem";
 
+const triggerReportDownload = async (payload: any) => {
+  const response = await fetch("/api/reports/generate-report", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!response.ok) {
+    const errorData = contentType.includes("application/json")
+      ? await response.json()
+      : { message: await response.text() };
+    throw new Error(errorData.message || "Failed to generate report");
+  }
+
+  if (
+    contentType.includes("text/csv") ||
+    contentType.includes("application/pdf")
+  ) {
+    const blob = await response.blob();
+    const format = contentType.includes("application/pdf") ? "pdf" : "csv";
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${payload.type}_report_${new Date().toISOString().split("T")[0]}.${format}`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(anchor);
+    return { success: true, format };
+  }
+
+  return response.json();
+};
+
 interface ReportParams {
   format: "csv" | "pdf";
   startDate?: string;
@@ -191,45 +230,29 @@ export const Reports = () => {
         startDate = monthAgo.toISOString().split("T")[0];
       }
 
-      const response = await fetch("/api/reports/generate-report", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "attendance",
-          format: "csv",
-          startDate,
-          endDate,
-        }),
+      await triggerReportDownload({
+        type: "attendance",
+        format: "csv",
+        startDate,
+        endDate,
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        addNotification({
-          type: "success",
-          title: "Report Generated",
-          message: `${
-            type.charAt(0).toUpperCase() + type.slice(1)
-          } report has been generated successfully.`,
-        });
-      } else {
-        addNotification({
-          type: "error",
-          title: "Report Generation Failed",
-          message:
-            data.message || "Failed to generate report. Please try again.",
-        });
-      }
+      addNotification({
+        type: "success",
+        title: "Report Generated",
+        message: `${
+          type.charAt(0).toUpperCase() + type.slice(1)
+        } report has been downloaded successfully.`,
+      });
     } catch (error) {
       console.error("Failed to generate quick report:", error);
       addNotification({
         type: "error",
         title: "Report Generation Failed",
         message:
-          "Failed to generate report. Please check your connection and try again.",
+          error instanceof Error
+            ? error.message
+            : "Failed to generate report. Please check your connection and try again.",
       });
     } finally {
       setGenerating(false);
@@ -241,70 +264,25 @@ export const Reports = () => {
     setGenerating(true);
     try {
       const payload = { ...reportParams, format };
-      if (format === "csv") {
-        const response = await fetch("/api/reports/generate-report", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+      await triggerReportDownload(payload);
 
-        if (response.ok) {
-          // Handle CSV file download
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `attendance_report_${new Date().toISOString().split("T")[0]}.csv`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-
-          addNotification({
-            type: "success",
-            title: "Report Exported",
-            message: "Your CSV report has been downloaded.",
-          });
-        } else {
-          const data = await response.json();
-          addNotification({
-            type: "error",
-            title: "Export Failed",
-            message: data.message || "Failed to export report",
-          });
-        }
-      } else {
-        const response = await fetch("/api/reports/generate-report", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          addNotification({
-            type: "success",
-            title: "Report Generated",
-            message: "Your report has been generated successfully.",
-          });
-        } else {
-          addNotification({
-            type: "error",
-            title: "Report Generation Failed",
-            message: data.message || "Failed to generate report",
-          });
-        }
-      }
+      addNotification({
+        type: "success",
+        title: format === "pdf" ? "PDF Exported" : "Report Exported",
+        message:
+          format === "pdf"
+            ? "Your PDF report has been downloaded."
+            : "Your CSV report has been downloaded.",
+      });
     } catch (error) {
       console.error("Failed to generate report:", error);
       addNotification({
         type: "error",
         title: "Network Error",
         message:
-          "Failed to generate report. Please check your connection and try again.",
+          error instanceof Error
+            ? error.message
+            : "Failed to generate report. Please check your connection and try again.",
       });
     } finally {
       setGenerating(false);

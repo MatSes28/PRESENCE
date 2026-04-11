@@ -693,7 +693,7 @@ class ApiClient {
     classroomId?: number;
     subjectId?: number;
   }) {
-    return this.request("/reports/generate", {
+    return this.request("/reports/generate-report", {
       method: "POST",
       body: JSON.stringify(params),
     });

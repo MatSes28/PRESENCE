@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  NODE_VERSION: "18"
+  NODE_VERSION: "20"
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -137,7 +137,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/test_db
 
       - name: Build client
-        run: npm run build:client
+        run: npm run build --workspace=client
 
       - name: Build server
         run: |
