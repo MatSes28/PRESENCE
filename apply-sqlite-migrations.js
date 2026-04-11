@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import Database from "better-sqlite3";
+const Database = require("better-sqlite3");
 
 /**
  * SQLite bootstrap/migration helper.
@@ -31,11 +31,38 @@ try {
   db.pragma("foreign_keys = ON");
   console.log("✅ Foreign keys enabled");
 
+  const safeTableName = (tableName) =>
+    tableName.replace(/[^a-zA-Z0-9_]/g, "");
+
+  const tableExists = (tableName) => {
+    const normalizedTableName = safeTableName(tableName);
+
+    if (!normalizedTableName) {
+      return false;
+    }
+
+    try {
+      return !!db
+        .prepare(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+        )
+        .get(normalizedTableName);
+    } catch {
+      return false;
+    }
+  };
+
   const getColumns = (tableName) => {
+    const normalizedTableName = safeTableName(tableName);
+
+    if (!normalizedTableName || !tableExists(normalizedTableName)) {
+      return [];
+    }
+
     try {
       return db
         .prepare(
-          `PRAGMA table_info(${tableName.replace(/[^a-zA-Z0-9_]/g, "")})`,
+          `PRAGMA table_info(${normalizedTableName})`,
         )
         .all()
         .map((c) => c.name);
@@ -45,11 +72,14 @@ try {
   };
 
   const renameColumnIfNeeded = (tableName, from, to) => {
+    const normalizedTableName = safeTableName(tableName);
+    if (!normalizedTableName || !tableExists(normalizedTableName)) return;
+
     const cols = getColumns(tableName);
     if (!cols.includes(from)) return;
     if (cols.includes(to)) return;
     try {
-      db.exec(`ALTER TABLE ${tableName} RENAME COLUMN ${from} TO ${to}`);
+      db.exec(`ALTER TABLE ${normalizedTableName} RENAME COLUMN ${from} TO ${to}`);
       console.log(`✅ Renamed ${tableName}.${from} -> ${to}`);
     } catch (error) {
       console.warn(
@@ -59,11 +89,14 @@ try {
   };
 
   const addColumnIfMissing = (tableName, columnName, columnDefinition) => {
+    const normalizedTableName = safeTableName(tableName);
+    if (!normalizedTableName || !tableExists(normalizedTableName)) return;
+
     const cols = getColumns(tableName);
     if (cols.includes(columnName)) return;
     try {
       db.exec(
-        `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`,
+        `ALTER TABLE ${normalizedTableName} ADD COLUMN ${columnName} ${columnDefinition}`,
       );
       console.log(`✅ Added ${tableName}.${columnName}`);
     } catch (error) {

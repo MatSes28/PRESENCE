@@ -1,3 +1,5 @@
+import { triggerOn401 } from "./onUnauthorized";
+
 const API_BASE_URL = window.location.origin;
 
 export interface ApiResponse<T = any> {
@@ -56,7 +58,6 @@ class ApiClient {
 
       if (!response.ok) {
         if (response.status === 401) {
-          const { triggerOn401 } = await import("./onUnauthorized");
           triggerOn401();
         }
         const error = new Error(

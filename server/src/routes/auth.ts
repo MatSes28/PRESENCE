@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import db from "../storage.js";
-import { users, passwordResetTokens } from "../schema.js";
+import { users, passwordResetTokens, systemSettings } from "../schema.js";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { emailService } from "../services/emailService.js";
 import { auditService } from "../services/auditService.js";
@@ -16,6 +16,84 @@ import {
 import { isProductionLike } from "../config/env.js";
 
 const router = Router();
+
+type UserAuthSettings = {
+  emailNotifications: boolean;
+  darkMode: boolean;
+  language: string;
+};
+
+const DEFAULT_USER_AUTH_SETTINGS: UserAuthSettings = {
+  emailNotifications: true,
+  darkMode: false,
+  language: "en",
+};
+
+function getUserAuthSettingsKey(userId: number): string {
+  return `user_auth_settings:${userId}`;
+}
+
+function parseStoredUserAuthSettings(
+  value: unknown,
+): Partial<UserAuthSettings> {
+  if (!value) {
+    return {};
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object"
+        ? (parsed as Partial<UserAuthSettings>)
+        : {};
+    } catch {
+      return {};
+    }
+  }
+
+  return typeof value === "object" ? (value as Partial<UserAuthSettings>) : {};
+}
+
+function normalizeBooleanSetting(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (value === 1 || value === "1" || value === "true") {
+    return true;
+  }
+
+  if (value === 0 || value === "0" || value === "false") {
+    return false;
+  }
+
+  return fallback;
+}
+
+function normalizeLanguageSetting(value: unknown, fallback: string): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim();
+  return normalized ? normalized.slice(0, 16) : fallback;
+}
+
+function normalizeUserAuthSettings(
+  input: unknown,
+  fallback: UserAuthSettings = DEFAULT_USER_AUTH_SETTINGS,
+): UserAuthSettings {
+  const parsed = parseStoredUserAuthSettings(input);
+
+  return {
+    emailNotifications: normalizeBooleanSetting(
+      parsed.emailNotifications,
+      fallback.emailNotifications,
+    ),
+    darkMode: normalizeBooleanSetting(parsed.darkMode, fallback.darkMode),
+    language: normalizeLanguageSetting(parsed.language, fallback.language),
+  };
+}
 
 function authDebugEnabled(): boolean {
   return process.env.LOG_AUTH_DEBUG === "true";
@@ -628,19 +706,97 @@ router.put("/settings", async (req, res) => {
     }
 
     const { emailNotifications, darkMode, language } = req.body;
+    const hasEmailNotifications = Object.prototype.hasOwnProperty.call(
+      req.body,
+      "emailNotifications",
+    );
+    const hasDarkMode = Object.prototype.hasOwnProperty.call(
+      req.body,
+      "darkMode",
+    );
+    const hasLanguage = Object.prototype.hasOwnProperty.call(req.body, "language");
 
-    // For now, we'll just return success since we don't have a settings table
-    // In a real implementation, you'd store these in a user_settings table
-    console.log("Settings update requested:", {
-      userId: req.session.userId,
-      emailNotifications,
-      darkMode,
-      language,
-    });
+    if (hasEmailNotifications && typeof emailNotifications !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "emailNotifications must be a boolean",
+      });
+    }
+
+    if (hasDarkMode && typeof darkMode !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "darkMode must be a boolean",
+      });
+    }
+
+    if (hasLanguage && typeof language !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "language must be a string",
+      });
+    }
+
+    const normalizedLanguage = hasLanguage ? language.trim() : undefined;
+    if (hasLanguage && !normalizedLanguage) {
+      return res.status(400).json({
+        success: false,
+        message: "language cannot be empty",
+      });
+    }
+
+    const settingsKey = getUserAuthSettingsKey(req.session.userId);
+    const existingSetting = await db
+      .select()
+      .from(systemSettings)
+      .where(eq(systemSettings.key, settingsKey))
+      .limit(1);
+
+    const currentSettings = normalizeUserAuthSettings(
+      existingSetting[0]?.value,
+      DEFAULT_USER_AUTH_SETTINGS,
+    );
+
+    const nextSettings: UserAuthSettings = {
+      emailNotifications: hasEmailNotifications
+        ? emailNotifications
+        : currentSettings.emailNotifications,
+      darkMode: hasDarkMode ? darkMode : currentSettings.darkMode,
+      language: hasLanguage
+        ? normalizeLanguageSetting(normalizedLanguage, currentSettings.language)
+        : currentSettings.language,
+    };
+
+    const now = new Date();
+    const serializedSettings = JSON.stringify(nextSettings);
+
+    if (existingSetting.length > 0) {
+      await db
+        .update(systemSettings)
+        .set({
+          value: serializedSettings,
+          category: "user_preferences",
+          description: "Per-user authentication and display settings",
+          isActive: true,
+          updatedAt: now,
+        })
+        .where(eq(systemSettings.key, settingsKey));
+    } else {
+      await db.insert(systemSettings).values({
+        key: settingsKey,
+        value: serializedSettings,
+        description: "Per-user authentication and display settings",
+        category: "user_preferences",
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
 
     res.json({
       success: true,
       message: "Settings updated successfully",
+      settings: nextSettings,
     });
   } catch (error) {
     console.error("Update settings error:", error);

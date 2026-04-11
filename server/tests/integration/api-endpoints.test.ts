@@ -21,6 +21,7 @@ import {
   iotDevices,
   attendanceRecords,
   classSessions,
+  systemSettings,
 } from "../../src/schema.js";
 import { eq } from "drizzle-orm";
 
@@ -168,6 +169,9 @@ describeIntegration("API Endpoints Integration Tests", () => {
       .where(eq(attendanceRecords.studentId, testStudent.id));
     await db.delete(enrollments).where(eq(enrollments.studentId, testStudent.id));
     await db.delete(classSessions).where(eq(classSessions.id, testSession.id));
+    await db
+      .delete(systemSettings)
+      .where(eq(systemSettings.key, `user_auth_settings:${testUser.id}`));
 
     // Cleanup in FK-safe order
     await db.delete(iotDevices).where(eq(iotDevices.id, testDevice.id));
@@ -231,6 +235,39 @@ describeIntegration("API Endpoints Integration Tests", () => {
 
         // Clean up
         await db.delete(users).where(eq(users.email, "newuser@example.com"));
+      });
+    });
+
+    describe("PUT /api/auth/settings", () => {
+      it("should persist user auth settings", async () => {
+        const settingsData = {
+          emailNotifications: false,
+          darkMode: true,
+          language: "fil",
+        };
+
+        const response = await agent
+          .put("/api/auth/settings")
+          .send(settingsData)
+          .expect(200);
+
+        expect(response.body.success).toBe(true);
+        expect(response.body.settings).toEqual(settingsData);
+
+        const storedSettings = await db
+          .select()
+          .from(systemSettings)
+          .where(eq(systemSettings.key, `user_auth_settings:${testUser.id}`))
+          .limit(1);
+
+        expect(storedSettings).toHaveLength(1);
+
+        const parsedValue =
+          typeof storedSettings[0].value === "string"
+            ? JSON.parse(storedSettings[0].value)
+            : storedSettings[0].value;
+
+        expect(parsedValue).toMatchObject(settingsData);
       });
     });
   });

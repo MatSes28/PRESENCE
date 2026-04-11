@@ -22,8 +22,8 @@
 // =========================
 // Device / Network Config
 // =========================
-const char* WIFI_SSID = "CLIRDEC_WiFi";
-const char* WIFI_PASSWORD = "your_wifi_password";
+const char* WIFI_SSID = "Kupal kaba?";
+const char* WIFI_PASSWORD = "MatMir@12030908";
 
 const char* API_BASE_URL = "https://presence.clirdec.edu.ph/api/iot";
 const char* DEVICE_ID = "ESP32-001";
