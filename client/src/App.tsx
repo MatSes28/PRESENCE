@@ -1,4 +1,4 @@
-import { Router, Route, Switch, useLocation } from "wouter";
+import { Router, Route, useLocation } from "wouter";
 import { lazy, Suspense, useEffect } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { useInactivityLogout } from "./hooks/useInactivityLogout";
@@ -88,7 +88,7 @@ function PageFallback() {
 function AppContent() {
   const { user, loading, logout } = useAuth();
   const { addNotification } = useNotifications();
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
 
   // 10-minute inactivity auto-logout: show message then logout
   const handleInactivityLogout = () => {
@@ -119,10 +119,10 @@ function AppContent() {
 
   // Handle redirect after successful login
   useEffect(() => {
-    if (!loading && user && (location === "/login" || location === "*")) {
+    if (!loading && user) {
       setLocation("/");
     }
-  }, [user, loading, location, setLocation]);
+  }, [user, loading, setLocation]);
 
   if (loading) {
     return (
@@ -136,12 +136,10 @@ function AppContent() {
     return (
       <Router>
         <Suspense fallback={<PageFallback />}>
-          <Switch>
-            <Route path="/login" component={LoginForm} />
-            <Route path="/forgot-password" component={ForgotPassword} />
-            <Route path="/reset-password" component={ResetPassword} />
-            <Route path="*" component={LoginForm} />
-          </Switch>
+          <Route path="/login" component={LoginForm} />
+          <Route path="/forgot-password" component={ForgotPassword} />
+          <Route path="/reset-password" component={ResetPassword} />
+          <Route path="*" component={LoginForm} />
         </Suspense>
       </Router>
     );
@@ -150,203 +148,201 @@ function AppContent() {
   return (
     <Router>
       <Suspense fallback={<PageFallback />}>
-        <Switch>
-          {/* Dashboard - Single route for overview */}
-          <Route
-            path="/"
-            component={() => (
-              <Layout>
-                <Dashboard />
-              </Layout>
-            )}
-          />
+        {/* Dashboard - Single route for overview */}
+        <Route
+          path="/"
+          component={() => (
+            <Layout>
+              <Dashboard />
+            </Layout>
+          )}
+        />
 
-          {/* Attendance Module */}
-          <Route
-            path="/attendance"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-                  <LiveAttendance />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/discrepancies"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-                  <Discrepancies />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/roster"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-                  <Roster />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
+        {/* Attendance Module */}
+        <Route
+          path="/attendance"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+                <LiveAttendance />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/discrepancies"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+                <Discrepancies />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/roster"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+                <Roster />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
 
-          {/* Management Module */}
-          <Route
-            path="/students"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-                  <Students />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/students/:id"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-                  <StudentDetail />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/students/:id/edit"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <StudentEdit />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/faculty"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <FacultyManagement />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/classrooms"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <Classrooms />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/subjects"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-                  <Subjects />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/schedule"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-                  <Schedule />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/subject-enrollment"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <SubjectEnrollment />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/enrollments"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <EnrollmentManagement />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
+        {/* Management Module */}
+        <Route
+          path="/students"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+                <Students />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/students/:id"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+                <StudentDetail />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/students/:id/edit"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <StudentEdit />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/faculty"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <FacultyManagement />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/classrooms"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <Classrooms />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/subjects"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+                <Subjects />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/schedule"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+                <Schedule />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/subject-enrollment"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <SubjectEnrollment />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/enrollments"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <EnrollmentManagement />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
 
-          {/* Reports Module */}
-          <Route
-            path="/reports"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-                  <Reports />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/ai-analytics"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin", "faculty"]}>
-                  <AIAnalytics />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
+        {/* Reports Module */}
+        <Route
+          path="/reports"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+                <Reports />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/ai-analytics"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin", "faculty"]}>
+                <AIAnalytics />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
 
-          {/* Settings Module */}
-          <Route
-            path="/settings"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <Settings />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/users"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <UserManagement />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="/roles"
-            component={() => (
-              <Layout>
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <UserManagement />
-                </ProtectedRoute>
-              </Layout>
-            )}
-          />
-          <Route
-            path="*"
-            component={() => (
-              <Layout>
-                <Dashboard />
-              </Layout>
-            )}
-          />
-        </Switch>
+        {/* Settings Module */}
+        <Route
+          path="/settings"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <Settings />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/users"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <UserManagement />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="/roles"
+          component={() => (
+            <Layout>
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <UserManagement />
+              </ProtectedRoute>
+            </Layout>
+          )}
+        />
+        <Route
+          path="*"
+          component={() => (
+            <Layout>
+              <Dashboard />
+            </Layout>
+          )}
+        />
       </Suspense>
     </Router>
   );
