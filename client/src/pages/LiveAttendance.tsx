@@ -968,10 +968,13 @@ export const LiveAttendance = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <p className="block text-sm font-medium text-gray-300 mb-1">
               Date Range
-            </label>
+            </p>
             <div className="flex space-x-2">
+              <label htmlFor="attendance-date-start" className="sr-only">
+                Attendance start date
+              </label>
               <input
                 id="attendance-date-start"
                 name="dateStart"
@@ -986,6 +989,9 @@ export const LiveAttendance = () => {
                 }
                 className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               />
+              <label htmlFor="attendance-date-end" className="sr-only">
+                Attendance end date
+              </label>
               <input
                 id="attendance-date-end"
                 name="dateEnd"

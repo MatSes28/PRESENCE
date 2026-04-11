@@ -294,6 +294,7 @@ export const Settings = () => {
                       id="settings-profile-name"
                       name="name"
                       type="text"
+                      autoComplete="name"
                       value={profileData.name}
                       onChange={(e) => {
                         setProfileData({
@@ -326,6 +327,7 @@ export const Settings = () => {
                       id="settings-profile-email"
                       name="email"
                       type="email"
+                      autoComplete="email"
                       value={profileData.email}
                       onChange={(e) => {
                         setProfileData({
@@ -380,6 +382,7 @@ export const Settings = () => {
                     id="settings-current-password"
                     name="currentPassword"
                     type="password"
+                    autoComplete="current-password"
                     value={passwordData.currentPassword}
                     onChange={(e) => {
                       setPasswordData({
@@ -414,6 +417,7 @@ export const Settings = () => {
                       id="settings-new-password"
                       name="newPassword"
                       type="password"
+                      autoComplete="new-password"
                       value={passwordData.newPassword}
                       onChange={(e) => {
                         setPasswordData({
@@ -447,6 +451,7 @@ export const Settings = () => {
                       id="settings-confirm-password"
                       name="confirmPassword"
                       type="password"
+                      autoComplete="new-password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => {
                         setPasswordData({

@@ -226,6 +226,7 @@ export const StudentEdit = () => {
                 id="student-edit-name"
                 name="name"
                 type="text"
+                autoComplete="name"
                 value={formData.name}
                 onChange={(e) => {
                   setFormData({ ...formData, name: e.target.value });
@@ -253,6 +254,7 @@ export const StudentEdit = () => {
                 id="student-edit-email"
                 name="email"
                 type="email"
+                autoComplete="email"
                 value={formData.email}
                 onChange={(e) => {
                   setFormData({ ...formData, email: e.target.value });
@@ -304,6 +306,7 @@ export const StudentEdit = () => {
                 id="student-edit-parent-email"
                 name="parentEmail"
                 type="email"
+                autoComplete="email"
                 value={formData.parentEmail}
                 onChange={(e) => {
                   setFormData({ ...formData, parentEmail: e.target.value });

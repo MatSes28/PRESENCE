@@ -204,6 +204,7 @@ export const FacultyManagement = () => {
                   id="faculty-form-email"
                   name="email"
                   type="email"
+                  autoComplete="email"
                   required
                   value={formData.email}
                   onChange={(e) =>
@@ -221,6 +222,7 @@ export const FacultyManagement = () => {
                   id="faculty-form-name"
                   name="name"
                   type="text"
+                  autoComplete="name"
                   required
                   value={formData.name}
                   onChange={(e) =>
@@ -259,6 +261,7 @@ export const FacultyManagement = () => {
                     id="faculty-form-password"
                     name="password"
                     type="password"
+                    autoComplete="new-password"
                     required={!editingUser}
                     value={formData.password}
                     onChange={(e) =>

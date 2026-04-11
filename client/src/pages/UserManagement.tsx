@@ -371,6 +371,7 @@ export const UserManagement: React.FC = () => {
                   id="user-form-name"
                   name="name"
                   type="text"
+                  autoComplete="name"
                   required
                   value={formData.name}
                   onChange={(e) =>
@@ -394,6 +395,7 @@ export const UserManagement: React.FC = () => {
                   id="user-form-email"
                   name="email"
                   type="email"
+                  autoComplete="email"
                   required
                   value={formData.email}
                   onChange={(e) =>
@@ -419,6 +421,7 @@ export const UserManagement: React.FC = () => {
                       id="user-form-password"
                       name="password"
                       type="password"
+                      autoComplete="new-password"
                       required
                       value={formData.password}
                       onChange={(e) =>
@@ -441,6 +444,7 @@ export const UserManagement: React.FC = () => {
                       id="user-form-confirm-password"
                       name="confirmPassword"
                       type="password"
+                      autoComplete="new-password"
                       required
                       value={formData.confirmPassword}
                       onChange={(e) =>
