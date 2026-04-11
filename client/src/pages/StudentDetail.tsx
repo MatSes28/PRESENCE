@@ -308,10 +308,12 @@ export const StudentDetail = () => {
         </h4>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="student-detail-message" className="block text-sm font-medium text-gray-300 mb-1">
               Message to Parent
             </label>
             <textarea
+              id="student-detail-message"
+              name="message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={4}

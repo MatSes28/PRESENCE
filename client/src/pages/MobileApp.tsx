@@ -248,8 +248,10 @@ export const MobileApp = () => {
 
               <div className="flex-1 space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
+                  <label htmlFor="mobile-app-student-id" className="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
                   <input
+                    id="mobile-app-student-id"
+                    name="studentId"
                     type="text"
                     value={selectedStudentId}
                     onChange={(e) => setSelectedStudentId(e.target.value)}

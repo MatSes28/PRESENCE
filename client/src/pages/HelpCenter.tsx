@@ -235,20 +235,22 @@ export const HelpCenter: React.FC = () => {
             </h3>
             <form className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="help-support-subject" className="block text-sm font-medium text-gray-700 mb-1">
                   Subject
                 </label>
                 <input
+                  id="help-support-subject"
+                  name="subject"
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="Brief description of your issue"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="help-support-priority" className="block text-sm font-medium text-gray-700 mb-1">
                   Priority
                 </label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <select id="help-support-priority" name="priority" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
                   <option>Low</option>
                   <option>Medium</option>
                   <option>High</option>
@@ -256,10 +258,12 @@ export const HelpCenter: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="help-support-description" className="block text-sm font-medium text-gray-700 mb-1">
                   Description
                 </label>
                 <textarea
+                  id="help-support-description"
+                  name="description"
                   rows={4}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="Detailed description of your issue or question"

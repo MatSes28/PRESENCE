@@ -329,10 +329,12 @@ export const Classrooms = () => {
       <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="classrooms-search" className="block text-sm font-medium text-gray-300 mb-2">
               Search Rooms
             </label>
             <input
+              id="classrooms-search"
+              name="searchRooms"
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
@@ -342,10 +344,12 @@ export const Classrooms = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="classrooms-type-filter" className="block text-sm font-medium text-gray-300 mb-2">
               Filter by Type
             </label>
             <select
+              id="classrooms-type-filter"
+              name="typeFilter"
               value={typeFilter}
               onChange={(event) =>
                 setTypeFilter(
@@ -386,10 +390,12 @@ export const Classrooms = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="classroom-form-name" className="block text-sm font-medium text-gray-300 mb-1">
                   Room Name *
                 </label>
                 <input
+                  id="classroom-form-name"
+                  name="name"
                   type="text"
                   value={formData.name}
                   onChange={(event) =>
@@ -401,10 +407,12 @@ export const Classrooms = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="classroom-form-type" className="block text-sm font-medium text-gray-300 mb-1">
                   Room Type *
                 </label>
                 <select
+                  id="classroom-form-type"
+                  name="type"
                   value={formData.type}
                   onChange={(event) =>
                     setFormData((prev) => ({
@@ -426,10 +434,12 @@ export const Classrooms = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="classroom-form-capacity" className="block text-sm font-medium text-gray-300 mb-1">
                   Capacity
                 </label>
                 <input
+                  id="classroom-form-capacity"
+                  name="capacity"
                   type="number"
                   min="1"
                   value={formData.capacity}

@@ -261,7 +261,12 @@ export const SubjectEnrollment = () => {
           Select Subject
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <label htmlFor="subject-enrollment-subject" className="sr-only">
+            Subject
+          </label>
           <select
+            id="subject-enrollment-subject"
+            name="subjectId"
             value={selectedSubject || ""}
             onChange={(e) =>
               setSelectedSubject(parseInt(e.target.value) || null)
@@ -276,7 +281,12 @@ export const SubjectEnrollment = () => {
             ))}
           </select>
 
+          <label htmlFor="subject-enrollment-semester" className="sr-only">
+            Semester
+          </label>
           <select
+            id="subject-enrollment-semester"
+            name="semester"
             value={semester}
             onChange={(e) => setSemester(e.target.value)}
             className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
@@ -286,7 +296,12 @@ export const SubjectEnrollment = () => {
             <option value="Summer">Summer</option>
           </select>
 
+          <label htmlFor="subject-enrollment-academic-year" className="sr-only">
+            Academic year
+          </label>
           <select
+            id="subject-enrollment-academic-year"
+            name="academicYear"
             value={academicYear}
             onChange={(e) => setAcademicYear(e.target.value)}
             className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
@@ -412,7 +427,12 @@ export const SubjectEnrollment = () => {
 
               {/* Search Students */}
               <div className="mb-4">
+                <label htmlFor="subject-enrollment-search" className="sr-only">
+                  Search students
+                </label>
                 <input
+                  id="subject-enrollment-search"
+                  name="searchStudents"
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -440,6 +460,9 @@ export const SubjectEnrollment = () => {
                       >
                         <div className="flex items-center">
                           <input
+                            id={`subject-enrollment-student-${student.id}`}
+                            name="selectedStudents"
+                            aria-label={`Select ${student.name}`}
                             type="checkbox"
                             checked={selectedStudents.includes(student.id)}
                             onChange={() => toggleStudentSelection(student.id)}

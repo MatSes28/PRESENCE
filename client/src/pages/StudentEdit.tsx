@@ -189,10 +189,12 @@ export const StudentEdit = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="student-edit-student-id" className="block text-sm font-medium text-gray-300 mb-1">
                 Student ID *
               </label>
               <input
+                id="student-edit-student-id"
+                name="studentId"
                 type="text"
                 value={formData.studentId}
                 onChange={(e) => {
@@ -217,10 +219,12 @@ export const StudentEdit = () => {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="student-edit-name" className="block text-sm font-medium text-gray-300 mb-1">
                 Full Name *
               </label>
               <input
+                id="student-edit-name"
+                name="name"
                 type="text"
                 value={formData.name}
                 onChange={(e) => {
@@ -242,10 +246,12 @@ export const StudentEdit = () => {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="student-edit-email" className="block text-sm font-medium text-gray-300 mb-1">
                 Email
               </label>
               <input
+                id="student-edit-email"
+                name="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => {
@@ -270,10 +276,12 @@ export const StudentEdit = () => {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="student-edit-rfid" className="block text-sm font-medium text-gray-300 mb-1">
                 RFID UID
               </label>
               <input
+                id="student-edit-rfid"
+                name="rfidUid"
                 type="text"
                 value={formData.rfidUid}
                 onChange={(e) =>
@@ -289,10 +297,12 @@ export const StudentEdit = () => {
               )}
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="student-edit-parent-email" className="block text-sm font-medium text-gray-300 mb-1">
                 Parent Email *
               </label>
               <input
+                id="student-edit-parent-email"
+                name="parentEmail"
                 type="email"
                 value={formData.parentEmail}
                 onChange={(e) => {
@@ -317,10 +327,12 @@ export const StudentEdit = () => {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="student-edit-year" className="block text-sm font-medium text-gray-300 mb-1">
                 Year
               </label>
               <select
+                id="student-edit-year"
+                name="year"
                 value={formData.year}
                 onChange={(e) =>
                   setFormData({ ...formData, year: e.target.value })
@@ -335,10 +347,12 @@ export const StudentEdit = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="student-edit-section" className="block text-sm font-medium text-gray-300 mb-1">
                 Section
               </label>
               <select
+                id="student-edit-section"
+                name="section"
                 value={formData.section}
                 onChange={(e) =>
                   setFormData({ ...formData, section: e.target.value })
@@ -352,10 +366,12 @@ export const StudentEdit = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="student-edit-status" className="block text-sm font-medium text-gray-300 mb-1">
                 Status
               </label>
               <select
+                id="student-edit-status"
+                name="status"
                 value={formData.isActive ? "active" : "inactive"}
                 onChange={(e) =>
                   setFormData({

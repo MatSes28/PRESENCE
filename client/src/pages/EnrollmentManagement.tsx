@@ -283,10 +283,12 @@ export const EnrollmentManagement = () => {
       <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="enrollment-search" className="block text-sm font-medium text-gray-300 mb-1">
               Search
             </label>
             <input
+              id="enrollment-search"
+              name="searchEnrollments"
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -303,6 +305,7 @@ export const EnrollmentManagement = () => {
             </label>
             <select
               id="enrollment-filter-subject"
+              name="selectedSubject"
               value={selectedSubject || ""}
               onChange={(e) =>
                 setSelectedSubject(
@@ -339,6 +342,7 @@ export const EnrollmentManagement = () => {
                 </label>
                 <select
                   id="enrollment-student"
+                  name="studentId"
                   value={formData.studentId}
                   onChange={(e) =>
                     setFormData({ ...formData, studentId: e.target.value })
@@ -363,6 +367,7 @@ export const EnrollmentManagement = () => {
                 </label>
                 <select
                   id="enrollment-subject"
+                  name="subjectId"
                   value={formData.subjectId}
                   onChange={(e) =>
                     setFormData({ ...formData, subjectId: e.target.value })
@@ -387,6 +392,7 @@ export const EnrollmentManagement = () => {
                 </label>
                 <select
                   id="enrollment-semester"
+                  name="semester"
                   value={formData.semester}
                   onChange={(e) =>
                     setFormData({ ...formData, semester: e.target.value })
@@ -409,6 +415,7 @@ export const EnrollmentManagement = () => {
                 </label>
                 <select
                   id="enrollment-academic-year"
+                  name="academicYear"
                   value={formData.academicYear}
                   onChange={(e) =>
                     setFormData({ ...formData, academicYear: e.target.value })

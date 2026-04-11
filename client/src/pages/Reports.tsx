@@ -458,10 +458,12 @@ export const Reports = () => {
           {/* Date Range */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="report-date-range" className="block text-sm font-medium text-gray-300 mb-1">
                 Date Range
               </label>
               <select
+                id="report-date-range"
+                name="dateRangePreset"
                 value="custom"
                 onChange={(e) => {
                   const value = e.target.value;
@@ -507,10 +509,12 @@ export const Reports = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="report-start-date" className="block text-sm font-medium text-gray-300 mb-1">
                 Start Date
               </label>
               <input
+                id="report-start-date"
+                name="startDate"
                 type="date"
                 value={reportParams.startDate}
                 onChange={(e) =>
@@ -523,10 +527,12 @@ export const Reports = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="report-end-date" className="block text-sm font-medium text-gray-300 mb-1">
                 End Date
               </label>
               <input
+                id="report-end-date"
+                name="endDate"
                 type="date"
                 value={reportParams.endDate}
                 onChange={(e) =>
@@ -540,10 +546,12 @@ export const Reports = () => {
           {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="report-subject" className="block text-sm font-medium text-gray-300 mb-1">
                 Subject
               </label>
               <select
+                id="report-subject"
+                name="subjectId"
                 value={reportParams.subjectId || ""}
                 onChange={(e) =>
                   setReportParams({
@@ -564,10 +572,12 @@ export const Reports = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="report-classroom" className="block text-sm font-medium text-gray-300 mb-1">
                 Class Section
               </label>
               <select
+                id="report-classroom"
+                name="classroomId"
                 value={reportParams.classroomId || ""}
                 onChange={(e) =>
                   setReportParams({
@@ -588,10 +598,12 @@ export const Reports = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="report-type" className="block text-sm font-medium text-gray-300 mb-1">
                 Report Type
               </label>
               <select
+                id="report-type"
+                name="type"
                 value={reportParams.type}
                 onChange={(e) =>
                   setReportParams({

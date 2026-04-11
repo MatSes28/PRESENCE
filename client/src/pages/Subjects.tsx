@@ -218,7 +218,12 @@ export const Subjects = () => {
           <h4 className="text-lg font-medium text-cyan-400">Search Subjects</h4>
         </div>
         <div className="mt-4">
+          <label htmlFor="subjects-search" className="sr-only">
+            Search subjects
+          </label>
           <input
+            id="subjects-search"
+            name="searchSubjects"
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -237,10 +242,12 @@ export const Subjects = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="subject-form-code" className="block text-sm font-medium text-gray-300 mb-1">
                   Subject Code *
                 </label>
                 <input
+                  id="subject-form-code"
+                  name="code"
                   type="text"
                   value={formData.code}
                   onChange={(e) =>
@@ -257,10 +264,12 @@ export const Subjects = () => {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="subject-form-name" className="block text-sm font-medium text-gray-300 mb-1">
                   Subject Name *
                 </label>
                 <input
+                  id="subject-form-name"
+                  name="name"
                   type="text"
                   value={formData.name}
                   onChange={(e) =>
@@ -271,10 +280,12 @@ export const Subjects = () => {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="subject-form-description" className="block text-sm font-medium text-gray-300 mb-1">
                   Description
                 </label>
                 <textarea
+                  id="subject-form-description"
+                  name="description"
                   value={formData.description}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })

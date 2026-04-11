@@ -813,10 +813,12 @@ export const LabComputers = () => {
       <div className="bg-gray-800 rounded-lg shadow p-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-            <label className="text-sm font-medium text-gray-300 whitespace-nowrap">
+            <label htmlFor="lab-computers-lab-select" className="text-sm font-medium text-gray-300 whitespace-nowrap">
               Select Lab:
             </label>
             <select
+              id="lab-computers-lab-select"
+              name="selectedLab"
               value={selectedLab || ""}
               onChange={(e) => {
                 setSelectedLab(parseInt(e.target.value) || null);
@@ -835,10 +837,12 @@ export const LabComputers = () => {
 
           {selectedLab && (
             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-              <label className="text-sm font-medium text-gray-300 whitespace-nowrap">
+              <label htmlFor="lab-computers-subject-select" className="text-sm font-medium text-gray-300 whitespace-nowrap">
                 Subject:
               </label>
               <select
+                id="lab-computers-subject-select"
+                name="selectedSubject"
                 value={selectedSubject || ""}
                 onChange={(e) =>
                   setSelectedSubject(parseInt(e.target.value) || null)
@@ -1600,10 +1604,12 @@ export const LabComputers = () => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label htmlFor="lab-computers-room-select" className="block text-sm font-medium text-gray-300 mb-2">
                     Select Lab Room
                   </label>
                   <select
+                    id="lab-computers-room-select"
+                    name="selectedClassroom"
                     value={selectedClassroom || ""}
                     onChange={(e) =>
                       setSelectedClassroom(parseInt(e.target.value) || null)
@@ -1620,10 +1626,12 @@ export const LabComputers = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label htmlFor="lab-computers-count" className="block text-sm font-medium text-gray-300 mb-2">
                     Number of Computers
                   </label>
                   <input
+                    id="lab-computers-count"
+                    name="computerCount"
                     type="number"
                     min="1"
                     max="50"
@@ -1677,10 +1685,12 @@ export const LabComputers = () => {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label htmlFor="lab-computers-smart-session" className="block text-sm font-medium text-gray-300 mb-2">
                     Select Class Session
                   </label>
                   <select
+                    id="lab-computers-smart-session"
+                    name="smartAssignSessionId"
                     value={smartAssignSessionId || ""}
                     onChange={(e) =>
                       setSmartAssignSessionId(parseInt(e.target.value) || null)
@@ -1913,10 +1923,10 @@ export const LabComputers = () => {
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label htmlFor="lab-computers-maintenance-computer" className="block text-sm font-medium text-gray-300 mb-2">
                         Computer
                       </label>
-                      <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                      <select id="lab-computers-maintenance-computer" name="maintenanceComputer" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
                         <option>Select computer...</option>
                         {computers.map((computer) => (
                           <option key={computer.id} value={computer.id}>
@@ -1926,29 +1936,33 @@ export const LabComputers = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label htmlFor="lab-computers-maintenance-type" className="block text-sm font-medium text-gray-300 mb-2">
                         Maintenance Type
                       </label>
-                      <select className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                      <select id="lab-computers-maintenance-type" name="maintenanceType" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
                         <option>Preventive</option>
                         <option>Corrective</option>
                         <option>Upgrade</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label htmlFor="lab-computers-maintenance-date" className="block text-sm font-medium text-gray-300 mb-2">
                         Scheduled Date
                       </label>
                       <input
+                        id="lab-computers-maintenance-date"
+                        name="scheduledDate"
                         type="date"
                         className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label htmlFor="lab-computers-maintenance-description" className="block text-sm font-medium text-gray-300 mb-2">
                         Description
                       </label>
                       <input
+                        id="lab-computers-maintenance-description"
+                        name="maintenanceDescription"
                         type="text"
                         placeholder="Brief description"
                         className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"

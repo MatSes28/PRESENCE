@@ -928,10 +928,12 @@ export const LiveAttendance = () => {
         {/* Basic Filters */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="attendance-search" className="block text-sm font-medium text-gray-300 mb-1">
               Search
             </label>
             <input
+              id="attendance-search"
+              name="searchTerm"
               type="text"
               value={filters.searchTerm}
               onChange={(e) =>
@@ -942,10 +944,12 @@ export const LiveAttendance = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="attendance-status" className="block text-sm font-medium text-gray-300 mb-1">
               Status
             </label>
             <select
+              id="attendance-status"
+              name="status"
               value={filters.status}
               onChange={(e) =>
                 setFilters((prev) => ({ ...prev, status: e.target.value }))
@@ -964,6 +968,9 @@ export const LiveAttendance = () => {
             </label>
             <div className="flex space-x-2">
               <input
+                id="attendance-date-start"
+                name="dateStart"
+                aria-label="Attendance start date"
                 type="date"
                 value={filters.dateRange.start}
                 onChange={(e) =>
@@ -975,6 +982,9 @@ export const LiveAttendance = () => {
                 className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               />
               <input
+                id="attendance-date-end"
+                name="dateEnd"
+                aria-label="Attendance end date"
                 type="date"
                 value={filters.dateRange.end}
                 onChange={(e) =>
@@ -993,10 +1003,12 @@ export const LiveAttendance = () => {
         {showAdvancedFilters && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-600">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="attendance-student-filter" className="block text-sm font-medium text-gray-300 mb-1">
                 Student
               </label>
               <select
+                id="attendance-student-filter"
+                name="studentId"
                 value={filters.studentId}
                 onChange={(e) =>
                   setFilters((prev) => ({ ...prev, studentId: e.target.value }))
@@ -1012,10 +1024,12 @@ export const LiveAttendance = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="attendance-session-filter" className="block text-sm font-medium text-gray-300 mb-1">
                 Session
               </label>
               <select
+                id="attendance-session-filter"
+                name="sessionId"
                 value={filters.sessionId}
                 onChange={(e) =>
                   setFilters((prev) => ({ ...prev, sessionId: e.target.value }))
@@ -1031,10 +1045,12 @@ export const LiveAttendance = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="attendance-device-filter" className="block text-sm font-medium text-gray-300 mb-1">
                 Device
               </label>
               <input
+                id="attendance-device-filter"
+                name="deviceId"
                 type="text"
                 value={filters.deviceId}
                 onChange={(e) =>
@@ -1122,6 +1138,9 @@ export const LiveAttendance = () => {
             </div>
             <div className="flex items-center space-x-2">
               <input
+                id="attendance-select-all"
+                name="selectAllAttendance"
+                aria-label="Select all attendance records"
                 type="checkbox"
                 checked={
                   selectedRecords.size === sortedAttendanceData.length &&
@@ -1492,10 +1511,12 @@ export const LiveAttendance = () => {
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="manual-attendance-student" className="block text-sm font-medium text-gray-300 mb-2">
                   Student
                 </label>
                 <select
+                  id="manual-attendance-student"
+                  name="studentId"
                   value={manualEntryData.studentId}
                   onChange={(e) =>
                     setManualEntryData({
@@ -1514,10 +1535,12 @@ export const LiveAttendance = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="manual-attendance-session" className="block text-sm font-medium text-gray-300 mb-2">
                   Class Session
                 </label>
                 <select
+                  id="manual-attendance-session"
+                  name="classSessionId"
                   value={manualEntryData.classSessionId}
                   onChange={(e) =>
                     setManualEntryData({
@@ -1536,10 +1559,12 @@ export const LiveAttendance = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="manual-attendance-entry-time" className="block text-sm font-medium text-gray-300 mb-2">
                   Entry Time
                 </label>
                 <input
+                  id="manual-attendance-entry-time"
+                  name="entryTime"
                   type="datetime-local"
                   value={manualEntryData.entryTime}
                   onChange={(e) =>
@@ -1552,10 +1577,12 @@ export const LiveAttendance = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="manual-attendance-notes" className="block text-sm font-medium text-gray-300 mb-2">
                   Notes
                 </label>
                 <textarea
+                  id="manual-attendance-notes"
+                  name="notes"
                   value={manualEntryData.notes}
                   onChange={(e) =>
                     setManualEntryData({
@@ -1602,10 +1629,12 @@ export const LiveAttendance = () => {
                     {selectedRecord?.student?.name}
                   </span>
                 </p>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="attendance-excuse-reason" className="block text-sm font-medium text-gray-300 mb-2">
                   Reason for Excuse *
                 </label>
                 <textarea
+                  id="attendance-excuse-reason"
+                  name="excuseReason"
                   value={excuseReason}
                   onChange={(e) => setExcuseReason(e.target.value)}
                   placeholder="Enter reason for excusing the absence..."
@@ -1658,10 +1687,12 @@ export const LiveAttendance = () => {
                     {selectedRecord?.student?.parentEmail}
                   </span>
                 </p>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="attendance-contact-message" className="block text-sm font-medium text-gray-300 mb-2">
                   Message *
                 </label>
                 <textarea
+                  id="attendance-contact-message"
+                  name="contactMessage"
                   value={contactMessage}
                   onChange={(e) => setContactMessage(e.target.value)}
                   placeholder="Enter message to send to parent..."

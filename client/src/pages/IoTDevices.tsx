@@ -426,10 +426,12 @@ export const IoTDevices: React.FC = () => {
               </h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="iot-register-device-id" className="block text-sm font-medium text-gray-700 mb-1">
                     Device ID
                   </label>
                   <input
+                    id="iot-register-device-id"
+                    name="deviceId"
                     type="text"
                     value={registrationForm.deviceId}
                     onChange={(e) =>
@@ -443,10 +445,12 @@ export const IoTDevices: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="iot-register-classroom" className="block text-sm font-medium text-gray-700 mb-1">
                     Classroom
                   </label>
                   <select
+                    id="iot-register-classroom"
+                    name="classroomId"
                     value={registrationForm.classroomId}
                     onChange={(e) =>
                       setRegistrationForm({
@@ -465,10 +469,12 @@ export const IoTDevices: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="iot-register-device-type" className="block text-sm font-medium text-gray-700 mb-1">
                     Device Type
                   </label>
                   <select
+                    id="iot-register-device-type"
+                    name="deviceType"
                     value={registrationForm.deviceType}
                     onChange={(e) =>
                       setRegistrationForm({
@@ -559,10 +565,12 @@ export const IoTDevices: React.FC = () => {
                   </label>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="iot-heartbeat-interval" className="block text-sm font-medium text-gray-700 mb-1">
                     Heartbeat Interval (ms)
                   </label>
                   <input
+                    id="iot-heartbeat-interval"
+                    name="heartbeatInterval"
                     type="number"
                     value={
                       selectedDevice.device.config?.heartbeatInterval ?? 30000
@@ -616,10 +624,10 @@ export const IoTDevices: React.FC = () => {
               </h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="iot-device-api-key" className="block text-sm font-medium text-gray-700 mb-2">
                     API Key
                   </label>
-                  <div className="bg-gray-50 p-3 rounded-md font-mono text-sm break-all">
+                  <div id="iot-device-api-key" className="bg-gray-50 p-3 rounded-md font-mono text-sm break-all">
                     {deviceApiKey || "Loading..."}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">

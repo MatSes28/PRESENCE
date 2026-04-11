@@ -601,10 +601,12 @@ export const Schedule = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="schedule-subject" className="block text-sm font-medium text-gray-300 mb-1">
                   Subject *
                 </label>
                 <select
+                  id="schedule-subject"
+                  name="subjectId"
                   required
                   value={formData.subjectId}
                   onChange={(e) =>
@@ -621,10 +623,12 @@ export const Schedule = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="schedule-classroom" className="block text-sm font-medium text-gray-300 mb-1">
                   Classroom *
                 </label>
                 <select
+                  id="schedule-classroom"
+                  name="classroomId"
                   required
                   value={formData.classroomId}
                   onChange={(e) =>
@@ -641,10 +645,12 @@ export const Schedule = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="schedule-faculty" className="block text-sm font-medium text-gray-300 mb-1">
                   Faculty *
                 </label>
                 <select
+                  id="schedule-faculty"
+                  name="facultyId"
                   required
                   value={formData.facultyId}
                   onChange={(e) =>
@@ -661,10 +667,12 @@ export const Schedule = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="schedule-day-of-week" className="block text-sm font-medium text-gray-300 mb-1">
                   Day of Week *
                 </label>
                 <select
+                  id="schedule-day-of-week"
+                  name="dayOfWeek"
                   value={formData.dayOfWeek}
                   onChange={(e) =>
                     setFormData({ ...formData, dayOfWeek: e.target.value })
@@ -679,10 +687,12 @@ export const Schedule = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="schedule-start-time" className="block text-sm font-medium text-gray-300 mb-1">
                   Start Time *
                 </label>
                 <input
+                  id="schedule-start-time"
+                  name="startTime"
                   type="time"
                   required
                   value={formData.startTime}
@@ -693,10 +703,12 @@ export const Schedule = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="schedule-end-time" className="block text-sm font-medium text-gray-300 mb-1">
                   End Time *
                 </label>
                 <input
+                  id="schedule-end-time"
+                  name="endTime"
                   type="time"
                   required
                   value={formData.endTime}
@@ -707,10 +719,12 @@ export const Schedule = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="schedule-semester" className="block text-sm font-medium text-gray-300 mb-1">
                   Semester *
                 </label>
                 <select
+                  id="schedule-semester"
+                  name="semester"
                   value={formData.semester}
                   onChange={(e) =>
                     setFormData({ ...formData, semester: e.target.value })
@@ -723,10 +737,12 @@ export const Schedule = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="schedule-academic-year" className="block text-sm font-medium text-gray-300 mb-1">
                   Academic Year *
                 </label>
                 <input
+                  id="schedule-academic-year"
+                  name="academicYear"
                   type="text"
                   required
                   value={formData.academicYear}

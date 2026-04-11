@@ -217,10 +217,12 @@ export const Roster: React.FC = () => {
       {/* Subject Selector */}
       <div className="bg-gray-800 rounded-lg p-6">
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label htmlFor="roster-subject" className="block text-sm font-medium text-gray-300 mb-2">
             Select Subject
           </label>
           <select
+            id="roster-subject"
+            name="selectedSubject"
             value={selectedSubject}
             onChange={(e) => setSelectedSubject(e.target.value)}
             className="w-full max-w-md px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"

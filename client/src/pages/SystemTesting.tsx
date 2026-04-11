@@ -136,10 +136,12 @@ export const SystemTesting: React.FC = () => {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="system-testing-bulk-records" className="block text-sm font-medium text-gray-700 mb-2">
               Number of Test Records
             </label>
             <input
+              id="system-testing-bulk-records"
+              name="bulkRecordCount"
               type="number"
               min="1"
               max="1000"

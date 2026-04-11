@@ -553,10 +553,12 @@ export const Students = () => {
         {/* Basic Filters */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="students-search" className="block text-sm font-medium text-gray-300 mb-1">
               Search
             </label>
             <input
+              id="students-search"
+              name="search"
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -565,10 +567,12 @@ export const Students = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="students-year-filter" className="block text-sm font-medium text-gray-300 mb-1">
               Year
             </label>
             <select
+              id="students-year-filter"
+              name="yearFilter"
               value={yearFilter}
               onChange={(e) => setYearFilter(e.target.value)}
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
@@ -581,10 +585,12 @@ export const Students = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="students-section-filter" className="block text-sm font-medium text-gray-300 mb-1">
               Section
             </label>
             <select
+              id="students-section-filter"
+              name="sectionFilter"
               value={sectionFilter}
               onChange={(e) => setSectionFilter(e.target.value)}
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
@@ -596,11 +602,13 @@ export const Students = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label htmlFor="students-sort-by" className="block text-sm font-medium text-gray-300 mb-1">
               Sort By
             </label>
             <div className="flex space-x-2">
               <select
+                id="students-sort-by"
+                name="sortBy"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
@@ -611,6 +619,7 @@ export const Students = () => {
                 <option value="rfidStatus">RFID Status</option>
               </select>
               <button
+                type="button"
                 onClick={() =>
                   setSortOrder(sortOrder === "asc" ? "desc" : "asc")
                 }
@@ -629,10 +638,12 @@ export const Students = () => {
         {showAdvancedFilters && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-600">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="students-rfid-status-filter" className="block text-sm font-medium text-gray-300 mb-1">
                 RFID Status
               </label>
               <select
+                id="students-rfid-status-filter"
+                name="rfidStatusFilter"
                 value={rfidStatusFilter}
                 onChange={(e) => setRfidStatusFilter(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
@@ -648,6 +659,9 @@ export const Students = () => {
               </label>
               <div className="flex space-x-2">
                 <input
+                  id="students-attendance-min"
+                  name="attendanceRateMin"
+                  aria-label="Minimum attendance rate"
                   type="number"
                   min="0"
                   max="100"
@@ -662,6 +676,9 @@ export const Students = () => {
                   placeholder="Min %"
                 />
                 <input
+                  id="students-attendance-max"
+                  name="attendanceRateMax"
+                  aria-label="Maximum attendance rate"
                   type="number"
                   min="0"
                   max="100"
@@ -678,10 +695,12 @@ export const Students = () => {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="students-enrollment-status-filter" className="block text-sm font-medium text-gray-300 mb-1">
                 Enrollment Status
               </label>
               <select
+                id="students-enrollment-status-filter"
+                name="enrollmentStatusFilter"
                 value={enrollmentStatusFilter}
                 onChange={(e) => setEnrollmentStatusFilter(e.target.value)}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
@@ -723,10 +742,12 @@ export const Students = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="student-form-student-id" className="block text-sm font-medium text-gray-300 mb-1">
                   Student ID *
                 </label>
                 <input
+                  id="student-form-student-id"
+                  name="studentId"
                   type="text"
                   value={formData.studentId}
                   onChange={(e) => {
@@ -751,10 +772,12 @@ export const Students = () => {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="student-form-name" className="block text-sm font-medium text-gray-300 mb-1">
                   Full Name *
                 </label>
                 <input
+                  id="student-form-name"
+                  name="name"
                   type="text"
                   value={formData.name}
                   onChange={(e) => {
@@ -779,10 +802,12 @@ export const Students = () => {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="student-form-email" className="block text-sm font-medium text-gray-300 mb-1">
                   Email
                 </label>
                 <input
+                  id="student-form-email"
+                  name="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => {
@@ -807,10 +832,12 @@ export const Students = () => {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="student-form-rfid" className="block text-sm font-medium text-gray-300 mb-1">
                   RFID UID
                 </label>
                 <input
+                  id="student-form-rfid"
+                  name="rfidUid"
                   type="text"
                   value={formData.rfidUid}
                   onChange={(e) =>
@@ -842,10 +869,12 @@ export const Students = () => {
                 )}
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="student-form-parent-email" className="block text-sm font-medium text-gray-300 mb-1">
                   Parent Email *
                 </label>
                 <input
+                  id="student-form-parent-email"
+                  name="parentEmail"
                   type="email"
                   value={formData.parentEmail}
                   onChange={(e) => {

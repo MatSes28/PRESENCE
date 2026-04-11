@@ -197,10 +197,12 @@ export const FacultyManagement = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="faculty-form-email" className="block text-sm font-medium text-gray-300 mb-1">
                   Email *
                 </label>
                 <input
+                  id="faculty-form-email"
+                  name="email"
                   type="email"
                   required
                   value={formData.email}
@@ -212,10 +214,12 @@ export const FacultyManagement = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="faculty-form-name" className="block text-sm font-medium text-gray-300 mb-1">
                   Full Name *
                 </label>
                 <input
+                  id="faculty-form-name"
+                  name="name"
                   type="text"
                   required
                   value={formData.name}
@@ -227,10 +231,12 @@ export const FacultyManagement = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="faculty-form-role" className="block text-sm font-medium text-gray-300 mb-1">
                   Role *
                 </label>
                 <select
+                  id="faculty-form-role"
+                  name="role"
                   value={formData.role}
                   onChange={(e) =>
                     setFormData({
@@ -246,10 +252,12 @@ export const FacultyManagement = () => {
               </div>
               {!editingUser && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label htmlFor="faculty-form-password" className="block text-sm font-medium text-gray-300 mb-1">
                     Password *
                   </label>
                   <input
+                    id="faculty-form-password"
+                    name="password"
                     type="password"
                     required={!editingUser}
                     value={formData.password}

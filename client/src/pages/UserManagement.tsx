@@ -364,10 +364,12 @@ export const UserManagement: React.FC = () => {
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="user-form-name" className="block text-sm font-medium text-gray-300 mb-1">
                   Full Name *
                 </label>
                 <input
+                  id="user-form-name"
+                  name="name"
                   type="text"
                   required
                   value={formData.name}
@@ -385,10 +387,12 @@ export const UserManagement: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="user-form-email" className="block text-sm font-medium text-gray-300 mb-1">
                   Email *
                 </label>
                 <input
+                  id="user-form-email"
+                  name="email"
                   type="email"
                   required
                   value={formData.email}
@@ -408,10 +412,12 @@ export const UserManagement: React.FC = () => {
               {!editingUser && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                    <label htmlFor="user-form-password" className="block text-sm font-medium text-gray-300 mb-1">
                       Password *
                     </label>
                     <input
+                      id="user-form-password"
+                      name="password"
                       type="password"
                       required
                       value={formData.password}
@@ -428,10 +434,12 @@ export const UserManagement: React.FC = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                    <label htmlFor="user-form-confirm-password" className="block text-sm font-medium text-gray-300 mb-1">
                       Confirm Password *
                     </label>
                     <input
+                      id="user-form-confirm-password"
+                      name="confirmPassword"
                       type="password"
                       required
                       value={formData.confirmPassword}
@@ -455,10 +463,12 @@ export const UserManagement: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label htmlFor="user-form-role" className="block text-sm font-medium text-gray-300 mb-1">
                     Role *
                   </label>
                   <select
+                    id="user-form-role"
+                    name="role"
                     value={formData.role}
                     onChange={(e) =>
                       setFormData({
@@ -473,10 +483,12 @@ export const UserManagement: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label htmlFor="user-form-gender" className="block text-sm font-medium text-gray-300 mb-1">
                     Gender
                   </label>
                   <select
+                    id="user-form-gender"
+                    name="gender"
                     value={formData.gender}
                     onChange={(e) =>
                       setFormData({ ...formData, gender: e.target.value })
@@ -493,10 +505,12 @@ export const UserManagement: React.FC = () => {
 
               {formData.role === "faculty" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label htmlFor="user-form-faculty-id" className="block text-sm font-medium text-gray-300 mb-1">
                     Faculty ID *
                   </label>
                   <input
+                    id="user-form-faculty-id"
+                    name="facultyId"
                     type="text"
                     required
                     value={formData.facultyId}
@@ -515,10 +529,12 @@ export const UserManagement: React.FC = () => {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="user-form-department" className="block text-sm font-medium text-gray-300 mb-1">
                   Department
                 </label>
                 <input
+                  id="user-form-department"
+                  name="department"
                   type="text"
                   value={formData.department}
                   onChange={(e) =>

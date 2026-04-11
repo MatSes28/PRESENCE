@@ -287,10 +287,12 @@ export const Settings = () => {
               <form onSubmit={handleProfileUpdate} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                    <label htmlFor="settings-profile-name" className="block text-sm font-medium text-gray-300 mb-1">
                       Full Name
                     </label>
                     <input
+                      id="settings-profile-name"
+                      name="name"
                       type="text"
                       value={profileData.name}
                       onChange={(e) => {
@@ -317,10 +319,12 @@ export const Settings = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                    <label htmlFor="settings-profile-email" className="block text-sm font-medium text-gray-300 mb-1">
                       Email Address
                     </label>
                     <input
+                      id="settings-profile-email"
+                      name="email"
                       type="email"
                       value={profileData.email}
                       onChange={(e) => {
@@ -369,10 +373,12 @@ export const Settings = () => {
               </h4>
               <form onSubmit={handlePasswordChange} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                  <label htmlFor="settings-current-password" className="block text-sm font-medium text-gray-300 mb-1">
                     Current Password
                   </label>
                   <input
+                    id="settings-current-password"
+                    name="currentPassword"
                     type="password"
                     value={passwordData.currentPassword}
                     onChange={(e) => {
@@ -401,10 +407,12 @@ export const Settings = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                    <label htmlFor="settings-new-password" className="block text-sm font-medium text-gray-300 mb-1">
                       New Password
                     </label>
                     <input
+                      id="settings-new-password"
+                      name="newPassword"
                       type="password"
                       value={passwordData.newPassword}
                       onChange={(e) => {
@@ -432,10 +440,12 @@ export const Settings = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                    <label htmlFor="settings-confirm-password" className="block text-sm font-medium text-gray-300 mb-1">
                       Confirm New Password
                     </label>
                     <input
+                      id="settings-confirm-password"
+                      name="confirmPassword"
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => {
@@ -486,10 +496,12 @@ export const Settings = () => {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label htmlFor="settings-rfid-port" className="block text-sm font-medium text-gray-300 mb-2">
                       RFID Scanner Port
                     </label>
                     <input
+                      id="settings-rfid-port"
+                      name="rfidScannerPort"
                       type="text"
                       value={hardwareSettings.rfidScannerPort}
                       onChange={(e) =>
@@ -503,11 +515,13 @@ export const Settings = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label htmlFor="settings-proximity-threshold" className="block text-sm font-medium text-gray-300 mb-2">
                       Proximity Sensor Threshold
                     </label>
                     <div className="space-y-2">
                       <input
+                        id="settings-proximity-threshold"
+                        name="proximitySensorThreshold"
                         type="range"
                         min="1"
                         max="10"
@@ -534,6 +548,8 @@ export const Settings = () => {
                 <div className="space-y-4">
                   <div className="flex items-center">
                     <input
+                      id="settings-dual-validation"
+                      name="dualValidation"
                       type="checkbox"
                       checked={hardwareSettings.dualValidation}
                       onChange={(e) =>
@@ -544,12 +560,14 @@ export const Settings = () => {
                       }
                       className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
                     />
-                    <label className="ml-2 block text-sm text-white">
+                    <label htmlFor="settings-dual-validation" className="ml-2 block text-sm text-white">
                       Require dual validation (RFID + Proximity)
                     </label>
                   </div>
                   <div className="flex items-center">
                     <input
+                      id="settings-auto-reconnect"
+                      name="autoReconnect"
                       type="checkbox"
                       checked={hardwareSettings.autoReconnect}
                       onChange={(e) =>
@@ -560,7 +578,7 @@ export const Settings = () => {
                       }
                       className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
                     />
-                    <label className="ml-2 block text-sm text-white">
+                    <label htmlFor="settings-auto-reconnect" className="ml-2 block text-sm text-white">
                       Auto-reconnect on hardware failure
                     </label>
                   </div>
@@ -590,10 +608,12 @@ export const Settings = () => {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label htmlFor="settings-smtp-server" className="block text-sm font-medium text-gray-300 mb-2">
                       SMTP Server
                     </label>
                     <input
+                      id="settings-smtp-server"
+                      name="smtpServer"
                       type="text"
                       value={emailSettings.smtpServer}
                       onChange={(e) =>
@@ -607,10 +627,12 @@ export const Settings = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label htmlFor="settings-sender-email" className="block text-sm font-medium text-gray-300 mb-2">
                       Sender Email
                     </label>
                     <input
+                      id="settings-sender-email"
+                      name="senderEmail"
                       type="email"
                       value={emailSettings.senderEmail}
                       onChange={(e) =>
@@ -626,10 +648,12 @@ export const Settings = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label htmlFor="settings-absence-threshold" className="block text-sm font-medium text-gray-300 mb-2">
                     Absence Threshold (consecutive days)
                   </label>
                   <select
+                    id="settings-absence-threshold"
+                    name="absenceThreshold"
                     value={emailSettings.absenceThreshold}
                     onChange={(e) =>
                       setEmailSettings({
@@ -649,6 +673,8 @@ export const Settings = () => {
                 <div className="space-y-4">
                   <div className="flex items-center">
                     <input
+                      id="settings-daily-summary"
+                      name="dailySummary"
                       type="checkbox"
                       checked={emailSettings.dailySummary}
                       onChange={(e) =>
@@ -659,12 +685,14 @@ export const Settings = () => {
                       }
                       className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
                     />
-                    <label className="ml-2 block text-sm text-white">
+                    <label htmlFor="settings-daily-summary" className="ml-2 block text-sm text-white">
                       Send daily attendance summary
                     </label>
                   </div>
                   <div className="flex items-center">
                     <input
+                      id="settings-late-notifications"
+                      name="lateNotifications"
                       type="checkbox"
                       checked={emailSettings.lateNotifications}
                       onChange={(e) =>
@@ -675,7 +703,7 @@ export const Settings = () => {
                       }
                       className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
                     />
-                    <label className="ml-2 block text-sm text-white">
+                    <label htmlFor="settings-late-notifications" className="ml-2 block text-sm text-white">
                       Send notifications for late arrivals
                     </label>
                   </div>
@@ -710,10 +738,12 @@ export const Settings = () => {
                   </h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                      <label htmlFor="settings-auto-start-buffer" className="block text-sm font-medium text-gray-300 mb-1">
                         Auto-start Buffer (minutes)
                       </label>
                       <input
+                        id="settings-auto-start-buffer"
+                        name="autoStartBuffer"
                         type="number"
                         min="0"
                         max="60"
@@ -728,10 +758,12 @@ export const Settings = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                      <label htmlFor="settings-late-threshold" className="block text-sm font-medium text-gray-300 mb-1">
                         Late Threshold (minutes)
                       </label>
                       <input
+                        id="settings-late-threshold"
+                        name="lateThreshold"
                         type="number"
                         min="1"
                         max="60"
@@ -753,6 +785,8 @@ export const Settings = () => {
                   <div className="mt-4 space-y-4">
                     <div className="flex items-center">
                       <input
+                        id="settings-auto-end-sessions"
+                        name="autoEndSessions"
                         type="checkbox"
                         checked={systemSettings.emailNotifications}
                         onChange={(e) =>
@@ -763,12 +797,14 @@ export const Settings = () => {
                         }
                         className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
                       />
-                      <label className="ml-2 block text-sm text-white">
+                      <label htmlFor="settings-auto-end-sessions" className="ml-2 block text-sm text-white">
                         Auto-end sessions after scheduled time
                       </label>
                     </div>
                     <div className="flex items-center">
                       <input
+                        id="settings-require-professor-tap"
+                        name="requireProfessorTap"
                         type="checkbox"
                         checked={systemSettings.emailNotifications}
                         onChange={(e) =>
@@ -779,7 +815,7 @@ export const Settings = () => {
                         }
                         className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
                       />
-                      <label className="ml-2 block text-sm text-white">
+                      <label htmlFor="settings-require-professor-tap" className="ml-2 block text-sm text-white">
                         Require professor tap to activate session
                       </label>
                     </div>

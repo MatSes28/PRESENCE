@@ -690,10 +690,12 @@ export const Dashboard = () => {
           </h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="dashboard-session-schedule" className="block text-sm font-medium text-gray-300 mb-2">
                 Schedule
               </label>
               <select
+                id="dashboard-session-schedule"
+                name="scheduleId"
                 value={sessionFormData.scheduleId}
                 onChange={(e) =>
                   setSessionFormData({
@@ -713,10 +715,12 @@ export const Dashboard = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="dashboard-session-action" className="block text-sm font-medium text-gray-300 mb-2">
                 Action
               </label>
               <select
+                id="dashboard-session-action"
+                name="action"
                 value={sessionFormData.action}
                 onChange={(e) =>
                   setSessionFormData({
@@ -1459,7 +1463,12 @@ export const Dashboard = () => {
             RFID Simulation
           </h4>
           <div className="space-y-3">
+            <label htmlFor="dashboard-rfid-simulate" className="sr-only">
+              RFID UID for simulation
+            </label>
             <input
+              id="dashboard-rfid-simulate"
+              name="rfidSimulateUid"
               type="text"
               placeholder="Enter RFID UID (e.g. card ID or student RFID)"
               value={rfidSimulateUid}
