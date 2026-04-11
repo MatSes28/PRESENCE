@@ -270,7 +270,12 @@ export const Compliance: React.FC = () => {
               attendance records, and audit logs.
             </p>
             <div className="flex space-x-4">
+              <label htmlFor="compliance-gdpr-user-id" className="sr-only">
+                User ID for GDPR deletion
+              </label>
               <input
+                id="compliance-gdpr-user-id"
+                name="userId"
                 type="text"
                 placeholder="Enter User ID"
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"

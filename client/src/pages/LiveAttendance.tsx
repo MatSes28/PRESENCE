@@ -876,7 +876,12 @@ export const LiveAttendance = () => {
         </h4>
         <div className="space-y-4">
           <div className="flex space-x-4">
+            <label htmlFor="attendance-rfid-simulation" className="sr-only">
+              RFID card ID for simulation
+            </label>
             <input
+              id="attendance-rfid-simulation"
+              name="rfidSimulationId"
               type="text"
               value={rfidInput}
               onChange={(e) => setRfidInput(e.target.value)}

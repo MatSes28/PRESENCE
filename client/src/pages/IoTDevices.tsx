@@ -624,10 +624,10 @@ export const IoTDevices: React.FC = () => {
               </h3>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="iot-device-api-key" className="block text-sm font-medium text-gray-700 mb-2">
+                  <p className="block text-sm font-medium text-gray-700 mb-2">
                     API Key
-                  </label>
-                  <div id="iot-device-api-key" className="bg-gray-50 p-3 rounded-md font-mono text-sm break-all">
+                  </p>
+                  <div className="bg-gray-50 p-3 rounded-md font-mono text-sm break-all">
                     {deviceApiKey || "Loading..."}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">

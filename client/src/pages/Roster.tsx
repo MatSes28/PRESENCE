@@ -343,7 +343,12 @@ export const Roster: React.FC = () => {
 
             {/* Search */}
             <div className="mb-4">
+              <label htmlFor="roster-student-search" className="sr-only">
+                Search students
+              </label>
               <input
+                id="roster-student-search"
+                name="searchStudents"
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
