@@ -76,6 +76,9 @@ const StudentEdit = lazy(() =>
 const Discrepancies = lazy(() =>
   import("./pages/Discrepancies").then((m) => ({ default: m.Discrepancies })),
 );
+const IoTDevices = lazy(() =>
+  import("./pages/IoTDevices").then((m) => ({ default: m.IoTDevices })),
+);
 
 function PageFallback() {
   return (
@@ -240,6 +243,16 @@ function AppContent() {
               <Layout>
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <Classrooms />
+                </ProtectedRoute>
+              </Layout>
+            )}
+          />
+          <Route
+            path="/iot"
+            component={() => (
+              <Layout>
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <IoTDevices />
                 </ProtectedRoute>
               </Layout>
             )}

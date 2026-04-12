@@ -85,6 +85,12 @@ const navigationSections: NavSection[] = [
         roles: ["admin"],
       },
       {
+        path: "/iot",
+        label: "IoT Devices",
+        icon: "📡",
+        roles: ["admin"],
+      },
+      {
         path: "/enrollments",
         label: "Enrollments",
         icon: "📝",
