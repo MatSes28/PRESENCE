@@ -66,10 +66,14 @@ export const IoTDevices: React.FC = () => {
 
   const loadDevices = async () => {
     try {
-      const response = (await api.get("/iot/devices")) as { data: IoTDevice[] };
-      setDevices(response.data);
+      const response = (await api.get("/iot/devices")) as {
+        data?: IoTDevice[];
+        devices?: IoTDevice[];
+      };
+      setDevices(response.devices ?? response.data ?? []);
     } catch (error) {
       console.error("Failed to load IoT devices:", error);
+      setDevices([]);
     } finally {
       setLoading(false);
     }
@@ -138,9 +142,10 @@ export const IoTDevices: React.FC = () => {
       }
 
       const response = (await api.get(`/iot/devices/${deviceId}/api-key`)) as {
-        data: { apiKey: string };
+        data?: { apiKey?: string };
+        apiKey?: string;
       };
-      setDeviceApiKey(response.data.apiKey);
+      setDeviceApiKey(response.apiKey ?? response.data?.apiKey ?? null);
       setShowSecurityModal(true);
     } catch (error) {
       console.error("Failed to get API key:", error);
@@ -151,8 +156,8 @@ export const IoTDevices: React.FC = () => {
     try {
       const response = (await api.post(
         `/iot/devices/${deviceId}/regenerate-api-key`,
-      )) as { data: { apiKey: string } };
-      setDeviceApiKey(response.data.apiKey);
+      )) as { data?: { apiKey?: string }; apiKey?: string };
+      setDeviceApiKey(response.apiKey ?? response.data?.apiKey ?? null);
       alert("API key regenerated successfully!");
     } catch (error) {
       console.error("Failed to regenerate API key:", error);
@@ -485,8 +490,8 @@ export const IoTDevices: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                   >
                     <option value="esp32_s3">ESP32-S3</option>
-                    <option value="esp32">ESP32</option>
-                    <option value="raspberry_pi">Raspberry Pi</option>
+                    <option value="rfid_reader">RFID Reader</option>
+                    <option value="ultrasonic_sensor">Ultrasonic Sensor</option>
                   </select>
                 </div>
               </div>

@@ -27,8 +27,8 @@
 // Device / Network Config
 // =========================
 // Replace these before flashing the device.
-const char* WIFI_SSID = "YOUR_WIFI_SSID";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const char* WIFI_SSID = "Kupal kaba?";
+const char* WIFI_PASSWORD = "MatMir@12030908";
 
 const char* API_BASE_URL = "https://presence.clirdec.edu.ph/api/iot";
 const char* DEVICE_ID = "ESP32-001";
@@ -82,6 +82,12 @@ unsigned long lastSensorPollAt = 0;
 unsigned long lastRfidAt = 0;
 unsigned long lastEntryEventAt = 0;
 unsigned long lastExitEventAt = 0;
+bool missingDeviceApiKeyWarningShown = false;
+
+bool hasConfiguredDeviceApiKey() {
+  return strlen(DEVICE_API_KEY) > 0 &&
+         strcmp(DEVICE_API_KEY, "YOUR_DEVICE_API_KEY") != 0;
+}
 
 void blink(uint8_t times, uint16_t onMs = 80, uint16_t offMs = 80) {
   if (!ledEnabled) return;
@@ -118,6 +124,16 @@ bool postJson(
   JsonDocument& payload,
   String* responseBody = nullptr
 ) {
+  if (!hasConfiguredDeviceApiKey()) {
+    if (!missingDeviceApiKeyWarningShown) {
+      missingDeviceApiKeyWarningShown = true;
+      Serial.println(
+        "[CFG] DEVICE_API_KEY is still using the placeholder value. Register the device in the IoT Devices page and copy the API key from the Security dialog."
+      );
+    }
+    return false;
+  }
+
   if (WiFi.status() != WL_CONNECTED) return false;
 
   HTTPClient http;
@@ -149,6 +165,16 @@ bool postJson(
 
 bool getJson(const String& endpoint, String& responseBody) {
   responseBody = "";
+  if (!hasConfiguredDeviceApiKey()) {
+    if (!missingDeviceApiKeyWarningShown) {
+      missingDeviceApiKeyWarningShown = true;
+      Serial.println(
+        "[CFG] DEVICE_API_KEY is still using the placeholder value. Register the device in the IoT Devices page and copy the API key from the Security dialog."
+      );
+    }
+    return false;
+  }
+
   if (WiFi.status() != WL_CONNECTED) return false;
 
   HTTPClient http;
@@ -501,6 +527,12 @@ void setup() {
   Serial.begin(115200);
   pinMode(STATUS_LED_PIN, OUTPUT);
   digitalWrite(STATUS_LED_PIN, LOW);
+
+  if (!hasConfiguredDeviceApiKey()) {
+    Serial.println(
+      "[CFG] DEVICE_API_KEY is not configured. The device can join Wi-Fi, but the server will reject all IoT requests until you replace the placeholder value."
+    );
+  }
 
   SPI.begin(RFID_SCK_PIN, RFID_MISO_PIN, RFID_MOSI_PIN, RFID_SS_PIN);
   rfid.PCD_Init();

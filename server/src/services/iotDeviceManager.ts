@@ -9,6 +9,7 @@ import { EventEmitter } from "events";
 import db from "../storage.js";
 import { iotDevices } from "../schema.js";
 import { eq, desc } from "drizzle-orm";
+import { cacheService } from "./cacheService.js";
 
 // Device interface definitions
 export interface IoTDevice {
@@ -140,6 +141,7 @@ class IoTDeviceManagerService extends EventEmitter {
         .returning();
 
       const updated = updateResult[0] ?? device;
+      await cacheService.invalidateIoTDevices();
       this.emit("device:registered", updated);
 
       return {
@@ -189,6 +191,7 @@ class IoTDeviceManagerService extends EventEmitter {
       .returning();
 
     const device = result[0];
+    await cacheService.invalidateIoTDevices();
     this.emit("device:registered", device);
 
     return {
@@ -413,6 +416,8 @@ class IoTDeviceManagerService extends EventEmitter {
       .set({ config: newConfig })
       .where(eq(iotDevices.deviceId, deviceId));
 
+    await cacheService.invalidateIoTDevices();
+
     return true;
   }
 
@@ -432,6 +437,8 @@ class IoTDeviceManagerService extends EventEmitter {
         ...(config && { config }),
       })
       .where(eq(iotDevices.deviceId, deviceId));
+
+    await cacheService.invalidateIoTDevices();
   }
 
   /**
@@ -450,6 +457,8 @@ class IoTDeviceManagerService extends EventEmitter {
         signalStrength: heartbeat.signalStrength ?? null,
       })
       .where(eq(iotDevices.deviceId, deviceId));
+
+    await cacheService.invalidateIoTDevices();
 
     this.emit("device:heartbeat", { deviceId, ...heartbeat });
   }
@@ -538,6 +547,8 @@ class IoTDeviceManagerService extends EventEmitter {
       .update(iotDevices)
       .set({ apiKey: newApiKey })
       .where(eq(iotDevices.deviceId, deviceId));
+
+    await cacheService.invalidateIoTDevices();
 
     return newApiKey;
   }

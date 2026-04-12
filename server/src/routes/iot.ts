@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { iotDeviceManager as registryIotDeviceManager } from "../services/iot-device-manager/index.js";
 import { iotDeviceManager } from "../services/iotDeviceManager.js";
-import { sendToDevice, broadcastToWebClients } from "../services/websocket.js";
+import {
+  sendToDevice,
+  broadcastToWebClients,
+  broadcastDeviceStatusSnapshot,
+} from "../services/websocket.js";
 import { validateRequest, validationRules } from "../middleware/validation.js";
 import { v4 as uuidv4 } from "uuid";
 import { auditEventLogger } from "../services/audit/auditEvents.js";
@@ -530,6 +534,7 @@ router.post("/heartbeat", requireDeviceAuth, async (req: any, res: any) => {
 
     // Broadcast heartbeat to web clients
     broadcastToWebClients("deviceHeartbeat", heartbeatData);
+    await broadcastDeviceStatusSnapshot();
 
     res.json({
       success: true,
@@ -868,13 +873,14 @@ router.post("/status", requireDeviceAuth, async (req: any, res: any) => {
 
     await iotDeviceManager.updateDeviceStatus(req.deviceId, status, config);
 
-    // Broadcast status update
-    broadcastToWebClients("device_status", {
+    // Broadcast detailed status update for listeners that need config deltas.
+    broadcastToWebClients("device_status_update", {
       deviceId: req.deviceId,
       status,
       config,
       timestamp: new Date().toISOString(),
     });
+    await broadcastDeviceStatusSnapshot();
 
     res.json({
       success: true,

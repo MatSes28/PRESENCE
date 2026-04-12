@@ -187,6 +187,65 @@ function safeTimingEqualHex(aHex: string, bHex: string): boolean {
   }
 }
 
+function toIsoTimestamp(value: unknown): string {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+
+  return new Date().toISOString();
+}
+
+async function getDeviceStatusSnapshot() {
+  try {
+    const { iotDeviceManager } = await import("./iotDeviceManager.js");
+    const devices = await iotDeviceManager.getAllDevices();
+
+    return devices.map((device: any) => ({
+      deviceId: device.deviceId,
+      name: device.name ?? device.deviceId,
+      deviceType: device.type ?? device.deviceType ?? null,
+      status: device.status ?? "offline",
+      lastSeen: toIsoTimestamp(
+        device.last_seen ?? device.lastSeen ?? device.last_heartbeat,
+      ),
+    }));
+  } catch (error) {
+    console.error("Failed to build device status snapshot:", error);
+
+    return Array.from(deviceClients.entries()).map(([id, client]) => ({
+      deviceId: id,
+      name: id,
+      deviceType: null,
+      status: client.readyState === WebSocket.OPEN ? "online" : "offline",
+      lastSeen: new Date().toISOString(),
+    }));
+  }
+}
+
+async function sendDeviceStatusSnapshot(ws: WebSocketClient) {
+  const deviceStatus = await getDeviceStatusSnapshot();
+
+  ws.send(
+    JSON.stringify({
+      type: "device_status",
+      payload: deviceStatus,
+      timestamp: new Date().toISOString(),
+    }),
+  );
+}
+
+async function broadcastDeviceStatusSnapshot() {
+  const deviceStatus = await getDeviceStatusSnapshot();
+  broadcastToWebClients("device_status", deviceStatus);
+}
+
 // Minimal in-memory anti-replay cache.
 // TODO (Phase 2 item 15): persist via Redis/DB so restarts don't reset replay window.
 const recentNoncesByDevice = new Map<string, Map<string, number>>();
@@ -502,6 +561,7 @@ export function setupWebSocket(wss: WebSocketServer) {
             const { iotDeviceManager } = await import("./iotDeviceManager.js");
             await iotDeviceManager.updateDeviceStatus(deviceId, "offline");
             console.log(`Device ${deviceId} status updated to offline`);
+            await broadcastDeviceStatusSnapshot();
           } catch (error) {
             console.error(
               `Error updating device status for ${deviceId}:`,
@@ -734,22 +794,9 @@ function handleWebMessage(
       break;
 
     case "get_device_status":
-      // Send device status to web client
-      const deviceStatus = Array.from(deviceClients.entries()).map(
-        ([id, client]) => ({
-          deviceId: id,
-          status: client.readyState === WebSocket.OPEN ? "online" : "offline",
-          lastSeen: new Date().toISOString(),
-        }),
-      );
-
-      ws.send(
-        JSON.stringify({
-          type: "device_status",
-          payload: deviceStatus,
-          timestamp: new Date().toISOString(),
-        }),
-      );
+      void sendDeviceStatusSnapshot(ws).catch((error) => {
+        console.error("Failed to send device status snapshot:", error);
+      });
       break;
 
     default:
@@ -869,3 +916,4 @@ export function getConnectedWebClients(): string[] {
 }
 
 export { broadcastToWebClients };
+export { broadcastDeviceStatusSnapshot };
