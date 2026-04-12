@@ -508,6 +508,29 @@ describeIntegration("API Endpoints Integration Tests", () => {
         expect(Array.isArray(response.body.data)).toBe(true);
       });
     });
+
+    describe("POST /api/dashboard/rfid/test-reader", () => {
+      it("should queue reader diagnostics for compatible devices", async () => {
+        const response = await agent
+          .post("/api/dashboard/rfid/test-reader")
+          .expect(200);
+
+        expect(response.body.success).toBe(true);
+        expect(response.body.data.tested).toBeGreaterThanOrEqual(1);
+        expect(response.body.data.ok).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    describe("POST /api/dashboard/rfid/calibrate-sensors", () => {
+      it("should queue calibration commands for compatible devices", async () => {
+        const response = await agent
+          .post("/api/dashboard/rfid/calibrate-sensors")
+          .expect(200);
+
+        expect(response.body.success).toBe(true);
+        expect(response.body.data.sent).toBeGreaterThanOrEqual(1);
+      });
+    });
   });
 
   describe("Health Check Endpoints", () => {

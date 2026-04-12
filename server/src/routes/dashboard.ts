@@ -17,7 +17,8 @@ import { cacheService } from "../services/cacheService.js";
 import { notificationService } from "../services/notificationService.js";
 import { createUserRateLimit } from "../middleware/rateLimit.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
-import { iotDeviceManager } from "../services/iotDeviceManager.js";
+import { iotDeviceManager as commandQueueIotDeviceManager } from "../services/iotDeviceManager.js";
+import { iotDeviceManager as registryIotDeviceManager } from "../services/iot-device-manager/index.js";
 import {
   setEmergencyStop,
   isEmergencyStopActive,
@@ -35,6 +36,36 @@ const dashboardRateLimit = createUserRateLimit({
     retryAfter: 15 * 60,
   },
 });
+
+type DashboardRfidDevice = {
+  deviceId: string;
+  deviceType: string | null;
+  name: string;
+  status: string;
+};
+
+function normalizeDashboardRfidDevice(rawDevice: any): DashboardRfidDevice | null {
+  const device = rawDevice?.device ?? rawDevice;
+
+  if (!device?.deviceId) {
+    return null;
+  }
+
+  return {
+    deviceId: device.deviceId,
+    deviceType: device.deviceType ?? device.type ?? null,
+    name: device.name ?? device.deviceId,
+    status: device.status ?? "offline",
+  };
+}
+
+async function getDashboardRfidDevices(): Promise<DashboardRfidDevice[]> {
+  const devices = await registryIotDeviceManager.getAllDevices();
+
+  return devices
+    .map((device) => normalizeDashboardRfidDevice(device))
+    .filter((device): device is DashboardRfidDevice => device !== null);
+}
 
 // Get dashboard statistics
 router.get("/stats", requireAuth, dashboardRateLimit, async (req, res) => {
@@ -966,9 +997,9 @@ router.post(
   dashboardRateLimit,
   async (req, res) => {
     try {
-      const devices = await iotDeviceManager.getAllDevices();
+      const devices = await getDashboardRfidDevices();
       const readers = devices.filter(
-        (d: any) => d.type === "rfid_reader" || d.type === "esp32_s3",
+        (d) => d.deviceType === "rfid_reader" || d.deviceType === "esp32_s3",
       );
       if (readers.length === 0) {
         return res.json({
@@ -979,7 +1010,7 @@ router.post(
       }
       let ok = 0;
       for (const d of readers) {
-        const sent = await iotDeviceManager.sendCommandToDevice(
+        const sent = await commandQueueIotDeviceManager.sendCommandToDevice(
           d.deviceId,
           "test",
         );
@@ -1006,12 +1037,12 @@ router.post(
   dashboardRateLimit,
   async (req, res) => {
     try {
-      const devices = await iotDeviceManager.getAllDevices();
+      const devices = await getDashboardRfidDevices();
       const sensors = devices.filter(
-        (d: any) =>
-          d.type === "ultrasonic_sensor" ||
-          d.type === "esp32_s3" ||
-          d.type === "rfid_reader",
+        (d) =>
+          d.deviceType === "ultrasonic_sensor" ||
+          d.deviceType === "esp32_s3" ||
+          d.deviceType === "rfid_reader",
       );
       if (sensors.length === 0) {
         return res.json({
@@ -1022,7 +1053,7 @@ router.post(
       }
       let sent = 0;
       for (const d of sensors) {
-        const ok = await iotDeviceManager.sendCommandToDevice(
+        const ok = await commandQueueIotDeviceManager.sendCommandToDevice(
           d.deviceId,
           "calibrate",
         );
@@ -1167,7 +1198,7 @@ router.post(
   async (req, res) => {
     try {
       await cacheService.invalidateIoTDevices();
-      const devices = await iotDeviceManager.getAllDevices();
+      const devices = await getDashboardRfidDevices();
       const ts = new Date().toISOString();
       await cacheService.set("rfid_last_calibration", ts, { ttl: 86400 * 30 });
       res.json({
