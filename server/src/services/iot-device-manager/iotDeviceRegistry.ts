@@ -20,11 +20,33 @@ export interface DeviceStatus {
 export class IoTDeviceRegistry {
   private deviceStatuses = new Map<string, DeviceStatus>();
 
+  private readonly deviceSelect = {
+    id: iotDevices.id,
+    deviceId: iotDevices.deviceId,
+    classroomId: iotDevices.classroomId,
+    deviceType: iotDevices.deviceType,
+    status: iotDevices.status,
+    lastSeen: iotDevices.lastSeen,
+    config: iotDevices.config,
+    apiKey: iotDevices.apiKey,
+    isActive: iotDevices.isActive,
+    createdAt: iotDevices.createdAt,
+    updatedAt: iotDevices.updatedAt,
+  };
+
+  private readonly classroomSelect = {
+    id: classrooms.id,
+    name: classrooms.name,
+    location: classrooms.location,
+    type: classrooms.type,
+    capacity: classrooms.capacity,
+  };
+
   async registerDevice(config: DeviceConfig) {
     try {
       // Check if device already exists
       const existingDevice = await db
-        .select()
+        .select(this.deviceSelect)
         .from(iotDevices)
         .where(eq(iotDevices.deviceId, config.deviceId))
         .limit(1);
@@ -41,7 +63,7 @@ export class IoTDeviceRegistry {
             updatedAt: new Date(),
           })
           .where(eq(iotDevices.deviceId, config.deviceId))
-          .returning();
+          .returning(this.deviceSelect);
 
         console.log(`Updated IoT device: ${config.deviceId}`);
         return updatedDevice;
@@ -61,7 +83,7 @@ export class IoTDeviceRegistry {
             status: "offline",
             apiKey: apiKey,
           })
-          .returning();
+          .returning(this.deviceSelect);
 
         console.log(
           `Registered new IoT device: ${
@@ -123,7 +145,7 @@ export class IoTDeviceRegistry {
     // Fallback to database
     try {
       const device = await db
-        .select()
+        .select(this.deviceSelect)
         .from(iotDevices)
         .where(eq(iotDevices.deviceId, deviceId))
         .limit(1);
@@ -160,8 +182,8 @@ export class IoTDeviceRegistry {
     try {
       const devices = await db
         .select({
-          device: iotDevices,
-          classroom: classrooms,
+          device: this.deviceSelect,
+          classroom: this.classroomSelect,
         })
         .from(iotDevices)
         .innerJoin(classrooms, eq(iotDevices.classroomId, classrooms.id))
@@ -188,8 +210,8 @@ export class IoTDeviceRegistry {
     try {
       const devices = await db
         .select({
-          device: iotDevices,
-          classroom: classrooms,
+          device: this.deviceSelect,
+          classroom: this.classroomSelect,
         })
         .from(iotDevices)
         .innerJoin(classrooms, eq(iotDevices.classroomId, classrooms.id));

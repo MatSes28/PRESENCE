@@ -13,6 +13,29 @@ import { requireAdmin, requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
+const getDeviceRegistrationError = (error: any) => {
+  const code = error?.code ?? error?.cause?.code;
+  const message = String(error?.message ?? error?.cause?.message ?? "");
+
+  if (
+    code === "23505" ||
+    message.includes("UNIQUE constraint failed: iot_devices.device_id") ||
+    message.includes("iot_devices_device_id_unique")
+  ) {
+    return { status: 409, message: "Device ID is already registered" };
+  }
+
+  if (
+    code === "23503" ||
+    message.includes("FOREIGN KEY constraint failed") ||
+    message.includes("iot_devices_classroom_id_classrooms_id_fk")
+  ) {
+    return { status: 400, message: "Selected classroom was not found" };
+  }
+
+  return null;
+};
+
 // Middleware to check device API key authentication
 const requireDeviceAuth = async (req: any, res: any, next: any) => {
   try {
@@ -146,6 +169,15 @@ router.post(
       });
     } catch (error) {
       console.error("Register IoT device error:", error);
+      const registrationError = getDeviceRegistrationError(error);
+
+      if (registrationError) {
+        return res.status(registrationError.status).json({
+          success: false,
+          message: registrationError.message,
+        });
+      }
+
       res.status(500).json({
         success: false,
         message: "Internal server error",

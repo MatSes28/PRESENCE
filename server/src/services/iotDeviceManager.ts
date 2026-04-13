@@ -103,9 +103,57 @@ export interface DeviceCommand {
 class IoTDeviceManagerService extends EventEmitter {
   private commandQueue: Map<string, DeviceCommand> = new Map();
 
+  private readonly baseDeviceSelect = {
+    id: iotDevices.id,
+    deviceId: iotDevices.deviceId,
+    classroomId: iotDevices.classroomId,
+    deviceType: iotDevices.deviceType,
+    status: iotDevices.status,
+    lastSeen: iotDevices.lastSeen,
+    config: iotDevices.config,
+    apiKey: iotDevices.apiKey,
+    isActive: iotDevices.isActive,
+    createdAt: iotDevices.createdAt,
+    updatedAt: iotDevices.updatedAt,
+  };
+
   constructor() {
     super();
     this.setupCleanup();
+  }
+
+  private mapDeviceRow(
+    device: {
+      id: number;
+      deviceId: string;
+      classroomId: number;
+      deviceType: string;
+      status: string;
+      lastSeen: Date | null;
+      config: unknown;
+      apiKey: string;
+      createdAt: Date | null;
+      updatedAt: Date | null;
+    },
+    overrides?: Partial<Pick<IoTDevice, "name" | "location" | "firmware_version">>,
+  ): IoTDevice {
+    return {
+      id: String(device.id),
+      deviceId: device.deviceId,
+      classroomId: device.classroomId,
+      name: overrides?.name ?? device.deviceId,
+      type: device.deviceType as DeviceType,
+      location: overrides?.location ?? "CLIRDEC Building",
+      api_key: device.apiKey,
+      secret_key: "",
+      status: device.status as DeviceStatus,
+      firmware_version: overrides?.firmware_version ?? "",
+      last_heartbeat: device.lastSeen ?? new Date(),
+      last_seen: device.lastSeen,
+      config: (device.config as DeviceConfig) ?? this.getDefaultConfig(device.deviceType as DeviceType),
+      created_at: device.createdAt ?? new Date(),
+      updated_at: device.updatedAt ?? new Date(),
+    };
   }
 
   /**
@@ -116,7 +164,7 @@ class IoTDeviceManagerService extends EventEmitter {
 
     // If device already exists, update its metadata but DO NOT rotate API keys implicitly.
     const existing = await db
-      .select()
+      .select(this.baseDeviceSelect)
       .from(iotDevices)
       .where(eq(iotDevices.deviceId, request.deviceId))
       .limit(1);
@@ -129,39 +177,22 @@ class IoTDeviceManagerService extends EventEmitter {
         .set({
           classroomId: request.classroomId,
           deviceType: request.deviceType,
-          name: request.name ?? device.name ?? request.deviceId,
-          location: device.location ?? "CLIRDEC Building",
-          macAddress: request.mac_address ?? device.macAddress,
-          firmwareVersion: request.firmware_version ?? device.firmwareVersion,
           config: request.config ?? (device.config as any) ?? defaultConfig,
           lastSeen: new Date(),
           updatedAt: new Date(),
         })
         .where(eq(iotDevices.deviceId, request.deviceId))
-        .returning();
+        .returning(this.baseDeviceSelect);
 
       const updated = updateResult[0] ?? device;
       await cacheService.invalidateIoTDevices();
       this.emit("device:registered", updated);
 
-      return {
-        id: String(updated.id),
-        deviceId: updated.deviceId,
-        classroomId: updated.classroomId,
-        name: updated.name ?? request.deviceId,
-        type: updated.deviceType as DeviceType,
-        location: updated.location ?? "CLIRDEC Building",
-        api_key: updated.apiKey,
-        // Secret is only shown on first registration.
-        secret_key: "",
-        status: updated.status as DeviceStatus,
-        firmware_version: updated.firmwareVersion ?? "",
-        last_heartbeat: updated.lastSeen ?? new Date(),
-        last_seen: updated.lastSeen,
-        config: (updated.config as DeviceConfig) ?? defaultConfig,
-        created_at: updated.createdAt,
-        updated_at: updated.updatedAt,
-      };
+      return this.mapDeviceRow(updated, {
+        name: request.name ?? request.deviceId,
+        location: "CLIRDEC Building",
+        firmware_version: request.firmware_version ?? "",
+      });
     }
 
     // New device: generate secure credentials
@@ -175,42 +206,32 @@ class IoTDeviceManagerService extends EventEmitter {
       .insert(iotDevices)
       .values({
         deviceId: request.deviceId,
-        name: request.name ?? request.deviceId,
-        location: "CLIRDEC Building",
         classroomId: request.classroomId,
         deviceType: request.deviceType,
         apiKey,
-        status: "pending",
+        // Keep initial status compatible with older DB check constraints
+        // that only allow online/offline/maintenance values.
+        status: "offline",
         // Postgres schema uses jsonb. Keep config as an object.
         config: request.config ?? defaultConfig,
         // Postgres schema has `lastSeen` (no `lastHeartbeat`).
         lastSeen: new Date(),
-        macAddress: request.mac_address,
-        firmwareVersion: request.firmware_version,
       })
-      .returning();
+      .returning(this.baseDeviceSelect);
 
     const device = result[0];
     await cacheService.invalidateIoTDevices();
     this.emit("device:registered", device);
 
-    return {
-      id: String(device.id),
-      deviceId: device.deviceId,
-      classroomId: device.classroomId,
+    const mappedDevice = this.mapDeviceRow(device, {
       name: request.name || request.deviceId,
-      type: request.deviceType,
       location: "CLIRDEC Building",
-      api_key: apiKey,
-      secret_key: secretKey,
-      status: device.status as DeviceStatus,
       firmware_version: request.firmware_version || "",
-      // Back-compat for callers that expect `last_heartbeat`.
-      last_heartbeat: device.lastSeen ?? new Date(),
-      last_seen: device.lastSeen,
-      config: (device.config as DeviceConfig) ?? defaultConfig,
-      created_at: device.createdAt,
-      updated_at: device.updatedAt,
+    });
+
+    return {
+      ...mappedDevice,
+      secret_key: secretKey,
     };
   }
 
@@ -219,7 +240,7 @@ class IoTDeviceManagerService extends EventEmitter {
    */
   async authenticateDeviceByApiKey(apiKey: string): Promise<IoTDevice | null> {
     const result = await db
-      .select()
+      .select(this.baseDeviceSelect)
       .from(iotDevices)
       .where(eq(iotDevices.apiKey, apiKey))
       .limit(1);
@@ -228,24 +249,7 @@ class IoTDeviceManagerService extends EventEmitter {
       return null;
     }
 
-    const device = result[0];
-    return {
-      id: String(device.id),
-      deviceId: device.deviceId,
-      classroomId: device.classroomId,
-      name: device.deviceId,
-      type: device.deviceType as DeviceType,
-      location: "CLIRDEC Building",
-      api_key: device.apiKey,
-      secret_key: "",
-      status: device.status as DeviceStatus,
-      firmware_version: "",
-      last_heartbeat: device.lastSeen ?? new Date(),
-      last_seen: device.lastSeen,
-      config: device.config,
-      created_at: device.createdAt,
-      updated_at: device.updatedAt,
-    };
+    return this.mapDeviceRow(result[0]);
   }
 
   /**
@@ -253,27 +257,11 @@ class IoTDeviceManagerService extends EventEmitter {
    */
   async getAllDevices(): Promise<IoTDevice[]> {
     const result = await db
-      .select()
+      .select(this.baseDeviceSelect)
       .from(iotDevices)
       .orderBy(desc(iotDevices.lastSeen));
 
-    return result.map((device) => ({
-      id: String(device.id),
-      deviceId: device.deviceId,
-      classroomId: device.classroomId,
-      name: device.deviceId,
-      type: device.deviceType as DeviceType,
-      location: "CLIRDEC Building",
-      api_key: device.apiKey,
-      secret_key: "",
-      status: device.status as DeviceStatus,
-      firmware_version: "",
-      last_heartbeat: device.lastSeen ?? new Date(),
-      last_seen: device.lastSeen,
-      config: device.config,
-      created_at: device.createdAt,
-      updated_at: device.updatedAt,
-    }));
+    return result.map((device) => this.mapDeviceRow(device));
   }
 
   /**
@@ -281,31 +269,14 @@ class IoTDeviceManagerService extends EventEmitter {
    */
   async getDeviceStatus(deviceId: string): Promise<IoTDevice | null> {
     const result = await db
-      .select()
+      .select(this.baseDeviceSelect)
       .from(iotDevices)
       .where(eq(iotDevices.deviceId, deviceId))
       .limit(1);
 
     if (result.length === 0) return null;
 
-    const device = result[0];
-    return {
-      id: String(device.id),
-      deviceId: device.deviceId,
-      classroomId: device.classroomId,
-      name: device.deviceId,
-      type: device.deviceType as DeviceType,
-      location: "CLIRDEC Building",
-      api_key: device.apiKey,
-      secret_key: "",
-      status: device.status as DeviceStatus,
-      firmware_version: "",
-      last_heartbeat: device.lastSeen ?? new Date(),
-      last_seen: device.lastSeen,
-      config: device.config,
-      created_at: device.createdAt,
-      updated_at: device.updatedAt,
-    };
+    return this.mapDeviceRow(result[0]);
   }
 
   /**
@@ -313,28 +284,12 @@ class IoTDeviceManagerService extends EventEmitter {
    */
   async getDevicesByClassroom(classroomId: number): Promise<IoTDevice[]> {
     const result = await db
-      .select()
+      .select(this.baseDeviceSelect)
       .from(iotDevices)
       .where(eq(iotDevices.classroomId, classroomId))
       .orderBy(desc(iotDevices.lastSeen));
 
-    return result.map((device) => ({
-      id: String(device.id),
-      deviceId: device.deviceId,
-      classroomId: device.classroomId,
-      name: device.deviceId,
-      type: device.deviceType as DeviceType,
-      location: "CLIRDEC Building",
-      api_key: device.apiKey,
-      secret_key: "",
-      status: device.status as DeviceStatus,
-      firmware_version: "",
-      last_heartbeat: device.lastSeen ?? new Date(),
-      last_seen: device.lastSeen,
-      config: device.config,
-      created_at: device.createdAt,
-      updated_at: device.updatedAt,
-    }));
+    return result.map((device) => this.mapDeviceRow(device));
   }
 
   /**
@@ -453,8 +408,6 @@ class IoTDeviceManagerService extends EventEmitter {
       .set({
         status: "online",
         lastSeen: new Date(),
-        batteryLevel: heartbeat.batteryLevel ?? null,
-        signalStrength: heartbeat.signalStrength ?? null,
       })
       .where(eq(iotDevices.deviceId, deviceId));
 
