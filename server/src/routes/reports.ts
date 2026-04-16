@@ -4,6 +4,7 @@ import PDFDocument from "pdfkit";
 import {
   attendanceRecords,
   classSessions,
+  classrooms,
   students,
   schedules,
   subjects,
@@ -15,6 +16,17 @@ import { reportSchedulerService } from "../services/reportScheduler.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 
 const router = Router();
+
+type ReportFilter = {
+  label: string;
+  value: string;
+};
+
+type ReportMetadata = {
+  generatedAt: Date;
+  filters: ReportFilter[];
+  summary: ReportFilter[];
+};
 
 const toPrintableValue = (value: any): string => {
   if (value == null) return "";
@@ -51,11 +63,192 @@ const flattenReportRow = (row: Record<string, any>, prefix = "") => {
 const flattenReportRows = (rows: any[]) =>
   rows.map((row) => flattenReportRow(row));
 
+const formatReportDate = (value?: string | Date | null) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  }).format(date);
+};
+
+const formatReportDateTime = (value?: string | Date | null) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
+
+const formatFileDate = (value?: string | Date | null) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toISOString().split("T")[0];
+};
+
+const slugifyFilePart = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64) || "all";
+
+const toTitle = (value: string) =>
+  value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+const buildReportFilename = (
+  type: string,
+  subjectLabel: string,
+  classroomLabel: string,
+  startDate?: string,
+  endDate?: string,
+) => {
+  const datePart =
+    startDate && endDate
+      ? `${formatFileDate(startDate)}-to-${formatFileDate(endDate)}`
+      : startDate
+        ? `from-${formatFileDate(startDate)}`
+        : endDate
+          ? `through-${formatFileDate(endDate)}`
+          : `generated-${formatFileDate(new Date())}`;
+
+  return [
+    `${slugifyFilePart(type)}-report`,
+    slugifyFilePart(subjectLabel),
+    slugifyFilePart(classroomLabel),
+    datePart,
+  ].join("_");
+};
+
+const csvEscape = (value: string) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+
+const buildCsv = (
+  title: string,
+  rows: Record<string, string>[],
+  metadata: ReportMetadata,
+) => {
+  const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+  const lines = [
+    [title],
+    ["Generated", formatReportDateTime(metadata.generatedAt)],
+    ...metadata.filters.map((filter) => [filter.label, filter.value]),
+    ...metadata.summary.map((item) => [item.label, item.value]),
+    [],
+  ];
+
+  if (headers.length > 0) {
+    lines.push(headers);
+    rows.forEach((row) => {
+      lines.push(headers.map((header) => row[header] ?? ""));
+    });
+  } else {
+    lines.push(["No report data available for the selected filters."]);
+  }
+
+  return `\uFEFF${lines
+    .map((line) => line.map((value) => csvEscape(value)).join(","))
+    .join("\n")}`;
+};
+
+const buildDisplayRows = (type: string, data: any[]) => {
+  switch (type) {
+    case "attendance":
+      return data.map((row) => ({
+        "Student Name": toPrintableValue(row.student?.name),
+        "Student ID": toPrintableValue(row.student?.studentId),
+        Subject: toPrintableValue(row.session?.subjectName),
+        Status: toTitle(toPrintableValue(row.record?.status || "Unmarked")),
+        "Entry Time": formatReportDateTime(row.record?.entryTime),
+        "Exit Time": formatReportDateTime(row.record?.exitTime),
+        "RFID Verified": row.record?.rfidDetected ? "Yes" : "No",
+        "Sensor Verified": row.record?.sensorDetected ? "Yes" : "No",
+        "Recorded At": formatReportDateTime(row.record?.createdAt),
+        Notes: toPrintableValue(row.record?.notes),
+      }));
+    case "students":
+      return data.map((row) => ({
+        "Student Name": toPrintableValue(row.student?.name),
+        "Student ID": toPrintableValue(row.student?.studentId),
+        Email: toPrintableValue(row.student?.email),
+        Program: toPrintableValue(row.student?.program),
+        Year: toPrintableValue(row.student?.year),
+        Section: toPrintableValue(row.student?.section),
+        "Active Enrollments": toPrintableValue(row.enrollmentCount),
+        Status: row.student?.isActive ? "Active" : "Inactive",
+      }));
+    case "classroom":
+      return data.map((row) => {
+        const attendanceCount = Number(row.attendanceCount || 0);
+        const presentCount = Number(row.presentCount || 0);
+        const rate =
+          attendanceCount > 0
+            ? `${Math.round((presentCount / attendanceCount) * 100)}%`
+            : "0%";
+
+        return {
+          "Session ID": toPrintableValue(row.session?.id),
+          Date: formatReportDate(row.session?.date || row.session?.createdAt),
+          Status: toTitle(toPrintableValue(row.session?.status || "Scheduled")),
+          Subject: row.subject?.code
+            ? `${row.subject.code} - ${row.subject.name}`
+            : "",
+          "Class Section": row.classroom?.location
+            ? `${row.classroom.name} - ${row.classroom.location}`
+            : toPrintableValue(row.classroom?.name),
+          "Attendance Records": toPrintableValue(attendanceCount),
+          Present: toPrintableValue(presentCount),
+          "Presence Rate": rate,
+        };
+      });
+    default:
+      return flattenReportRows(data);
+  }
+};
+
+const buildSummary = (type: string, rows: Record<string, string>[]) => {
+  if (type === "attendance") {
+    const countStatus = (status: string) =>
+      rows.filter((row) => row.Status?.toLowerCase() === status).length;
+
+    return [
+      { label: "Records", value: rows.length.toLocaleString() },
+      { label: "Present", value: countStatus("present").toLocaleString() },
+      { label: "Late", value: countStatus("late").toLocaleString() },
+      { label: "Absent", value: countStatus("absent").toLocaleString() },
+    ];
+  }
+
+  return [{ label: "Rows", value: rows.length.toLocaleString() }];
+};
+
 const buildPdfBuffer = async (
   title: string,
   rows: Record<string, string>[],
+  metadata: ReportMetadata,
 ) => {
-  const doc = new PDFDocument({ margin: 40 });
+  const doc = new PDFDocument({
+    size: "A4",
+    layout: "landscape",
+    margin: 36,
+    info: {
+      Title: title,
+      Author: "CLIRDEC:PRESENCE",
+      Subject: "Attendance reporting",
+    },
+  });
   const chunks: Buffer[] = [];
 
   doc.on("data", (chunk) => chunks.push(chunk));
@@ -65,52 +258,184 @@ const buildPdfBuffer = async (
     doc.on("error", reject);
   });
 
-  doc.fontSize(18).text(title, { align: "center" });
-  doc.moveDown();
-  doc.fontSize(10).text(`Generated at ${new Date().toLocaleString()}`, {
-    align: "center",
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
+  const left = doc.page.margins.left;
+  const right = pageWidth - doc.page.margins.right;
+  const tableWidth = right - left;
+
+  const drawFooter = () => {
+    const bottom = pageHeight - 28;
+    doc
+      .fontSize(8)
+      .fillColor("#64748b")
+      .text(
+        "CLIRDEC:PRESENCE | College of Engineering | Confidential Academic Record",
+        left,
+        bottom,
+        { width: tableWidth / 2 },
+      )
+      .text(`Page ${doc.bufferedPageRange().count}`, left, bottom, {
+        width: tableWidth,
+        align: "right",
+      });
+  };
+
+  const drawHeader = (isFirstPage = false) => {
+    doc.rect(0, 0, pageWidth, 92).fill("#0f172a");
+    doc.rect(0, 88, pageWidth, 4).fill("#06b6d4");
+    doc
+      .fillColor("#ffffff")
+      .fontSize(10)
+      .text("CLIRDEC:PRESENCE", left, 24, { characterSpacing: 0.5 })
+      .fontSize(24)
+      .text(title, left, 40, { width: tableWidth * 0.7 });
+    doc
+      .fontSize(9)
+      .fillColor("#cbd5e1")
+      .text("Department of Information Technology", left, 68);
+    doc
+      .fontSize(9)
+      .fillColor("#e2e8f0")
+      .text(formatReportDateTime(metadata.generatedAt), left, 36, {
+        width: tableWidth,
+        align: "right",
+      });
+
+    if (!isFirstPage) {
+      doc.y = 116;
+    }
+  };
+
+  drawHeader(true);
+
+  let cursorY = 118;
+
+  const cardGap = 10;
+  const cardWidth = (tableWidth - cardGap * 3) / 4;
+  metadata.summary.slice(0, 4).forEach((item, index) => {
+    const x = left + index * (cardWidth + cardGap);
+    doc.roundedRect(x, cursorY, cardWidth, 54, 4).fill("#f8fafc");
+    doc
+      .fillColor("#64748b")
+      .fontSize(8)
+      .text(item.label.toUpperCase(), x + 12, cursorY + 12, {
+        width: cardWidth - 24,
+      });
+    doc
+      .fillColor("#0f172a")
+      .fontSize(17)
+      .text(item.value, x + 12, cursorY + 28, { width: cardWidth - 24 });
   });
-  doc.moveDown(2);
+
+  cursorY += 72;
+
+  const filterText = metadata.filters
+    .map((filter) => `${filter.label}: ${filter.value}`)
+    .join("   |   ");
+  doc
+    .fontSize(9)
+    .fillColor("#334155")
+    .text(filterText, left, cursorY, { width: tableWidth });
+  cursorY = doc.y + 18;
 
   if (rows.length === 0) {
-    doc.fontSize(12).text("No report data available for the selected filters.");
+    doc
+      .roundedRect(left, cursorY, tableWidth, 70, 4)
+      .fillAndStroke("#f8fafc", "#cbd5e1");
+    doc
+      .fillColor("#334155")
+      .fontSize(13)
+      .text("No report data available for the selected filters.", left, cursorY + 24, {
+        width: tableWidth,
+        align: "center",
+      });
+    drawFooter();
     doc.end();
     return bufferPromise;
   }
 
   const headers = Object.keys(rows[0]);
   const maxColumns = Math.max(headers.length, 1);
-  const columnWidth = Math.max(80, 500 / maxColumns);
+  const columnWidth = tableWidth / maxColumns;
+  const rowHeight = 30;
+  const headerHeight = 26;
 
-  doc.fontSize(9);
-  headers.forEach((header, index) => {
-    doc.text(
-      header.replace(/_/g, " ").toUpperCase(),
-      40 + index * columnWidth,
-      doc.y,
-      {
-        width: columnWidth - 8,
-        continued: index < headers.length - 1,
-      },
-    );
-  });
-  doc.moveDown();
-  doc.moveTo(40, doc.y).lineTo(560, doc.y).stroke("#cccccc");
-  doc.moveDown(0.5);
+  const drawTableHeader = () => {
+    doc.rect(left, cursorY, tableWidth, headerHeight).fill("#0f172a");
+    headers.forEach((header, index) => {
+      doc
+        .fillColor("#ffffff")
+        .fontSize(7)
+        .text(header.toUpperCase(), left + index * columnWidth + 6, cursorY + 8, {
+          width: columnWidth - 10,
+          height: headerHeight - 10,
+          ellipsis: true,
+        });
+    });
+    cursorY += headerHeight;
+  };
 
-  rows.slice(0, 150).forEach((row) => {
-    if (doc.y > 720) {
+  drawTableHeader();
+
+  rows.slice(0, 250).forEach((row, rowIndex) => {
+    if (cursorY + rowHeight > pageHeight - 54) {
+      drawFooter();
       doc.addPage();
+      drawHeader();
+      cursorY = 116;
+      drawTableHeader();
     }
 
+    doc
+      .rect(left, cursorY, tableWidth, rowHeight)
+      .fill(rowIndex % 2 === 0 ? "#ffffff" : "#f8fafc");
+
     headers.forEach((header, index) => {
-      doc.text(row[header] || "", 40 + index * columnWidth, doc.y, {
-        width: columnWidth - 8,
-        continued: index < headers.length - 1,
-      });
+      const value = row[header] || "";
+      const isStatus = header.toLowerCase() === "status";
+      const normalized = value.toLowerCase();
+      const statusColor =
+        normalized === "present"
+          ? "#047857"
+          : normalized === "late"
+            ? "#b45309"
+            : normalized === "absent"
+              ? "#b91c1c"
+              : "#334155";
+
+      doc
+        .fillColor(isStatus ? statusColor : "#0f172a")
+        .fontSize(7)
+        .text(value, left + index * columnWidth + 6, cursorY + 8, {
+          width: columnWidth - 10,
+          height: rowHeight - 8,
+          ellipsis: true,
+        });
     });
-    doc.moveDown();
+
+    doc
+      .moveTo(left, cursorY + rowHeight)
+      .lineTo(right, cursorY + rowHeight)
+      .strokeColor("#e2e8f0")
+      .lineWidth(0.5)
+      .stroke();
+    cursorY += rowHeight;
   });
+
+  if (rows.length > 250) {
+    doc
+      .fontSize(8)
+      .fillColor("#64748b")
+      .text(
+        `Showing first 250 rows of ${rows.length.toLocaleString()} records. Export CSV for the full data set.`,
+        left,
+        cursorY + 12,
+        { width: tableWidth, align: "center" },
+      );
+  }
+
+  drawFooter();
 
   doc.end();
   return bufferPromise;
@@ -500,6 +825,26 @@ router.post("/generate-report", requireAuth, async (req, res) => {
     // Build query based on report type
     let query;
     let data = [];
+    const [selectedSubject] = subjectId
+      ? await db
+          .select({
+            code: subjects.code,
+            name: subjects.name,
+          })
+          .from(subjects)
+          .where(eq(subjects.id, parseInt(subjectId)))
+          .limit(1)
+      : [];
+    const [selectedClassroom] = classroomId
+      ? await db
+          .select({
+            name: classrooms.name,
+            location: classrooms.location,
+          })
+          .from(classrooms)
+          .where(eq(classrooms.id, parseInt(classroomId)))
+          .limit(1)
+      : [];
 
     switch (type) {
       case "attendance":
@@ -573,29 +918,54 @@ router.post("/generate-report", requireAuth, async (req, res) => {
         query = db
           .select({
             session: classSessions,
-            schedule: schedules,
+            schedule: {
+              id: schedules.id,
+            },
+            subject: {
+              code: subjects.code,
+              name: subjects.name,
+            },
+            classroom: {
+              name: classrooms.name,
+              location: classrooms.location,
+            },
             attendanceCount: sql<number>`count(${attendanceRecords.id})`,
             presentCount: sql<number>`count(case when ${attendanceRecords.status} = 'present' then 1 end)`,
           })
           .from(classSessions)
           .leftJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+          .leftJoin(subjects, eq(schedules.subjectId, subjects.id))
+          .leftJoin(classrooms, eq(schedules.classroomId, classrooms.id))
           .leftJoin(
             attendanceRecords,
             eq(classSessions.id, attendanceRecords.classSessionId),
           )
-          .groupBy(classSessions.id, schedules.id);
+          .groupBy(classSessions.id, schedules.id, subjects.id, classrooms.id);
 
         // Apply date filters
         const sessionConditions = [];
         if (startDate) {
-          sessionConditions.push(
-            gte(classSessions.createdAt, new Date(startDate)),
-          );
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          sessionConditions.push(gte(classSessions.createdAt, start));
         }
         if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          sessionConditions.push(lte(classSessions.createdAt, end));
+        }
+        if (subjectId) {
+          sessionConditions.push(eq(schedules.subjectId, parseInt(subjectId)));
+        }
+        if (classroomId) {
           sessionConditions.push(
-            lte(classSessions.createdAt, new Date(endDate)),
+            eq(schedules.classroomId, parseInt(classroomId)),
           );
+        }
+        if (isFaculty) {
+          sessionConditions.push(eq(schedules.facultyId, facultyUserId));
+        } else if (facultyId) {
+          sessionConditions.push(eq(schedules.facultyId, parseInt(facultyId)));
         }
 
         if (sessionConditions.length > 0) {
@@ -612,38 +982,61 @@ router.post("/generate-report", requireAuth, async (req, res) => {
         });
     }
 
-    const flattenedData = flattenReportRows(data);
+    const reportTitle = `${toTitle(type)} Report`;
+    const subjectLabel = selectedSubject
+      ? `${selectedSubject.code} ${selectedSubject.name}`
+      : "All Subjects";
+    const classroomLabel = selectedClassroom
+      ? selectedClassroom.location
+        ? `${selectedClassroom.name} ${selectedClassroom.location}`
+        : selectedClassroom.name
+      : "All Sections";
+    const dateLabel =
+      startDate && endDate
+        ? `${formatReportDate(startDate)} to ${formatReportDate(endDate)}`
+        : startDate
+          ? `From ${formatReportDate(startDate)}`
+          : endDate
+            ? `Through ${formatReportDate(endDate)}`
+            : "All Dates";
+    const displayRows = buildDisplayRows(type, data);
+    const metadata: ReportMetadata = {
+      generatedAt: new Date(),
+      filters: [
+        { label: "Date Range", value: dateLabel },
+        { label: "Subject", value: subjectLabel },
+        { label: "Class Section", value: classroomLabel },
+        { label: "Report Type", value: reportTitle },
+      ],
+      summary: buildSummary(type, displayRows),
+    };
+    const filenameBase = buildReportFilename(
+      type,
+      subjectLabel,
+      classroomLabel,
+      startDate,
+      endDate,
+    );
 
     // Generate CSV or return JSON data
     if (format === "csv") {
-      // Convert data to CSV
-      const headers =
-        flattenedData.length > 0 ? Object.keys(flattenedData[0]).join(",") : "";
-      const rows = flattenedData.map((row: any) =>
-        Object.values(row)
-          .map((val) => `"${String(val ?? "").replace(/"/g, '""')}"`)
-          .join(","),
-      );
-      const csv = [headers, ...rows].join("\n");
+      const csv = buildCsv(reportTitle, displayRows, metadata);
 
       res.setHeader("Content-Type", "text/csv");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="attendance_report_${new Date().toISOString().split("T")[0]}.csv"`,
+        `attachment; filename="${filenameBase}.csv"`,
       );
       return res.send(csv);
     }
 
     if (format === "pdf") {
-      const pdfBuffer = await buildPdfBuffer(
-        `${type.charAt(0).toUpperCase() + type.slice(1)} Report`,
-        flattenedData,
-      );
+      const pdfBuffer = await buildPdfBuffer(reportTitle, displayRows, metadata);
 
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${type}_report_${new Date().toISOString().split("T")[0]}.pdf"`,
+        `attachment; filename="${filenameBase}.pdf"`,
       );
       return res.send(pdfBuffer);
     }

@@ -1,7 +1,19 @@
 import { useState, useEffect } from "react";
 import { useNotifications } from "../components/NotificationSystem";
 
-const triggerReportDownload = async (payload: any) => {
+const getFilenameFromDisposition = (disposition: string | null) => {
+  if (!disposition) return null;
+
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1].replace(/"/g, ""));
+  }
+
+  const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+  return filenameMatch?.[1] ?? null;
+};
+
+const triggerReportDownload = async (payload: any, filenameBase?: string) => {
   const response = await fetch("/api/reports/generate-report", {
     method: "POST",
     credentials: "include",
@@ -29,7 +41,10 @@ const triggerReportDownload = async (payload: any) => {
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${payload.type}_report_${new Date().toISOString().split("T")[0]}.${format}`;
+    const baseName = filenameBase || `${payload.type}_report`;
+    anchor.download =
+      getFilenameFromDisposition(response.headers.get("content-disposition")) ||
+      `${baseName}_${new Date().toISOString().split("T")[0]}.${format}`;
     document.body.appendChild(anchor);
     anchor.click();
     window.URL.revokeObjectURL(url);
@@ -111,9 +126,12 @@ export const Reports = () => {
         limit: pagination.limit.toString(),
         offset: offset.toString(),
       });
-      if (reportParams.startDate) queryParams.set("startDate", reportParams.startDate);
-      if (reportParams.endDate) queryParams.set("endDate", reportParams.endDate);
-      if (reportParams.subjectId) queryParams.set("subjectId", reportParams.subjectId.toString());
+      if (reportParams.startDate)
+        queryParams.set("startDate", reportParams.startDate);
+      if (reportParams.endDate)
+        queryParams.set("endDate", reportParams.endDate);
+      if (reportParams.subjectId)
+        queryParams.set("subjectId", reportParams.subjectId.toString());
 
       const response = await fetch(
         `/api/reports/attendance-records?${queryParams}`,
@@ -230,12 +248,16 @@ export const Reports = () => {
         startDate = monthAgo.toISOString().split("T")[0];
       }
 
-      await triggerReportDownload({
-        type: "attendance",
-        format: "csv",
-        startDate,
-        endDate,
-      });
+      const downloadName = `${type}_report`;
+      await triggerReportDownload(
+        {
+          type: "attendance",
+          format: "csv",
+          startDate,
+          endDate,
+        },
+        downloadName,
+      );
 
       addNotification({
         type: "success",
@@ -436,7 +458,10 @@ export const Reports = () => {
           {/* Date Range */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label htmlFor="report-date-range" className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="report-date-range"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 Date Range
               </label>
               <select
@@ -487,7 +512,10 @@ export const Reports = () => {
               </select>
             </div>
             <div>
-              <label htmlFor="report-start-date" className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="report-start-date"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 Start Date
               </label>
               <input
@@ -505,7 +533,10 @@ export const Reports = () => {
               />
             </div>
             <div>
-              <label htmlFor="report-end-date" className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="report-end-date"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 End Date
               </label>
               <input
@@ -524,7 +555,10 @@ export const Reports = () => {
           {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label htmlFor="report-subject" className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="report-subject"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 Subject
               </label>
               <select
@@ -550,7 +584,10 @@ export const Reports = () => {
               </select>
             </div>
             <div>
-              <label htmlFor="report-classroom" className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="report-classroom"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 Class Section
               </label>
               <select
@@ -576,7 +613,10 @@ export const Reports = () => {
               </select>
             </div>
             <div>
-              <label htmlFor="report-type" className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="report-type"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 Report Type
               </label>
               <select
