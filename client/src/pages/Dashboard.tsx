@@ -1532,8 +1532,11 @@ export const Dashboard = () => {
           </h4>
           <div className="space-y-4">
             {rfidDevices.length > 0 ? (
-              rfidDevices.map((device: any) => (
-                <div key={device.deviceId || device.id} className="flex items-center justify-between">
+              rfidDevices.map((device: any, index: number) => (
+                <div
+                  key={`${device.deviceId ?? device.id ?? device.name ?? "device"}-${index}`}
+                  className="flex items-center justify-between"
+                >
                   <span className="text-gray-300 truncate">{device.name || device.deviceId || "Device"}</span>
                   <div className="flex items-center space-x-2 flex-shrink-0">
                     <div

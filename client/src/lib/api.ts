@@ -70,7 +70,9 @@ class ApiClient {
 
       return data;
     } catch (error) {
-      console.error("API request failed:", error);
+      if (!((error as any)?.status === 401 && endpoint === "/auth/me")) {
+        console.error("API request failed:", error);
+      }
       throw error;
     }
   }

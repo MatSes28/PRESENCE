@@ -4,6 +4,7 @@ import {
   useContext,
   createContext,
   ReactNode,
+  useRef,
 } from "react";
 import { api } from "../lib/api";
 import { connectWebSocket, disconnectWebSocket } from "../lib/websocket";
@@ -26,6 +27,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AUTH_SESSION_MARKER = "presence.authenticated";
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -43,12 +45,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const authCheckStarted = useRef(false);
 
   useEffect(() => {
+    if (authCheckStarted.current) {
+      return;
+    }
+
+    authCheckStarted.current = true;
     checkAuthStatus();
   }, []);
 
   const checkAuthStatus = async () => {
+    if (localStorage.getItem(AUTH_SESSION_MARKER) !== "true") {
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await api.getCurrentUser();
       if (response.success && response.data) {
@@ -57,7 +70,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         await connectWebSocket((response.data as User).id);
       }
     } catch (err) {
-      // User not authenticated, that's okay
+      localStorage.removeItem(AUTH_SESSION_MARKER);
     } finally {
       setLoading(false);
     }
@@ -74,6 +87,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (response.success && (response.data || (response as any).user)) {
         const userData = response.data || (response as any).user;
+        localStorage.setItem(AUTH_SESSION_MARKER, "true");
         setUser(userData as User);
         // Connect to WebSocket with user ID
         await connectWebSocket((userData as User).id);
@@ -103,6 +117,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     } catch (err) {
       console.error("Logout error:", err);
     } finally {
+      localStorage.removeItem(AUTH_SESSION_MARKER);
       setUser(null);
       disconnectWebSocket();
     }
