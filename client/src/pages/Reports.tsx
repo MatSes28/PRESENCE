@@ -34,10 +34,17 @@ const triggerReportDownload = async (payload: any, filenameBase?: string) => {
 
   if (
     contentType.includes("text/csv") ||
-    contentType.includes("application/pdf")
+    contentType.includes("application/pdf") ||
+    contentType.includes(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
   ) {
     const blob = await response.blob();
-    const format = contentType.includes("application/pdf") ? "pdf" : "csv";
+    const format = contentType.includes("application/pdf")
+      ? "pdf"
+      : contentType.includes("spreadsheetml")
+        ? "xlsx"
+        : "csv";
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -56,7 +63,7 @@ const triggerReportDownload = async (payload: any, filenameBase?: string) => {
 };
 
 interface ReportParams {
-  format: "csv" | "pdf";
+  format: "csv" | "xlsx" | "pdf";
   startDate?: string;
   endDate?: string;
   subjectId?: number;
@@ -75,7 +82,7 @@ export const Reports = () => {
     absent: 0,
   });
   const [reportParams, setReportParams] = useState<ReportParams>({
-    format: "csv",
+    format: "xlsx",
     type: "attendance",
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
       .toISOString()
@@ -252,7 +259,7 @@ export const Reports = () => {
       await triggerReportDownload(
         {
           type: "attendance",
-          format: "csv",
+          format: "xlsx",
           startDate,
           endDate,
           quickReportType: type,
@@ -282,7 +289,7 @@ export const Reports = () => {
     }
   };
 
-  const handleGenerateReport = async (formatOverride?: "csv" | "pdf") => {
+  const handleGenerateReport = async (formatOverride?: "csv" | "xlsx" | "pdf") => {
     const format = formatOverride ?? reportParams.format;
     setGenerating(true);
     try {
@@ -291,11 +298,18 @@ export const Reports = () => {
 
       addNotification({
         type: "success",
-        title: format === "pdf" ? "PDF Exported" : "Report Exported",
+        title:
+          format === "pdf"
+            ? "PDF Exported"
+            : format === "xlsx"
+              ? "Excel Exported"
+              : "Report Exported",
         message:
           format === "pdf"
             ? "Your PDF report has been downloaded."
-            : "Your CSV report has been downloaded.",
+            : format === "xlsx"
+              ? "Your Excel workbook has been downloaded."
+              : "Your CSV report has been downloaded.",
       });
     } catch (error) {
       console.error("Failed to generate report:", error);
@@ -664,17 +678,17 @@ export const Reports = () => {
             <div className="flex space-x-2">
               <button
                 onClick={() => {
-                  setReportParams((p) => ({ ...p, format: "csv" }));
-                  handleGenerateReport("csv");
+                  setReportParams((p) => ({ ...p, format: "xlsx" }));
+                  handleGenerateReport("xlsx");
                 }}
                 disabled={generating}
                 className={`px-4 py-2 rounded text-sm font-medium ${
-                  reportParams.format === "csv"
+                  reportParams.format === "xlsx"
                     ? "bg-cyan-600 text-white"
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                 }`}
               >
-                CSV / Excel
+                Excel Workbook
               </button>
               <button
                 onClick={() => {

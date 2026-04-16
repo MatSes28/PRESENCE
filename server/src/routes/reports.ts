@@ -1,6 +1,7 @@
 import { Router } from "express";
 import db from "../storage.js";
 import PDFDocument from "pdfkit";
+import ExcelJS from "exceljs";
 import {
   attendanceRecords,
   classSessions,
@@ -149,6 +150,193 @@ const buildStrictCsv = (headers: string[], rows: Record<string, any>[]) =>
       headers.map((header) => csvEscape(row[header])).join(","),
     ),
   ].join("\n");
+
+const columnName = (index: number) => {
+  let name = "";
+  let current = index;
+  while (current > 0) {
+    const remainder = (current - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    current = Math.floor((current - 1) / 26);
+  }
+  return name;
+};
+
+const buildExcelBuffer = async (
+  title: string,
+  headers: string[],
+  rows: Record<string, any>[],
+  metadata: ReportMetadata,
+) => {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "CLIRDEC:PRESENCE";
+  workbook.created = metadata.generatedAt;
+  workbook.modified = metadata.generatedAt;
+
+  const worksheet = workbook.addWorksheet("Report", {
+    views: [{ state: "frozen", ySplit: 9 }],
+    pageSetup: {
+      orientation: "landscape",
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      paperSize: 9,
+      margins: {
+        left: 0.35,
+        right: 0.35,
+        top: 0.5,
+        bottom: 0.5,
+        header: 0.2,
+        footer: 0.2,
+      },
+    },
+  });
+
+  const lastColumn = columnName(Math.max(headers.length, 1));
+  worksheet.mergeCells(`A1:${lastColumn}1`);
+  worksheet.getCell("A1").value = title;
+  worksheet.getCell("A1").font = {
+    bold: true,
+    color: { argb: "FFFFFFFF" },
+    size: 22,
+  };
+  worksheet.getCell("A1").fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF0F172A" },
+  };
+  worksheet.getCell("A1").alignment = {
+    vertical: "middle",
+    horizontal: "center",
+  };
+  worksheet.getRow(1).height = 34;
+
+  worksheet.mergeCells(`A2:${lastColumn}2`);
+  worksheet.getCell("A2").value =
+    "CLIRDEC:PRESENCE | College of Engineering | Confidential Academic Record";
+  worksheet.getCell("A2").font = {
+    bold: true,
+    color: { argb: "FF0891B2" },
+    size: 11,
+  };
+  worksheet.getCell("A2").alignment = { horizontal: "center" };
+
+  const filters = [
+    { label: "Generated", value: formatReportDateTime(metadata.generatedAt) },
+    ...metadata.filters,
+  ];
+
+  filters.forEach((filter, index) => {
+    const row = 4 + Math.floor(index / 2);
+    const col =
+      index % 2 === 0
+        ? 1
+        : Math.min(
+            Math.max(3, Math.ceil(headers.length / 2) + 1),
+            Math.max(3, headers.length - 1),
+          );
+    worksheet.getCell(row, col).value = filter.label;
+    worksheet.getCell(row, col).font = {
+      bold: true,
+      color: { argb: "FF475569" },
+    };
+    worksheet.getCell(row, col + 1).value = filter.value;
+    worksheet.getCell(row, col + 1).font = { color: { argb: "FF0F172A" } };
+  });
+
+  const summaryStartRow = 7;
+  metadata.summary.slice(0, 4).forEach((item, index) => {
+    const startCol = 1 + index * 2;
+    if (startCol > headers.length) return;
+    worksheet.mergeCells(summaryStartRow, startCol, summaryStartRow, startCol + 1);
+    const labelCell = worksheet.getCell(summaryStartRow, startCol);
+    labelCell.value = `${item.label.toUpperCase()}: ${item.value}`;
+    labelCell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+    labelCell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF155E75" },
+    };
+    labelCell.alignment = { horizontal: "center", vertical: "middle" };
+  });
+
+  const headerRowNumber = 9;
+  const headerRow = worksheet.getRow(headerRowNumber);
+  headerRow.values = headers;
+  headerRow.height = 24;
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF0F172A" },
+    };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+    cell.border = {
+      top: { style: "thin", color: { argb: "FFCBD5E1" } },
+      bottom: { style: "thin", color: { argb: "FFCBD5E1" } },
+      left: { style: "thin", color: { argb: "FFCBD5E1" } },
+      right: { style: "thin", color: { argb: "FFCBD5E1" } },
+    };
+  });
+
+  rows.forEach((row, index) => {
+    const worksheetRow = worksheet.addRow(headers.map((header) => row[header] ?? ""));
+    worksheetRow.height = 22;
+    worksheetRow.eachCell((cell, colNumber) => {
+      const header = headers[colNumber - 1];
+      const normalized = String(cell.value ?? "").toLowerCase();
+      const statusColor =
+        header === "record_status" && normalized === "present"
+          ? "FFD1FAE5"
+          : header === "record_status" && normalized === "late"
+            ? "FFFEF3C7"
+            : header === "record_status" && normalized === "absent"
+              ? "FFFEE2E2"
+              : index % 2 === 0
+                ? "FFFFFFFF"
+                : "FFF8FAFC";
+
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: statusColor },
+      };
+      cell.font = { color: { argb: "FF0F172A" } };
+      cell.alignment = {
+        vertical: "middle",
+        horizontal: typeof cell.value === "number" ? "center" : "left",
+        wrapText: true,
+      };
+      cell.border = {
+        bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+      };
+    });
+  });
+
+  worksheet.autoFilter = {
+    from: { row: headerRowNumber, column: 1 },
+    to: { row: headerRowNumber, column: headers.length },
+  };
+
+  worksheet.columns = headers.map((header) => {
+    const maxContentLength = rows.reduce(
+      (max, row) => Math.max(max, String(row[header] ?? "").length),
+      header.length,
+    );
+    return {
+      key: header,
+      width: Math.min(Math.max(maxContentLength + 4, 14), 34),
+    };
+  });
+
+  worksheet.eachRow((row) => {
+    row.commit();
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer as ArrayBuffer);
+};
 
 const buildCsvRows = (type: string, data: any[]) => {
   switch (type) {
@@ -1097,6 +1285,26 @@ router.post("/generate-report", requireAuth, async (req, res) => {
         `attachment; filename="${filenameBase}.csv"`,
       );
       return res.send(csv);
+    }
+
+    if (format === "xlsx" || format === "excel") {
+      const { headers, rows } = buildCsvRows(type, data);
+      const excelBuffer = await buildExcelBuffer(
+        reportTitle,
+        headers,
+        rows,
+        metadata,
+      );
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${filenameBase}.xlsx"`,
+      );
+      return res.send(excelBuffer);
     }
 
     if (format === "pdf") {
