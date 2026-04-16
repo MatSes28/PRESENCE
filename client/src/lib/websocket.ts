@@ -35,6 +35,7 @@ export interface AttendanceRecord {
 
 class WebSocketClient {
   private ws: WebSocket | null = null;
+  private connectPromise: Promise<void> | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectInterval = 3000;
@@ -45,30 +46,45 @@ class WebSocketClient {
   constructor(private userId?: number) {}
 
   connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        resolve();
-        return;
-      }
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      return Promise.resolve();
+    }
 
-      this.manualDisconnect = false;
+    if (this.ws?.readyState === WebSocket.CONNECTING && this.connectPromise) {
+      return this.connectPromise;
+    }
+
+    this.manualDisconnect = false;
+
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
+    this.connectPromise = new Promise((resolve, reject) => {
+      let settled = false;
 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const host = window.location.host;
-
-      const wsUrl = `${protocol}//${host}/ws?client=web`;
+      const userParam = this.userId ? `&userId=${encodeURIComponent(this.userId)}` : "";
+      const wsUrl = `${protocol}//${host}/ws?client=web${userParam}`;
 
       try {
-        this.ws = new WebSocket(wsUrl);
+        const socket = new WebSocket(wsUrl);
+        this.ws = socket;
 
-        this.ws.onopen = () => {
+        socket.onopen = () => {
+          if (this.ws !== socket) return;
           console.log("WebSocket connected");
           this.reconnectAttempts = 0;
+          this.connectPromise = null;
           this.emit("connect", { connectedAt: new Date().toISOString() });
+          settled = true;
           resolve();
         };
 
-        this.ws.onmessage = (event) => {
+        socket.onmessage = (event) => {
+          if (this.ws !== socket) return;
           try {
             const message: WSMessage = JSON.parse(event.data);
             this.handleMessage(message);
@@ -77,24 +93,43 @@ class WebSocketClient {
           }
         };
 
-        this.ws.onclose = () => {
+        socket.onclose = (event) => {
+          if (this.ws !== socket) return;
+
           console.log("WebSocket disconnected");
+          this.ws = null;
+          this.connectPromise = null;
           this.emit("disconnect", { disconnectedAt: new Date().toISOString() });
-          if (!this.manualDisconnect) {
+
+          if (!settled) {
+            settled = true;
+            reject(new Error(event.reason || `WebSocket closed (${event.code})`));
+          }
+
+          if (!this.manualDisconnect && event.code !== 1008) {
             this.attemptReconnect();
           }
         };
 
-        this.ws.onerror = (error) => {
+        socket.onerror = (error) => {
+          if (this.ws !== socket) return;
           console.error("WebSocket error:", error);
           this.emit("error", error);
-          reject(error);
+
+          if (!settled) {
+            settled = true;
+            this.connectPromise = null;
+            reject(error);
+          }
         };
       } catch (error) {
         this.emit("error", error);
+        this.connectPromise = null;
         reject(error);
       }
     });
+
+    return this.connectPromise;
   }
 
   disconnect() {
