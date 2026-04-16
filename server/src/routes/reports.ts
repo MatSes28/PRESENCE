@@ -168,6 +168,19 @@ const buildExcelBuffer = async (
   rows: Record<string, any>[],
   metadata: ReportMetadata,
 ) => {
+  const thinSlateBorder: Partial<ExcelJS.Borders> = {
+    top: { style: "thin", color: { argb: "FFCBD5E1" } },
+    bottom: { style: "thin", color: { argb: "FFCBD5E1" } },
+    left: { style: "thin", color: { argb: "FFCBD5E1" } },
+    right: { style: "thin", color: { argb: "FFCBD5E1" } },
+  };
+  const tableBorder: Partial<ExcelJS.Borders> = {
+    top: { style: "thin", color: { argb: "FFE2E8F0" } },
+    bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+    left: { style: "thin", color: { argb: "FFE2E8F0" } },
+    right: { style: "thin", color: { argb: "FFE2E8F0" } },
+  };
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "CLIRDEC:PRESENCE";
   workbook.created = metadata.generatedAt;
@@ -240,8 +253,24 @@ const buildExcelBuffer = async (
       bold: true,
       color: { argb: "FF475569" },
     };
+    worksheet.getCell(row, col).fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFF1F5F9" },
+    };
+    worksheet.getCell(row, col).border = thinSlateBorder;
+    worksheet.getCell(row, col).alignment = {
+      horizontal: "center",
+      vertical: "middle",
+    };
     worksheet.getCell(row, col + 1).value = filter.value;
     worksheet.getCell(row, col + 1).font = { color: { argb: "FF0F172A" } };
+    worksheet.getCell(row, col + 1).border = thinSlateBorder;
+    worksheet.getCell(row, col + 1).alignment = {
+      horizontal: "left",
+      vertical: "middle",
+      wrapText: true,
+    };
   });
 
   const summaryStartRow = 7;
@@ -258,6 +287,12 @@ const buildExcelBuffer = async (
       fgColor: { argb: "FF155E75" },
     };
     labelCell.alignment = { horizontal: "center", vertical: "middle" };
+    labelCell.border = {
+      top: { style: "medium", color: { argb: "FF0E7490" } },
+      bottom: { style: "medium", color: { argb: "FF0E7490" } },
+      left: { style: "medium", color: { argb: "FF0E7490" } },
+      right: { style: "medium", color: { argb: "FF0E7490" } },
+    };
   });
 
   const headerRowNumber = 9;
@@ -272,12 +307,7 @@ const buildExcelBuffer = async (
       fgColor: { argb: "FF0F172A" },
     };
     cell.alignment = { vertical: "middle", horizontal: "center" };
-    cell.border = {
-      top: { style: "thin", color: { argb: "FFCBD5E1" } },
-      bottom: { style: "thin", color: { argb: "FFCBD5E1" } },
-      left: { style: "thin", color: { argb: "FFCBD5E1" } },
-      right: { style: "thin", color: { argb: "FFCBD5E1" } },
-    };
+    cell.border = thinSlateBorder;
   });
 
   rows.forEach((row, index) => {
@@ -308,9 +338,7 @@ const buildExcelBuffer = async (
         horizontal: typeof cell.value === "number" ? "center" : "left",
         wrapText: true,
       };
-      cell.border = {
-        bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
-      };
+      cell.border = tableBorder;
     });
   });
 
