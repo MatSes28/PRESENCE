@@ -447,10 +447,14 @@ export const Dashboard = () => {
   };
 
   useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
     const wsClient = getWebSocketClient(user?.id);
 
     // Subscribe to real-time updates
-    wsClient.on("rfidScan", (data) => {
+    const handleRfidScan = (data: any) => {
       setRealTimeData((prev) => [
         { ...data, type: "rfid_scan" },
         ...prev.slice(0, 9),
@@ -459,9 +463,9 @@ export const Dashboard = () => {
         ...prev,
         totalEvents: prev.totalEvents + 1,
       }));
-    });
+    };
 
-    wsClient.on("sensorTrigger", (data) => {
+    const handleSensorTrigger = (data: any) => {
       setRealTimeData((prev) => [
         { ...data, type: "sensor_trigger" },
         ...prev.slice(0, 9),
@@ -470,9 +474,9 @@ export const Dashboard = () => {
         ...prev,
         totalEvents: prev.totalEvents + 1,
       }));
-    });
+    };
 
-    wsClient.on("attendanceRecord", (data) => {
+    const handleAttendanceRecord = (data: any) => {
       setRealTimeData((prev) => [
         { ...data, type: "attendance_record" },
         ...prev.slice(0, 9),
@@ -494,24 +498,29 @@ export const Dashboard = () => {
               (prev.presentStudents + prev.absentStudents + 1)) *
             100,
       }));
-    });
+    };
 
-    wsClient.on("deviceStatus", (data) => {
+    const handleDeviceStatus = (data: any) => {
       setDeviceStatus(data);
       setDashboardStats((prev) => ({
         ...prev,
         activeDevices: data.filter((d: any) => d.status === "online").length,
       }));
-    });
+    };
+
+    wsClient.on("rfidScan", handleRfidScan);
+    wsClient.on("sensorTrigger", handleSensorTrigger);
+    wsClient.on("attendanceRecord", handleAttendanceRecord);
+    wsClient.on("deviceStatus", handleDeviceStatus);
 
     // Get initial device status
     wsClient.getDeviceStatus();
 
     return () => {
-      wsClient.off("rfidScan");
-      wsClient.off("sensorTrigger");
-      wsClient.off("attendanceRecord");
-      wsClient.off("deviceStatus");
+      wsClient.off("rfidScan", handleRfidScan);
+      wsClient.off("sensorTrigger", handleSensorTrigger);
+      wsClient.off("attendanceRecord", handleAttendanceRecord);
+      wsClient.off("deviceStatus", handleDeviceStatus);
     };
   }, [user?.id]);
 
