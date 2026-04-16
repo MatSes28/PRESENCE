@@ -310,6 +310,17 @@ export const LiveAttendance = () => {
       return;
     }
 
+    if (sessions.length === 0) {
+      await loadReferenceData();
+      addNotification({
+        type: "error",
+        title: "No Active Session",
+        message:
+          "Start or activate a class session before simulating entry or exit sensors.",
+      });
+      return;
+    }
+
     setSensorSimulationPending(sensorType);
     try {
       const response = await api.simulateSensor(sensorType, 50);
@@ -331,14 +342,25 @@ export const LiveAttendance = () => {
         });
       }
     } catch (error) {
-      console.error("Failed to simulate sensor trigger:", error);
+      const message = getApiErrorMessage(
+        error,
+        "Failed to simulate sensor trigger. Check your connection.",
+      );
+
+      if (message !== "No active class session") {
+        console.error("Failed to simulate sensor trigger:", error);
+      }
+
       addNotification({
         type: "error",
-        title: "Simulation Error",
-        message: getApiErrorMessage(
-          error,
-          "Failed to simulate sensor trigger. Check your connection.",
-        ),
+        title:
+          message === "No active class session"
+            ? "No Active Session"
+            : "Simulation Error",
+        message:
+          message === "No active class session"
+            ? "Start or activate a class session before simulating entry or exit sensors."
+            : message,
       });
     } finally {
       setSensorSimulationPending(null);
@@ -721,6 +743,8 @@ export const LiveAttendance = () => {
     }
   };
 
+  const hasActiveSessions = sessions.length > 0;
+
   useEffect(() => {
     if (user) {
       loadReferenceData();
@@ -898,7 +922,7 @@ export const LiveAttendance = () => {
           <div className="flex space-x-4">
             <button
               onClick={() => simulateSensorTrigger("entry")}
-              disabled={sensorSimulationPending !== null}
+              disabled={sensorSimulationPending !== null || !hasActiveSessions}
               className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60 text-white font-medium rounded-lg"
             >
               {sensorSimulationPending === "entry"
@@ -907,7 +931,7 @@ export const LiveAttendance = () => {
             </button>
             <button
               onClick={() => simulateSensorTrigger("exit")}
-              disabled={sensorSimulationPending !== null}
+              disabled={sensorSimulationPending !== null || !hasActiveSessions}
               className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 text-white font-medium rounded-lg"
             >
               {sensorSimulationPending === "exit"
@@ -915,6 +939,13 @@ export const LiveAttendance = () => {
                 : "Simulate Exit Sensor"}
             </button>
           </div>
+          {!hasActiveSessions && (
+            <div className="rounded border border-yellow-700 bg-yellow-900/30 p-3 text-sm text-yellow-100">
+              No active class session is available for sensor simulation. Start
+              a session from Dashboard or create one in Schedule before using
+              the entry and exit sensor buttons.
+            </div>
+          )}
         </div>
       </div>
 
