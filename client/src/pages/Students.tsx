@@ -58,6 +58,9 @@ export const Students = () => {
     section: "",
   });
 
+  const normalizeRfidUid = (value: string) =>
+    value.trim().replace(/[\s:-]/g, "");
+
   // Form validation hooks - Make parent email mandatory
   const studentValidation = useFormValidation({
     studentId: commonValidationRules.studentId,
@@ -66,9 +69,10 @@ export const Students = () => {
     rfidUid: {
       required: false,
       custom: (value: string) => {
-        if (!value?.trim()) return null;
-        if (!/^[a-fA-F0-9]{8,32}$/.test(value.trim())) {
-          return "RFID must be 8-32 hexadecimal characters";
+        const normalized = normalizeRfidUid(value || "");
+        if (!normalized) return null;
+        if (!/^[a-fA-F0-9]{4,50}$/.test(normalized)) {
+          return "RFID must contain 4-50 hexadecimal characters. Spaces, hyphens, and colons are okay.";
         }
         return null;
       },
@@ -160,13 +164,15 @@ export const Students = () => {
     rfidUid: string,
     excludeStudentId?: number
   ): Promise<boolean> => {
-    if (!rfidUid.trim()) return true; // Empty RFID is allowed
+    const normalizedRfidUid = normalizeRfidUid(rfidUid);
+    if (!normalizedRfidUid) return true; // Empty RFID is allowed
 
     try {
       // Check if any existing student has this RFID UID
       const existingStudent = students.find(
         (student) =>
-          student.rfidUid === rfidUid.trim() && student.id !== excludeStudentId
+          normalizeRfidUid(student.rfidUid || "") === normalizedRfidUid &&
+          student.id !== excludeStudentId
       );
 
       return !existingStudent;
@@ -180,19 +186,25 @@ export const Students = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const validationErrors = studentValidation.getValidationErrors(formData);
     if (!studentValidation.validateForm(formData)) {
+      const details = Object.values(validationErrors)
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(" ");
       addNotification({
         type: "error",
         title: "Validation Error",
-        message: "Please fix the errors in the form",
+        message: details || "Please fix the highlighted fields in the form.",
       });
       return;
     }
 
     // Additional RFID uniqueness validation
-    if (formData.rfidUid.trim()) {
+    const normalizedRfidUid = normalizeRfidUid(formData.rfidUid);
+    if (normalizedRfidUid) {
       const isRfidUnique = await validateRfidUniqueness(
-        formData.rfidUid,
+        normalizedRfidUid,
         editingStudent?.id
       );
       if (!isRfidUnique) {
@@ -212,7 +224,7 @@ export const Students = () => {
         studentId: formData.studentId.trim(),
         name: formData.name.trim(),
         email: formData.email.trim() || undefined,
-        rfidUid: formData.rfidUid.trim() || undefined,
+        rfidUid: normalizedRfidUid || undefined,
         parentEmail: formData.parentEmail.trim(),
         year: formData.year ? Number(formData.year) : undefined,
         section: formData.section.trim() || undefined,

@@ -270,7 +270,9 @@ router.post(
     studentId: validationRules.studentId,
     name: validationRules.name,
     email: (value) => {
-      if (!value) return null;
+      if (value === undefined || value === null || String(value).trim() === "") {
+        return null;
+      }
       return validationRules.email(value);
     },
     rfidUid: validationRules.rfidUid,
@@ -298,6 +300,8 @@ router.post(
           : section || null;
       const normalizedEmail =
         typeof email === "string" && email.trim() === "" ? null : email || null;
+      const normalizedRfidUid =
+        typeof rfidUid === "string" ? rfidUid.trim().replace(/[\s:-]/g, "") : "";
 
       if (!studentId || !name || !parentEmail) {
         return res.status(400).json({
@@ -320,8 +324,8 @@ router.post(
         });
       }
 
-      const rfidUidHash = rfidUid
-        ? encryptionService.hashRFIDUidForLookup(rfidUid)
+      const rfidUidHash = normalizedRfidUid
+        ? encryptionService.hashRFIDUidForLookup(normalizedRfidUid)
         : null;
 
       // Check if RFID UID already exists (if provided) using deterministic hash.
@@ -341,8 +345,8 @@ router.post(
       }
 
       // Encrypt sensitive data
-      const encryptedRfid = rfidUid
-        ? encryptionService.encryptRFID(rfidUid)
+      const encryptedRfid = normalizedRfidUid
+        ? encryptionService.encryptRFID(normalizedRfidUid)
         : null;
       const encryptedParentData = encryptionService.encryptParentData(
         parentEmail,

@@ -85,15 +85,18 @@ export const validationRules = {
 
   studentId: (value: string) => {
     if (!value) return "Student ID is required";
-    if (!/^[A-Z0-9-]{5,20}$/i.test(value))
-      return "Invalid student ID format (5-20 alphanumeric characters with hyphens)";
+    if (!/^[A-Z0-9_-]{3,50}$/i.test(value))
+      return "Invalid student ID format (3-50 letters or numbers; hyphens and underscores allowed)";
     return null;
   },
 
   rfidUid: (value: string) => {
     if (!value) return null; // RFID is optional
-    if (value.length < 8 || value.length > 32) return "RFID UID length invalid";
-    if (!/^[a-fA-F0-9]+$/.test(value)) return "RFID UID must be hexadecimal";
+    const normalized = String(value).trim().replace(/[\s:-]/g, "");
+    if (normalized.length < 4 || normalized.length > 50)
+      return "RFID UID length invalid";
+    if (!/^[a-fA-F0-9]+$/.test(normalized))
+      return "RFID UID must be hexadecimal";
     return null;
   },
 

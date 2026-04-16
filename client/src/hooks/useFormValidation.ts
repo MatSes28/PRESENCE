@@ -86,6 +86,22 @@ export const useFormValidation = (config: FieldConfig) => {
     [config, validateField],
   );
 
+  const getValidationErrors = useCallback(
+    (data: { [key: string]: string }): ValidationErrors => {
+      const newErrors: ValidationErrors = {};
+
+      Object.keys(config).forEach((fieldName) => {
+        const error = validateField(fieldName, data[fieldName] || "");
+        if (error) {
+          newErrors[fieldName] = error;
+        }
+      });
+
+      return newErrors;
+    },
+    [config, validateField],
+  );
+
   const validateSingleField = useCallback(
     (name: string, value: string) => {
       const error = validateField(name, value);
@@ -121,6 +137,7 @@ export const useFormValidation = (config: FieldConfig) => {
     errors,
     touched,
     validateForm,
+    getValidationErrors,
     validateSingleField,
     setFieldTouched,
     getFieldError,
@@ -135,7 +152,7 @@ export const validationPatterns = {
   password: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/,
   // Inside a character class, parentheses don't need escaping.
   phone: /^\+?[\d\s()-]+$/,
-  studentId: /^[A-Z0-9-]{5,20}$/i,
+  studentId: /^[A-Z0-9_-]{3,50}$/i,
 };
 
 // Common validation rules
@@ -182,7 +199,7 @@ export const commonValidationRules = {
     pattern: validationPatterns.studentId,
     custom: (value: string) => {
       if (!validationPatterns.studentId.test(value)) {
-        return "Student ID must be 5-20 alphanumeric characters (hyphens allowed)";
+        return "Student ID must be 3-50 letters or numbers. Hyphens and underscores are allowed.";
       }
       return null;
     },
