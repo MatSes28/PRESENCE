@@ -1,5 +1,5 @@
 import { Router } from "express";
-import db from "../storage.js";
+import db, { dbClient } from "../storage.js";
 import {
   attendanceRecords,
   classSessions,
@@ -25,6 +25,7 @@ import {
 } from "../services/rfidEmergencyStop.js";
 
 const router = Router();
+const isSqlite = !!dbClient && typeof dbClient.prepare === "function";
 
 // Rate limiting for authenticated dashboard operations
 const dashboardRateLimit = createUserRateLimit({
@@ -384,10 +385,17 @@ router.get("/analytics", requireAuth, dashboardRateLimit, async (req, res) => {
         startDate.setDate(endDate.getDate() - 7);
     }
 
+    const attendanceDateExpr = isSqlite
+      ? sql<string>`DATE(${attendanceRecords.createdAt})`
+      : sql<string>`DATE(${attendanceRecords.createdAt})`;
+    const attendanceHourExpr = isSqlite
+      ? sql<number>`CAST(strftime('%H', ${attendanceRecords.createdAt}) AS INTEGER)`
+      : sql<number>`EXTRACT(HOUR FROM ${attendanceRecords.createdAt}::timestamp)`;
+
     // Daily attendance trends
     const dailyAttendance = await db
       .select({
-        date: sql<string>`DATE(${attendanceRecords.createdAt})`,
+        date: attendanceDateExpr,
         present: sql<number>`COUNT(CASE WHEN ${attendanceRecords.isValid} = true THEN 1 END)`,
         absent: sql<number>`COUNT(CASE WHEN ${attendanceRecords.isValid} = false THEN 1 END)`,
         total: sql<number>`COUNT(*)`,
@@ -399,13 +407,13 @@ router.get("/analytics", requireAuth, dashboardRateLimit, async (req, res) => {
           lte(attendanceRecords.createdAt, endDate),
         ),
       )
-      .groupBy(sql`DATE(${attendanceRecords.createdAt})`)
-      .orderBy(sql`DATE(${attendanceRecords.createdAt})`);
+      .groupBy(attendanceDateExpr)
+      .orderBy(attendanceDateExpr);
 
     // Hourly attendance patterns
     const hourlyPatterns = await db
       .select({
-        hour: sql<number>`EXTRACT(HOUR FROM ${attendanceRecords.createdAt}::timestamp)`,
+        hour: attendanceHourExpr,
         count: sql<number>`COUNT(*)`,
       })
       .from(attendanceRecords)
@@ -415,12 +423,8 @@ router.get("/analytics", requireAuth, dashboardRateLimit, async (req, res) => {
           lte(attendanceRecords.createdAt, endDate),
         ),
       )
-      .groupBy(
-        sql`EXTRACT(HOUR FROM ${attendanceRecords.createdAt}::timestamp)`,
-      )
-      .orderBy(
-        sql`EXTRACT(HOUR FROM ${attendanceRecords.createdAt}::timestamp)`,
-      );
+      .groupBy(attendanceHourExpr)
+      .orderBy(attendanceHourExpr);
 
     // Subject-wise attendance
     const subjectAttendance = await db

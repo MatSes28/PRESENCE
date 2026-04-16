@@ -888,7 +888,7 @@ export const Dashboard = () => {
           ) : (
             realTimeData.map((data: any, index: number) => (
               <div
-                key={index}
+                key={`${data.type ?? "event"}-${data.timestamp ?? index}`}
                 className="bg-gray-700 p-3 rounded border border-gray-600"
               >
                 <p className="text-xs text-gray-400">
@@ -1053,7 +1053,7 @@ export const Dashboard = () => {
                 ) : analyticsData.subjectPerformance.map(
                   (subject: any, index: number) => (
                     <div
-                      key={index}
+                      key={`${subject.subject ?? "subject"}-${index}`}
                       className="flex items-center justify-between"
                     >
                       <span className="text-gray-300 text-sm">
@@ -1088,7 +1088,10 @@ export const Dashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {analyticsData.facultyPerformance.map(
                 (faculty: any, index: number) => (
-                  <div key={index} className="bg-gray-700 rounded-lg p-4">
+                  <div
+                    key={`${faculty.faculty ?? "faculty"}-${index}`}
+                    className="bg-gray-700 rounded-lg p-4"
+                  >
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-gray-300 text-sm font-medium">
                         {faculty.faculty}
@@ -1190,7 +1193,10 @@ export const Dashboard = () => {
           </h4>
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {securityMetrics?.suspiciousActivities?.length > 0 ? securityMetrics.suspiciousActivities.slice(0, 10).map((event: any, index: number) => (
-              <div key={index} className="flex items-center space-x-3">
+              <div
+                key={`${event.timestamp ?? event.message ?? "security"}-${index}`}
+                className="flex items-center space-x-3"
+              >
                 <div className="w-2 h-2 rounded-full bg-amber-500"></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white truncate">{event.action || event.description}</p>
@@ -1349,7 +1355,10 @@ export const Dashboard = () => {
               <h5 className="text-sm font-medium text-cyan-400 mb-2">Top Endpoints</h5>
               <div className="space-y-1 text-sm">
                 {performanceMetrics.topEndpoints.slice(0, 5).map((ep: any, i: number) => (
-                  <div key={i} className="flex justify-between text-gray-300">
+                  <div
+                    key={`${ep.endpoint ?? "endpoint"}-${i}`}
+                    className="flex justify-between text-gray-300"
+                  >
                     <span className="truncate max-w-[180px]">{ep.endpoint}</span>
                     <span>{ep.requests}</span>
                   </div>
@@ -1596,7 +1605,10 @@ export const Dashboard = () => {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
             </div>
           ) : rfidActivityList.length > 0 ? rfidActivityList.map((event: any, index: number) => (
-            <div key={index} className="flex items-center space-x-3">
+            <div
+              key={`${event.time ?? event.message ?? "rfid"}-${index}`}
+              className="flex items-center space-x-3"
+            >
               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${event.type === "warning" ? "bg-amber-500" : "bg-green-500"}`}></div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-white truncate">{event.message}</p>

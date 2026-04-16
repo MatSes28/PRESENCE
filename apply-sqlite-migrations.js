@@ -503,6 +503,37 @@ try {
     `CREATE INDEX IF NOT EXISTS idx_audit_logs_resource_id ON audit_logs(resource_id)`,
     `CREATE INDEX IF NOT EXISTS idx_audit_logs_success ON audit_logs(success)`,
 
+    // Error Logs table (for comprehensive error tracking and dashboard metrics)
+    `CREATE TABLE IF NOT EXISTS error_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      level TEXT NOT NULL,
+      message TEXT NOT NULL,
+      stack TEXT,
+      category TEXT NOT NULL,
+      endpoint TEXT,
+      user_id INTEGER,
+      session_id TEXT,
+      request_id TEXT,
+      user_agent TEXT,
+      ip_address TEXT,
+      method TEXT,
+      url TEXT,
+      status_code INTEGER,
+      response_time INTEGER,
+      metadata TEXT,
+      resolved INTEGER DEFAULT 0 NOT NULL,
+      resolved_at TIMESTAMP,
+      resolved_by INTEGER,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (resolved_by) REFERENCES users(id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_error_logs_timestamp ON error_logs(timestamp)`,
+    `CREATE INDEX IF NOT EXISTS idx_error_logs_endpoint ON error_logs(endpoint)`,
+    `CREATE INDEX IF NOT EXISTS idx_error_logs_status_code ON error_logs(status_code)`,
+    `CREATE INDEX IF NOT EXISTS idx_error_logs_user_id ON error_logs(user_id)`,
+
     // Password reset tokens (hashed + expiry + single-use)
     `CREATE TABLE IF NOT EXISTS password_reset_tokens (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
