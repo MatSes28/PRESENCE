@@ -73,9 +73,7 @@ router.get("/:id", requireAuth, async (req, res) => {
       .where(
         and(
           eq(schedules.id, parseInt(id)),
-          userRole === "faculty"
-            ? eq(schedules.facultyId, userId!)
-            : sql`true`,
+          userRole === "faculty" ? eq(schedules.facultyId, userId!) : sql`true`,
         ),
       );
     if (schedule.length === 0) {
@@ -120,11 +118,11 @@ router.post("/", requireAdminOrFaculty, async (req, res) => {
 
     if (isRecurring) {
       // Create recurring schedule with automatic conflict resolution
-        const scheduleId = await scheduleManagerService.createRecurringSchedule({
-          subjectId,
-          classroomId,
-          facultyId: effectiveFacultyId,
-          dayOfWeek,
+      const scheduleId = await scheduleManagerService.createRecurringSchedule({
+        subjectId,
+        classroomId,
+        facultyId: effectiveFacultyId,
+        dayOfWeek,
         startTime,
         endTime,
         semester,
@@ -142,7 +140,10 @@ router.post("/", requireAdminOrFaculty, async (req, res) => {
         .where(eq(schedules.id, scheduleId))
         .limit(1);
 
-      res.status(201).json(createdSchedule[0]);
+      res.status(201).json({
+        success: true,
+        data: createdSchedule[0],
+      });
     } else {
       // Create regular schedule
       const newSchedule = await db
@@ -162,7 +163,10 @@ router.post("/", requireAdminOrFaculty, async (req, res) => {
           allowTimeAdjustment: allowTimeAdjustment || false,
         })
         .returning();
-      res.status(201).json(newSchedule[0]);
+      res.status(201).json({
+        success: true,
+        data: newSchedule[0],
+      });
     }
   } catch (error) {
     console.error("Error creating schedule:", error);
@@ -223,7 +227,10 @@ router.put("/:id", requireAdminOrFaculty, async (req, res) => {
       .where(eq(schedules.id, parseInt(id)))
       .returning();
 
-    res.json(updatedSchedule[0]);
+    res.json({
+      success: true,
+      data: updatedSchedule[0],
+    });
   } catch (error) {
     console.error("Error updating schedule:", error);
     res.status(500).json({ error: "Failed to update schedule" });
@@ -260,7 +267,10 @@ router.delete("/:id", requireAdminOrFaculty, async (req, res) => {
       .where(eq(schedules.id, parseInt(id)))
       .returning();
 
-    res.json({ message: "Schedule deleted successfully" });
+    res.json({
+      success: true,
+      message: "Schedule deleted successfully",
+    });
   } catch (error) {
     console.error("Error deleting schedule:", error);
     res.status(500).json({ error: "Failed to delete schedule" });
@@ -382,7 +392,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 // Check for schedule conflicts
@@ -416,8 +426,8 @@ router.post("/check-conflicts", requireAuth, async (req, res) => {
           eq(schedules.dayOfWeek, dayOfWeek),
           eq(schedules.semester, semester),
           eq(schedules.academicYear, academicYear),
-          excludeId ? sql`${schedules.id} != ${excludeId}` : sql`1=1`
-        )
+          excludeId ? sql`${schedules.id} != ${excludeId}` : sql`1=1`,
+        ),
       );
 
     // Check for time overlaps in classroom
@@ -427,7 +437,7 @@ router.post("/check-conflicts", requireAuth, async (req, res) => {
           startTime,
           endTime,
           conflict.schedule.startTime,
-          conflict.schedule.endTime
+          conflict.schedule.endTime,
         )
       ) {
         conflicts.push({
@@ -454,8 +464,8 @@ router.post("/check-conflicts", requireAuth, async (req, res) => {
           eq(schedules.dayOfWeek, dayOfWeek),
           eq(schedules.semester, semester),
           eq(schedules.academicYear, academicYear),
-          excludeId ? sql`${schedules.id} != ${excludeId}` : sql`1=1`
-        )
+          excludeId ? sql`${schedules.id} != ${excludeId}` : sql`1=1`,
+        ),
       );
 
     // Check for time overlaps with faculty
@@ -465,7 +475,7 @@ router.post("/check-conflicts", requireAuth, async (req, res) => {
           startTime,
           endTime,
           conflict.schedule.startTime,
-          conflict.schedule.endTime
+          conflict.schedule.endTime,
         )
       ) {
         conflicts.push({
@@ -495,7 +505,7 @@ function timeSlotsOverlap(
   start1: string,
   end1: string,
   start2: string,
-  end2: string
+  end2: string,
 ): boolean {
   const start1Minutes = timeToMinutes(start1);
   const end1Minutes = timeToMinutes(end1);
