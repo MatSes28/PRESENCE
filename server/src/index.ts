@@ -790,6 +790,76 @@ async function initializeDatabaseColumns() {
   }
 }
 
+function initializeSqliteColumns() {
+  if (!dbClient || typeof dbClient.exec !== "function") {
+    return;
+  }
+
+  try {
+    dbClient.exec(`
+      ALTER TABLE students ADD COLUMN rfid_uid_hash TEXT;
+    `);
+  } catch (error: any) {
+    if (!String(error?.message || error).includes("duplicate column name")) {
+      console.warn("SQLite migration warning (students.rfid_uid_hash):", error);
+    }
+  }
+
+  try {
+    dbClient.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS students_rfid_uid_hash_unique
+      ON students(rfid_uid_hash);
+    `);
+  } catch (error) {
+    console.warn("SQLite migration warning (students RFID hash index):", error);
+  }
+
+  try {
+    dbClient.exec(`
+      ALTER TABLE iot_devices ADD COLUMN api_key TEXT;
+    `);
+  } catch (error: any) {
+    if (!String(error?.message || error).includes("duplicate column name")) {
+      console.warn("SQLite migration warning (iot_devices.api_key):", error);
+    }
+  }
+
+  try {
+    dbClient.exec(`
+      UPDATE iot_devices
+      SET api_key = 'pk_migrated_' || lower(hex(randomblob(16)))
+      WHERE api_key IS NULL OR api_key = '';
+      CREATE UNIQUE INDEX IF NOT EXISTS iot_devices_api_key_unique
+      ON iot_devices(api_key);
+    `);
+  } catch (error) {
+    console.warn("SQLite migration warning (iot_devices API key backfill):", error);
+  }
+
+  try {
+    dbClient.exec(`
+      ALTER TABLE iot_devices ADD COLUMN certificate_fingerprint TEXT;
+    `);
+  } catch (error: any) {
+    if (!String(error?.message || error).includes("duplicate column name")) {
+      console.warn(
+        "SQLite migration warning (iot_devices.certificate_fingerprint):",
+        error,
+      );
+    }
+  }
+
+  try {
+    dbClient.exec(`
+      ALTER TABLE iot_devices ADD COLUMN certificate_data TEXT;
+    `);
+  } catch (error: any) {
+    if (!String(error?.message || error).includes("duplicate column name")) {
+      console.warn("SQLite migration warning (iot_devices.certificate_data):", error);
+    }
+  }
+}
+
 const PORT = process.env.PORT || 3000;
 
 const HOST = process.env.HOST || "0.0.0.0";
@@ -797,11 +867,15 @@ const HOST = process.env.HOST || "0.0.0.0";
 // Initialize database columns + start listener (disabled under Jest/test).
 // Integration tests should import [`app`](server/src/index.ts:123) and run Supertest
 // without binding a real TCP port.
+const isDevScript = process.env.npm_lifecycle_event === "dev";
 const shouldStartListener =
-  process.env.NODE_ENV !== "test" && process.env.JEST_WORKER_ID === undefined;
+  isDevScript ||
+  (process.env.NODE_ENV !== "test" && process.env.JEST_WORKER_ID === undefined);
 
 if (shouldStartListener) {
   initializeDatabaseColumns().then(() => {
+    initializeSqliteColumns();
+
     server.listen({ port: PORT, host: HOST }, () => {
       console.log(`🚀 Server running on ${HOST}:${PORT}`);
       console.log(`🌐 WebSocket server ready`);

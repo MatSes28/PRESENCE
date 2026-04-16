@@ -253,18 +253,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                 >
                   {section.items.map((item) => (
                     <li key={item.path}>
-                      <Link href={item.path}>
-                        <a
-                          onClick={onCloseMobile}
-                          className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-r-lg transition-colors ios-button ios-touch-target ${
-                            isActive(item.path)
-                              ? "bg-cyan-600 text-white border-l-2 border-cyan-400 -ml-0.5"
-                              : "text-gray-400 hover:bg-gray-700 hover:text-white"
-                          }`}
-                        >
-                          <span className="mr-2">{item.icon}</span>
-                          {item.label}
-                        </a>
+                      <Link
+                        href={item.path}
+                        onClick={onCloseMobile}
+                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-r-lg transition-colors ios-button ios-touch-target ${
+                          isActive(item.path)
+                            ? "bg-cyan-600 text-white border-l-2 border-cyan-400 -ml-0.5"
+                            : "text-gray-400 hover:bg-gray-700 hover:text-white"
+                        }`}
+                      >
+                        <span className="mr-2">{item.icon}</span>
+                        {item.label}
                       </Link>
                     </li>
                   ))}
