@@ -21,7 +21,7 @@ interface Student {
 
 export const Students = () => {
   const { addNotification } = useNotifications();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,14 +81,25 @@ export const Students = () => {
   });
 
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      setStudents([]);
+      setAttendanceRates({});
+      setLoading(false);
+      return;
+    }
+
     fetchStudents();
-  }, []);
+  }, [authLoading, user?.id]);
 
   useEffect(() => {
-    if (students.length > 0) {
+    if (user && students.length > 0) {
       fetchAttendanceRates();
+    } else {
+      setAttendanceRates({});
     }
-  }, [students]);
+  }, [user?.id, students]);
 
   const fetchStudents = async () => {
     try {
@@ -107,8 +118,11 @@ export const Students = () => {
         }
       }
     } catch (error) {
-      console.error("Failed to fetch students:", error);
       setStudents([]);
+      if ((error as any)?.status === 401) {
+        return;
+      }
+      console.error("Failed to fetch students:", error);
       addNotification({
         type: "error",
         title: "Network Error",
@@ -121,7 +135,7 @@ export const Students = () => {
   };
 
   const fetchAttendanceRates = async () => {
-    if (students.length === 0) return;
+    if (!user || students.length === 0) return;
 
     try {
       const rates: { [key: number]: number } = {};
