@@ -40,6 +40,11 @@ export const students = pgTable("students", {
   college: varchar("college", { length: 100 })
     .default("College of Engineering")
     .notNull(), // Always College of Engineering
+  /**
+   * Deterministic lookup token for RFID UID (HMAC-SHA256).
+   * Used for uniqueness + lookups without storing plaintext UIDs.
+   */
+  rfidUidHash: varchar("rfid_uid_hash", { length: 64 }).unique(),
   rfidUid: varchar("rfid_uid", { length: 50 }).unique(),
   parentEmail: varchar("parent_email", { length: 255 }).notNull(), // Made mandatory
   parentName: varchar("parent_name", { length: 255 }),
@@ -210,20 +215,41 @@ export const computerAssignments = pgTable("computer_assignments", {
 export const iotDevices = pgTable("iot_devices", {
   id: serial("id").primaryKey(),
   deviceId: varchar("device_id", { length: 100 }).notNull().unique(),
+  name: varchar("name", { length: 255 }),
+  location: varchar("location", { length: 255 }),
   classroomId: integer("classroom_id")
     .references(() => classrooms.id)
     .notNull(),
   deviceType: varchar("device_type", { length: 50 }).notNull(), // esp32_s3
+  sensorType: varchar("sensor_type", { length: 50 }), // fingerprint, rfid, face_recognition, dual_sensor
+  mqttTopic: varchar("mqtt_topic", { length: 255 }),
+  macAddress: varchar("mac_address", { length: 17 }),
+  firmwareVersion: varchar("firmware_version", { length: 50 }),
   status: varchar("status", { length: 20 }).default("offline").notNull(), // online, offline, maintenance
   lastSeen: timestamp("last_seen"),
+  batteryLevel: integer("battery_level"),
+  signalStrength: integer("signal_strength"),
   config: jsonb("config"),
-  // Security columns for device authentication
-  apiKeyHash: text("api_key_hash"), // SHA-256 hash of API key
-  certificate: text("certificate"), // Device certificate
-  certificateExpiresAt: timestamp("certificate_expires_at"), // Certificate expiration
+  // Security fields
+  apiKey: varchar("api_key", { length: 128 }).notNull().unique(),
+  certificateFingerprint: varchar("certificate_fingerprint", { length: 128 }),
+  certificateData: text("certificate_data"),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const iotDeviceHeartbeats = pgTable("iot_device_heartbeats", {
+  id: serial("id").primaryKey(),
+  deviceId: varchar("device_id", { length: 100 }).notNull(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  status: varchar("status", { length: 20 }).notNull(),
+  batteryLevel: integer("battery_level"),
+  signalStrength: integer("signal_strength"),
+  temperature: integer("temperature"),
+  uptime: integer("uptime"),
+  metadata: jsonb("metadata"),
+  isActive: boolean("is_active").default(true).notNull(),
 });
 
 // Enrollments table

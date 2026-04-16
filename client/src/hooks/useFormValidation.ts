@@ -67,17 +67,20 @@ export const useFormValidation = (config: FieldConfig) => {
   const validateForm = useCallback(
     (data: { [key: string]: string }): boolean => {
       const newErrors: ValidationErrors = {};
+      const nextTouched: { [key: string]: boolean } = {};
       let isValid = true;
 
       Object.keys(config).forEach((fieldName) => {
         const error = validateField(fieldName, data[fieldName] || "");
         if (error) {
           newErrors[fieldName] = error;
+          nextTouched[fieldName] = true;
           isValid = false;
         }
       });
 
       setErrors(newErrors);
+      setTouched((prev) => ({ ...prev, ...nextTouched }));
       return isValid;
     },
     [config, validateField],

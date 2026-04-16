@@ -694,6 +694,27 @@ async function initializeDatabaseColumns() {
       )
       .catch(() => {});
     await pool
+      .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS api_key VARCHAR(128)")
+      .catch(() => {});
+    await pool
+      .query(
+        "UPDATE iot_devices SET api_key = CONCAT('pk_migrated_', md5(random()::text || clock_timestamp()::text || device_id)) WHERE api_key IS NULL OR api_key = ''",
+      )
+      .catch(() => {});
+    await pool
+      .query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS iot_devices_api_key_unique ON iot_devices (api_key)",
+      )
+      .catch(() => {});
+    await pool
+      .query(
+        "ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS certificate_fingerprint VARCHAR(128)",
+      )
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS certificate_data TEXT")
+      .catch(() => {});
+    await pool
       .query(
         "ALTER TABLE error_logs ADD COLUMN IF NOT EXISTS ip_address VARCHAR",
       )

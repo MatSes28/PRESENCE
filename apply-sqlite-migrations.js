@@ -259,6 +259,7 @@ try {
     renameColumnIfNeeded("iot_devices", "isActive", "is_active");
 
     addColumnIfMissing("iot_devices", "config", "TEXT");
+    addColumnIfMissing("iot_devices", "api_key", "TEXT");
     addColumnIfMissing("iot_devices", "api_key_hash", "TEXT");
     addColumnIfMissing("iot_devices", "certificate", "TEXT");
     addColumnIfMissing("iot_devices", "certificate_expires_at", "TIMESTAMP");
@@ -765,6 +766,13 @@ try {
   addColumnIfMissing("students", "rfid_uid_hash", "TEXT");
   db.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS students_rfid_uid_hash_unique ON students(rfid_uid_hash)",
+  );
+  addColumnIfMissing("iot_devices", "api_key", "TEXT");
+  db.exec(
+    "UPDATE iot_devices SET api_key = 'pk_migrated_' || lower(hex(randomblob(16))) WHERE api_key IS NULL OR api_key = ''",
+  );
+  db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS iot_devices_api_key_unique ON iot_devices(api_key)",
   );
 
   console.log("✅ Database migrations applied successfully!");

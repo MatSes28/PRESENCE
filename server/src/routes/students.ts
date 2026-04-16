@@ -270,7 +270,7 @@ router.post(
     studentId: validationRules.studentId,
     name: validationRules.name,
     email: (value) => {
-      if (value && !validationRules.email(value)) return null;
+      if (!value) return null;
       return validationRules.email(value);
     },
     rfidUid: validationRules.rfidUid,
@@ -288,6 +288,16 @@ router.post(
         parentEmail,
         parentName,
       } = req.body;
+      const parsedYear =
+        year === undefined || year === null || year === ""
+          ? null
+          : parseInt(year, 10);
+      const normalizedSection =
+        typeof section === "string" && section.trim() === ""
+          ? null
+          : section || null;
+      const normalizedEmail =
+        typeof email === "string" && email.trim() === "" ? null : email || null;
 
       if (!studentId || !name || !parentEmail) {
         return res.status(400).json({
@@ -344,9 +354,9 @@ router.post(
         .values({
           studentId,
           name,
-          email,
-          year,
-          section,
+          email: normalizedEmail,
+          year: Number.isFinite(parsedYear) ? parsedYear : null,
+          section: normalizedSection,
           rfidUidHash,
           rfidUid: encryptedRfid,
           parentEmail: encryptedParentData.email,

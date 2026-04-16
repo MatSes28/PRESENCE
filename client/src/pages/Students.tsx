@@ -208,11 +208,21 @@ export const Students = () => {
 
     setSubmitting(true);
     try {
+      const studentPayload = {
+        studentId: formData.studentId.trim(),
+        name: formData.name.trim(),
+        email: formData.email.trim() || undefined,
+        rfidUid: formData.rfidUid.trim() || undefined,
+        parentEmail: formData.parentEmail.trim(),
+        year: formData.year ? Number(formData.year) : undefined,
+        section: formData.section.trim() || undefined,
+      };
+
       let response: any;
       if (editingStudent) {
-        response = await api.updateStudent(editingStudent.id, formData);
+        response = await api.updateStudent(editingStudent.id, studentPayload);
       } else {
-        response = await api.createStudent(formData);
+        response = await api.createStudent(studentPayload);
       }
 
       if (response.success) {
