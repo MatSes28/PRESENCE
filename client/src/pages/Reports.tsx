@@ -255,6 +255,7 @@ export const Reports = () => {
           format: "csv",
           startDate,
           endDate,
+          quickReportType: type,
         },
         downloadName,
       );

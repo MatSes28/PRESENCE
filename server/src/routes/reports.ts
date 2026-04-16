@@ -133,34 +133,94 @@ const buildReportFilename = (
   ].join("_");
 };
 
-const csvEscape = (value: string) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+const csvEscape = (value: any) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
-const buildCsv = (
-  title: string,
-  rows: Record<string, string>[],
-  metadata: ReportMetadata,
-) => {
-  const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
-  const lines = [
-    [title],
-    ["Generated", formatReportDateTime(metadata.generatedAt)],
-    ...metadata.filters.map((filter) => [filter.label, filter.value]),
-    ...metadata.summary.map((item) => [item.label, item.value]),
-    [],
-  ];
+const toIsoString = (value?: string | Date | null) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toISOString();
+};
 
-  if (headers.length > 0) {
-    lines.push(headers);
-    rows.forEach((row) => {
-      lines.push(headers.map((header) => row[header] ?? ""));
-    });
-  } else {
-    lines.push(["No report data available for the selected filters."]);
+const buildStrictCsv = (headers: string[], rows: Record<string, any>[]) =>
+  [
+    headers.map((header) => csvEscape(header)).join(","),
+    ...rows.map((row) =>
+      headers.map((header) => csvEscape(row[header])).join(","),
+    ),
+  ].join("\n");
+
+const buildCsvRows = (type: string, data: any[]) => {
+  switch (type) {
+    case "attendance":
+      return {
+        headers: [
+          "record_id",
+          "record_createdAt",
+          "record_status",
+          "record_notes",
+          "student_id",
+          "student_name",
+          "student_studentId",
+          "session_id",
+          "session_subjectName",
+        ],
+        rows: data.map((row) => ({
+          record_id: row.record?.id,
+          record_createdAt: toIsoString(row.record?.createdAt),
+          record_status: row.record?.status || "",
+          record_notes: row.record?.notes || "",
+          student_id: row.student?.id,
+          student_name: row.student?.name || "",
+          student_studentId: row.student?.studentId || "",
+          session_id: row.session?.id,
+          session_subjectName: row.session?.subjectName || "",
+        })),
+      };
+    case "students":
+      return {
+        headers: [
+          "student_id",
+          "student_name",
+          "student_studentId",
+          "enrollmentCount",
+        ],
+        rows: data.map((row) => ({
+          student_id: row.student?.id,
+          student_name: row.student?.name || "",
+          student_studentId: row.student?.studentId || "",
+          enrollmentCount: row.enrollmentCount ?? 0,
+        })),
+      };
+    case "classroom":
+      return {
+        headers: [
+          "session_id",
+          "session_createdAt",
+          "schedule_id",
+          "schedule_subjectId",
+          "schedule_classroomId",
+          "attendanceCount",
+          "presentCount",
+        ],
+        rows: data.map((row) => ({
+          session_id: row.session?.id,
+          session_createdAt: toIsoString(
+            row.session?.createdAt || row.session?.date,
+          ),
+          schedule_id: row.schedule?.id,
+          schedule_subjectId: row.schedule?.subjectId,
+          schedule_classroomId: row.schedule?.classroomId,
+          attendanceCount: row.attendanceCount ?? 0,
+          presentCount: row.presentCount ?? 0,
+        })),
+      };
+    default:
+      return {
+        headers: data.length > 0 ? Object.keys(flattenReportRow(data[0])) : [],
+        rows: flattenReportRows(data),
+      };
   }
-
-  return `\uFEFF${lines
-    .map((line) => line.map((value) => csvEscape(value)).join(","))
-    .join("\n")}`;
 };
 
 const buildDisplayRows = (type: string, data: any[]) => {
@@ -813,6 +873,7 @@ router.post("/generate-report", requireAuth, async (req, res) => {
       subjectId,
       classroomId,
       facultyId,
+      quickReportType,
     } = req.body;
 
     if (!type) {
@@ -920,6 +981,8 @@ router.post("/generate-report", requireAuth, async (req, res) => {
             session: classSessions,
             schedule: {
               id: schedules.id,
+              subjectId: schedules.subjectId,
+              classroomId: schedules.classroomId,
             },
             subject: {
               code: subjects.code,
@@ -982,7 +1045,12 @@ router.post("/generate-report", requireAuth, async (req, res) => {
         });
     }
 
-    const reportTitle = `${toTitle(type)} Report`;
+    const quickLabel =
+      typeof quickReportType === "string" &&
+      ["daily", "weekly", "analytics"].includes(quickReportType)
+        ? quickReportType
+        : "";
+    const reportTitle = `${quickLabel ? `${toTitle(quickLabel)} ` : ""}${toTitle(type)} Report`;
     const subjectLabel = selectedSubject
       ? `${selectedSubject.code} ${selectedSubject.name}`
       : "All Subjects";
@@ -1011,7 +1079,7 @@ router.post("/generate-report", requireAuth, async (req, res) => {
       summary: buildSummary(type, displayRows),
     };
     const filenameBase = buildReportFilename(
-      type,
+      quickLabel ? `${quickLabel}-${type}` : type,
       subjectLabel,
       classroomLabel,
       startDate,
@@ -1020,7 +1088,8 @@ router.post("/generate-report", requireAuth, async (req, res) => {
 
     // Generate CSV or return JSON data
     if (format === "csv") {
-      const csv = buildCsv(reportTitle, displayRows, metadata);
+      const { headers, rows } = buildCsvRows(type, data);
+      const csv = buildStrictCsv(headers, rows);
 
       res.setHeader("Content-Type", "text/csv");
       res.setHeader(
