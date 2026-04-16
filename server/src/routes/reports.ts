@@ -29,22 +29,32 @@ const toPrintableValue = (value: any): string => {
 };
 
 const flattenReportRow = (row: Record<string, any>, prefix = "") => {
-  return Object.entries(row).reduce<Record<string, string>>((acc, [key, value]) => {
-    const nextKey = prefix ? `${prefix}_${key}` : key;
+  return Object.entries(row).reduce<Record<string, string>>(
+    (acc, [key, value]) => {
+      const nextKey = prefix ? `${prefix}_${key}` : key;
 
-    if (value && typeof value === "object" && !(value instanceof Date)) {
-      Object.assign(acc, flattenReportRow(value as Record<string, any>, nextKey));
-    } else {
-      acc[nextKey] = toPrintableValue(value);
-    }
+      if (value && typeof value === "object" && !(value instanceof Date)) {
+        Object.assign(
+          acc,
+          flattenReportRow(value as Record<string, any>, nextKey),
+        );
+      } else {
+        acc[nextKey] = toPrintableValue(value);
+      }
 
-    return acc;
-  }, {});
+      return acc;
+    },
+    {},
+  );
 };
 
-const flattenReportRows = (rows: any[]) => rows.map((row) => flattenReportRow(row));
+const flattenReportRows = (rows: any[]) =>
+  rows.map((row) => flattenReportRow(row));
 
-const buildPdfBuffer = async (title: string, rows: Record<string, string>[]) => {
+const buildPdfBuffer = async (
+  title: string,
+  rows: Record<string, string>[],
+) => {
   const doc = new PDFDocument({ margin: 40 });
   const chunks: Buffer[] = [];
 
@@ -74,10 +84,15 @@ const buildPdfBuffer = async (title: string, rows: Record<string, string>[]) => 
 
   doc.fontSize(9);
   headers.forEach((header, index) => {
-    doc.text(header.replace(/_/g, " ").toUpperCase(), 40 + index * columnWidth, doc.y, {
-      width: columnWidth - 8,
-      continued: index < headers.length - 1,
-    });
+    doc.text(
+      header.replace(/_/g, " ").toUpperCase(),
+      40 + index * columnWidth,
+      doc.y,
+      {
+        width: columnWidth - 8,
+        continued: index < headers.length - 1,
+      },
+    );
   });
   doc.moveDown();
   doc.moveTo(40, doc.y).lineTo(560, doc.y).stroke("#cccccc");
@@ -413,7 +428,10 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
       })
       .from(attendanceRecords)
       .leftJoin(students, eq(attendanceRecords.studentId, students.id))
-      .leftJoin(classSessions, eq(attendanceRecords.classSessionId, classSessions.id))
+      .leftJoin(
+        classSessions,
+        eq(attendanceRecords.classSessionId, classSessions.id),
+      )
       .leftJoin(schedules, eq(classSessions.scheduleId, schedules.id));
 
     if (subjectId) {
@@ -427,7 +445,10 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
       .select({ total: sql<number>`count(*)` })
       .from(attendanceRecords)
       .leftJoin(students, eq(attendanceRecords.studentId, students.id))
-      .leftJoin(classSessions, eq(attendanceRecords.classSessionId, classSessions.id))
+      .leftJoin(
+        classSessions,
+        eq(attendanceRecords.classSessionId, classSessions.id),
+      )
       .leftJoin(schedules, eq(classSessions.scheduleId, schedules.id));
 
     const [{ total = 0 } = { total: 0 }] =
@@ -507,12 +528,14 @@ router.post("/generate-report", requireAuth, async (req, res) => {
         // Apply date filters
         const conditions = [];
         if (startDate) {
-          conditions.push(
-            gte(attendanceRecords.createdAt, new Date(startDate)),
-          );
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          conditions.push(gte(attendanceRecords.createdAt, start));
         }
         if (endDate) {
-          conditions.push(lte(attendanceRecords.createdAt, new Date(endDate)));
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          conditions.push(lte(attendanceRecords.createdAt, end));
         }
         if (subjectId) {
           conditions.push(eq(schedules.subjectId, parseInt(subjectId)));
@@ -594,7 +617,8 @@ router.post("/generate-report", requireAuth, async (req, res) => {
     // Generate CSV or return JSON data
     if (format === "csv") {
       // Convert data to CSV
-      const headers = flattenedData.length > 0 ? Object.keys(flattenedData[0]).join(",") : "";
+      const headers =
+        flattenedData.length > 0 ? Object.keys(flattenedData[0]).join(",") : "";
       const rows = flattenedData.map((row: any) =>
         Object.values(row)
           .map((val) => `"${String(val ?? "").replace(/"/g, '""')}"`)
@@ -696,7 +720,10 @@ router.get("/real-time-stats", requireAuth, async (req, res) => {
         count: sql<number>`count(*)`,
       })
       .from(attendanceRecords)
-      .innerJoin(classSessions, eq(attendanceRecords.classSessionId, classSessions.id))
+      .innerJoin(
+        classSessions,
+        eq(attendanceRecords.classSessionId, classSessions.id),
+      )
       .innerJoin(schedules, eq(classSessions.scheduleId, schedules.id))
       .where(
         and(
