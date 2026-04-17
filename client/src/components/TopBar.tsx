@@ -1,7 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "../hooks/useAuth";
 import { ConfirmationDialog } from "./ConfirmationDialog";
+import {
+  getWebSocketClient,
+  type WebSocketConnectionState,
+} from "../lib/websocket";
 
 const pageTitles: Record<string, string> = {
   "/": "Dashboard",
@@ -40,6 +44,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [liveState, setLiveState] =
+    useState<WebSocketConnectionState>("disconnected");
 
   const currentTitle =
     pageTitles[location] ||
@@ -49,6 +55,37 @@ export const TopBar: React.FC<TopBarProps> = ({
     setShowLogoutConfirm(false);
     await logout();
   };
+
+  useEffect(() => {
+    if (!user?.id) {
+      setLiveState("disconnected");
+      return;
+    }
+
+    const client = getWebSocketClient(user.id);
+    setLiveState(client.getConnectionState());
+    const handleStatus = (status: { state: WebSocketConnectionState }) => {
+      setLiveState(status.state);
+    };
+
+    client.on("status", handleStatus);
+    return () => client.off("status", handleStatus);
+  }, [user?.id]);
+
+  const liveLabel =
+    liveState === "connected"
+      ? "Live updates connected"
+      : liveState === "reconnecting" || liveState === "connecting"
+        ? "Live updates reconnecting"
+        : liveState === "failed"
+          ? "Live updates offline"
+          : "Live updates disconnected";
+  const liveDotClass =
+    liveState === "connected"
+      ? "bg-green-400"
+      : liveState === "reconnecting" || liveState === "connecting"
+        ? "bg-yellow-400"
+        : "bg-red-400";
 
   return (
     <header className="bg-gray-800 shadow-sm border-b border-gray-700 px-4 md:px-6 py-4 pt-safe-top ios-safe-header ios-gesture-area">
@@ -95,6 +132,14 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Right Side Actions */}
         <div className="flex items-center space-x-4">
+          <div
+            className="hidden lg:flex items-center space-x-2 text-xs text-gray-300"
+            title={liveLabel}
+          >
+            <span className={`w-2 h-2 rounded-full ${liveDotClass}`}></span>
+            <span>{liveLabel}</span>
+          </div>
+
           {/* Notifications */}
           <button
             type="button"

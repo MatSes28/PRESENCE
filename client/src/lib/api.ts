@@ -8,6 +8,9 @@ export interface ApiResponse<T = any> {
   data?: T;
 }
 
+export const getApiPayload = <T = any>(response: any): T =>
+  (response?.data ?? response) as T;
+
 class ApiClient {
   private baseURL: string;
 
@@ -690,7 +693,7 @@ class ApiClient {
   // Reports endpoints
   async generateReport(params: {
     type: "attendance" | "students" | "classroom";
-    format: "pdf" | "csv";
+    format: "pdf" | "csv" | "xlsx";
     startDate?: string;
     endDate?: string;
     classroomId?: number;

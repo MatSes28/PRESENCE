@@ -33,6 +33,17 @@ export interface AttendanceRecord {
   discrepancyFlag: boolean;
 }
 
+export type WebSocketConnectionState =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "failed";
+
+const isWebSocketDebugEnabled = () =>
+  typeof window !== "undefined" &&
+  window.localStorage.getItem("presence.debugWebSocket") === "true";
+
 class WebSocketClient {
   private ws: WebSocket | null = null;
   private connectPromise: Promise<void> | null = null;
@@ -42,6 +53,7 @@ class WebSocketClient {
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private messageHandlers: Map<string, ((data: any) => void)[]> = new Map();
   private manualDisconnect = false;
+  private connectionState: WebSocketConnectionState = "disconnected";
 
   constructor(private userId?: number) {}
 
@@ -55,6 +67,7 @@ class WebSocketClient {
     }
 
     this.manualDisconnect = false;
+    this.setConnectionState("connecting");
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -75,9 +88,10 @@ class WebSocketClient {
 
         socket.onopen = () => {
           if (this.ws !== socket) return;
-          console.log("WebSocket connected");
+          if (isWebSocketDebugEnabled()) console.log("WebSocket connected");
           this.reconnectAttempts = 0;
           this.connectPromise = null;
+          this.setConnectionState("connected");
           this.emit("connect", { connectedAt: new Date().toISOString() });
           settled = true;
           resolve();
@@ -96,9 +110,10 @@ class WebSocketClient {
         socket.onclose = (event) => {
           if (this.ws !== socket) return;
 
-          console.log("WebSocket disconnected");
+          if (isWebSocketDebugEnabled()) console.log("WebSocket disconnected");
           this.ws = null;
           this.connectPromise = null;
+          this.setConnectionState("disconnected");
           this.emit("disconnect", { disconnectedAt: new Date().toISOString() });
 
           if (!settled) {
@@ -113,7 +128,7 @@ class WebSocketClient {
 
         socket.onerror = (error) => {
           if (this.ws !== socket) return;
-          console.error("WebSocket error:", error);
+          if (isWebSocketDebugEnabled()) console.error("WebSocket error:", error);
           this.emit("error", error);
 
           if (!settled) {
@@ -144,6 +159,7 @@ class WebSocketClient {
       this.ws.close();
       this.ws = null;
     }
+    this.setConnectionState("disconnected");
   }
 
   private attemptReconnect() {
@@ -152,14 +168,18 @@ class WebSocketClient {
     }
 
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error("Max reconnection attempts reached");
+      this.setConnectionState("failed");
+      if (isWebSocketDebugEnabled()) console.error("Max reconnection attempts reached");
       return;
     }
 
     this.reconnectAttempts++;
-    console.log(
-      `Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
-    );
+    this.setConnectionState("reconnecting");
+    if (isWebSocketDebugEnabled()) {
+      console.log(
+        `Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
+      );
+    }
 
     this.reconnectTimeout = setTimeout(() => {
       this.connect().catch(() => {
@@ -195,7 +215,7 @@ class WebSocketClient {
         this.emit("error", message.payload);
         break;
       default:
-        console.log("Unhandled message type:", message.type);
+        if (isWebSocketDebugEnabled()) console.log("Unhandled message type:", message.type);
     }
   }
 
@@ -228,6 +248,16 @@ class WebSocketClient {
     }
   }
 
+  private setConnectionState(state: WebSocketConnectionState) {
+    if (this.connectionState === state) return;
+    this.connectionState = state;
+    this.emit("status", {
+      state,
+      reconnectAttempts: this.reconnectAttempts,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   send(type: string, payload: any) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const message: WSMessage = {
@@ -237,7 +267,7 @@ class WebSocketClient {
       };
       this.ws.send(JSON.stringify(message));
     } else {
-      console.warn("WebSocket is not connected");
+      if (isWebSocketDebugEnabled()) console.warn("WebSocket is not connected");
     }
   }
 
@@ -251,6 +281,10 @@ class WebSocketClient {
 
   isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  getConnectionState(): WebSocketConnectionState {
+    return this.connectionState;
   }
 
   setUserId(userId: number) {

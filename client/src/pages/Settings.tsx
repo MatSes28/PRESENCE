@@ -6,14 +6,15 @@ import {
   useFormValidation,
   commonValidationRules,
 } from "../hooks/useFormValidation";
-import { api } from "../lib/api";
-
-const getApiPayload = (response: any) => response?.data ?? response;
+import { api, getApiPayload } from "../lib/api";
 
 export const Settings = () => {
   const { user } = useAuth();
   const { addNotification } = useNotifications();
   const [activeTab, setActiveTab] = useState("profile");
+  const [saving, setSaving] = useState<
+    "profile" | "password" | "system" | "hardware" | "email" | null
+  >(null);
 
   // Form validation hooks
   const profileValidation = useFormValidation({
@@ -97,6 +98,15 @@ export const Settings = () => {
     loadSettings();
   }, [user?.role, addNotification]);
 
+  useEffect(() => {
+    if (
+      user?.role !== "admin" &&
+      ["hardware", "email", "system"].includes(activeTab)
+    ) {
+      setActiveTab("profile");
+    }
+  }, [activeTab, user?.role]);
+
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -109,6 +119,8 @@ export const Settings = () => {
       return;
     }
 
+    setSaving("profile");
+    setSaving("password");
     try {
       const response = await api.put("/settings/profile", profileData);
       const result = getApiPayload(response);
@@ -128,6 +140,8 @@ export const Settings = () => {
         title: "Update Failed",
         message: "Could not update profile. Please try again.",
       });
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -171,10 +185,13 @@ export const Settings = () => {
         title: "Password Change Failed",
         message: "Could not change password. Please try again.",
       });
+    } finally {
+      setSaving(null);
     }
   };
 
   const handleSystemSettingsSave = async () => {
+    setSaving("system");
     try {
       const response = await api.put("/settings/system", systemSettings);
       const result = getApiPayload(response);
@@ -195,10 +212,13 @@ export const Settings = () => {
         title: "Save Failed",
         message: "Could not save system settings. Please try again.",
       });
+    } finally {
+      setSaving(null);
     }
   };
 
   const handleHardwareSettingsSave = async () => {
+    setSaving("hardware");
     try {
       const response = await api.put("/settings/hardware", hardwareSettings);
       const result = getApiPayload(response);
@@ -219,10 +239,13 @@ export const Settings = () => {
         title: "Save Failed",
         message: "Could not save hardware settings. Please try again.",
       });
+    } finally {
+      setSaving(null);
     }
   };
 
   const handleEmailSettingsSave = async () => {
+    setSaving("email");
     try {
       const response = await api.put("/settings/email", emailSettings);
       const result = getApiPayload(response);
@@ -243,16 +266,18 @@ export const Settings = () => {
         title: "Save Failed",
         message: "Could not save email settings. Please try again.",
       });
+    } finally {
+      setSaving(null);
     }
   };
 
   const tabs = [
-    { id: "profile", label: "Profile", icon: "👤" },
-    { id: "security", label: "Security", icon: "🔒" },
-    { id: "hardware", label: "Hardware", icon: "🔧" },
-    { id: "email", label: "Email", icon: "📧" },
-    { id: "system", label: "System", icon: "⚙️" },
-  ];
+    { id: "profile", label: "Profile", icon: "👤", adminOnly: false },
+    { id: "security", label: "Security", icon: "🔒", adminOnly: false },
+    { id: "hardware", label: "Hardware", icon: "🔧", adminOnly: true },
+    { id: "email", label: "Email", icon: "📧", adminOnly: true },
+    { id: "system", label: "System", icon: "⚙️", adminOnly: true },
+  ].filter((tab) => user?.role === "admin" || !tab.adminOnly);
 
   return (
     <div className="space-y-6">
@@ -365,7 +390,8 @@ export const Settings = () => {
                 <div className="flex justify-end">
                   <LoadingButton
                     type="submit"
-                    loading={false}
+                    loading={saving === "profile"}
+                    loadingText="Updating..."
                     className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
                   >
                     Update Profile
@@ -490,7 +516,8 @@ export const Settings = () => {
                 <div className="flex justify-end">
                   <LoadingButton
                     type="submit"
-                    loading={false}
+                    loading={saving === "password"}
+                    loadingText="Changing..."
                     className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
                   >
                     Change Password
@@ -601,12 +628,14 @@ export const Settings = () => {
                   <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
                     Test Connection
                   </button>
-                  <button
+                  <LoadingButton
                     onClick={handleHardwareSettingsSave}
+                    loading={saving === "hardware"}
+                    loadingText="Saving..."
                     className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
                   >
                     Save Hardware Settings
-                  </button>
+                  </LoadingButton>
                 </div>
               </div>
             </div>
@@ -726,12 +755,14 @@ export const Settings = () => {
                   <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
                     Test Email
                   </button>
-                  <button
+                  <LoadingButton
                     onClick={handleEmailSettingsSave}
+                    loading={saving === "email"}
+                    loadingText="Saving..."
                     className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
                   >
                     Save Email Settings
-                  </button>
+                  </LoadingButton>
                 </div>
               </div>
             </div>
@@ -882,12 +913,14 @@ export const Settings = () => {
                   <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
                     Reset to Defaults
                   </button>
-                  <button
+                  <LoadingButton
                     onClick={handleSystemSettingsSave}
+                    loading={saving === "system"}
+                    loadingText="Saving..."
                     className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
                   >
                     Save Settings
-                  </button>
+                  </LoadingButton>
                 </div>
               </div>
             </div>

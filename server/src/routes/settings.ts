@@ -4,6 +4,7 @@ import { users, systemSettings } from "../schema.js";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import { auditLogger } from "../services/audit/auditLogger.js";
 
 const router = Router();
 
@@ -45,6 +46,33 @@ const setSetting = async (
       description,
     });
   }
+};
+
+const getRequestIp = (req: any) =>
+  (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+  req.ip ||
+  req.socket?.remoteAddress ||
+  "unknown";
+
+const logSettingsAudit = async (
+  req: any,
+  category: "system" | "hardware" | "email" | "iot",
+  oldValues: any,
+  newValues: any,
+) => {
+  await auditLogger.logEvent({
+    userId: req.session?.userId ? Number(req.session.userId) : null,
+    action: "SETTINGS_UPDATED",
+    resource: "settings",
+    resourceId: category,
+    oldValues,
+    newValues,
+    ipAddress: getRequestIp(req),
+    userAgent: req.get("user-agent") || "",
+    sessionId: req.sessionID,
+    success: true,
+    metadata: { category },
+  });
 };
 
 // Update user profile
@@ -208,6 +236,17 @@ router.get("/system", requireAdmin, async (req, res) => {
 // Update system settings (admin only)
 router.put("/system", requireAdmin, async (req, res) => {
   try {
+    const previousSettings = {
+      lateThreshold: (await getSetting("lateThreshold")) ?? 15,
+      absentThreshold: (await getSetting("absentThreshold")) ?? 60,
+      emailNotifications: (await getSetting("emailNotifications")) ?? true,
+      semester: (await getSetting("semester")) ?? "1st Semester",
+      academicYear:
+        (await getSetting("academicYear")) ??
+        new Date().getFullYear().toString(),
+      autoEndSessions: (await getSetting("autoEndSessions")) ?? true,
+      requireProfessorTap: (await getSetting("requireProfessorTap")) ?? false,
+    };
     const {
       lateThreshold,
       absentThreshold,
@@ -271,6 +310,8 @@ router.put("/system", requireAdmin, async (req, res) => {
       autoEndSessions: autoEndSessions ?? true,
       requireProfessorTap: requireProfessorTap ?? false,
     };
+
+    await logSettingsAudit(req, "system", previousSettings, settings);
 
     res.json({
       success: true,
@@ -369,6 +410,13 @@ router.get("/hardware", requireAdmin, async (req, res) => {
 // Update hardware settings (admin only)
 router.put("/hardware", requireAdmin, async (req, res) => {
   try {
+    const previousSettings = {
+      rfidScannerPort: (await getSetting("rfidScannerPort")) ?? "COM3",
+      proximitySensorThreshold:
+        (await getSetting("proximitySensorThreshold")) ?? 5,
+      dualValidation: (await getSetting("dualValidation")) ?? true,
+      autoReconnect: (await getSetting("autoReconnect")) ?? true,
+    };
     const {
       rfidScannerPort,
       proximitySensorThreshold,
@@ -407,6 +455,8 @@ router.put("/hardware", requireAdmin, async (req, res) => {
       dualValidation: dualValidation ?? true,
       autoReconnect: autoReconnect ?? true,
     };
+
+    await logSettingsAudit(req, "hardware", previousSettings, settings);
 
     res.json({
       success: true,
@@ -452,6 +502,14 @@ router.get("/email", requireAdmin, async (req, res) => {
 // Update email settings (admin only)
 router.put("/email", requireAdmin, async (req, res) => {
   try {
+    const previousSettings = {
+      smtpServer: (await getSetting("smtpServer")) ?? "smtp.gmail.com",
+      senderEmail:
+        (await getSetting("senderEmail")) ?? "clirdec.presence@clsu.edu.ph",
+      absenceThreshold: (await getSetting("absenceThreshold")) ?? 3,
+      dailySummary: (await getSetting("dailySummary")) ?? true,
+      lateNotifications: (await getSetting("lateNotifications")) ?? true,
+    };
     const {
       smtpServer,
       senderEmail,
@@ -498,6 +556,8 @@ router.put("/email", requireAdmin, async (req, res) => {
       dailySummary: dailySummary ?? true,
       lateNotifications: lateNotifications ?? true,
     };
+
+    await logSettingsAudit(req, "email", previousSettings, settings);
 
     res.json({
       success: true,

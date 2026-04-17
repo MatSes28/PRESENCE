@@ -11,6 +11,7 @@ import {
   subjects,
   enrollments,
   reportHistory,
+  users,
 } from "../schema.js";
 import { eq, and, gte, lte, lt, desc, sql } from "drizzle-orm";
 import { reportSchedulerService } from "../services/reportScheduler.js";
@@ -27,6 +28,30 @@ type ReportMetadata = {
   generatedAt: Date;
   filters: ReportFilter[];
   summary: ReportFilter[];
+};
+
+type ReportType = "attendance" | "students" | "classroom";
+
+type ReportQueryParams = {
+  type: ReportType;
+  startDate?: string;
+  endDate?: string;
+  subjectId?: string | number;
+  classroomId?: string | number;
+  facultyId?: string | number;
+  isFaculty: boolean;
+  facultyUserId: number;
+};
+
+const parseOptionalId = (value?: string | number) => {
+  if (value == null || value === "") return undefined;
+  const parsed = typeof value === "number" ? value : parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const parsePositiveInt = (value: unknown, fallback: number) => {
+  const parsed = parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 };
 
 const toPrintableValue = (value: any): string => {
@@ -507,7 +532,197 @@ const buildSummary = (type: string, rows: Record<string, string>[]) => {
     ];
   }
 
+  if (type === "students") {
+    const active = rows.filter((row) => row.Status === "Active").length;
+    return [
+      { label: "Students", value: rows.length.toLocaleString() },
+      { label: "Active", value: active.toLocaleString() },
+      { label: "Inactive", value: (rows.length - active).toLocaleString() },
+      {
+        label: "Enrollments",
+        value: rows
+          .reduce(
+            (sum, row) => sum + Number(row["Active Enrollments"] || 0),
+            0,
+          )
+          .toLocaleString(),
+      },
+    ];
+  }
+
+  if (type === "classroom") {
+    const attendanceRecords = rows.reduce(
+      (sum, row) => sum + Number(row["Attendance Records"] || 0),
+      0,
+    );
+    const presentRecords = rows.reduce(
+      (sum, row) => sum + Number(row.Present || 0),
+      0,
+    );
+    const rate =
+      attendanceRecords > 0
+        ? `${((presentRecords / attendanceRecords) * 100).toFixed(1)}%`
+        : "0%";
+
+    return [
+      { label: "Sessions", value: rows.length.toLocaleString() },
+      { label: "Attendance Records", value: attendanceRecords.toLocaleString() },
+      { label: "Present", value: presentRecords.toLocaleString() },
+      { label: "Presence Rate", value: rate },
+    ];
+  }
+
   return [{ label: "Rows", value: rows.length.toLocaleString() }];
+};
+
+const loadReportRows = async ({
+  type,
+  startDate,
+  endDate,
+  subjectId,
+  classroomId,
+  facultyId,
+  isFaculty,
+  facultyUserId,
+}: ReportQueryParams) => {
+  const selectedSubjectId = parseOptionalId(subjectId);
+  const selectedClassroomId = parseOptionalId(classroomId);
+  const selectedFacultyId = parseOptionalId(facultyId);
+  const scopedFacultyId = isFaculty ? facultyUserId : selectedFacultyId;
+
+  switch (type) {
+    case "attendance": {
+      let query = db
+        .select({
+          record: attendanceRecords,
+          student: {
+            id: students.id,
+            name: students.name,
+            studentId: students.studentId,
+          },
+          session: {
+            id: classSessions.id,
+            date: classSessions.date,
+            subjectName: subjects.name,
+          },
+        })
+        .from(attendanceRecords)
+        .leftJoin(students, eq(attendanceRecords.studentId, students.id))
+        .leftJoin(
+          classSessions,
+          eq(attendanceRecords.classSessionId, classSessions.id),
+        )
+        .leftJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+        .leftJoin(subjects, eq(schedules.subjectId, subjects.id));
+
+      const conditions = [];
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        conditions.push(gte(attendanceRecords.createdAt, start));
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        conditions.push(lte(attendanceRecords.createdAt, end));
+      }
+      if (selectedSubjectId) {
+        conditions.push(eq(schedules.subjectId, selectedSubjectId));
+      }
+      if (selectedClassroomId) {
+        conditions.push(eq(schedules.classroomId, selectedClassroomId));
+      }
+      if (scopedFacultyId) {
+        conditions.push(eq(schedules.facultyId, scopedFacultyId));
+      }
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+
+      return query.orderBy(desc(attendanceRecords.createdAt));
+    }
+
+    case "students": {
+      let query = db
+        .select({
+          student: students,
+          enrollmentCount: sql<number>`count(${enrollments.id})`,
+        })
+        .from(students)
+        .leftJoin(enrollments, eq(students.id, enrollments.studentId));
+
+      const conditions = [];
+      if (selectedSubjectId) {
+        conditions.push(eq(enrollments.subjectId, selectedSubjectId));
+      }
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+
+      return query.groupBy(students.id).orderBy(students.name);
+    }
+
+    case "classroom": {
+      let query = db
+        .select({
+          session: classSessions,
+          schedule: {
+            id: schedules.id,
+            subjectId: schedules.subjectId,
+            classroomId: schedules.classroomId,
+          },
+          subject: {
+            code: subjects.code,
+            name: subjects.name,
+          },
+          classroom: {
+            name: classrooms.name,
+            location: classrooms.location,
+          },
+          attendanceCount: sql<number>`count(${attendanceRecords.id})`,
+          presentCount: sql<number>`count(case when ${attendanceRecords.status} = 'present' then 1 end)`,
+        })
+        .from(classSessions)
+        .leftJoin(schedules, eq(classSessions.scheduleId, schedules.id))
+        .leftJoin(subjects, eq(schedules.subjectId, subjects.id))
+        .leftJoin(classrooms, eq(schedules.classroomId, classrooms.id))
+        .leftJoin(
+          attendanceRecords,
+          eq(classSessions.id, attendanceRecords.classSessionId),
+        );
+
+      const conditions = [];
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        conditions.push(gte(classSessions.date, start));
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        conditions.push(lte(classSessions.date, end));
+      }
+      if (selectedSubjectId) {
+        conditions.push(eq(schedules.subjectId, selectedSubjectId));
+      }
+      if (selectedClassroomId) {
+        conditions.push(eq(schedules.classroomId, selectedClassroomId));
+      }
+      if (scopedFacultyId) {
+        conditions.push(eq(schedules.facultyId, scopedFacultyId));
+      }
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+
+      return query
+        .groupBy(classSessions.id, schedules.id, subjects.id, classrooms.id)
+        .orderBy(desc(classSessions.date));
+    }
+  }
 };
 
 const buildPdfBuffer = async (
@@ -958,6 +1173,336 @@ router.get("/templates", requireAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch report templates",
+    });
+  }
+});
+
+// Get normalized report preview rows for the Reports page.
+router.get("/preview", requireAuth, async (req, res) => {
+  try {
+    const isFaculty = req.session?.userRole === "faculty";
+    const facultyUserId = Number(req.session?.userId);
+    const type = String(req.query.type || "attendance") as ReportType;
+
+    if (!["attendance", "students", "classroom"].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid report type",
+      });
+    }
+
+    const limit = Math.min(parsePositiveInt(req.query.limit, 10), 100);
+    const offset = parsePositiveInt(req.query.offset, 0);
+    const data = await loadReportRows({
+      type,
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
+      subjectId: req.query.subjectId as string | undefined,
+      classroomId: req.query.classroomId as string | undefined,
+      isFaculty,
+      facultyUserId,
+    });
+    const total = data.length;
+    const pageData = data.slice(offset, offset + limit);
+    const displayRows = buildDisplayRows(type, pageData);
+    const allDisplayRows = buildDisplayRows(type, data);
+
+    res.json({
+      success: true,
+      data: displayRows,
+      rawData: pageData,
+      total,
+      summary: buildSummary(type, allDisplayRows),
+      columns: displayRows.length > 0 ? Object.keys(displayRows[0]) : [],
+    });
+  } catch (error) {
+    console.error("Get report preview error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch report preview",
+    });
+  }
+});
+
+// Seed realistic local report data so empty development databases are usable.
+router.post("/seed-demo-data", requireAdmin, async (req, res) => {
+  try {
+    if (
+      process.env.NODE_ENV === "production" ||
+      process.env.RAILWAY_ENVIRONMENT
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Demo data seeding is disabled in production environments",
+      });
+    }
+
+    const stats = {
+      subjects: 0,
+      classrooms: 0,
+      students: 0,
+      schedules: 0,
+      sessions: 0,
+      attendanceRecords: 0,
+      enrollments: 0,
+    };
+
+    const [faculty] = await db
+      .select()
+      .from(users)
+      .where(eq(users.role, "faculty"))
+      .limit(1);
+    const [adminUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.role, "admin"))
+      .limit(1);
+    const owner = faculty || adminUser;
+
+    if (!owner) {
+      return res.status(400).json({
+        success: false,
+        message: "Create an admin or faculty account before seeding demo data",
+      });
+    }
+
+    const subjectSeeds = [
+      {
+        code: "DEMO101",
+        name: "Applied Programming",
+        description: "Demo subject for report previews",
+      },
+      {
+        code: "DEMO202",
+        name: "Database Systems",
+        description: "Demo subject for report previews",
+      },
+      {
+        code: "DEMO303",
+        name: "Systems Integration",
+        description: "Demo subject for report previews",
+      },
+    ];
+    const demoSubjects = [];
+    for (const seed of subjectSeeds) {
+      const [existing] = await db
+        .select()
+        .from(subjects)
+        .where(eq(subjects.code, seed.code))
+        .limit(1);
+      if (existing) {
+        demoSubjects.push(existing);
+        continue;
+      }
+      const [created] = await db
+        .insert(subjects)
+        .values({ ...seed, isActive: true })
+        .returning();
+      demoSubjects.push(created);
+      stats.subjects += 1;
+    }
+
+    const classroomSeeds = [
+      { name: "DEMO Lab A", location: "CLIRDEC Building", type: "laboratory" },
+      { name: "DEMO Lab B", location: "CLIRDEC Building", type: "laboratory" },
+    ];
+    const demoClassrooms = [];
+    for (const seed of classroomSeeds) {
+      const [existing] = await db
+        .select()
+        .from(classrooms)
+        .where(eq(classrooms.name, seed.name))
+        .limit(1);
+      if (existing) {
+        demoClassrooms.push(existing);
+        continue;
+      }
+      const [created] = await db
+        .insert(classrooms)
+        .values({ ...seed, capacity: 35, isActive: true })
+        .returning();
+      demoClassrooms.push(created);
+      stats.classrooms += 1;
+    }
+
+    const demoStudents = [];
+    for (let index = 1; index <= 18; index += 1) {
+      const studentId = `DEMO-${String(index).padStart(3, "0")}`;
+      const [existing] = await db
+        .select()
+        .from(students)
+        .where(eq(students.studentId, studentId))
+        .limit(1);
+      if (existing) {
+        demoStudents.push(existing);
+        continue;
+      }
+
+      const [created] = await db
+        .insert(students)
+        .values({
+          studentId,
+          name: `Demo Student ${String(index).padStart(2, "0")}`,
+          email: `demo.student${index}@clirdec.edu`,
+          year: (index % 4) + 1,
+          section: ["A", "B", "C"][index % 3],
+          parentEmail: `guardian${index}@example.com`,
+          parentName: `Guardian ${index}`,
+          isActive: true,
+        })
+        .returning();
+      demoStudents.push(created);
+      stats.students += 1;
+    }
+
+    const demoSchedules = [];
+    for (let index = 0; index < demoSubjects.length; index += 1) {
+      const subject = demoSubjects[index];
+      const classroom = demoClassrooms[index % demoClassrooms.length];
+      const [existing] = await db
+        .select()
+        .from(schedules)
+        .where(
+          and(
+            eq(schedules.subjectId, subject.id),
+            eq(schedules.classroomId, classroom.id),
+            eq(schedules.facultyId, owner.id),
+            eq(schedules.startTime, ["08:00", "10:00", "13:00"][index]),
+          ),
+        )
+        .limit(1);
+      if (existing) {
+        demoSchedules.push(existing);
+        continue;
+      }
+
+      const [created] = await db
+        .insert(schedules)
+        .values({
+          subjectId: subject.id,
+          classroomId: classroom.id,
+          facultyId: owner.id,
+          dayOfWeek: (index + 1) % 7,
+          startTime: ["08:00", "10:00", "13:00"][index],
+          endTime: ["10:00", "12:00", "15:00"][index],
+          semester: "2nd Semester",
+          academicYear: "2025-2026",
+          isRecurring: true,
+          recurrencePattern: "weekly",
+          isActive: true,
+        })
+        .returning();
+      demoSchedules.push(created);
+      stats.schedules += 1;
+    }
+
+    for (const student of demoStudents) {
+      for (const subject of demoSubjects.slice(0, 2)) {
+        const [existingEnrollment] = await db
+          .select()
+          .from(enrollments)
+          .where(
+            and(
+              eq(enrollments.studentId, student.id),
+              eq(enrollments.subjectId, subject.id),
+            ),
+          )
+          .limit(1);
+        if (existingEnrollment) continue;
+
+        await db.insert(enrollments).values({
+          studentId: student.id,
+          subjectId: subject.id,
+          semester: "2nd Semester",
+          academicYear: "2025-2026",
+          isActive: true,
+        });
+        stats.enrollments += 1;
+      }
+    }
+
+    const statuses = ["present", "late", "absent"] as const;
+    for (let dayOffset = 0; dayOffset < 12; dayOffset += 1) {
+      for (let scheduleIndex = 0; scheduleIndex < demoSchedules.length; scheduleIndex += 1) {
+        const schedule = demoSchedules[scheduleIndex];
+        const sessionDate = new Date();
+        sessionDate.setDate(sessionDate.getDate() - dayOffset);
+        sessionDate.setHours(8 + scheduleIndex * 2, 0, 0, 0);
+
+        const [existingSession] = await db
+          .select()
+          .from(classSessions)
+          .where(
+            and(
+              eq(classSessions.scheduleId, schedule.id),
+              eq(classSessions.date, sessionDate),
+            ),
+          )
+          .limit(1);
+        const session =
+          existingSession ||
+          (
+            await db
+              .insert(classSessions)
+              .values({
+                scheduleId: schedule.id,
+                date: sessionDate,
+                status: dayOffset === 0 ? "active" : "completed",
+                isActive: true,
+              })
+              .returning()
+          )[0];
+
+        if (!existingSession) stats.sessions += 1;
+
+        for (const [studentIndex, student] of demoStudents.entries()) {
+          const [existingRecord] = await db
+            .select()
+            .from(attendanceRecords)
+            .where(
+              and(
+                eq(attendanceRecords.studentId, student.id),
+                eq(attendanceRecords.classSessionId, session.id),
+              ),
+            )
+            .limit(1);
+          if (existingRecord) continue;
+
+          const status = statuses[(studentIndex + dayOffset + scheduleIndex) % statuses.length];
+          const entryTime = new Date(sessionDate);
+          entryTime.setMinutes(status === "late" ? 18 : 4);
+          const exitTime = status === "absent" ? null : new Date(entryTime);
+          if (exitTime) exitTime.setHours(exitTime.getHours() + 1, 45, 0, 0);
+
+          await db.insert(attendanceRecords).values({
+            studentId: student.id,
+            classSessionId: session.id,
+            entryTime: status === "absent" ? null : entryTime,
+            exitTime,
+            status,
+            rfidDetected: status !== "absent",
+            sensorDetected: status !== "absent",
+            isValid: status !== "absent",
+            notes: status === "absent" ? "Demo absence record" : null,
+            isActive: true,
+            createdAt: entryTime,
+            updatedAt: entryTime,
+          });
+          stats.attendanceRecords += 1;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Demo report data is ready",
+      data: stats,
+    });
+  } catch (error) {
+    console.error("Seed report demo data error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to seed demo report data",
     });
   }
 });

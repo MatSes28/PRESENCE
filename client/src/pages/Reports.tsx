@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNotifications } from "../components/NotificationSystem";
+import { useAuth } from "../hooks/useAuth";
 
 const getFilenameFromDisposition = (disposition: string | null) => {
   if (!disposition) return null;
@@ -71,16 +72,68 @@ interface ReportParams {
   type: "attendance" | "students" | "classroom";
 }
 
+interface SummaryItem {
+  label: string;
+  value: string;
+}
+
+const reportTypeLabels: Record<ReportParams["type"], string> = {
+  attendance: "Attendance Report",
+  students: "Student Report",
+  classroom: "Classroom Report",
+};
+
+const fallbackPreviewColumns: Record<ReportParams["type"], string[]> = {
+  attendance: [
+    "Student Name",
+    "Student ID",
+    "Subject",
+    "Status",
+    "Entry Time",
+    "Exit Time",
+    "Recorded At",
+  ],
+  students: [
+    "Student Name",
+    "Student ID",
+    "Email",
+    "Program",
+    "Year",
+    "Section",
+    "Active Enrollments",
+    "Status",
+  ],
+  classroom: [
+    "Session ID",
+    "Date",
+    "Status",
+    "Subject",
+    "Class Section",
+    "Attendance Records",
+    "Present",
+    "Presence Rate",
+  ],
+};
+
+const formatDateLabel = (value?: string) => {
+  if (!value) return "Any date";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
 export const Reports = () => {
   const { addNotification } = useNotifications();
+  const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
-  const [previewData, setPreviewData] = useState<any[]>([]);
-  const [statistics, setStatistics] = useState({
-    totalRecords: 0,
-    present: 0,
-    late: 0,
-    absent: 0,
-  });
+  const [seedingDemo, setSeedingDemo] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewData, setPreviewData] = useState<Record<string, string>[]>([]);
+  const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [reportParams, setReportParams] = useState<ReportParams>({
     format: "xlsx",
     type: "attendance",
@@ -105,11 +158,67 @@ export const Reports = () => {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [classrooms, setClassrooms] = useState<any[]>([]);
 
+  const previewColumns =
+    previewData.length > 0
+      ? Object.keys(previewData[0])
+      : fallbackPreviewColumns[reportParams.type];
+  const selectedSubject = subjects.find(
+    (subject) => subject.id === reportParams.subjectId,
+  );
+  const selectedClassroom = classrooms.find(
+    (classroom) => classroom.id === reportParams.classroomId,
+  );
+  const overviewCards = useMemo(
+    () =>
+      summary.length > 0
+        ? summary.slice(0, 4)
+        : [
+            { label: "Rows", value: pagination.total.toLocaleString() },
+            { label: "Preview", value: previewData.length.toLocaleString() },
+            { label: "Format", value: reportParams.format.toUpperCase() },
+            { label: "Auto-refresh", value: autoRefresh ? "On" : "Off" },
+          ],
+    [
+      autoRefresh,
+      pagination.total,
+      previewData.length,
+      reportParams.format,
+      summary,
+    ],
+  );
+  const exportContext = [
+    reportTypeLabels[reportParams.type],
+    `${formatDateLabel(reportParams.startDate)} to ${formatDateLabel(
+      reportParams.endDate,
+    )}`,
+    selectedSubject
+      ? `${selectedSubject.code} - ${selectedSubject.name}`
+      : "All Subjects",
+    selectedClassroom
+      ? `${selectedClassroom.name} - ${selectedClassroom.location}`
+      : "All Sections",
+  ].join(" | ");
+  const exportFormatLabel =
+    reportParams.format === "csv"
+      ? "Raw CSV"
+      : reportParams.format === "xlsx"
+        ? "Styled Excel"
+        : "PDF";
+
   useEffect(() => {
-    loadPreviewData();
     loadRealTimeStats();
     loadFilterOptions();
   }, []);
+
+  useEffect(() => {
+    loadPreviewData(1);
+  }, [
+    reportParams.type,
+    reportParams.startDate,
+    reportParams.endDate,
+    reportParams.subjectId,
+    reportParams.classroomId,
+  ]);
 
   // Auto-refresh effect
   useEffect(() => {
@@ -127,9 +236,11 @@ export const Reports = () => {
   }, [autoRefresh]);
 
   const loadPreviewData = async (page = pagination.page) => {
+    setPreviewLoading(true);
     try {
       const offset = (page - 1) * pagination.limit;
       const queryParams = new URLSearchParams({
+        type: reportParams.type,
         limit: pagination.limit.toString(),
         offset: offset.toString(),
       });
@@ -139,16 +250,17 @@ export const Reports = () => {
         queryParams.set("endDate", reportParams.endDate);
       if (reportParams.subjectId)
         queryParams.set("subjectId", reportParams.subjectId.toString());
+      if (reportParams.classroomId)
+        queryParams.set("classroomId", reportParams.classroomId.toString());
 
-      const response = await fetch(
-        `/api/reports/attendance-records?${queryParams}`,
-        { credentials: "include" },
-      );
+      const response = await fetch(`/api/reports/preview?${queryParams}`, {
+        credentials: "include",
+      });
       const data = await response.json();
 
       if (data.success && Array.isArray(data.data)) {
         setPreviewData(data.data);
-        calculateStatistics(data.data);
+        setSummary(Array.isArray(data.summary) ? data.summary : []);
         setPagination((prev) => ({
           ...prev,
           page,
@@ -156,7 +268,7 @@ export const Reports = () => {
         }));
       } else {
         setPreviewData([]);
-        setStatistics({ totalRecords: 0, present: 0, late: 0, absent: 0 });
+        setSummary([]);
         setPagination((prev) => ({ ...prev, page, total: 0 }));
       }
     } catch (error) {
@@ -167,20 +279,11 @@ export const Reports = () => {
         message: "Failed to load report preview. Please check your connection.",
       });
       setPreviewData([]);
-      setStatistics({ totalRecords: 0, present: 0, late: 0, absent: 0 });
+      setSummary([]);
       setPagination((prev) => ({ ...prev, total: 0 }));
+    } finally {
+      setPreviewLoading(false);
     }
-  };
-
-  const calculateStatistics = (records: any[]) => {
-    if (!Array.isArray(records)) return;
-    const stats = {
-      totalRecords: records.length,
-      present: records.filter((r) => r?.record?.status === "present").length,
-      late: records.filter((r) => r?.record?.status === "late").length,
-      absent: records.filter((r) => r?.record?.status === "absent").length,
-    };
-    setStatistics(stats);
   };
 
   const loadRealTimeStats = async () => {
@@ -308,7 +411,7 @@ export const Reports = () => {
           format === "pdf"
             ? "Your PDF report has been downloaded."
             : format === "xlsx"
-              ? "Your Excel workbook has been downloaded."
+              ? "Your styled Excel workbook has been downloaded."
               : "Your CSV report has been downloaded.",
       });
     } catch (error) {
@@ -326,6 +429,66 @@ export const Reports = () => {
     }
   };
 
+  const handleSeedDemoData = async () => {
+    setSeedingDemo(true);
+    try {
+      const response = await fetch("/api/reports/seed-demo-data", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to seed demo data");
+      }
+
+      await Promise.all([
+        loadFilterOptions(),
+        loadPreviewData(1),
+        loadRealTimeStats(),
+      ]);
+
+      addNotification({
+        type: "success",
+        title: "Demo Data Ready",
+        message:
+          "Reports now have realistic students, sessions, and attendance records.",
+      });
+    } catch (error) {
+      console.error("Failed to seed demo data:", error);
+      addNotification({
+        type: "error",
+        title: "Demo Seed Failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to seed demo report data.",
+      });
+    } finally {
+      setSeedingDemo(false);
+    }
+  };
+
+  const renderStatus = (value: string) => {
+    const normalized = String(value || "").toLowerCase();
+    const tone =
+      normalized === "present" ||
+      normalized === "active" ||
+      normalized === "completed"
+        ? "bg-green-900 text-green-300"
+        : normalized === "late" || normalized === "scheduled"
+          ? "bg-yellow-900 text-yellow-300"
+          : "bg-red-900 text-red-300";
+
+    return (
+      <span
+        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${tone}`}
+      >
+        {value || "Unknown"}
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -336,7 +499,16 @@ export const Reports = () => {
             Generate and download comprehensive attendance reports
           </p>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {user?.role === "admin" && (
+            <button
+              onClick={handleSeedDemoData}
+              disabled={seedingDemo}
+              className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-2 rounded text-sm font-medium"
+            >
+              {seedingDemo ? "Seeding..." : "Seed Demo Data"}
+            </button>
+          )}
           <div className="flex items-center space-x-2">
             <input
               type="checkbox"
@@ -469,6 +641,15 @@ export const Reports = () => {
       {/* Report Filters */}
       <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
         <h4 className="text-lg font-medium text-white mb-4">Report Filters</h4>
+        <div className="mb-4 rounded-md border border-gray-700 bg-gray-900/50 p-3">
+          <p className="text-sm text-gray-300">{exportContext}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Report includes {pagination.total.toLocaleString()} records from{" "}
+            {formatDateLabel(reportParams.startDate)} to{" "}
+            {formatDateLabel(reportParams.endDate)}. Selected export:{" "}
+            {exportFormatLabel}. Previewing {previewData.length.toLocaleString()} rows.
+          </p>
+        </div>
         <div className="space-y-6">
           {/* Date Range */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -678,6 +859,20 @@ export const Reports = () => {
             <div className="flex space-x-2">
               <button
                 onClick={() => {
+                  setReportParams((p) => ({ ...p, format: "csv" }));
+                  handleGenerateReport("csv");
+                }}
+                disabled={generating}
+                className={`px-4 py-2 rounded text-sm font-medium ${
+                  reportParams.format === "csv"
+                    ? "bg-cyan-600 text-white"
+                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                }`}
+              >
+                Raw CSV
+              </button>
+              <button
+                onClick={() => {
                   setReportParams((p) => ({ ...p, format: "xlsx" }));
                   handleGenerateReport("xlsx");
                 }}
@@ -688,7 +883,7 @@ export const Reports = () => {
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                 }`}
               >
-                Excel Workbook
+                Styled Excel
               </button>
               <button
                 onClick={() => {
@@ -706,6 +901,14 @@ export const Reports = () => {
               </button>
             </div>
           </div>
+          {pagination.total === 0 && !previewLoading && (
+            <div className="rounded-md border border-yellow-800 bg-yellow-950/40 p-4 text-sm text-yellow-100">
+              No rows match these filters yet. Seed demo data or adjust the date,
+              subject, or class section before exporting.
+              {reportParams.type === "attendance" &&
+                " Try All Subjects or a wider date range if you expected attendance records."}
+            </div>
+          )}
         </div>
       </div>
 
@@ -718,7 +921,8 @@ export const Reports = () => {
                 Live Report Preview
               </h4>
               <p className="text-sm text-gray-300">
-                Real-time attendance data with {statistics.totalRecords} records
+                {reportTypeLabels[reportParams.type]} with{" "}
+                {pagination.total.toLocaleString()} matching rows
                 {autoRefresh && (
                   <span className="ml-2 text-cyan-400">• Auto-refreshing</span>
                 )}
@@ -741,90 +945,53 @@ export const Reports = () => {
           <table className="min-w-full divide-y divide-gray-700">
             <thead className="bg-gray-900">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Student
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Student ID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Check-in
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Check-out
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Duration
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Status
-                </th>
+                {previewColumns.map((column) => (
+                  <th
+                    key={column}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
+                  >
+                    {column}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="bg-gray-800 divide-y divide-gray-700">
-              {previewData.map((record, index) => (
-                <tr key={record?.record?.id ?? index}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                    {record?.student?.name ?? "—"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {record?.student?.studentId ?? "—"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {record?.record?.entryTime
-                      ? new Date(record.record.entryTime).toLocaleTimeString(
-                          [],
-                          {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          },
-                        )
-                      : "—"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {record?.record?.exitTime
-                      ? new Date(record.record.exitTime).toLocaleTimeString(
-                          [],
-                          {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          },
-                        )
-                      : "—"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                    {record?.record?.entryTime && record?.record?.exitTime
-                      ? (() => {
-                          const entry = new Date(record.record.entryTime);
-                          const exit = new Date(record.record.exitTime);
-                          const diffMs = exit.getTime() - entry.getTime();
-                          const hours = Math.floor(diffMs / (1000 * 60 * 60));
-                          const minutes = Math.floor(
-                            (diffMs % (1000 * 60 * 60)) / (1000 * 60),
-                          );
-                          return `${hours}h ${minutes}m`;
-                        })()
-                      : "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        record?.record?.status === "present"
-                          ? "bg-green-900 text-green-300"
-                          : record?.record?.status === "late"
-                            ? "bg-yellow-900 text-yellow-300"
-                            : "bg-red-900 text-red-300"
-                      }`}
-                    >
-                      {record?.record?.status === "present"
-                        ? "Present"
-                        : record?.record?.status === "late"
-                          ? "Late"
-                          : "Absent"}
-                    </span>
+              {previewLoading ? (
+                <tr>
+                  <td
+                    colSpan={previewColumns.length}
+                    className="px-6 py-10 text-center text-sm text-gray-400"
+                  >
+                    Loading preview...
                   </td>
                 </tr>
-              ))}
+              ) : previewData.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={previewColumns.length}
+                    className="px-6 py-10 text-center text-sm text-gray-400"
+                  >
+                    No preview rows available for the selected filters.
+                  </td>
+                </tr>
+              ) : (
+                previewData.map((record, index) => (
+                  <tr
+                    key={`${record["Session ID"] || record["Student ID"] || "row"}-${index}`}
+                  >
+                    {previewColumns.map((column) => (
+                      <td
+                        key={column}
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-300"
+                      >
+                        {column === "Status"
+                          ? renderStatus(record[column])
+                          : record[column] || "-"}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -874,101 +1041,46 @@ export const Reports = () => {
 
       {/* Summary Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-white">
-              {statistics.totalRecords.toLocaleString()}
-            </div>
-            <div className="text-sm text-gray-400">Total Records</div>
-            <div className="text-xs text-gray-500 mt-1">Preview Data</div>
-          </div>
-        </div>
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-400">
-              {statistics.present.toLocaleString()}
-            </div>
-            <div className="text-sm text-gray-400">Present</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {statistics.totalRecords > 0
-                ? `${(
-                    (statistics.present / statistics.totalRecords) *
-                    100
-                  ).toFixed(1)}%`
-                : "0%"}
+        {overviewCards.map((item) => (
+          <div
+            key={item.label}
+            className="bg-gray-800 rounded-lg p-4 border border-gray-700"
+          >
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white">{item.value}</div>
+              <div className="text-sm text-gray-400">{item.label}</div>
+              <div className="text-xs text-gray-500 mt-1">
+                Selected filters
+              </div>
             </div>
           </div>
-        </div>
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-yellow-400">
-              {statistics.late.toLocaleString()}
-            </div>
-            <div className="text-sm text-gray-400">Late</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {statistics.totalRecords > 0
-                ? `${(
-                    (statistics.late / statistics.totalRecords) *
-                    100
-                  ).toFixed(1)}%`
-                : "0%"}
-            </div>
-          </div>
-        </div>
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-red-400">
-              {statistics.absent.toLocaleString()}
-            </div>
-            <div className="text-sm text-gray-400">Absent</div>
-            <div className="text-xs text-gray-500 mt-1">
-              {statistics.totalRecords > 0
-                ? `${(
-                    (statistics.absent / statistics.totalRecords) *
-                    100
-                  ).toFixed(1)}%`
-                : "0%"}
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Attendance Rate Trend */}
       <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
         <h4 className="text-lg font-medium text-white mb-4">
-          Attendance Overview
+          Export Guide
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-cyan-400 mb-2">
-              {statistics.totalRecords > 0
-                ? `${(
-                    ((statistics.present + statistics.late) /
-                      statistics.totalRecords) *
-                    100
-                  ).toFixed(1)}%`
-                : "0%"}
-            </div>
-            <div className="text-sm text-gray-400">Overall Attendance Rate</div>
-            <div className="text-xs text-gray-500 mt-1">
-              Present + Late / Total
+          <div>
+            <div className="text-sm font-medium text-white mb-1">Raw CSV</div>
+            <div className="text-sm text-gray-400">
+              Plain data for imports, scripts, and database checks.
             </div>
           </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-green-400 mb-2">
-              {realTimeStats.todayPresent + realTimeStats.todayLate}
+          <div>
+            <div className="text-sm font-medium text-white mb-1">
+              Styled Excel
             </div>
-            <div className="text-sm text-gray-400">Today's Active Students</div>
-            <div className="text-xs text-gray-500 mt-1">
-              Present + Late Today
+            <div className="text-sm text-gray-400">
+              Formatted spreadsheet with borders, filters, and summary rows.
             </div>
           </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-blue-400 mb-2">
-              {realTimeStats.activeSessions}
+          <div>
+            <div className="text-sm font-medium text-white mb-1">PDF</div>
+            <div className="text-sm text-gray-400">
+              Print-ready summary for sharing and filing.
             </div>
-            <div className="text-sm text-gray-400">Active Sessions</div>
-            <div className="text-xs text-gray-500 mt-1">Currently Running</div>
           </div>
         </div>
       </div>
