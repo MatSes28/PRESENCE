@@ -2949,18 +2949,31 @@ router.get("/history", requireAuth, async (req, res) => {
       }
     }
 
+    let countQuery = db
+      .select({ total: sql<number>`count(*)` })
+      .from(reportHistory)
+      .leftJoin(users, eq(reportHistory.generatedBy, users.id));
+
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      const whereClause = and(...conditions);
+      query = query.where(whereClause);
+      countQuery = countQuery.where(whereClause);
     }
+
+    const limitValue = Math.max(1, parseInt(limit as string, 10) || 10);
+    const offsetValue = Math.max(0, parseInt(offset as string, 10) || 0);
+
+    const [{ total = 0 } = { total: 0 }] = await countQuery;
 
     const history = await query
       .orderBy(desc(reportHistory.generatedAt))
-      .limit(parseInt(limit as string))
-      .offset(parseInt(offset as string));
+      .limit(limitValue)
+      .offset(offsetValue);
 
     res.json({
       success: true,
       data: history,
+      total: Number(total || 0),
     });
   } catch (error) {
     console.error("Get report history error:", error);

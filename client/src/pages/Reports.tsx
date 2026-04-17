@@ -371,6 +371,11 @@ export const Reports = () => {
   const [reportHistory, setReportHistory] = useState<ReportHistoryItem[]>([]);
   const [reportHistoryFilters, setReportHistoryFilters] =
     useState<ReportHistoryFilters>(emptyReportHistoryFilters);
+  const [reportHistoryPagination, setReportHistoryPagination] = useState({
+    page: 1,
+    limit: 25,
+    total: 0,
+  });
   const [selectedHistoryItem, setSelectedHistoryItem] =
     useState<ReportHistoryItem | null>(null);
   const [reportPresets, setReportPresets] = useState<ReportPresetItem[]>([]);
@@ -493,6 +498,18 @@ export const Reports = () => {
       ? `${user.name} (${user.email})`
       : user?.name || user?.email || "Current user";
   const printTimestampLabel = formatDateTimeLabel(lastUpdated.toISOString());
+  const reportHistoryPageCount = Math.max(
+    1,
+    Math.ceil(reportHistoryPagination.total / reportHistoryPagination.limit),
+  );
+  const reportHistoryStart =
+    reportHistoryPagination.total === 0
+      ? 0
+      : (reportHistoryPagination.page - 1) * reportHistoryPagination.limit + 1;
+  const reportHistoryEnd = Math.min(
+    reportHistoryPagination.page * reportHistoryPagination.limit,
+    reportHistoryPagination.total,
+  );
 
   useEffect(() => {
     loadRealTimeStats();
@@ -608,9 +625,14 @@ export const Reports = () => {
 
   const loadReportHistory = async (
     filters: ReportHistoryFilters = reportHistoryFilters,
+    page = reportHistoryPagination.page,
   ) => {
     try {
-      const queryParams = new URLSearchParams({ limit: "25" });
+      const offset = (page - 1) * reportHistoryPagination.limit;
+      const queryParams = new URLSearchParams({
+        limit: reportHistoryPagination.limit.toString(),
+        offset: offset.toString(),
+      });
       if (filters.type) queryParams.set("type", filters.type);
       if (filters.format) queryParams.set("format", filters.format);
       if (filters.source) queryParams.set("source", filters.source);
@@ -626,15 +648,25 @@ export const Reports = () => {
       });
       const data = await response.json();
       setReportHistory(data.success && Array.isArray(data.data) ? data.data : []);
+      setReportHistoryPagination((prev) => ({
+        ...prev,
+        page,
+        total: data.success ? Number(data.total || 0) : 0,
+      }));
     } catch (error) {
       console.error("Failed to load report history:", error);
       setReportHistory([]);
+      setReportHistoryPagination((prev) => ({
+        ...prev,
+        page,
+        total: 0,
+      }));
     }
   };
 
   const resetReportHistoryFilters = () => {
     setReportHistoryFilters(emptyReportHistoryFilters);
-    loadReportHistory(emptyReportHistoryFilters);
+    loadReportHistory(emptyReportHistoryFilters, 1);
   };
 
   const loadReportPresets = async () => {
@@ -2438,11 +2470,17 @@ export const Reports = () => {
           <div>
             <h4 className="text-lg font-medium text-white">Report History</h4>
             <p className="text-sm text-gray-400">
-              Last 25 matching reports with filters, format, owner, and row count.
+              {reportHistoryPagination.total.toLocaleString()} matching reports
+              with filters, format, owner, and row count.
             </p>
           </div>
           <button
-            onClick={() => loadReportHistory()}
+            onClick={() =>
+              loadReportHistory(
+                reportHistoryFilters,
+                reportHistoryPagination.page,
+              )
+            }
             className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
           >
             Refresh
@@ -2460,7 +2498,7 @@ export const Reports = () => {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => loadReportHistory()}
+                onClick={() => loadReportHistory(reportHistoryFilters, 1)}
                 className="rounded bg-cyan-600 px-3 py-2 text-xs font-medium text-white hover:bg-cyan-700"
               >
                 Apply Filters
@@ -2663,7 +2701,7 @@ export const Reports = () => {
               {reportHistory.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
-                    No reports have been generated yet.
+                    No reports match the current history filters.
                   </td>
                 </tr>
               ) : (
@@ -2720,6 +2758,42 @@ export const Reports = () => {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mt-4 flex flex-col gap-3 border-t border-gray-700 pt-4 text-sm text-gray-400 md:flex-row md:items-center md:justify-between">
+          <div>
+            Showing {reportHistoryStart.toLocaleString()} to{" "}
+            {reportHistoryEnd.toLocaleString()} of{" "}
+            {reportHistoryPagination.total.toLocaleString()} matching reports
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() =>
+                loadReportHistory(
+                  reportHistoryFilters,
+                  reportHistoryPagination.page - 1,
+                )
+              }
+              disabled={reportHistoryPagination.page <= 1}
+              className="rounded bg-gray-700 px-3 py-1 text-sm text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+            >
+              Previous
+            </button>
+            <span>
+              Page {reportHistoryPagination.page} of {reportHistoryPageCount}
+            </span>
+            <button
+              onClick={() =>
+                loadReportHistory(
+                  reportHistoryFilters,
+                  reportHistoryPagination.page + 1,
+                )
+              }
+              disabled={reportHistoryPagination.page >= reportHistoryPageCount}
+              className="rounded bg-gray-700 px-3 py-1 text-sm text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 
