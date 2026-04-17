@@ -2479,6 +2479,7 @@ router.post("/generate-report", requireAuth, async (req, res) => {
       quickReportType,
       columns,
       emailToMe,
+      source,
     } = req.body;
 
     if (!type) {
@@ -2720,6 +2721,14 @@ router.post("/generate-report", requireAuth, async (req, res) => {
       startDate,
       endDate,
     );
+    const historySource =
+      source === "download-again"
+        ? "download-again"
+        : emailToMe
+          ? "email"
+          : quickLabel
+            ? "quick"
+            : "manual";
     const historyParameters = {
       type,
       format: normalizeReportFormat(format),
@@ -2731,6 +2740,8 @@ router.post("/generate-report", requireAuth, async (req, res) => {
       classroomLabel,
       columns: Array.isArray(columns) ? columns : undefined,
       scope: isFaculty ? "assigned schedules" : "all accessible schedules",
+      source: historySource,
+      quickReportType: quickLabel || undefined,
     };
     const artifact = await buildReportArtifact({
       type,

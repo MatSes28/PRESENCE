@@ -79,6 +79,7 @@ interface ReportDownloadPayload extends ReportParams {
   quickReportType?: "daily" | "weekly" | "analytics";
   columns?: string[];
   emailToMe?: boolean;
+  source?: "manual" | "email" | "quick" | "scheduled" | "download-again";
 }
 
 interface SummaryItem {
@@ -110,6 +111,7 @@ interface ReportHistoryItem {
   status: string;
   recordCount: number;
   filePath?: string;
+  errorMessage?: string | null;
   parameters?: {
     type?: ReportParams["type"];
     format?: string;
@@ -121,6 +123,10 @@ interface ReportHistoryItem {
     classroomId?: number;
     columns?: string[];
     scope?: string;
+    source?: string;
+    scheduleId?: number;
+    scheduleName?: string;
+    quickReportType?: string;
   };
 }
 
@@ -181,6 +187,13 @@ const dayNames = [
   "Friday",
   "Saturday",
 ];
+
+const toTitle = (value: string) =>
+  value
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 
 const fallbackPreviewColumns: Record<ReportParams["type"], string[]> = {
   attendance: [
@@ -284,6 +297,42 @@ const formatScheduleCadence = (schedule: ReportScheduleItem) => {
   return `Monthly on day ${schedule.dayOfMonth ?? 1} at ${schedule.timeOfDay}`;
 };
 
+const formatHistorySource = (item: ReportHistoryItem) => {
+  const source =
+    item.parameters?.source ||
+    (item.parameters?.quickReportType ? "quick" : "manual");
+  const labels: Record<string, string> = {
+    manual: "Manual export",
+    email: "Email export",
+    quick: "Quick report",
+    scheduled: "Scheduled report",
+    "download-again": "Download again",
+  };
+
+  return labels[source] || toTitle(source);
+};
+
+const getHistoryReportType = (item: ReportHistoryItem) => {
+  const type =
+    item.parameters?.type === "attendance" ||
+    item.parameters?.type === "students" ||
+    item.parameters?.type === "classroom"
+      ? item.parameters.type
+      : (item.reportType as ReportParams["type"]);
+
+  return reportTypeLabels[type] || toTitle(item.reportType);
+};
+
+const getHistoryFormat = (item: ReportHistoryItem) =>
+  (
+    item.parameters?.format ||
+    item.filePath?.split(".").pop() ||
+    "unknown"
+  ).toUpperCase();
+
+const getHistoryFilename = (item: ReportHistoryItem) =>
+  item.filePath?.split(/[\\/]/).pop() || "Not recorded";
+
 export const Reports = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
@@ -294,6 +343,8 @@ export const Reports = () => {
   const [previewData, setPreviewData] = useState<Record<string, string>[]>([]);
   const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [reportHistory, setReportHistory] = useState<ReportHistoryItem[]>([]);
+  const [selectedHistoryItem, setSelectedHistoryItem] =
+    useState<ReportHistoryItem | null>(null);
   const [reportPresets, setReportPresets] = useState<ReportPresetItem[]>([]);
   const [reportSchedules, setReportSchedules] = useState<ReportScheduleItem[]>(
     [],
@@ -317,6 +368,9 @@ export const Reports = () => {
   const [scheduleActive, setScheduleActive] = useState(true);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [updatingScheduleId, setUpdatingScheduleId] = useState<number | null>(
+    null,
+  );
+  const [runningScheduleId, setRunningScheduleId] = useState<number | null>(
     null,
   );
   const [deletingScheduleId, setDeletingScheduleId] = useState<number | null>(
@@ -634,6 +688,7 @@ export const Reports = () => {
           startDate,
           endDate,
           quickReportType: type,
+          source: "quick",
         },
         downloadName,
       );
@@ -685,11 +740,12 @@ export const Reports = () => {
 
     setGenerating(true);
     try {
-      const payload = {
+      const payload: ReportDownloadPayload = {
         ...reportParams,
         format,
         columns: selectedExportColumns,
         emailToMe: emailReport,
+        source: emailReport ? "email" : "manual",
       };
       const result = await triggerReportDownload(payload);
       if (emailReport && result?.success === false) {
@@ -1046,6 +1102,44 @@ export const Reports = () => {
     }
   };
 
+  const handleRunScheduleNow = async (schedule: ReportScheduleItem) => {
+    setRunningScheduleId(schedule.id);
+    try {
+      const response = await fetch(
+        `/api/reports/schedules/${schedule.id}/trigger`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to run report schedule");
+      }
+
+      await Promise.all([loadReportSchedules(), loadReportHistory()]);
+      addNotification({
+        type: "success",
+        title: "Schedule Ran",
+        message: `${schedule.name} generated and emailed a report.`,
+      });
+    } catch (error) {
+      console.error("Failed to run report schedule:", error);
+      await loadReportSchedules();
+      addNotification({
+        type: "error",
+        title: "Run Now Failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to run this report schedule.",
+      });
+    } finally {
+      setRunningScheduleId(null);
+    }
+  };
+
   const handleDeleteSchedule = async (schedule: ReportScheduleItem) => {
     setDeletingScheduleId(schedule.id);
     try {
@@ -1106,6 +1200,7 @@ export const Reports = () => {
           classroomId: item.parameters?.classroomId,
           columns: item.parameters?.columns,
           emailToMe: false,
+          source: "download-again",
         },
         `${type}_report`,
       );
@@ -1693,9 +1788,25 @@ export const Reports = () => {
                               ? schedule.lastStatus || "scheduled"
                               : "inactive",
                           )}
+                          {schedule.lastError && (
+                            <div className="mt-1 max-w-xs text-xs text-red-300">
+                              {schedule.lastError}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-300">
                           <div className="flex gap-2">
+                            {user?.role === "admin" && (
+                              <button
+                                onClick={() => handleRunScheduleNow(schedule)}
+                                disabled={runningScheduleId === schedule.id}
+                                className="bg-cyan-700 hover:bg-cyan-600 disabled:bg-cyan-900 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
+                              >
+                                {runningScheduleId === schedule.id
+                                  ? "Running..."
+                                  : "Run Now"}
+                              </button>
+                            )}
                             <button
                               onClick={() => handleToggleSchedule(schedule)}
                               disabled={updatingScheduleId === schedule.id}
@@ -2310,6 +2421,9 @@ export const Reports = () => {
                   <tr key={item.id}>
                     <td className="px-4 py-3 text-sm text-white capitalize">
                       {item.reportType}
+                      <div className="text-xs text-gray-500">
+                        {formatHistorySource(item)}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-300">
                       {[
@@ -2333,15 +2447,23 @@ export const Reports = () => {
                       {Number(item.recordCount || 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-300">
-                      <button
-                        onClick={() => handleDownloadHistoryReport(item)}
-                        disabled={downloadingHistoryId === item.id}
-                        className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
-                      >
-                        {downloadingHistoryId === item.id
-                          ? "Downloading..."
-                          : "Download Again"}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setSelectedHistoryItem(item)}
+                          className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
+                        >
+                          Details
+                        </button>
+                        <button
+                          onClick={() => handleDownloadHistoryReport(item)}
+                          disabled={downloadingHistoryId === item.id}
+                          className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
+                        >
+                          {downloadingHistoryId === item.id
+                            ? "Downloading..."
+                            : "Download Again"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -2350,6 +2472,208 @@ export const Reports = () => {
           </table>
         </div>
       </div>
+
+      {selectedHistoryItem && (
+        <div
+          className="screen-only fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="report-history-details-title"
+          onClick={() => setSelectedHistoryItem(null)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-gray-700 p-5">
+              <div>
+                <h4
+                  id="report-history-details-title"
+                  className="text-lg font-semibold text-white"
+                >
+                  Report History Details
+                </h4>
+                <p className="mt-1 text-sm text-gray-400">
+                  Audit details for report #{selectedHistoryItem.id}.
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedHistoryItem(null)}
+                className="rounded bg-gray-700 px-3 py-1 text-sm font-medium text-white hover:bg-gray-600"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-5 p-5">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {[
+                  {
+                    label: "Report Type",
+                    value: getHistoryReportType(selectedHistoryItem),
+                  },
+                  {
+                    label: "Format",
+                    value: getHistoryFormat(selectedHistoryItem),
+                  },
+                  {
+                    label: "Source",
+                    value: formatHistorySource(selectedHistoryItem),
+                  },
+                  {
+                    label: "Generated",
+                    value: formatDateTimeLabel(selectedHistoryItem.generatedAt),
+                  },
+                  {
+                    label: "Generated By",
+                    value:
+                      selectedHistoryItem.generatedBy?.name ||
+                      selectedHistoryItem.generatedBy?.email ||
+                      "Unknown",
+                  },
+                  {
+                    label: "Records",
+                    value: Number(
+                      selectedHistoryItem.recordCount || 0,
+                    ).toLocaleString(),
+                  },
+                ].map((detail) => (
+                  <div
+                    key={detail.label}
+                    className="rounded border border-gray-700 bg-gray-900/50 p-3"
+                  >
+                    <div className="text-xs font-medium uppercase text-gray-500">
+                      {detail.label}
+                    </div>
+                    <div className="mt-1 text-sm font-medium text-gray-100">
+                      {detail.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="rounded border border-gray-700 bg-gray-900/40 p-4">
+                  <h5 className="text-sm font-medium text-white">
+                    Saved Filters
+                  </h5>
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-gray-500">Date range</dt>
+                      <dd className="text-right text-gray-200">
+                        {selectedHistoryItem.parameters?.startDate &&
+                        selectedHistoryItem.parameters?.endDate
+                          ? `${formatDateLabel(
+                              selectedHistoryItem.parameters.startDate,
+                            )} to ${formatDateLabel(
+                              selectedHistoryItem.parameters.endDate,
+                            )}`
+                          : "All Dates"}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-gray-500">Subject</dt>
+                      <dd className="text-right text-gray-200">
+                        {selectedHistoryItem.parameters?.subjectLabel ||
+                          "All Subjects"}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-gray-500">Class section</dt>
+                      <dd className="text-right text-gray-200">
+                        {selectedHistoryItem.parameters?.classroomLabel ||
+                          "All Sections"}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-gray-500">Scope</dt>
+                      <dd className="text-right text-gray-200">
+                        {selectedHistoryItem.parameters?.scope ||
+                          (selectedHistoryItem.generatedBy?.id
+                            ? "User-accessible records"
+                            : "Not recorded")}
+                      </dd>
+                    </div>
+                    {selectedHistoryItem.parameters?.scheduleName && (
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-gray-500">Schedule</dt>
+                        <dd className="text-right text-gray-200">
+                          {selectedHistoryItem.parameters.scheduleName}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+
+                <div className="rounded border border-gray-700 bg-gray-900/40 p-4">
+                  <h5 className="text-sm font-medium text-white">
+                    File and Status
+                  </h5>
+                  <dl className="mt-3 space-y-2 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-gray-500">Status</dt>
+                      <dd>{renderStatus(selectedHistoryItem.status)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-gray-500">Filename</dt>
+                      <dd className="text-right text-gray-200">
+                        {getHistoryFilename(selectedHistoryItem)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500">Stored path</dt>
+                      <dd className="mt-1 break-all rounded bg-gray-950 p-2 text-xs text-gray-300">
+                        {selectedHistoryItem.filePath || "Not recorded"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500">Status note</dt>
+                      <dd className="mt-1 rounded bg-gray-950 p-2 text-xs text-gray-300">
+                        {selectedHistoryItem.errorMessage ||
+                          "No error or status note recorded."}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+
+              <div className="rounded border border-gray-700 bg-gray-900/40 p-4">
+                <h5 className="text-sm font-medium text-white">
+                  Selected Columns
+                </h5>
+                {selectedHistoryItem.parameters?.columns?.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedHistoryItem.parameters.columns.map((column) => (
+                      <span
+                        key={column}
+                        className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300"
+                      >
+                        {column}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-gray-400">
+                    No custom column list was recorded for this report.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => handleDownloadHistoryReport(selectedHistoryItem)}
+                  disabled={downloadingHistoryId === selectedHistoryItem.id}
+                  className="rounded bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:bg-cyan-800"
+                >
+                  {downloadingHistoryId === selectedHistoryItem.id
+                    ? "Downloading..."
+                    : "Download Again"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="screen-only bg-gray-800 rounded-lg p-4 border border-gray-700">
         <h4 className="text-lg font-medium text-white mb-4">
