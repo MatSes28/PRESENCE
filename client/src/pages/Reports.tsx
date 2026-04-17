@@ -126,6 +126,7 @@ interface ReportHistoryItem {
 
 type ReportDatePreset = "today" | "week" | "month" | "custom";
 type ReportPresetVisibility = "personal" | "shared" | "admin";
+type ReportScheduleFrequency = "daily" | "weekly" | "monthly";
 
 interface ReportPresetParameters extends ReportParams {
   datePreset?: ReportDatePreset;
@@ -141,11 +142,45 @@ interface ReportPresetItem {
   parameters: ReportPresetParameters;
 }
 
+interface ReportScheduleItem {
+  id: number;
+  name: string;
+  presetId: string;
+  presetName: string;
+  createdBy?: number;
+  owner?: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  frequency: ReportScheduleFrequency;
+  dayOfWeek?: number | null;
+  dayOfMonth?: number | null;
+  timeOfDay: string;
+  format: ReportParams["format"];
+  recipientEmail: string;
+  isActive: boolean;
+  lastRunAt?: string | null;
+  nextRunAt: string;
+  lastStatus: string;
+  lastError?: string | null;
+}
+
 const reportTypeLabels: Record<ReportParams["type"], string> = {
   attendance: "Attendance Report",
   students: "Student Report",
   classroom: "Classroom Report",
 };
+
+const dayNames = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 const fallbackPreviewColumns: Record<ReportParams["type"], string[]> = {
   attendance: [
@@ -224,6 +259,31 @@ const getDateRangeForPreset = (preset: ReportDatePreset) => {
   return {};
 };
 
+const formatDateTimeLabel = (value?: string | null) => {
+  if (!value) return "Not run yet";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+const formatScheduleCadence = (schedule: ReportScheduleItem) => {
+  if (schedule.frequency === "daily") {
+    return `Daily at ${schedule.timeOfDay}`;
+  }
+
+  if (schedule.frequency === "weekly") {
+    return `${dayNames[schedule.dayOfWeek ?? 1]} at ${schedule.timeOfDay}`;
+  }
+
+  return `Monthly on day ${schedule.dayOfMonth ?? 1} at ${schedule.timeOfDay}`;
+};
+
 export const Reports = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
@@ -235,12 +295,33 @@ export const Reports = () => {
   const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [reportHistory, setReportHistory] = useState<ReportHistoryItem[]>([]);
   const [reportPresets, setReportPresets] = useState<ReportPresetItem[]>([]);
+  const [reportSchedules, setReportSchedules] = useState<ReportScheduleItem[]>(
+    [],
+  );
   const [presetName, setPresetName] = useState("");
   const [presetVisibility, setPresetVisibility] =
     useState<ReportPresetVisibility>("personal");
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [savingPreset, setSavingPreset] = useState(false);
   const [deletingPresetId, setDeletingPresetId] = useState<string | null>(null);
+  const [schedulePresetId, setSchedulePresetId] = useState("");
+  const [scheduleName, setScheduleName] = useState("");
+  const [scheduleFrequency, setScheduleFrequency] =
+    useState<ReportScheduleFrequency>("weekly");
+  const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(1);
+  const [scheduleDayOfMonth, setScheduleDayOfMonth] = useState(1);
+  const [scheduleTime, setScheduleTime] = useState("08:00");
+  const [scheduleFormat, setScheduleFormat] =
+    useState<ReportParams["format"]>("xlsx");
+  const [scheduleRecipient, setScheduleRecipient] = useState(user?.email || "");
+  const [scheduleActive, setScheduleActive] = useState(true);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [updatingScheduleId, setUpdatingScheduleId] = useState<number | null>(
+    null,
+  );
+  const [deletingScheduleId, setDeletingScheduleId] = useState<number | null>(
+    null,
+  );
   const [downloadingHistoryId, setDownloadingHistoryId] = useState<
     number | null
   >(null);
@@ -331,7 +412,14 @@ export const Reports = () => {
     loadFilterOptions();
     loadReportHistory();
     loadReportPresets();
+    loadReportSchedules();
   }, []);
+
+  useEffect(() => {
+    if (!scheduleRecipient && user?.email) {
+      setScheduleRecipient(user.email);
+    }
+  }, [scheduleRecipient, user?.email]);
 
   useEffect(() => {
     setSelectedColumns([]);
@@ -443,6 +531,21 @@ export const Reports = () => {
     } catch (error) {
       console.error("Failed to load report presets:", error);
       setReportPresets([]);
+    }
+  };
+
+  const loadReportSchedules = async () => {
+    try {
+      const response = await fetch("/api/reports/schedules", {
+        credentials: "include",
+      });
+      const data = await response.json();
+      setReportSchedules(
+        data.success && Array.isArray(data.data) ? data.data : [],
+      );
+    } catch (error) {
+      console.error("Failed to load report schedules:", error);
+      setReportSchedules([]);
     }
   };
 
@@ -774,6 +877,11 @@ export const Reports = () => {
       classroomId: preset.parameters.classroomId,
     });
     setSelectedColumns(preset.parameters.columns || []);
+    setSchedulePresetId(presetId);
+    setScheduleFormat(preset.parameters.format);
+    if (!scheduleName) {
+      setScheduleName(`${preset.name} Schedule`);
+    }
     addNotification({
       type: "success",
       title: "Preset Loaded",
@@ -818,6 +926,152 @@ export const Reports = () => {
       });
     } finally {
       setDeletingPresetId(null);
+    }
+  };
+
+  const handleCreateSchedule = async () => {
+    const preset = reportPresets.find(
+      (item) => String(item.id) === schedulePresetId,
+    );
+    const trimmedName = scheduleName.trim();
+    const trimmedRecipient = scheduleRecipient.trim();
+
+    if (!preset) {
+      addNotification({
+        type: "warning",
+        title: "Preset Required",
+        message: "Choose the preset this schedule should send.",
+      });
+      return;
+    }
+
+    if (!trimmedName) {
+      addNotification({
+        type: "warning",
+        title: "Schedule Name Required",
+        message: "Name this scheduled report before saving it.",
+      });
+      return;
+    }
+
+    if (!trimmedRecipient) {
+      addNotification({
+        type: "warning",
+        title: "Recipient Required",
+        message: "Add the email address that should receive this report.",
+      });
+      return;
+    }
+
+    setSavingSchedule(true);
+    try {
+      const response = await fetch("/api/reports/schedules", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: trimmedName,
+          presetId: String(preset.id),
+          presetName: preset.name,
+          frequency: scheduleFrequency,
+          dayOfWeek: scheduleDayOfWeek,
+          dayOfMonth: scheduleDayOfMonth,
+          timeOfDay: scheduleTime,
+          format: scheduleFormat,
+          recipientEmail: trimmedRecipient,
+          isActive: scheduleActive,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to save report schedule");
+      }
+
+      setScheduleName("");
+      await loadReportSchedules();
+      addNotification({
+        type: "success",
+        title: "Schedule Saved",
+        message: `${trimmedName} will send automatically.`,
+      });
+    } catch (error) {
+      console.error("Failed to save report schedule:", error);
+      addNotification({
+        type: "error",
+        title: "Schedule Save Failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to save report schedule.",
+      });
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const handleToggleSchedule = async (schedule: ReportScheduleItem) => {
+    setUpdatingScheduleId(schedule.id);
+    try {
+      const response = await fetch(`/api/reports/schedules/${schedule.id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !schedule.isActive }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to update report schedule");
+      }
+
+      await loadReportSchedules();
+    } catch (error) {
+      console.error("Failed to update report schedule:", error);
+      addNotification({
+        type: "error",
+        title: "Schedule Update Failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to update report schedule.",
+      });
+    } finally {
+      setUpdatingScheduleId(null);
+    }
+  };
+
+  const handleDeleteSchedule = async (schedule: ReportScheduleItem) => {
+    setDeletingScheduleId(schedule.id);
+    try {
+      const response = await fetch(`/api/reports/schedules/${schedule.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to delete report schedule");
+      }
+
+      await loadReportSchedules();
+      addNotification({
+        type: "success",
+        title: "Schedule Deleted",
+        message: `${schedule.name} has been removed.`,
+      });
+    } catch (error) {
+      console.error("Failed to delete report schedule:", error);
+      addNotification({
+        type: "error",
+        title: "Schedule Delete Failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete report schedule.",
+      });
+    } finally {
+      setDeletingScheduleId(null);
     }
   };
 
@@ -1163,6 +1417,307 @@ export const Reports = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-gray-700 bg-gray-900/40 p-4">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
+              <div>
+                <h5 className="text-sm font-medium text-white">
+                  Scheduled Reports
+                </h5>
+                <p className="text-xs text-gray-400">
+                  Send a saved preset automatically by email.
+                </p>
+              </div>
+              <button
+                onClick={loadReportSchedules}
+                className="self-start bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
+              >
+                Refresh Schedules
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-6 gap-3 mb-5">
+              <div className="lg:col-span-2">
+                <label
+                  htmlFor="schedule-preset"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Preset
+                </label>
+                <select
+                  id="schedule-preset"
+                  value={schedulePresetId}
+                  onChange={(e) => {
+                    const presetId = e.target.value;
+                    const preset = reportPresets.find(
+                      (item) => String(item.id) === presetId,
+                    );
+                    setSchedulePresetId(presetId);
+                    if (preset) {
+                      setScheduleFormat(preset.parameters.format);
+                      if (!scheduleName) {
+                        setScheduleName(`${preset.name} Schedule`);
+                      }
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="">Choose a preset</option>
+                  {reportPresets.map((preset) => (
+                    <option key={preset.id} value={String(preset.id)}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="lg:col-span-2">
+                <label
+                  htmlFor="schedule-name"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Schedule Name
+                </label>
+                <input
+                  id="schedule-name"
+                  type="text"
+                  value={scheduleName}
+                  onChange={(e) => setScheduleName(e.target.value)}
+                  placeholder="Monday Attendance Email"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="schedule-frequency"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Frequency
+                </label>
+                <select
+                  id="schedule-frequency"
+                  value={scheduleFrequency}
+                  onChange={(e) =>
+                    setScheduleFrequency(
+                      e.target.value as ReportScheduleFrequency,
+                    )
+                  }
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor="schedule-time"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Time
+                </label>
+                <input
+                  id="schedule-time"
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+              {scheduleFrequency === "weekly" && (
+                <div>
+                  <label
+                    htmlFor="schedule-day-week"
+                    className="block text-sm font-medium text-gray-300 mb-1"
+                  >
+                    Day
+                  </label>
+                  <select
+                    id="schedule-day-week"
+                    value={scheduleDayOfWeek}
+                    onChange={(e) => setScheduleDayOfWeek(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    {dayNames.map((day, index) => (
+                      <option key={day} value={index}>
+                        {day}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {scheduleFrequency === "monthly" && (
+                <div>
+                  <label
+                    htmlFor="schedule-day-month"
+                    className="block text-sm font-medium text-gray-300 mb-1"
+                  >
+                    Day
+                  </label>
+                  <input
+                    id="schedule-day-month"
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={scheduleDayOfMonth}
+                    onChange={(e) =>
+                      setScheduleDayOfMonth(Number(e.target.value))
+                    }
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                </div>
+              )}
+              <div>
+                <label
+                  htmlFor="schedule-format"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Format
+                </label>
+                <select
+                  id="schedule-format"
+                  value={scheduleFormat}
+                  onChange={(e) =>
+                    setScheduleFormat(e.target.value as ReportParams["format"])
+                  }
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="csv">CSV</option>
+                  <option value="xlsx">Excel</option>
+                  <option value="pdf">PDF</option>
+                </select>
+              </div>
+              <div className="lg:col-span-2">
+                <label
+                  htmlFor="schedule-recipient"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Recipient
+                </label>
+                <input
+                  id="schedule-recipient"
+                  type="email"
+                  value={scheduleRecipient}
+                  onChange={(e) => setScheduleRecipient(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+              <div className="flex items-end gap-3">
+                <label className="flex items-center gap-2 text-sm text-gray-300 pb-2">
+                  <input
+                    type="checkbox"
+                    checked={scheduleActive}
+                    onChange={(e) => setScheduleActive(e.target.checked)}
+                    className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
+                  />
+                  Active
+                </label>
+                <button
+                  onClick={handleCreateSchedule}
+                  disabled={savingSchedule}
+                  className="px-4 py-2 rounded text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-700 disabled:bg-cyan-800 whitespace-nowrap"
+                >
+                  {savingSchedule ? "Saving..." : "Save Schedule"}
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-700">
+                <thead className="bg-gray-900">
+                  <tr>
+                    {[
+                      "Name",
+                      "Preset",
+                      "Cadence",
+                      "Next Run",
+                      "Recipient",
+                      "Status",
+                      "Actions",
+                    ].map((column) => (
+                      <th
+                        key={column}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
+                      >
+                        {column}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-gray-800 divide-y divide-gray-700">
+                  {reportSchedules.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-8 text-center text-sm text-gray-400"
+                      >
+                        No scheduled reports yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    reportSchedules.map((schedule) => (
+                      <tr key={schedule.id}>
+                        <td className="px-4 py-3 text-sm text-white">
+                          {schedule.name}
+                          {schedule.owner?.name && user?.role === "admin" && (
+                            <div className="text-xs text-gray-500">
+                              {schedule.owner.name}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-300">
+                          {schedule.presetName}
+                          <div className="text-xs text-cyan-300 uppercase">
+                            {schedule.format}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-300">
+                          {formatScheduleCadence(schedule)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
+                          {formatDateTimeLabel(schedule.nextRunAt)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-300">
+                          {schedule.recipientEmail}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {renderStatus(
+                            schedule.isActive
+                              ? schedule.lastStatus || "scheduled"
+                              : "inactive",
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-300">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleToggleSchedule(schedule)}
+                              disabled={updatingScheduleId === schedule.id}
+                              className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
+                            >
+                              {updatingScheduleId === schedule.id
+                                ? "Updating..."
+                                : schedule.isActive
+                                  ? "Pause"
+                                  : "Resume"}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSchedule(schedule)}
+                              disabled={deletingScheduleId === schedule.id}
+                              className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
+                            >
+                              {deletingScheduleId === schedule.id
+                                ? "Deleting..."
+                                : "Delete"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 

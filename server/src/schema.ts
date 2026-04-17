@@ -982,3 +982,28 @@ export const reportPresets = pgTable("report_presets", {
 
 export type ReportPreset = typeof reportPresets.$inferSelect;
 export type NewReportPreset = typeof reportPresets.$inferInsert;
+
+// Report Schedules table - Saved email schedules built from report presets
+export const reportSchedules = pgTable("report_schedules", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 160 }).notNull(),
+  presetId: varchar("preset_id", { length: 80 }).notNull(),
+  presetName: varchar("preset_name", { length: 160 }).notNull(),
+  createdBy: integer("created_by").references(() => users.id),
+  frequency: varchar("frequency", { length: 20 }).notNull(), // daily, weekly, monthly
+  dayOfWeek: integer("day_of_week"),
+  dayOfMonth: integer("day_of_month"),
+  timeOfDay: varchar("time_of_day", { length: 10 }).notNull(), // HH:MM
+  format: varchar("format", { length: 10 }).notNull(), // csv, xlsx, pdf
+  recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at").notNull(),
+  lastStatus: varchar("last_status", { length: 20 }).default("pending").notNull(),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type ReportSchedule = typeof reportSchedules.$inferSelect;
+export type NewReportSchedule = typeof reportSchedules.$inferInsert;

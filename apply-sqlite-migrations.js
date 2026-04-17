@@ -806,6 +806,31 @@ try {
     `CREATE INDEX IF NOT EXISTS idx_report_presets_created_by ON report_presets(created_by)`,
     `CREATE INDEX IF NOT EXISTS idx_report_presets_visibility ON report_presets(visibility)`,
     `CREATE INDEX IF NOT EXISTS idx_report_presets_active ON report_presets(is_active)`,
+
+    `CREATE TABLE IF NOT EXISTS report_schedules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      preset_id TEXT NOT NULL,
+      preset_name TEXT NOT NULL,
+      created_by INTEGER,
+      frequency TEXT NOT NULL,
+      day_of_week INTEGER,
+      day_of_month INTEGER,
+      time_of_day TEXT NOT NULL,
+      format TEXT NOT NULL,
+      recipient_email TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      last_run_at TIMESTAMP,
+      next_run_at TIMESTAMP NOT NULL,
+      last_status TEXT DEFAULT 'pending' NOT NULL,
+      last_error TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_report_schedules_created_by ON report_schedules(created_by)`,
+    `CREATE INDEX IF NOT EXISTS idx_report_schedules_next_run ON report_schedules(next_run_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_report_schedules_active ON report_schedules(is_active)`,
   ];
 
   // Apply each table creation

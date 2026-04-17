@@ -24,6 +24,7 @@ import {
   systemSettings,
   reportHistory,
   reportPresets,
+  reportSchedules,
   auditLogs,
   errorLogs,
 } from "../../src/schema.js";
@@ -211,6 +212,12 @@ describeIntegration("API Endpoints Integration Tests", () => {
     await db
       .delete(reportPresets)
       .where(eq(reportPresets.createdBy, facultyUser.id));
+    await db
+      .delete(reportSchedules)
+      .where(eq(reportSchedules.createdBy, testUser.id));
+    await db
+      .delete(reportSchedules)
+      .where(eq(reportSchedules.createdBy, facultyUser.id));
     await db.delete(auditLogs).where(eq(auditLogs.userId, testUser.id));
     await db.delete(auditLogs).where(eq(auditLogs.userId, facultyUser.id));
     await db.delete(errorLogs).where(eq(errorLogs.userId, testUser.id));
@@ -618,6 +625,80 @@ describeIntegration("API Endpoints Integration Tests", () => {
             },
           })
           .expect(403);
+
+        expect(response.body.success).toBe(false);
+      });
+    });
+
+    describe("Report schedules", () => {
+      it("should create, list, update, and delete a scheduled report", async () => {
+        const createResponse = await agent
+          .post("/api/reports/schedules")
+          .send({
+            name: "Monday Attendance Email",
+            presetId: "default-daily-attendance",
+            presetName: "Daily Attendance Summary",
+            frequency: "weekly",
+            dayOfWeek: 1,
+            timeOfDay: "08:00",
+            format: "xlsx",
+            recipientEmail: adminEmail,
+            isActive: true,
+          })
+          .expect(201);
+
+        expect(createResponse.body.success).toBe(true);
+        expect(createResponse.body.data.nextRunAt).toBeDefined();
+
+        const scheduleId = createResponse.body.data.id;
+        const listResponse = await agent.get("/api/reports/schedules").expect(200);
+        expect(
+          listResponse.body.data.some(
+            (schedule: any) => schedule.id === scheduleId,
+          ),
+        ).toBe(true);
+
+        await agent
+          .put(`/api/reports/schedules/${scheduleId}`)
+          .send({ isActive: false, timeOfDay: "09:30" })
+          .expect(200);
+
+        const sendSpy = jest
+          .spyOn(emailService, "sendEmail")
+          .mockResolvedValueOnce(true);
+
+        const triggerResponse = await agent
+          .post(`/api/reports/schedules/${scheduleId}/trigger`)
+          .expect(200);
+
+        expect(triggerResponse.body.success).toBe(true);
+        expect(sendSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            attachments: [
+              expect.objectContaining({
+                name: expect.stringMatching(/\.(csv|xlsx|pdf)$/),
+              }),
+            ],
+          }),
+        );
+        sendSpy.mockRestore();
+
+        await agent.delete(`/api/reports/schedules/${scheduleId}`).expect(200);
+      });
+
+      it("should reject invalid scheduled report email addresses", async () => {
+        const response = await agent
+          .post("/api/reports/schedules")
+          .send({
+            name: "Bad Email Schedule",
+            presetId: "default-daily-attendance",
+            presetName: "Daily Attendance Summary",
+            frequency: "daily",
+            timeOfDay: "08:00",
+            format: "csv",
+            recipientEmail: "not-an-email",
+          })
+          .expect(400);
 
         expect(response.body.success).toBe(false);
       });

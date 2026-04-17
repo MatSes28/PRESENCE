@@ -12,6 +12,7 @@ import {
   enrollments,
   reportHistory,
   reportPresets,
+  reportSchedules,
   users,
 } from "../schema.js";
 import { eq, and, gte, lte, lt, desc, sql, inArray, like, or } from "drizzle-orm";
@@ -691,6 +692,74 @@ const dateRangeIsInvalid = (startDate?: string, endDate?: string) => {
   );
 };
 
+const allowedScheduleFrequencies = ["daily", "weekly", "monthly"] as const;
+const allowedReportFormats = ["csv", "xlsx", "pdf"] as const;
+
+type ScheduleFrequency = (typeof allowedScheduleFrequencies)[number];
+
+const isScheduleFrequency = (value: unknown): value is ScheduleFrequency =>
+  typeof value === "string" &&
+  allowedScheduleFrequencies.includes(value as ScheduleFrequency);
+
+const isReportFormat = (value: unknown): value is ReportArtifact["format"] =>
+  typeof value === "string" &&
+  allowedReportFormats.includes(value as ReportArtifact["format"]);
+
+const isValidTimeOfDay = (value: unknown) =>
+  typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+
+const isValidEmail = (value: unknown) =>
+  typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+const clampMonthlyDay = (day: number, year: number, monthIndex: number) => {
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+  return Math.min(Math.max(day, 1), lastDay);
+};
+
+const calculateNextReportRun = (
+  frequency: ScheduleFrequency,
+  timeOfDay: string,
+  dayOfWeek?: number | null,
+  dayOfMonth?: number | null,
+) => {
+  const now = new Date();
+  const [hours, minutes] = timeOfDay.split(":").map(Number);
+  const next = new Date(now);
+  next.setHours(hours, minutes, 0, 0);
+
+  if (frequency === "daily") {
+    if (next <= now) {
+      next.setDate(next.getDate() + 1);
+    }
+    return next;
+  }
+
+  if (frequency === "weekly") {
+    const targetDay = Number.isInteger(dayOfWeek) ? Number(dayOfWeek) : 1;
+    const daysUntilTarget = (targetDay - now.getDay() + 7) % 7;
+    next.setDate(now.getDate() + daysUntilTarget);
+    if (next <= now) {
+      next.setDate(next.getDate() + 7);
+    }
+    return next;
+  }
+
+  const targetDate = Number.isInteger(dayOfMonth) ? Number(dayOfMonth) : 1;
+  const currentMonthDay = clampMonthlyDay(
+    targetDate,
+    now.getFullYear(),
+    now.getMonth(),
+  );
+  next.setDate(currentMonthDay);
+  if (next <= now) {
+    next.setMonth(next.getMonth() + 1, 1);
+    next.setDate(
+      clampMonthlyDay(targetDate, next.getFullYear(), next.getMonth()),
+    );
+  }
+  return next;
+};
+
 type ReportArtifact = {
   body: Buffer | string;
   contentType: string;
@@ -1127,10 +1196,307 @@ const buildPdfBuffer = async (
   return bufferPromise;
 };
 
-// Get all report schedules
+const getDateRangeForReportPreset = (parameters: any) => {
+  const datePreset = parameters?.datePreset;
+  const today = new Date();
+  const endDate = today.toISOString().split("T")[0];
+
+  if (datePreset === "today") {
+    return { startDate: endDate, endDate };
+  }
+
+  if (datePreset === "week") {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    return { startDate: weekAgo.toISOString().split("T")[0], endDate };
+  }
+
+  if (datePreset === "month") {
+    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return { startDate: monthAgo.toISOString().split("T")[0], endDate };
+  }
+
+  return {
+    startDate: parameters?.startDate,
+    endDate: parameters?.endDate,
+  };
+};
+
+const loadSchedulePresetParameters = async (presetId: string) => {
+  const defaultPreset = defaultReportPresets.find(
+    (preset) => String(preset.id) === presetId,
+  );
+  if (defaultPreset) return defaultPreset.parameters;
+
+  const numericPresetId = parseInt(presetId, 10);
+  if (!Number.isFinite(numericPresetId)) return null;
+
+  const [preset] = await db
+    .select({ parameters: reportPresets.parameters })
+    .from(reportPresets)
+    .where(
+      and(eq(reportPresets.id, numericPresetId), eq(reportPresets.isActive, true)),
+    )
+    .limit(1);
+
+  return preset?.parameters || null;
+};
+
+const deliverScheduledReport = async (schedule: typeof reportSchedules.$inferSelect) => {
+  const parameters = await loadSchedulePresetParameters(schedule.presetId);
+  if (!parameters || typeof parameters !== "object") {
+    throw new Error("Scheduled report preset was not found");
+  }
+
+  const type = (parameters as any).type;
+  if (!["attendance", "students", "classroom"].includes(type)) {
+    throw new Error("Scheduled report preset has an invalid report type");
+  }
+
+  const [owner] = schedule.createdBy
+    ? await db
+        .select({ id: users.id, role: users.role })
+        .from(users)
+        .where(eq(users.id, schedule.createdBy))
+        .limit(1)
+    : [];
+  const { startDate, endDate } = getDateRangeForReportPreset(parameters);
+  const subjectId = (parameters as any).subjectId;
+  const classroomId = (parameters as any).classroomId;
+  const [selectedSubject] = subjectId
+    ? await db
+        .select({ code: subjects.code, name: subjects.name })
+        .from(subjects)
+        .where(eq(subjects.id, Number(subjectId)))
+        .limit(1)
+    : [];
+  const [selectedClassroom] = classroomId
+    ? await db
+        .select({ name: classrooms.name, location: classrooms.location })
+        .from(classrooms)
+        .where(eq(classrooms.id, Number(classroomId)))
+        .limit(1)
+    : [];
+
+  const data = await loadReportRows({
+    type,
+    startDate,
+    endDate,
+    subjectId,
+    classroomId,
+    isFaculty: owner?.role === "faculty",
+    facultyUserId: Number(schedule.createdBy || 0),
+  });
+
+  if (data.length === 0) {
+    throw new Error("No records found for the scheduled report filters");
+  }
+
+  const displayRows = buildDisplayRows(type, data);
+  const filteredDisplay = filterReportColumns(
+    displayRows.length > 0 ? Object.keys(displayRows[0]) : [],
+    displayRows,
+    (parameters as any).columns,
+  );
+  const reportTitle = `${toTitle(type)} Report`;
+  const subjectLabel = selectedSubject
+    ? `${selectedSubject.code} ${selectedSubject.name}`
+    : "All Subjects";
+  const classroomLabel = selectedClassroom
+    ? selectedClassroom.location
+      ? `${selectedClassroom.name} ${selectedClassroom.location}`
+      : selectedClassroom.name
+    : "All Sections";
+  const dateLabel =
+    startDate && endDate
+      ? `${formatReportDate(startDate)} to ${formatReportDate(endDate)}`
+      : startDate
+        ? `From ${formatReportDate(startDate)}`
+        : endDate
+          ? `Through ${formatReportDate(endDate)}`
+          : "All Dates";
+  const generatedAt = new Date();
+  const artifact = await buildReportArtifact({
+    type,
+    format: schedule.format,
+    data,
+    columns: (parameters as any).columns,
+    filteredDisplay,
+    reportTitle,
+    metadata: {
+      generatedAt,
+      filters: [
+        { label: "Date Range", value: dateLabel },
+        { label: "Subject", value: subjectLabel },
+        { label: "Class Section", value: classroomLabel },
+        { label: "Source", value: `Scheduled: ${schedule.name}` },
+      ],
+      summary: buildSummary(type, displayRows),
+    },
+    filenameBase: buildReportFilename(
+      `scheduled-${type}`,
+      subjectLabel,
+      classroomLabel,
+      startDate,
+      endDate,
+    ),
+  });
+
+  const sent = await emailService.sendEmail({
+    to: schedule.recipientEmail,
+    subject: `${schedule.name} ready`,
+    htmlContent: `
+      <h2>${schedule.name}</h2>
+      <p>Your scheduled report generated ${data.length.toLocaleString()} matching records.</p>
+      <ul>
+        <li>Preset: ${schedule.presetName}</li>
+        <li>Date range: ${dateLabel}</li>
+        <li>Format: ${artifact.format.toUpperCase()}</li>
+      </ul>
+      <p>The generated report file is attached.</p>
+    `,
+    textContent: `${schedule.name} generated ${data.length.toLocaleString()} records from preset ${schedule.presetName}. The generated report file is attached.`,
+    attachments: [{ name: artifact.filename, content: artifact.body }],
+  });
+
+  if (!sent) {
+    throw new Error("Email service is not configured; scheduled report was not sent");
+  }
+
+  await db.insert(reportHistory).values({
+    reportType: type,
+    generatedBy: schedule.createdBy,
+    filePath: artifact.filename,
+    parameters: {
+      ...(parameters as any),
+      format: artifact.format,
+      startDate,
+      endDate,
+      subjectLabel,
+      classroomLabel,
+      source: "scheduled",
+      scheduleId: schedule.id,
+      scheduleName: schedule.name,
+    },
+    recordCount: data.length,
+    status: "completed",
+  });
+};
+
+const runScheduledReport = async (schedule: typeof reportSchedules.$inferSelect) => {
+  try {
+    await deliverScheduledReport(schedule);
+    await db
+      .update(reportSchedules)
+      .set({
+        lastRunAt: new Date(),
+        nextRunAt: calculateNextReportRun(
+          schedule.frequency as ScheduleFrequency,
+          schedule.timeOfDay,
+          schedule.dayOfWeek,
+          schedule.dayOfMonth,
+        ),
+        lastStatus: "completed",
+        lastError: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(reportSchedules.id, schedule.id));
+    return true;
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Scheduled report failed";
+    await db
+      .update(reportSchedules)
+      .set({
+        lastRunAt: new Date(),
+        nextRunAt: calculateNextReportRun(
+          schedule.frequency as ScheduleFrequency,
+          schedule.timeOfDay,
+          schedule.dayOfWeek,
+          schedule.dayOfMonth,
+        ),
+        lastStatus: "failed",
+        lastError: message,
+        updatedAt: new Date(),
+      })
+      .where(eq(reportSchedules.id, schedule.id));
+    console.error(`Scheduled report ${schedule.id} failed:`, error);
+    return false;
+  }
+};
+
+let persistentReportRunnerStarted = false;
+const processDueReportSchedules = async () => {
+  const dueSchedules = await db
+    .select()
+    .from(reportSchedules)
+    .where(
+      and(
+        eq(reportSchedules.isActive, true),
+        lte(reportSchedules.nextRunAt, new Date()),
+      ),
+    );
+
+  for (const schedule of dueSchedules) {
+    await runScheduledReport(schedule);
+  }
+};
+
+const startPersistentReportScheduleRunner = () => {
+  const isTestEnv =
+    process.env.NODE_ENV === "test" ||
+    typeof process.env.JEST_WORKER_ID !== "undefined";
+
+  if (isTestEnv || persistentReportRunnerStarted) return;
+  persistentReportRunnerStarted = true;
+
+  const timer = setInterval(() => {
+    processDueReportSchedules().catch((error) => {
+      console.error("Failed to process scheduled reports:", error);
+    });
+  }, 60_000);
+  timer.unref?.();
+};
+
+// Get saved report schedules
 router.get("/schedules", requireAuth, async (req, res) => {
   try {
-    const schedules = reportSchedulerService.getAllSchedules();
+    const isAdmin = req.session?.userRole === "admin";
+    const userId = Number(req.session?.userId);
+
+    let query = db
+      .select({
+        id: reportSchedules.id,
+        name: reportSchedules.name,
+        presetId: reportSchedules.presetId,
+        presetName: reportSchedules.presetName,
+        createdBy: reportSchedules.createdBy,
+        owner: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+        },
+        frequency: reportSchedules.frequency,
+        dayOfWeek: reportSchedules.dayOfWeek,
+        dayOfMonth: reportSchedules.dayOfMonth,
+        timeOfDay: reportSchedules.timeOfDay,
+        format: reportSchedules.format,
+        recipientEmail: reportSchedules.recipientEmail,
+        isActive: reportSchedules.isActive,
+        lastRunAt: reportSchedules.lastRunAt,
+        nextRunAt: reportSchedules.nextRunAt,
+        lastStatus: reportSchedules.lastStatus,
+        lastError: reportSchedules.lastError,
+        createdAt: reportSchedules.createdAt,
+        updatedAt: reportSchedules.updatedAt,
+      })
+      .from(reportSchedules)
+      .leftJoin(users, eq(reportSchedules.createdBy, users.id));
+
+    if (!isAdmin) {
+      query = query.where(eq(reportSchedules.createdBy, userId));
+    }
+
+    const schedules = await query.orderBy(desc(reportSchedules.updatedAt));
 
     res.json({
       success: true,
@@ -1146,39 +1512,127 @@ router.get("/schedules", requireAuth, async (req, res) => {
 });
 
 // Create a new report schedule
-router.post("/schedules", requireAdmin, async (req, res) => {
+router.post("/schedules", requireAuth, async (req, res) => {
   try {
+    const userId = Number(req.session?.userId);
     const {
       name,
-      type,
-      recipients,
-      reportType,
-      filters,
-      scheduleTime,
+      presetId,
+      presetName,
+      frequency,
+      dayOfWeek,
+      dayOfMonth,
+      timeOfDay,
+      format,
+      recipientEmail,
       isActive = true,
     } = req.body;
 
-    if (!name || !type || !recipients || !reportType || !scheduleTime) {
+    if (!name || typeof name !== "string" || name.trim().length < 2) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields",
+        message: "Schedule name is required",
       });
     }
 
-    const scheduleId = await reportSchedulerService.createSchedule({
-      name,
-      type,
-      recipients,
-      reportType,
-      filters: filters || {},
-      scheduleTime,
-      isActive,
-    });
+    if (!presetId || typeof presetId !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Choose a saved report preset before scheduling",
+      });
+    }
+
+    if (!isScheduleFrequency(frequency)) {
+      return res.status(400).json({
+        success: false,
+        message: "Schedule frequency must be daily, weekly, or monthly",
+      });
+    }
+
+    if (!isValidTimeOfDay(timeOfDay)) {
+      return res.status(400).json({
+        success: false,
+        message: "Schedule time must use HH:MM format",
+      });
+    }
+
+    if (!isReportFormat(format)) {
+      return res.status(400).json({
+        success: false,
+        message: "Report format must be CSV, XLSX, or PDF",
+      });
+    }
+
+    if (!isValidEmail(recipientEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Recipient email is required",
+      });
+    }
+
+    const normalizedDayOfWeek =
+      frequency === "weekly" ? Number(dayOfWeek ?? 1) : null;
+    const normalizedDayOfMonth =
+      frequency === "monthly" ? Number(dayOfMonth ?? 1) : null;
+
+    if (
+      frequency === "weekly" &&
+      (!Number.isInteger(normalizedDayOfWeek) ||
+        normalizedDayOfWeek < 0 ||
+        normalizedDayOfWeek > 6)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Weekly schedules need a valid day of week",
+      });
+    }
+
+    if (
+      frequency === "monthly" &&
+      (!Number.isInteger(normalizedDayOfMonth) ||
+        normalizedDayOfMonth < 1 ||
+        normalizedDayOfMonth > 31)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Monthly schedules need a day from 1 to 31",
+      });
+    }
+
+    const nextRunAt = calculateNextReportRun(
+      frequency,
+      timeOfDay,
+      normalizedDayOfWeek,
+      normalizedDayOfMonth,
+    );
+
+    const [schedule] = await db
+      .insert(reportSchedules)
+      .values({
+        name: name.trim(),
+        presetId,
+        presetName:
+          typeof presetName === "string" && presetName.trim()
+            ? presetName.trim()
+            : "Report Preset",
+        createdBy: userId,
+        frequency,
+        dayOfWeek: normalizedDayOfWeek,
+        dayOfMonth: normalizedDayOfMonth,
+        timeOfDay,
+        format,
+        recipientEmail,
+        isActive: Boolean(isActive),
+        nextRunAt,
+        lastStatus: "pending",
+        updatedAt: new Date(),
+      })
+      .returning();
 
     res.status(201).json({
       success: true,
-      message: "Report schedule created successfully",
-      data: { scheduleId },
+      message: "Report schedule created",
+      data: schedule,
     });
   } catch (error) {
     console.error("Create report schedule error:", error);
@@ -1190,26 +1644,79 @@ router.post("/schedules", requireAdmin, async (req, res) => {
 });
 
 // Update a report schedule
-router.put("/schedules/:id", requireAdmin, async (req, res) => {
+router.put("/schedules/:id", requireAuth, async (req, res) => {
   try {
-    const scheduleId = req.params.id;
-    const updates = req.body;
+    const scheduleId = parseInt(req.params.id, 10);
+    const userId = Number(req.session?.userId);
+    const isAdmin = req.session?.userRole === "admin";
+    const { isActive, frequency, dayOfWeek, dayOfMonth, timeOfDay, format } =
+      req.body;
 
-    const success = await reportSchedulerService.updateSchedule(
-      scheduleId,
-      updates,
-    );
+    if (!Number.isFinite(scheduleId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid schedule id",
+      });
+    }
 
-    if (!success) {
+    const [schedule] = await db
+      .select()
+      .from(reportSchedules)
+      .where(eq(reportSchedules.id, scheduleId))
+      .limit(1);
+
+    if (!schedule) {
       return res.status(404).json({
         success: false,
         message: "Report schedule not found",
       });
     }
 
+    if (!isAdmin && schedule.createdBy !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only update your own report schedules",
+      });
+    }
+
+    const nextFrequency = isScheduleFrequency(frequency)
+      ? frequency
+      : (schedule.frequency as ScheduleFrequency);
+    const nextTimeOfDay = isValidTimeOfDay(timeOfDay)
+      ? String(timeOfDay)
+      : schedule.timeOfDay;
+    const nextDayOfWeek =
+      nextFrequency === "weekly" ? Number(dayOfWeek ?? schedule.dayOfWeek ?? 1) : null;
+    const nextDayOfMonth =
+      nextFrequency === "monthly"
+        ? Number(dayOfMonth ?? schedule.dayOfMonth ?? 1)
+        : null;
+
+    const nextRunAt = calculateNextReportRun(
+      nextFrequency,
+      nextTimeOfDay,
+      nextDayOfWeek,
+      nextDayOfMonth,
+    );
+
+    await db
+      .update(reportSchedules)
+      .set({
+        frequency: nextFrequency,
+        dayOfWeek: nextDayOfWeek,
+        dayOfMonth: nextDayOfMonth,
+        timeOfDay: nextTimeOfDay,
+        format: isReportFormat(format) ? format : schedule.format,
+        isActive:
+          typeof isActive === "boolean" ? isActive : Boolean(schedule.isActive),
+        nextRunAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(reportSchedules.id, scheduleId));
+
     res.json({
       success: true,
-      message: "Report schedule updated successfully",
+      message: "Report schedule updated",
     });
   } catch (error) {
     console.error("Update report schedule error:", error);
@@ -1221,22 +1728,44 @@ router.put("/schedules/:id", requireAdmin, async (req, res) => {
 });
 
 // Delete a report schedule
-router.delete("/schedules/:id", requireAdmin, async (req, res) => {
+router.delete("/schedules/:id", requireAuth, async (req, res) => {
   try {
-    const scheduleId = req.params.id;
+    const scheduleId = parseInt(req.params.id, 10);
+    const userId = Number(req.session?.userId);
+    const isAdmin = req.session?.userRole === "admin";
 
-    const success = await reportSchedulerService.deleteSchedule(scheduleId);
+    if (!Number.isFinite(scheduleId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid schedule id",
+      });
+    }
 
-    if (!success) {
+    const [schedule] = await db
+      .select()
+      .from(reportSchedules)
+      .where(eq(reportSchedules.id, scheduleId))
+      .limit(1);
+
+    if (!schedule) {
       return res.status(404).json({
         success: false,
         message: "Report schedule not found",
       });
     }
 
+    if (!isAdmin && schedule.createdBy !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete your own report schedules",
+      });
+    }
+
+    await db.delete(reportSchedules).where(eq(reportSchedules.id, scheduleId));
+
     res.json({
       success: true,
-      message: "Report schedule deleted successfully",
+      message: "Report schedule deleted",
     });
   } catch (error) {
     console.error("Delete report schedule error:", error);
@@ -1250,9 +1779,29 @@ router.delete("/schedules/:id", requireAdmin, async (req, res) => {
 // Manually trigger a report
 router.post("/schedules/:id/trigger", requireAdmin, async (req, res) => {
   try {
-    const scheduleId = req.params.id;
+    const scheduleId = parseInt(req.params.id, 10);
 
-    const success = await reportSchedulerService.triggerReport(scheduleId);
+    if (!Number.isFinite(scheduleId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid schedule id",
+      });
+    }
+
+    const [schedule] = await db
+      .select()
+      .from(reportSchedules)
+      .where(eq(reportSchedules.id, scheduleId))
+      .limit(1);
+
+    if (!schedule) {
+      return res.status(404).json({
+        success: false,
+        message: "Report schedule not found",
+      });
+    }
+
+    const success = await runScheduledReport(schedule);
 
     if (!success) {
       return res.status(400).json({
@@ -2554,5 +3103,7 @@ router.get("/real-time-stats", requireAuth, async (req, res) => {
     });
   }
 });
+
+startPersistentReportScheduleRunner();
 
 export default router;
