@@ -774,6 +774,23 @@ try {
     `CREATE INDEX IF NOT EXISTS idx_integration_sync_events_entity_type ON integration_sync_events(entity_type)`,
     `CREATE INDEX IF NOT EXISTS idx_integration_sync_events_status ON integration_sync_events(status)`,
     `CREATE INDEX IF NOT EXISTS idx_integration_sync_events_created_at ON integration_sync_events(created_at)`,
+
+    `CREATE TABLE IF NOT EXISTS report_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_type TEXT NOT NULL,
+      generated_by INTEGER,
+      file_path TEXT,
+      parameters TEXT,
+      record_count INTEGER,
+      generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      status TEXT DEFAULT 'completed' NOT NULL,
+      error_message TEXT,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      FOREIGN KEY (generated_by) REFERENCES users(id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_report_history_generated_at ON report_history(generated_at)`,
+    `CREATE INDEX IF NOT EXISTS idx_report_history_generated_by ON report_history(generated_by)`,
+    `CREATE INDEX IF NOT EXISTS idx_report_history_report_type ON report_history(report_type)`,
   ];
 
   // Apply each table creation

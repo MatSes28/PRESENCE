@@ -15,6 +15,19 @@ export const Settings = () => {
   const [saving, setSaving] = useState<
     "profile" | "password" | "system" | "hardware" | "email" | null
   >(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditReloadKey, setAuditReloadKey] = useState(0);
+  const [settingsAuditEvents, setSettingsAuditEvents] = useState<
+    Array<{
+      id: string;
+      timestamp: string;
+      userId?: number;
+      resourceId?: string;
+      oldValues?: Record<string, unknown>;
+      newValues?: Record<string, unknown>;
+      ipAddress?: string;
+    }>
+  >([]);
 
   // Form validation hooks
   const profileValidation = useFormValidation({
@@ -101,11 +114,37 @@ export const Settings = () => {
   useEffect(() => {
     if (
       user?.role !== "admin" &&
-      ["hardware", "email", "system"].includes(activeTab)
+      ["hardware", "email", "system", "audit"].includes(activeTab)
     ) {
       setActiveTab("profile");
     }
   }, [activeTab, user?.role]);
+
+  useEffect(() => {
+    if (activeTab !== "audit" || user?.role !== "admin") return;
+
+    const loadAuditEvents = async () => {
+      setAuditLoading(true);
+      try {
+        const response = await api.get(
+          "/audit/events?action=SETTINGS_UPDATED&resource=settings&limit=10",
+        );
+        const result = getApiPayload(response);
+        setSettingsAuditEvents(Array.isArray(result?.data) ? result.data : []);
+      } catch (error) {
+        console.error("Failed to load settings audit events:", error);
+        addNotification({
+          type: "error",
+          title: "Audit Load Failed",
+          message: "Could not load recent settings audit events.",
+        });
+      } finally {
+        setAuditLoading(false);
+      }
+    };
+
+    loadAuditEvents();
+  }, [activeTab, addNotification, auditReloadKey, user?.role]);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +159,6 @@ export const Settings = () => {
     }
 
     setSaving("profile");
-    setSaving("password");
     try {
       const response = await api.put("/settings/profile", profileData);
       const result = getApiPayload(response);
@@ -192,6 +230,7 @@ export const Settings = () => {
 
   const handleSystemSettingsSave = async () => {
     setSaving("system");
+    setSaving("password");
     try {
       const response = await api.put("/settings/system", systemSettings);
       const result = getApiPayload(response);
@@ -277,6 +316,7 @@ export const Settings = () => {
     { id: "hardware", label: "Hardware", icon: "🔧", adminOnly: true },
     { id: "email", label: "Email", icon: "📧", adminOnly: true },
     { id: "system", label: "System", icon: "⚙️", adminOnly: true },
+    { id: "audit", label: "Audit", icon: "🧾", adminOnly: true },
   ].filter((tab) => user?.role === "admin" || !tab.adminOnly);
 
   return (
@@ -922,6 +962,87 @@ export const Settings = () => {
                     Save Settings
                   </LoadingButton>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "audit" && user?.role === "admin" && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="text-lg font-medium text-white">
+                    Settings Audit Trail
+                  </h4>
+                  <p className="text-sm text-gray-400">
+                    Recent changes to system, hardware, and email settings.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setAuditReloadKey((key) => key + 1)}
+                  className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-sm"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div className="overflow-x-auto border border-gray-700 rounded-lg">
+                <table className="min-w-full divide-y divide-gray-700">
+                  <thead className="bg-gray-900">
+                    <tr>
+                      {["When", "Category", "User", "IP Address", "Changed Values"].map(
+                        (column) => (
+                          <th
+                            key={column}
+                            className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
+                          >
+                            {column}
+                          </th>
+                        ),
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-gray-800 divide-y divide-gray-700">
+                    {auditLoading ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-4 py-8 text-center text-sm text-gray-400"
+                        >
+                          Loading audit events...
+                        </td>
+                      </tr>
+                    ) : settingsAuditEvents.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-4 py-8 text-center text-sm text-gray-400"
+                        >
+                          No settings changes have been logged yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      settingsAuditEvents.map((event) => (
+                        <tr key={event.id}>
+                          <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
+                            {new Date(event.timestamp).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-cyan-300 capitalize">
+                            {event.resourceId || "settings"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-300">
+                            {event.userId ? `User #${event.userId}` : "System"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-300">
+                            {event.ipAddress || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-300">
+                            {Object.keys(event.newValues || {}).join(", ") || "-"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

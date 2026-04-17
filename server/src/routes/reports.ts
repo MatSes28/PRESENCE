@@ -13,9 +13,10 @@ import {
   reportHistory,
   users,
 } from "../schema.js";
-import { eq, and, gte, lte, lt, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, lt, desc, sql, inArray, like } from "drizzle-orm";
 import { reportSchedulerService } from "../services/reportScheduler.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import { emailService } from "../services/emailService.js";
 
 const router = Router();
 
@@ -573,6 +574,124 @@ const buildSummary = (type: string, rows: Record<string, string>[]) => {
   }
 
   return [{ label: "Rows", value: rows.length.toLocaleString() }];
+};
+
+const filterReportColumns = (
+  headers: string[],
+  rows: Record<string, any>[],
+  requestedColumns?: unknown,
+) => {
+  if (!Array.isArray(requestedColumns) || requestedColumns.length === 0) {
+    return { headers, rows };
+  }
+
+  const selected = requestedColumns
+    .map((column) => String(column))
+    .filter((column) => headers.includes(column));
+
+  if (selected.length === 0) {
+    return { headers, rows };
+  }
+
+  return {
+    headers: selected,
+    rows: rows.map((row) =>
+      selected.reduce<Record<string, any>>((acc, header) => {
+        acc[header] = row[header];
+        return acc;
+      }, {}),
+    ),
+  };
+};
+
+const dateRangeIsInvalid = (startDate?: string, endDate?: string) => {
+  if (!startDate || !endDate) return false;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  return (
+    !Number.isNaN(start.getTime()) &&
+    !Number.isNaN(end.getTime()) &&
+    start.getTime() > end.getTime()
+  );
+};
+
+type ReportArtifact = {
+  body: Buffer | string;
+  contentType: string;
+  filename: string;
+  format: "csv" | "xlsx" | "pdf";
+};
+
+const normalizeReportFormat = (format: unknown): ReportArtifact["format"] => {
+  if (format === "xlsx" || format === "excel") return "xlsx";
+  if (format === "pdf") return "pdf";
+  return "csv";
+};
+
+const buildReportArtifact = async ({
+  type,
+  format,
+  data,
+  columns,
+  filteredDisplay,
+  reportTitle,
+  metadata,
+  filenameBase,
+}: {
+  type: string;
+  format: unknown;
+  data: any[];
+  columns?: unknown;
+  filteredDisplay: {
+    headers: string[];
+    rows: Record<string, any>[];
+  };
+  reportTitle: string;
+  metadata: ReportMetadata;
+  filenameBase: string;
+}): Promise<ReportArtifact> => {
+  const normalizedFormat = normalizeReportFormat(format);
+  const hasCustomColumns = Array.isArray(columns);
+
+  if (normalizedFormat === "csv") {
+    const csvData = hasCustomColumns ? filteredDisplay : buildCsvRows(type, data);
+    const { headers, rows } = filterReportColumns(
+      csvData.headers,
+      csvData.rows,
+      hasCustomColumns ? columns : undefined,
+    );
+
+    return {
+      body: buildStrictCsv(headers, rows),
+      contentType: "text/csv",
+      filename: `${filenameBase}.csv`,
+      format: "csv",
+    };
+  }
+
+  if (normalizedFormat === "xlsx") {
+    const excelData = hasCustomColumns ? filteredDisplay : buildCsvRows(type, data);
+    const { headers, rows } = filterReportColumns(
+      excelData.headers,
+      excelData.rows,
+      hasCustomColumns ? columns : undefined,
+    );
+
+    return {
+      body: await buildExcelBuffer(reportTitle, headers, rows, metadata),
+      contentType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      filename: `${filenameBase}.xlsx`,
+      format: "xlsx",
+    };
+  }
+
+  return {
+    body: await buildPdfBuffer(reportTitle, filteredDisplay.rows, metadata),
+    contentType: "application/pdf",
+    filename: `${filenameBase}.pdf`,
+    format: "pdf",
+  };
 };
 
 const loadReportRows = async ({
@@ -1507,6 +1626,104 @@ router.post("/seed-demo-data", requireAdmin, async (req, res) => {
   }
 });
 
+router.delete("/seed-demo-data", requireAdmin, async (req, res) => {
+  try {
+    if (
+      process.env.NODE_ENV === "production" ||
+      process.env.RAILWAY_ENVIRONMENT
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Demo data reset is disabled in production environments",
+      });
+    }
+
+    const demoStudents = await db
+      .select({ id: students.id })
+      .from(students)
+      .where(like(students.studentId, "DEMO-%"));
+    const demoSubjects = await db
+      .select({ id: subjects.id })
+      .from(subjects)
+      .where(like(subjects.code, "DEMO%"));
+    const demoClassrooms = await db
+      .select({ id: classrooms.id })
+      .from(classrooms)
+      .where(like(classrooms.name, "DEMO%"));
+    const demoStudentIds = demoStudents.map((student) => student.id);
+    const demoSubjectIds = demoSubjects.map((subject) => subject.id);
+    const demoClassroomIds = demoClassrooms.map((classroom) => classroom.id);
+
+    const scheduleConditions = [];
+    if (demoSubjectIds.length > 0) {
+      scheduleConditions.push(inArray(schedules.subjectId, demoSubjectIds));
+    }
+    if (demoClassroomIds.length > 0) {
+      scheduleConditions.push(inArray(schedules.classroomId, demoClassroomIds));
+    }
+
+    const demoSchedules =
+      scheduleConditions.length > 0
+        ? await db
+            .select({ id: schedules.id })
+            .from(schedules)
+            .where(and(...scheduleConditions))
+        : [];
+    const demoScheduleIds = demoSchedules.map((schedule) => schedule.id);
+    const demoSessions =
+      demoScheduleIds.length > 0
+        ? await db
+            .select({ id: classSessions.id })
+            .from(classSessions)
+            .where(inArray(classSessions.scheduleId, demoScheduleIds))
+        : [];
+    const demoSessionIds = demoSessions.map((session) => session.id);
+
+    if (demoStudentIds.length > 0) {
+      await db
+        .delete(attendanceRecords)
+        .where(inArray(attendanceRecords.studentId, demoStudentIds));
+      await db.delete(enrollments).where(inArray(enrollments.studentId, demoStudentIds));
+    }
+    if (demoSessionIds.length > 0) {
+      await db
+        .delete(attendanceRecords)
+        .where(inArray(attendanceRecords.classSessionId, demoSessionIds));
+      await db.delete(classSessions).where(inArray(classSessions.id, demoSessionIds));
+    }
+    if (demoScheduleIds.length > 0) {
+      await db.delete(schedules).where(inArray(schedules.id, demoScheduleIds));
+    }
+    if (demoStudentIds.length > 0) {
+      await db.delete(students).where(inArray(students.id, demoStudentIds));
+    }
+    if (demoSubjectIds.length > 0) {
+      await db.delete(subjects).where(inArray(subjects.id, demoSubjectIds));
+    }
+    if (demoClassroomIds.length > 0) {
+      await db.delete(classrooms).where(inArray(classrooms.id, demoClassroomIds));
+    }
+
+    res.json({
+      success: true,
+      message: "Demo report data has been reset",
+      data: {
+        students: demoStudentIds.length,
+        subjects: demoSubjectIds.length,
+        classrooms: demoClassroomIds.length,
+        schedules: demoScheduleIds.length,
+        sessions: demoSessionIds.length,
+      },
+    });
+  } catch (error) {
+    console.error("Reset report demo data error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to reset demo report data",
+    });
+  }
+});
+
 // Get attendance records for preview (used by frontend Reports page)
 router.get("/attendance-records", requireAuth, async (req, res) => {
   try {
@@ -1635,12 +1852,28 @@ router.post("/generate-report", requireAuth, async (req, res) => {
       classroomId,
       facultyId,
       quickReportType,
+      columns,
+      emailToMe,
     } = req.body;
 
     if (!type) {
       return res.status(400).json({
         success: false,
         message: "Report type is required",
+      });
+    }
+
+    if (!["attendance", "students", "classroom"].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid report type",
+      });
+    }
+
+    if (dateRangeIsInvalid(startDate, endDate)) {
+      return res.status(400).json({
+        success: false,
+        message: "Start date must be before or equal to end date",
       });
     }
 
@@ -1828,9 +2061,25 @@ router.post("/generate-report", requireAuth, async (req, res) => {
           : endDate
             ? `Through ${formatReportDate(endDate)}`
             : "All Dates";
+    if (data.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          type === "attendance"
+            ? "No attendance records found for the selected filters"
+            : "No records found for the selected filters",
+      });
+    }
+
     const displayRows = buildDisplayRows(type, data);
+    const filteredDisplay = filterReportColumns(
+      displayRows.length > 0 ? Object.keys(displayRows[0]) : [],
+      displayRows,
+      columns,
+    );
+    const generatedAt = new Date();
     const metadata: ReportMetadata = {
-      generatedAt: new Date(),
+      generatedAt,
       filters: [
         { label: "Date Range", value: dateLabel },
         { label: "Subject", value: subjectLabel },
@@ -1846,63 +2095,96 @@ router.post("/generate-report", requireAuth, async (req, res) => {
       startDate,
       endDate,
     );
-
-    // Generate CSV or return JSON data
-    if (format === "csv") {
-      const { headers, rows } = buildCsvRows(type, data);
-      const csv = buildStrictCsv(headers, rows);
-
-      res.setHeader("Content-Type", "text/csv");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${filenameBase}.csv"`,
-      );
-      return res.send(csv);
-    }
-
-    if (format === "xlsx" || format === "excel") {
-      const { headers, rows } = buildCsvRows(type, data);
-      const excelBuffer = await buildExcelBuffer(
-        reportTitle,
-        headers,
-        rows,
-        metadata,
-      );
-
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      );
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${filenameBase}.xlsx"`,
-      );
-      return res.send(excelBuffer);
-    }
-
-    if (format === "pdf") {
-      const pdfBuffer = await buildPdfBuffer(reportTitle, displayRows, metadata);
-
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${filenameBase}.pdf"`,
-      );
-      return res.send(pdfBuffer);
-    }
-
-    // For JSON format or empty data, return the data directly
-    res.json({
-      success: true,
-      message: "Report data retrieved successfully",
-      data: {
-        type,
-        format,
-        recordCount: data.length,
-        generatedAt: new Date(),
-        data,
-      },
+    const historyParameters = {
+      type,
+      format: normalizeReportFormat(format),
+      startDate,
+      endDate,
+      subjectId,
+      classroomId,
+      subjectLabel,
+      classroomLabel,
+      columns: Array.isArray(columns) ? columns : undefined,
+      scope: isFaculty ? "assigned schedules" : "all accessible schedules",
+    };
+    const artifact = await buildReportArtifact({
+      type,
+      format,
+      data,
+      columns,
+      filteredDisplay,
+      reportTitle,
+      metadata,
+      filenameBase,
     });
+
+    await db.insert(reportHistory).values({
+      reportType: type,
+      generatedBy: req.session?.userId ? Number(req.session.userId) : null,
+      filePath: artifact.filename,
+      parameters: historyParameters,
+      recordCount: data.length,
+      status: "completed",
+    });
+
+    if (emailToMe) {
+      const [recipient] = await db
+        .select({ email: users.email, name: users.name })
+        .from(users)
+        .where(eq(users.id, Number(req.session?.userId)))
+        .limit(1);
+
+      if (!recipient?.email) {
+        return res.status(400).json({
+          success: false,
+          message: "Your user account does not have an email address",
+        });
+      }
+
+      const sent = await emailService.sendEmail({
+        to: recipient.email,
+        subject: `${reportTitle} ready`,
+        htmlContent: `
+          <h2>${reportTitle}</h2>
+          <p>Your report was generated with ${data.length.toLocaleString()} matching records.</p>
+          <ul>
+            <li>Date range: ${dateLabel}</li>
+            <li>Subject: ${subjectLabel}</li>
+            <li>Class section: ${classroomLabel}</li>
+            <li>Format: ${artifact.format.toUpperCase()}</li>
+          </ul>
+          <p>The generated report file is attached to this email.</p>
+        `,
+        textContent: `${reportTitle} generated with ${data.length.toLocaleString()} records. Date range: ${dateLabel}. Subject: ${subjectLabel}. Class section: ${classroomLabel}. Format: ${artifact.format.toUpperCase()}. The generated report file is attached.`,
+        attachments: [
+          {
+            name: artifact.filename,
+            content: artifact.body,
+          },
+        ],
+      });
+
+      return res.json({
+        success: sent,
+        message: sent
+          ? "Report emailed successfully"
+          : "Email service is not configured; report was not sent",
+        data: {
+          type,
+          format: artifact.format,
+          recordCount: data.length,
+          generatedAt,
+          filename: artifact.filename,
+        },
+      });
+    }
+
+    res.setHeader("Content-Type", artifact.contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${artifact.filename}"`,
+    );
+    return res.send(artifact.body);
   } catch (error) {
     console.error("Generate report error:", error);
     res.status(500).json({
@@ -1915,13 +2197,20 @@ router.post("/generate-report", requireAuth, async (req, res) => {
 // Get report history
 router.get("/history", requireAuth, async (req, res) => {
   try {
-    const { limit = 20, offset = 0 } = req.query;
+    const { limit = 10, offset = 0 } = req.query;
+    const isFaculty = req.session?.userRole === "faculty";
+    const userId = Number(req.session?.userId);
 
-    const history = await db
+    let query = db
       .select({
         id: reportHistory.id,
         reportType: reportHistory.reportType,
         generatedAt: reportHistory.generatedAt,
+        generatedBy: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+        },
         status: reportHistory.status,
         recordCount: reportHistory.recordCount,
         filePath: reportHistory.filePath,
@@ -1929,6 +2218,13 @@ router.get("/history", requireAuth, async (req, res) => {
         parameters: reportHistory.parameters,
       })
       .from(reportHistory)
+      .leftJoin(users, eq(reportHistory.generatedBy, users.id));
+
+    if (isFaculty) {
+      query = query.where(eq(reportHistory.generatedBy, userId));
+    }
+
+    const history = await query
       .orderBy(desc(reportHistory.generatedAt))
       .limit(parseInt(limit as string))
       .offset(parseInt(offset as string));

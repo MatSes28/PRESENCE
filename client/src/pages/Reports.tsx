@@ -14,7 +14,10 @@ const getFilenameFromDisposition = (disposition: string | null) => {
   return filenameMatch?.[1] ?? null;
 };
 
-const triggerReportDownload = async (payload: any, filenameBase?: string) => {
+const triggerReportDownload = async (
+  payload: ReportDownloadPayload,
+  filenameBase?: string,
+) => {
   const response = await fetch("/api/reports/generate-report", {
     method: "POST",
     credentials: "include",
@@ -72,9 +75,53 @@ interface ReportParams {
   type: "attendance" | "students" | "classroom";
 }
 
+interface ReportDownloadPayload extends ReportParams {
+  quickReportType?: "daily" | "weekly" | "analytics";
+  columns?: string[];
+  emailToMe?: boolean;
+}
+
 interface SummaryItem {
   label: string;
   value: string;
+}
+
+interface SubjectOption {
+  id: number;
+  code: string;
+  name: string;
+}
+
+interface ClassroomOption {
+  id: number;
+  name: string;
+  location: string;
+}
+
+interface ReportHistoryItem {
+  id: number;
+  reportType: string;
+  generatedAt: string;
+  generatedBy?: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  status: string;
+  recordCount: number;
+  filePath?: string;
+  parameters?: {
+    type?: ReportParams["type"];
+    format?: string;
+    subjectLabel?: string;
+    classroomLabel?: string;
+    startDate?: string;
+    endDate?: string;
+    subjectId?: number;
+    classroomId?: number;
+    columns?: string[];
+    scope?: string;
+  };
 }
 
 const reportTypeLabels: Record<ReportParams["type"], string> = {
@@ -126,14 +173,34 @@ const formatDateLabel = (value?: string) => {
   });
 };
 
+const dateRangeError = (startDate?: string, endDate?: string) => {
+  if (!startDate || !endDate) return "";
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return "Please choose valid start and end dates.";
+  }
+  if (start.getTime() > end.getTime()) {
+    return "Start date must be before or equal to end date.";
+  }
+  return "";
+};
+
 export const Reports = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
   const [seedingDemo, setSeedingDemo] = useState(false);
+  const [resettingDemo, setResettingDemo] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState<Record<string, string>[]>([]);
   const [summary, setSummary] = useState<SummaryItem[]>([]);
+  const [reportHistory, setReportHistory] = useState<ReportHistoryItem[]>([]);
+  const [downloadingHistoryId, setDownloadingHistoryId] = useState<
+    number | null
+  >(null);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
+  const [emailReport, setEmailReport] = useState(false);
   const [reportParams, setReportParams] = useState<ReportParams>({
     format: "xlsx",
     type: "attendance",
@@ -155,8 +222,8 @@ export const Reports = () => {
     limit: 10,
     total: 0,
   });
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [classrooms, setClassrooms] = useState<ClassroomOption[]>([]);
 
   const previewColumns =
     previewData.length > 0
@@ -204,13 +271,23 @@ export const Reports = () => {
       : reportParams.format === "xlsx"
         ? "Styled Excel"
         : "PDF";
+  const validationMessage = dateRangeError(
+    reportParams.startDate,
+    reportParams.endDate,
+  );
+  const selectedExportColumns =
+    selectedColumns.length > 0
+      ? selectedColumns.filter((column) => previewColumns.includes(column))
+      : previewColumns;
 
   useEffect(() => {
     loadRealTimeStats();
     loadFilterOptions();
+    loadReportHistory();
   }, []);
 
   useEffect(() => {
+    setSelectedColumns([]);
     loadPreviewData(1);
   }, [
     reportParams.type,
@@ -236,6 +313,14 @@ export const Reports = () => {
   }, [autoRefresh]);
 
   const loadPreviewData = async (page = pagination.page) => {
+    const dateError = dateRangeError(reportParams.startDate, reportParams.endDate);
+    if (dateError) {
+      setPreviewData([]);
+      setSummary([]);
+      setPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+      return;
+    }
+
     setPreviewLoading(true);
     try {
       const offset = (page - 1) * pagination.limit;
@@ -286,6 +371,19 @@ export const Reports = () => {
     }
   };
 
+  const loadReportHistory = async () => {
+    try {
+      const response = await fetch("/api/reports/history?limit=10", {
+        credentials: "include",
+      });
+      const data = await response.json();
+      setReportHistory(data.success && Array.isArray(data.data) ? data.data : []);
+    } catch (error) {
+      console.error("Failed to load report history:", error);
+      setReportHistory([]);
+    }
+  };
+
   const loadRealTimeStats = async () => {
     try {
       const response = await fetch("/api/reports/real-time-stats", {
@@ -327,14 +425,14 @@ export const Reports = () => {
         credentials: "include",
       });
       const subjectsData = await subjectsResponse.json();
-      const subjectsRaw = (subjectsData as any)?.data;
+      const subjectsRaw = (subjectsData as { data?: unknown })?.data;
       setSubjects(Array.isArray(subjectsRaw) ? subjectsRaw : []);
 
       const classroomsResponse = await fetch("/api/classrooms", {
         credentials: "include",
       });
       const classroomsData = await classroomsResponse.json();
-      const classroomsRaw = (classroomsData as any)?.data;
+      const classroomsRaw = (classroomsData as { data?: unknown })?.data;
       setClassrooms(Array.isArray(classroomsRaw) ? classroomsRaw : []);
     } catch (error) {
       console.error("Failed to load filter options:", error);
@@ -394,20 +492,54 @@ export const Reports = () => {
 
   const handleGenerateReport = async (formatOverride?: "csv" | "xlsx" | "pdf") => {
     const format = formatOverride ?? reportParams.format;
+    const dateError = dateRangeError(reportParams.startDate, reportParams.endDate);
+    if (dateError) {
+      addNotification({
+        type: "error",
+        title: "Invalid Date Range",
+        message: dateError,
+      });
+      return;
+    }
+    if (pagination.total === 0 && !emailReport) {
+      addNotification({
+        type: "warning",
+        title: "No Records to Export",
+        message:
+          reportParams.type === "attendance"
+            ? "No attendance records found for this date range. Try All Subjects or a wider range."
+            : "No records match the selected filters. Adjust the filters before exporting.",
+      });
+      return;
+    }
+
     setGenerating(true);
     try {
-      const payload = { ...reportParams, format };
-      await triggerReportDownload(payload);
+      const payload = {
+        ...reportParams,
+        format,
+        columns: selectedExportColumns,
+        emailToMe: emailReport,
+      };
+      const result = await triggerReportDownload(payload);
+      if (emailReport && result?.success === false) {
+        throw new Error(result.message || "Failed to email report summary");
+      }
+      await loadReportHistory();
 
       addNotification({
         type: "success",
         title:
-          format === "pdf"
-            ? "PDF Exported"
-            : format === "xlsx"
-              ? "Excel Exported"
-              : "Report Exported",
-        message:
+          emailReport
+            ? "Report Emailed"
+            : format === "pdf"
+              ? "PDF Exported"
+              : format === "xlsx"
+                ? "Excel Exported"
+                : "Report Exported",
+        message: emailReport
+          ? "The report file has been sent to your account email."
+          :
           format === "pdf"
             ? "Your PDF report has been downloaded."
             : format === "xlsx"
@@ -418,11 +550,11 @@ export const Reports = () => {
       console.error("Failed to generate report:", error);
       addNotification({
         type: "error",
-        title: "Network Error",
+        title: "Export Failed",
         message:
           error instanceof Error
             ? error.message
-            : "Failed to generate report. Please check your connection and try again.",
+            : "Failed to generate report. Check the filters, file format, or your permissions and try again.",
       });
     } finally {
       setGenerating(false);
@@ -469,6 +601,104 @@ export const Reports = () => {
     }
   };
 
+  const handleResetDemoData = async () => {
+    setResettingDemo(true);
+    try {
+      const response = await fetch("/api/reports/seed-demo-data", {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to reset demo data");
+      }
+
+      await Promise.all([
+        loadFilterOptions(),
+        loadPreviewData(1),
+        loadRealTimeStats(),
+      ]);
+
+      addNotification({
+        type: "success",
+        title: "Demo Data Reset",
+        message: "Demo report data has been cleared.",
+      });
+    } catch (error) {
+      console.error("Failed to reset demo data:", error);
+      addNotification({
+        type: "error",
+        title: "Demo Reset Failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to reset demo report data.",
+      });
+    } finally {
+      setResettingDemo(false);
+    }
+  };
+
+  const handleDownloadHistoryReport = async (item: ReportHistoryItem) => {
+    const type =
+      item.parameters?.type === "attendance" ||
+      item.parameters?.type === "students" ||
+      item.parameters?.type === "classroom"
+        ? item.parameters.type
+        : (item.reportType as ReportParams["type"]);
+    const format =
+      item.parameters?.format === "csv" ||
+      item.parameters?.format === "xlsx" ||
+      item.parameters?.format === "pdf"
+        ? item.parameters.format
+        : "xlsx";
+
+    setDownloadingHistoryId(item.id);
+    try {
+      await triggerReportDownload(
+        {
+          type,
+          format,
+          startDate: item.parameters?.startDate,
+          endDate: item.parameters?.endDate,
+          subjectId: item.parameters?.subjectId,
+          classroomId: item.parameters?.classroomId,
+          columns: item.parameters?.columns,
+          emailToMe: false,
+        },
+        `${type}_report`,
+      );
+      await loadReportHistory();
+      addNotification({
+        type: "success",
+        title: "Report Downloaded",
+        message: "The report was regenerated from the saved history filters.",
+      });
+    } catch (error) {
+      console.error("Failed to download historical report:", error);
+      addNotification({
+        type: "error",
+        title: "Download Failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to regenerate this report.",
+      });
+    } finally {
+      setDownloadingHistoryId(null);
+    }
+  };
+
+  const toggleColumn = (column: string) => {
+    setSelectedColumns((current) => {
+      const source = current.length > 0 ? current : previewColumns;
+      return source.includes(column)
+        ? source.filter((item) => item !== column)
+        : [...source, column];
+    });
+  };
+
   const renderStatus = (value: string) => {
     const normalized = String(value || "").toLowerCase();
     const tone =
@@ -501,13 +731,22 @@ export const Reports = () => {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {user?.role === "admin" && (
-            <button
-              onClick={handleSeedDemoData}
-              disabled={seedingDemo}
-              className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-2 rounded text-sm font-medium"
-            >
-              {seedingDemo ? "Seeding..." : "Seed Demo Data"}
-            </button>
+            <>
+              <button
+                onClick={handleSeedDemoData}
+                disabled={seedingDemo || resettingDemo}
+                className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-2 rounded text-sm font-medium"
+              >
+                {seedingDemo ? "Seeding..." : "Seed Demo Data"}
+              </button>
+              <button
+                onClick={handleResetDemoData}
+                disabled={seedingDemo || resettingDemo}
+                className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-2 rounded text-sm font-medium"
+              >
+                {resettingDemo ? "Resetting..." : "Reset Demo Data"}
+              </button>
+            </>
           )}
           <div className="flex items-center space-x-2">
             <input
@@ -648,6 +887,11 @@ export const Reports = () => {
             {formatDateLabel(reportParams.startDate)} to{" "}
             {formatDateLabel(reportParams.endDate)}. Selected export:{" "}
             {exportFormatLabel}. Previewing {previewData.length.toLocaleString()} rows.
+          </p>
+          <p className="text-xs text-cyan-400 mt-1">
+            Exports all matching records, not just this preview page.
+            {user?.role === "faculty" &&
+              " Limited to your assigned schedules."}
           </p>
         </div>
         <div className="space-y-6">
@@ -837,11 +1081,61 @@ export const Reports = () => {
             </div>
           </div>
 
+          {validationMessage && (
+            <div className="rounded-md border border-red-800 bg-red-950/40 p-4 text-sm text-red-100">
+              {validationMessage}
+            </div>
+          )}
+
+          <div className="rounded-md border border-gray-700 bg-gray-900/40 p-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+              <div>
+                <h5 className="text-sm font-medium text-white">
+                  Export Columns
+                </h5>
+                <p className="text-xs text-gray-400">
+                  Choose which preview columns are included in CSV, Excel, and PDF exports.
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedColumns(previewColumns)}
+                className="text-xs text-cyan-300 hover:text-cyan-200"
+              >
+                Select all
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {previewColumns.map((column) => (
+                <label
+                  key={column}
+                  className="flex items-center gap-2 text-sm text-gray-300"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedExportColumns.includes(column)}
+                    onChange={() => toggleColumn(column)}
+                    className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
+                  />
+                  {column}
+                </label>
+              ))}
+            </div>
+          </div>
+
           {/* Generate Report & Export (real API, no mock) */}
           <div className="flex justify-between items-center flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm text-gray-300">
+              <input
+                type="checkbox"
+                checked={emailReport}
+                onChange={(e) => setEmailReport(e.target.checked)}
+                className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
+              />
+              Email report file to me
+            </label>
             <button
               onClick={() => handleGenerateReport()}
-              disabled={generating}
+              disabled={generating || Boolean(validationMessage)}
               className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-6 py-3 rounded-md text-sm font-medium flex items-center space-x-2"
             >
               {generating ? (
@@ -862,7 +1156,7 @@ export const Reports = () => {
                   setReportParams((p) => ({ ...p, format: "csv" }));
                   handleGenerateReport("csv");
                 }}
-                disabled={generating}
+                disabled={generating || Boolean(validationMessage)}
                 className={`px-4 py-2 rounded text-sm font-medium ${
                   reportParams.format === "csv"
                     ? "bg-cyan-600 text-white"
@@ -876,7 +1170,7 @@ export const Reports = () => {
                   setReportParams((p) => ({ ...p, format: "xlsx" }));
                   handleGenerateReport("xlsx");
                 }}
-                disabled={generating}
+                disabled={generating || Boolean(validationMessage)}
                 className={`px-4 py-2 rounded text-sm font-medium ${
                   reportParams.format === "xlsx"
                     ? "bg-cyan-600 text-white"
@@ -890,7 +1184,7 @@ export const Reports = () => {
                   setReportParams((p) => ({ ...p, format: "pdf" }));
                   handleGenerateReport("pdf");
                 }}
-                disabled={generating}
+                disabled={generating || Boolean(validationMessage)}
                 className={`px-4 py-2 rounded text-sm font-medium ${
                   reportParams.format === "pdf"
                     ? "bg-cyan-600 text-white"
@@ -928,17 +1222,25 @@ export const Reports = () => {
                 )}
               </p>
             </div>
-            <button
-              onClick={() => {
-                loadPreviewData();
-                loadRealTimeStats();
-                setLastUpdated(new Date());
-              }}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium flex items-center space-x-1"
-            >
-              <span>🔄</span>
-              <span>Refresh</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.print()}
+                className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium"
+              >
+                Print Preview
+              </button>
+              <button
+                onClick={() => {
+                  loadPreviewData();
+                  loadRealTimeStats();
+                  setLastUpdated(new Date());
+                }}
+                className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium flex items-center space-x-1"
+              >
+                <span>🔄</span>
+                <span>Refresh</span>
+              </button>
+            </div>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -1055,6 +1357,96 @@ export const Reports = () => {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h4 className="text-lg font-medium text-white">Report History</h4>
+            <p className="text-sm text-gray-400">
+              Last 10 generated reports with filters, format, owner, and row count.
+            </p>
+          </div>
+          <button
+            onClick={loadReportHistory}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
+          >
+            Refresh
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-700">
+            <thead className="bg-gray-900">
+              <tr>
+                {[
+                  "Type",
+                  "Filters",
+                  "Format",
+                  "Generated By",
+                  "Timestamp",
+                  "Records",
+                  "Actions",
+                ].map((column) => (
+                  <th
+                    key={column}
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
+                  >
+                    {column}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="bg-gray-800 divide-y divide-gray-700">
+              {reportHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                    No reports have been generated yet.
+                  </td>
+                </tr>
+              ) : (
+                reportHistory.map((item) => (
+                  <tr key={item.id}>
+                    <td className="px-4 py-3 text-sm text-white capitalize">
+                      {item.reportType}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-300">
+                      {[
+                        item.parameters?.subjectLabel || "All Subjects",
+                        item.parameters?.classroomLabel || "All Sections",
+                        item.parameters?.startDate && item.parameters?.endDate
+                          ? `${item.parameters.startDate} to ${item.parameters.endDate}`
+                          : "All Dates",
+                      ].join(" | ")}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-cyan-300 uppercase">
+                      {item.parameters?.format || item.filePath?.split(".").pop() || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-300">
+                      {item.generatedBy?.name || "Unknown"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
+                      {new Date(item.generatedAt).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-300">
+                      {Number(item.recordCount || 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-300">
+                      <button
+                        onClick={() => handleDownloadHistoryReport(item)}
+                        disabled={downloadingHistoryId === item.id}
+                        className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
+                      >
+                        {downloadingHistoryId === item.id
+                          ? "Downloading..."
+                          : "Download Again"}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">

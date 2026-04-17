@@ -6,6 +6,10 @@ interface EmailOptions {
   subject: string;
   htmlContent: string;
   textContent?: string;
+  attachments?: Array<{
+    name: string;
+    content: string | Buffer;
+  }>;
 }
 
 class EmailService {
@@ -54,6 +58,14 @@ class EmailService {
         name: "CLIRDEC:PRESENCE",
       };
       sendSmtpEmail.to = [{ email: options.to }];
+      if (options.attachments && options.attachments.length > 0) {
+        sendSmtpEmail.attachment = options.attachments.map((attachment) => ({
+          name: attachment.name,
+          content: Buffer.isBuffer(attachment.content)
+            ? attachment.content.toString("base64")
+            : Buffer.from(attachment.content).toString("base64"),
+        }));
+      }
 
       const result = await this.apiInstance.sendTransacEmail(sendSmtpEmail);
       console.log(`✅ Email sent successfully to ${options.to}`);

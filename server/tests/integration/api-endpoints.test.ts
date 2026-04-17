@@ -22,8 +22,12 @@ import {
   attendanceRecords,
   classSessions,
   systemSettings,
+  reportHistory,
+  auditLogs,
+  errorLogs,
 } from "../../src/schema.js";
 import { eq } from "drizzle-orm";
+import { emailService } from "../../src/services/emailService.js";
 
 // Mock services
 jest.mock("../../src/services/monitoringService.js");
@@ -41,10 +45,14 @@ describeIntegration("API Endpoints Integration Tests", () => {
   let testSubject: any;
   let testSchedule: any;
   let agent: any;
+  let facultyUser: any;
+  let facultyAgent: any;
   const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   const adminEmail = `test-${uniqueSuffix}@example.com`;
   const adminPasswordPlain = "StrongPass123!";
+  const facultyEmail = `faculty-${uniqueSuffix}@example.com`;
+  const facultyPasswordPlain = "StrongPass123!";
 
   beforeAll(async () => {
     // Ensure health endpoints don't stay in "starting" state during integration tests.
@@ -64,6 +72,18 @@ describeIntegration("API Endpoints Integration Tests", () => {
 
     const [user] = await db.insert(users).values(userData).returning();
     testUser = user;
+
+    const [faculty] = await db
+      .insert(users)
+      .values({
+        email: facultyEmail,
+        password: await bcrypt.hash(facultyPasswordPlain, 12),
+        name: "Faculty Scope User",
+        role: "faculty",
+        isActive: 1 as any,
+      })
+      .returning();
+    facultyUser = faculty;
 
     // Create baseline classroom + subject + schedule (required for FK inserts)
     const [classroom] = await db
@@ -160,6 +180,12 @@ describeIntegration("API Endpoints Integration Tests", () => {
       .post("/api/auth/login")
       .send({ email: adminEmail, password: adminPasswordPlain })
       .expect(200);
+
+    facultyAgent = request.agent(app);
+    await facultyAgent
+      .post("/api/auth/login")
+      .send({ email: facultyEmail, password: facultyPasswordPlain })
+      .expect(200);
   });
 
   afterAll(async () => {
@@ -172,12 +198,23 @@ describeIntegration("API Endpoints Integration Tests", () => {
     await db
       .delete(systemSettings)
       .where(eq(systemSettings.key, `user_auth_settings:${testUser.id}`));
+    await db
+      .delete(reportHistory)
+      .where(eq(reportHistory.generatedBy, testUser.id));
+    await db
+      .delete(reportHistory)
+      .where(eq(reportHistory.generatedBy, facultyUser.id));
+    await db.delete(auditLogs).where(eq(auditLogs.userId, testUser.id));
+    await db.delete(auditLogs).where(eq(auditLogs.userId, facultyUser.id));
+    await db.delete(errorLogs).where(eq(errorLogs.userId, testUser.id));
+    await db.delete(errorLogs).where(eq(errorLogs.userId, facultyUser.id));
 
     // Cleanup in FK-safe order
     await db.delete(iotDevices).where(eq(iotDevices.id, testDevice.id));
     await db.delete(schedules).where(eq(schedules.id, testSchedule.id));
     await db.delete(subjects).where(eq(subjects.id, testSubject.id));
     await db.delete(classrooms).where(eq(classrooms.id, testClassroom.id));
+    await db.delete(users).where(eq(users.id, facultyUser.id));
     await db.delete(students).where(eq(students.id, testStudent.id));
     await db.delete(users).where(eq(users.id, testUser.id));
   });
@@ -484,6 +521,109 @@ describeIntegration("API Endpoints Integration Tests", () => {
 
         expect(response.body.success).toBe(true);
         expect(Array.isArray(response.body.data)).toBe(true);
+      });
+    });
+
+    describe("GET /api/reports/preview", () => {
+      it("should retrieve attendance preview rows", async () => {
+        const response = await agent
+          .get("/api/reports/preview?type=attendance&limit=5&offset=0")
+          .expect(200);
+
+        expect(response.body.success).toBe(true);
+        expect(Array.isArray(response.body.data)).toBe(true);
+        expect(response.body.total).toBeGreaterThanOrEqual(1);
+      });
+
+      it("should retrieve student preview rows", async () => {
+        const response = await agent
+          .get("/api/reports/preview?type=students&limit=5&offset=0")
+          .expect(200);
+
+        expect(response.body.success).toBe(true);
+        expect(Array.isArray(response.body.data)).toBe(true);
+      });
+
+      it("should retrieve classroom preview rows", async () => {
+        const response = await agent
+          .get("/api/reports/preview?type=classroom&limit=5&offset=0")
+          .expect(200);
+
+        expect(response.body.success).toBe(true);
+        expect(Array.isArray(response.body.data)).toBe(true);
+      });
+    });
+
+    describe("POST /api/reports/generate-report", () => {
+      it("should export raw CSV", async () => {
+        const response = await agent
+          .post("/api/reports/generate-report")
+          .send({ type: "attendance", format: "csv" })
+          .expect(200);
+
+        expect(response.headers["content-type"]).toContain("text/csv");
+        expect(response.text).toContain("record_id");
+      });
+
+      it("should export XLSX workbook", async () => {
+        const response = await agent
+          .post("/api/reports/generate-report")
+          .send({ type: "attendance", format: "xlsx" })
+          .expect(200);
+
+        expect(response.headers["content-type"]).toContain("spreadsheetml");
+      });
+
+      it("should email generated reports with the file attached", async () => {
+        const sendSpy = jest
+          .spyOn(emailService, "sendEmail")
+          .mockResolvedValueOnce(true);
+
+        const response = await agent
+          .post("/api/reports/generate-report")
+          .send({
+            type: "attendance",
+            format: "csv",
+            emailToMe: true,
+          })
+          .expect(200);
+
+        expect(response.body.success).toBe(true);
+        expect(response.body.data.filename).toMatch(/\.csv$/);
+        expect(sendSpy).toHaveBeenCalledWith(
+          expect.objectContaining({
+            attachments: [
+              expect.objectContaining({
+                name: expect.stringMatching(/\.csv$/),
+              }),
+            ],
+          }),
+        );
+
+        sendSpy.mockRestore();
+      });
+
+      it("should reject invalid date ranges", async () => {
+        const response = await agent
+          .post("/api/reports/generate-report")
+          .send({
+            type: "attendance",
+            format: "csv",
+            startDate: "2026-01-31",
+            endDate: "2026-01-01",
+          })
+          .expect(400);
+
+        expect(response.body.success).toBe(false);
+      });
+
+      it("should scope faculty users to their assigned schedules", async () => {
+        const response = await facultyAgent
+          .get("/api/reports/preview?type=attendance&limit=5&offset=0")
+          .expect(200);
+
+        expect(response.body.success).toBe(true);
+        expect(response.body.total).toBe(0);
       });
     });
   });
