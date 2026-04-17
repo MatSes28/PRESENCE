@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:5024";
 const isRemoteTarget = Boolean(process.env.PLAYWRIGHT_BASE_URL);
 const isSqliteE2E = process.env.USE_SQLITE === "true";
 
@@ -84,8 +84,8 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
-          command: "npm run dev",
-          url: "http://127.0.0.1:3000/api/health",
+          command: "npm run dev --prefix ..",
+          url: "http://127.0.0.1:5024",
           reuseExistingServer: !process.env.CI,
           timeout: 120 * 1000, // 2 minutes
         },
