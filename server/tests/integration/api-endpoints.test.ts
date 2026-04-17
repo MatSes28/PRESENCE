@@ -23,6 +23,7 @@ import {
   classSessions,
   systemSettings,
   reportHistory,
+  reportPresets,
   auditLogs,
   errorLogs,
 } from "../../src/schema.js";
@@ -204,6 +205,12 @@ describeIntegration("API Endpoints Integration Tests", () => {
     await db
       .delete(reportHistory)
       .where(eq(reportHistory.generatedBy, facultyUser.id));
+    await db
+      .delete(reportPresets)
+      .where(eq(reportPresets.createdBy, testUser.id));
+    await db
+      .delete(reportPresets)
+      .where(eq(reportPresets.createdBy, facultyUser.id));
     await db.delete(auditLogs).where(eq(auditLogs.userId, testUser.id));
     await db.delete(auditLogs).where(eq(auditLogs.userId, facultyUser.id));
     await db.delete(errorLogs).where(eq(errorLogs.userId, testUser.id));
@@ -551,6 +558,68 @@ describeIntegration("API Endpoints Integration Tests", () => {
 
         expect(response.body.success).toBe(true);
         expect(Array.isArray(response.body.data)).toBe(true);
+      });
+    });
+
+    describe("Report presets", () => {
+      it("should list default report presets", async () => {
+        const response = await agent.get("/api/reports/presets").expect(200);
+
+        expect(response.body.success).toBe(true);
+        expect(Array.isArray(response.body.data)).toBe(true);
+        expect(
+          response.body.data.some(
+            (preset: any) => preset.name === "Daily Attendance Summary",
+          ),
+        ).toBe(true);
+      });
+
+      it("should save and delete a personal report preset", async () => {
+        const createResponse = await agent
+          .post("/api/reports/presets")
+          .send({
+            name: "Integration Attendance Preset",
+            visibility: "personal",
+            parameters: {
+              type: "attendance",
+              format: "csv",
+              datePreset: "week",
+              columns: ["Student Name", "Status"],
+            },
+          })
+          .expect(201);
+
+        expect(createResponse.body.success).toBe(true);
+        expect(createResponse.body.data.name).toBe(
+          "Integration Attendance Preset",
+        );
+
+        const listResponse = await agent.get("/api/reports/presets").expect(200);
+        expect(
+          listResponse.body.data.some(
+            (preset: any) => preset.name === "Integration Attendance Preset",
+          ),
+        ).toBe(true);
+
+        await agent
+          .delete(`/api/reports/presets/${createResponse.body.data.id}`)
+          .expect(200);
+      });
+
+      it("should prevent faculty from creating shared presets", async () => {
+        const response = await facultyAgent
+          .post("/api/reports/presets")
+          .send({
+            name: "Faculty Shared Preset",
+            visibility: "shared",
+            parameters: {
+              type: "attendance",
+              format: "csv",
+            },
+          })
+          .expect(403);
+
+        expect(response.body.success).toBe(false);
       });
     });
 

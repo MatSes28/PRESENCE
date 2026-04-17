@@ -11,9 +11,10 @@ import {
   subjects,
   enrollments,
   reportHistory,
+  reportPresets,
   users,
 } from "../schema.js";
-import { eq, and, gte, lte, lt, desc, sql, inArray, like } from "drizzle-orm";
+import { eq, and, gte, lte, lt, desc, sql, inArray, like, or } from "drizzle-orm";
 import { reportSchedulerService } from "../services/reportScheduler.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { emailService } from "../services/emailService.js";
@@ -43,6 +44,81 @@ type ReportQueryParams = {
   isFaculty: boolean;
   facultyUserId: number;
 };
+
+const defaultReportPresets = [
+  {
+    id: "default-daily-attendance",
+    name: "Daily Attendance Summary",
+    visibility: "shared",
+    isDefault: true,
+    parameters: {
+      type: "attendance",
+      format: "xlsx",
+      datePreset: "today",
+      columns: [
+        "Student Name",
+        "Student ID",
+        "Subject",
+        "Status",
+        "Entry Time",
+        "Recorded At",
+      ],
+    },
+  },
+  {
+    id: "default-weekly-late",
+    name: "Weekly Late Students",
+    visibility: "shared",
+    isDefault: true,
+    parameters: {
+      type: "attendance",
+      format: "csv",
+      datePreset: "week",
+      columns: ["Student Name", "Student ID", "Subject", "Status", "Entry Time"],
+    },
+  },
+  {
+    id: "default-monthly-classroom",
+    name: "Monthly Classroom Utilization",
+    visibility: "shared",
+    isDefault: true,
+    parameters: {
+      type: "classroom",
+      format: "pdf",
+      datePreset: "month",
+      columns: [
+        "Session ID",
+        "Date",
+        "Status",
+        "Subject",
+        "Class Section",
+        "Attendance Records",
+        "Presence Rate",
+      ],
+    },
+  },
+  {
+    id: "default-student-enrollment",
+    name: "Student Enrollment Export",
+    visibility: "shared",
+    isDefault: true,
+    parameters: {
+      type: "students",
+      format: "csv",
+      datePreset: "custom",
+      columns: [
+        "Student Name",
+        "Student ID",
+        "Email",
+        "Program",
+        "Year",
+        "Section",
+        "Active Enrollments",
+        "Status",
+      ],
+    },
+  },
+];
 
 const parseOptionalId = (value?: string | number) => {
   if (value == null || value === "") return undefined;
@@ -2238,6 +2314,159 @@ router.get("/history", requireAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch report history",
+    });
+  }
+});
+
+// Get saved report presets plus built-in defaults
+router.get("/presets", requireAuth, async (req, res) => {
+  try {
+    const isAdmin = req.session?.userRole === "admin";
+    const userId = Number(req.session?.userId);
+    const visibilityCondition = isAdmin
+      ? or(
+          eq(reportPresets.createdBy, userId),
+          eq(reportPresets.visibility, "shared"),
+          eq(reportPresets.visibility, "admin"),
+        )
+      : or(
+          eq(reportPresets.createdBy, userId),
+          eq(reportPresets.visibility, "shared"),
+        );
+
+    const savedPresets = await db
+      .select({
+        id: reportPresets.id,
+        name: reportPresets.name,
+        createdBy: reportPresets.createdBy,
+        visibility: reportPresets.visibility,
+        parameters: reportPresets.parameters,
+        createdAt: reportPresets.createdAt,
+        updatedAt: reportPresets.updatedAt,
+      })
+      .from(reportPresets)
+      .where(and(eq(reportPresets.isActive, true), visibilityCondition))
+      .orderBy(desc(reportPresets.updatedAt));
+
+    res.json({
+      success: true,
+      data: [...defaultReportPresets, ...savedPresets],
+    });
+  } catch (error) {
+    console.error("Get report presets error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch report presets",
+    });
+  }
+});
+
+router.post("/presets", requireAuth, async (req, res) => {
+  try {
+    const userId = Number(req.session?.userId);
+    const isAdmin = req.session?.userRole === "admin";
+    const { name, visibility = "personal", parameters } = req.body;
+    const allowedVisibility = isAdmin
+      ? ["personal", "shared", "admin"]
+      : ["personal"];
+
+    if (!name || typeof name !== "string" || name.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Preset name is required",
+      });
+    }
+
+    if (!allowedVisibility.includes(visibility)) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to create that preset type",
+      });
+    }
+
+    if (
+      !parameters ||
+      !["attendance", "students", "classroom"].includes(parameters.type) ||
+      !["csv", "xlsx", "pdf"].includes(parameters.format)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Preset report type and format are required",
+      });
+    }
+
+    const [preset] = await db
+      .insert(reportPresets)
+      .values({
+        name: name.trim(),
+        createdBy: userId,
+        visibility,
+        parameters,
+        updatedAt: new Date(),
+        isActive: true,
+      })
+      .returning();
+
+    res.status(201).json({
+      success: true,
+      data: preset,
+    });
+  } catch (error) {
+    console.error("Create report preset error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to save report preset",
+    });
+  }
+});
+
+router.delete("/presets/:id", requireAuth, async (req, res) => {
+  try {
+    const presetId = parseInt(req.params.id, 10);
+    const userId = Number(req.session?.userId);
+    const isAdmin = req.session?.userRole === "admin";
+
+    if (!Number.isFinite(presetId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid preset id",
+      });
+    }
+
+    const [preset] = await db
+      .select()
+      .from(reportPresets)
+      .where(and(eq(reportPresets.id, presetId), eq(reportPresets.isActive, true)))
+      .limit(1);
+
+    if (!preset) {
+      return res.status(404).json({
+        success: false,
+        message: "Preset not found",
+      });
+    }
+
+    if (!isAdmin && preset.createdBy !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete your own presets",
+      });
+    }
+
+    await db
+      .update(reportPresets)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(reportPresets.id, presetId));
+
+    res.json({
+      success: true,
+      message: "Preset deleted",
+    });
+  } catch (error) {
+    console.error("Delete report preset error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete report preset",
     });
   }
 });

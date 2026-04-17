@@ -124,6 +124,23 @@ interface ReportHistoryItem {
   };
 }
 
+type ReportDatePreset = "today" | "week" | "month" | "custom";
+type ReportPresetVisibility = "personal" | "shared" | "admin";
+
+interface ReportPresetParameters extends ReportParams {
+  datePreset?: ReportDatePreset;
+  columns?: string[];
+}
+
+interface ReportPresetItem {
+  id: number | string;
+  name: string;
+  visibility: ReportPresetVisibility;
+  isDefault?: boolean;
+  createdBy?: number;
+  parameters: ReportPresetParameters;
+}
+
 const reportTypeLabels: Record<ReportParams["type"], string> = {
   attendance: "Attendance Report",
   students: "Student Report",
@@ -186,6 +203,27 @@ const dateRangeError = (startDate?: string, endDate?: string) => {
   return "";
 };
 
+const getDateRangeForPreset = (preset: ReportDatePreset) => {
+  const today = new Date();
+  const endDate = today.toISOString().split("T")[0];
+
+  if (preset === "today") {
+    return { startDate: endDate, endDate };
+  }
+
+  if (preset === "week") {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    return { startDate: weekAgo.toISOString().split("T")[0], endDate };
+  }
+
+  if (preset === "month") {
+    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return { startDate: monthAgo.toISOString().split("T")[0], endDate };
+  }
+
+  return {};
+};
+
 export const Reports = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
@@ -196,11 +234,19 @@ export const Reports = () => {
   const [previewData, setPreviewData] = useState<Record<string, string>[]>([]);
   const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [reportHistory, setReportHistory] = useState<ReportHistoryItem[]>([]);
+  const [reportPresets, setReportPresets] = useState<ReportPresetItem[]>([]);
+  const [presetName, setPresetName] = useState("");
+  const [presetVisibility, setPresetVisibility] =
+    useState<ReportPresetVisibility>("personal");
+  const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [deletingPresetId, setDeletingPresetId] = useState<string | null>(null);
   const [downloadingHistoryId, setDownloadingHistoryId] = useState<
     number | null
   >(null);
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [emailReport, setEmailReport] = useState(false);
+  const [datePreset, setDatePreset] = useState<ReportDatePreset>("custom");
   const [reportParams, setReportParams] = useState<ReportParams>({
     format: "xlsx",
     type: "attendance",
@@ -284,6 +330,7 @@ export const Reports = () => {
     loadRealTimeStats();
     loadFilterOptions();
     loadReportHistory();
+    loadReportPresets();
   }, []);
 
   useEffect(() => {
@@ -381,6 +428,21 @@ export const Reports = () => {
     } catch (error) {
       console.error("Failed to load report history:", error);
       setReportHistory([]);
+    }
+  };
+
+  const loadReportPresets = async () => {
+    try {
+      const response = await fetch("/api/reports/presets", {
+        credentials: "include",
+      });
+      const data = await response.json();
+      setReportPresets(
+        data.success && Array.isArray(data.data) ? data.data : [],
+      );
+    } catch (error) {
+      console.error("Failed to load report presets:", error);
+      setReportPresets([]);
     }
   };
 
@@ -640,6 +702,125 @@ export const Reports = () => {
     }
   };
 
+  const handleSavePreset = async () => {
+    const trimmedName = presetName.trim();
+    if (!trimmedName) {
+      addNotification({
+        type: "warning",
+        title: "Preset Name Required",
+        message: "Name this preset before saving it.",
+      });
+      return;
+    }
+
+    setSavingPreset(true);
+    try {
+      const response = await fetch("/api/reports/presets", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: trimmedName,
+          visibility: user?.role === "admin" ? presetVisibility : "personal",
+          parameters: {
+            ...reportParams,
+            datePreset,
+            columns: selectedExportColumns,
+          },
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to save preset");
+      }
+
+      setPresetName("");
+      await loadReportPresets();
+      addNotification({
+        type: "success",
+        title: "Preset Saved",
+        message: `${trimmedName} is ready to use.`,
+      });
+    } catch (error) {
+      console.error("Failed to save report preset:", error);
+      addNotification({
+        type: "error",
+        title: "Preset Save Failed",
+        message:
+          error instanceof Error ? error.message : "Failed to save preset.",
+      });
+    } finally {
+      setSavingPreset(false);
+    }
+  };
+
+  const applyReportPreset = (presetId: string) => {
+    setSelectedPresetId(presetId);
+    if (!presetId) return;
+
+    const preset = reportPresets.find((item) => String(item.id) === presetId);
+    if (!preset) return;
+
+    const presetDate = preset.parameters.datePreset || "custom";
+    const computedDates = getDateRangeForPreset(presetDate);
+    setDatePreset(presetDate);
+    setReportParams({
+      type: preset.parameters.type,
+      format: preset.parameters.format,
+      startDate: computedDates.startDate ?? preset.parameters.startDate,
+      endDate: computedDates.endDate ?? preset.parameters.endDate,
+      subjectId: preset.parameters.subjectId,
+      classroomId: preset.parameters.classroomId,
+    });
+    setSelectedColumns(preset.parameters.columns || []);
+    addNotification({
+      type: "success",
+      title: "Preset Loaded",
+      message: `${preset.name} has been applied.`,
+    });
+  };
+
+  const handleDeletePreset = async () => {
+    const preset = reportPresets.find(
+      (item) => String(item.id) === selectedPresetId,
+    );
+    if (!preset || preset.isDefault || typeof preset.id !== "number") {
+      return;
+    }
+
+    setDeletingPresetId(String(preset.id));
+    try {
+      const response = await fetch(`/api/reports/presets/${preset.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Failed to delete preset");
+      }
+
+      setSelectedPresetId("");
+      await loadReportPresets();
+      addNotification({
+        type: "success",
+        title: "Preset Deleted",
+        message: `${preset.name} has been removed.`,
+      });
+    } catch (error) {
+      console.error("Failed to delete report preset:", error);
+      addNotification({
+        type: "error",
+        title: "Preset Delete Failed",
+        message:
+          error instanceof Error ? error.message : "Failed to delete preset.",
+      });
+    } finally {
+      setDeletingPresetId(null);
+    }
+  };
+
   const handleDownloadHistoryReport = async (item: ReportHistoryItem) => {
     const type =
       item.parameters?.type === "attendance" ||
@@ -895,6 +1076,96 @@ export const Reports = () => {
           </p>
         </div>
         <div className="space-y-6">
+          <div className="rounded-md border border-gray-700 bg-gray-900/40 p-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label
+                  htmlFor="report-preset"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Load Preset
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    id="report-preset"
+                    value={selectedPresetId}
+                    onChange={(e) => applyReportPreset(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value="">Choose a preset</option>
+                    {reportPresets.map((preset) => (
+                      <option key={preset.id} value={String(preset.id)}>
+                        {preset.name}
+                        {preset.isDefault
+                          ? " - Default"
+                          : ` - ${preset.visibility}`}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleDeletePreset}
+                    disabled={
+                      !selectedPresetId ||
+                      deletingPresetId === selectedPresetId ||
+                      reportPresets.find(
+                        (preset) => String(preset.id) === selectedPresetId,
+                      )?.isDefault
+                    }
+                    className="px-3 py-2 rounded text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 whitespace-nowrap"
+                  >
+                    {deletingPresetId === selectedPresetId
+                      ? "Deleting..."
+                      : "Delete"}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Defaults are available to everyone. Saved presets keep filters,
+                  format, and columns.
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="report-preset-name"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
+                  Save Current Filters
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    id="report-preset-name"
+                    type="text"
+                    value={presetName}
+                    onChange={(e) => setPresetName(e.target.value)}
+                    placeholder="Weekly Attendance - All Subjects"
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                  {user?.role === "admin" && (
+                    <select
+                      value={presetVisibility}
+                      onChange={(e) =>
+                        setPresetVisibility(
+                          e.target.value as ReportPresetVisibility,
+                        )
+                      }
+                      className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <option value="personal">Personal</option>
+                      <option value="shared">Shared</option>
+                      <option value="admin">Admin Only</option>
+                    </select>
+                  )}
+                  <button
+                    onClick={handleSavePreset}
+                    disabled={savingPreset}
+                    className="px-4 py-2 rounded text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-700 disabled:bg-cyan-800 whitespace-nowrap"
+                  >
+                    {savingPreset ? "Saving..." : "Save Preset"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Date Range */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -907,9 +1178,10 @@ export const Reports = () => {
               <select
                 id="report-date-range"
                 name="dateRangePreset"
-                value="custom"
+                value={datePreset}
                 onChange={(e) => {
-                  const value = e.target.value;
+                  const value = e.target.value as ReportDatePreset;
+                  setDatePreset(value);
                   if (value === "today") {
                     const today = new Date().toISOString().split("T")[0];
                     setReportParams({
@@ -963,12 +1235,13 @@ export const Reports = () => {
                 name="startDate"
                 type="date"
                 value={reportParams.startDate}
-                onChange={(e) =>
+                onChange={(e) => {
+                  setDatePreset("custom");
                   setReportParams({
                     ...reportParams,
                     startDate: e.target.value,
-                  })
-                }
+                  });
+                }}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
             </div>
@@ -984,9 +1257,10 @@ export const Reports = () => {
                 name="endDate"
                 type="date"
                 value={reportParams.endDate}
-                onChange={(e) =>
-                  setReportParams({ ...reportParams, endDate: e.target.value })
-                }
+                onChange={(e) => {
+                  setDatePreset("custom");
+                  setReportParams({ ...reportParams, endDate: e.target.value });
+                }}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
             </div>

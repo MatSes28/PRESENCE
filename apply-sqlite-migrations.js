@@ -791,6 +791,21 @@ try {
     `CREATE INDEX IF NOT EXISTS idx_report_history_generated_at ON report_history(generated_at)`,
     `CREATE INDEX IF NOT EXISTS idx_report_history_generated_by ON report_history(generated_by)`,
     `CREATE INDEX IF NOT EXISTS idx_report_history_report_type ON report_history(report_type)`,
+
+    `CREATE TABLE IF NOT EXISTS report_presets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      created_by INTEGER,
+      visibility TEXT DEFAULT 'personal' NOT NULL,
+      parameters TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_report_presets_created_by ON report_presets(created_by)`,
+    `CREATE INDEX IF NOT EXISTS idx_report_presets_visibility ON report_presets(visibility)`,
+    `CREATE INDEX IF NOT EXISTS idx_report_presets_active ON report_presets(is_active)`,
   ];
 
   // Apply each table creation

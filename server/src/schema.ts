@@ -967,3 +967,18 @@ export const reportHistory = pgTable("report_history", {
 
 export type ReportHistory = typeof reportHistory.$inferSelect;
 export type NewReportHistory = typeof reportHistory.$inferInsert;
+
+// Report Presets table - Saved report filter/column configurations
+export const reportPresets = pgTable("report_presets", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 120 }).notNull(),
+  createdBy: integer("created_by").references(() => users.id),
+  visibility: varchar("visibility", { length: 20 }).default("personal").notNull(), // personal, shared, admin
+  parameters: jsonb("parameters").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+export type ReportPreset = typeof reportPresets.$inferSelect;
+export type NewReportPreset = typeof reportPresets.$inferInsert;
