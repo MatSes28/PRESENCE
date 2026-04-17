@@ -1,5 +1,5 @@
 import { Router } from "express";
-import db from "../storage.js";
+import db, { dbClient } from "../storage.js";
 import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
 import {
@@ -212,6 +212,16 @@ const toTitle = (value: string) =>
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+
+const isSqliteDatabase = () =>
+  !!dbClient &&
+  typeof dbClient.prepare === "function" &&
+  typeof dbClient.exec === "function";
+
+const reportHistoryJsonText = (key: string) =>
+  isSqliteDatabase()
+    ? sql<string>`json_extract(${reportHistory.parameters}, ${`$.${key}`})`
+    : sql<string>`${reportHistory.parameters}->>${key}`;
 
 const buildReportFilename = (
   type: string,
@@ -2833,9 +2843,20 @@ router.post("/generate-report", requireAuth, async (req, res) => {
 // Get report history
 router.get("/history", requireAuth, async (req, res) => {
   try {
-    const { limit = 10, offset = 0 } = req.query;
+    const {
+      limit = 10,
+      offset = 0,
+      type,
+      format,
+      source,
+      status,
+      generatedBy,
+      startDate,
+      endDate,
+    } = req.query;
     const isFaculty = req.session?.userRole === "faculty";
     const userId = Number(req.session?.userId);
+    const conditions = [];
 
     let query = db
       .select({
@@ -2857,7 +2878,79 @@ router.get("/history", requireAuth, async (req, res) => {
       .leftJoin(users, eq(reportHistory.generatedBy, users.id));
 
     if (isFaculty) {
-      query = query.where(eq(reportHistory.generatedBy, userId));
+      conditions.push(eq(reportHistory.generatedBy, userId));
+    }
+
+    if (
+      typeof type === "string" &&
+      ["attendance", "students", "classroom"].includes(type)
+    ) {
+      conditions.push(eq(reportHistory.reportType, type));
+    }
+
+    if (
+      typeof format === "string" &&
+      ["csv", "xlsx", "pdf"].includes(format.toLowerCase())
+    ) {
+      conditions.push(eq(reportHistoryJsonText("format"), format.toLowerCase()));
+    }
+
+    if (
+      typeof source === "string" &&
+      ["manual", "email", "quick", "scheduled", "download-again"].includes(
+        source,
+      )
+    ) {
+      const sourceExpression = reportHistoryJsonText("source");
+      conditions.push(
+        source === "manual"
+          ? or(eq(sourceExpression, "manual"), sql`${sourceExpression} is null`)
+          : eq(sourceExpression, source),
+      );
+    }
+
+    if (
+      typeof status === "string" &&
+      ["completed", "failed", "pending"].includes(status.toLowerCase())
+    ) {
+      conditions.push(eq(reportHistory.status, status.toLowerCase()));
+    }
+
+    if (typeof generatedBy === "string" && generatedBy.trim()) {
+      const trimmedGeneratedBy = generatedBy.trim();
+      const generatedById = parseInt(trimmedGeneratedBy, 10);
+
+      if (Number.isFinite(generatedById)) {
+        conditions.push(eq(reportHistory.generatedBy, generatedById));
+      } else {
+        const pattern = `%${trimmedGeneratedBy.toLowerCase()}%`;
+        conditions.push(
+          or(
+            like(sql<string>`lower(${users.name})`, pattern),
+            like(sql<string>`lower(${users.email})`, pattern),
+          ),
+        );
+      }
+    }
+
+    if (typeof startDate === "string" && startDate) {
+      const start = new Date(startDate);
+      if (!Number.isNaN(start.getTime())) {
+        start.setHours(0, 0, 0, 0);
+        conditions.push(gte(reportHistory.generatedAt, start));
+      }
+    }
+
+    if (typeof endDate === "string" && endDate) {
+      const end = new Date(endDate);
+      if (!Number.isNaN(end.getTime())) {
+        end.setHours(23, 59, 59, 999);
+        conditions.push(lte(reportHistory.generatedAt, end));
+      }
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
     }
 
     const history = await query

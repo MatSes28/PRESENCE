@@ -133,10 +133,26 @@ interface ReportHistoryItem {
 type ReportDatePreset = "today" | "week" | "month" | "custom";
 type ReportPresetVisibility = "personal" | "shared" | "admin";
 type ReportScheduleFrequency = "daily" | "weekly" | "monthly";
+type ReportHistorySource =
+  | "manual"
+  | "email"
+  | "quick"
+  | "scheduled"
+  | "download-again";
 
 interface ReportPresetParameters extends ReportParams {
   datePreset?: ReportDatePreset;
   columns?: string[];
+}
+
+interface ReportHistoryFilters {
+  type: "" | ReportParams["type"];
+  format: "" | ReportParams["format"];
+  source: "" | ReportHistorySource;
+  status: "" | "completed" | "failed" | "pending";
+  generatedBy: string;
+  startDate: string;
+  endDate: string;
 }
 
 interface ReportPresetItem {
@@ -176,6 +192,16 @@ const reportTypeLabels: Record<ReportParams["type"], string> = {
   attendance: "Attendance Report",
   students: "Student Report",
   classroom: "Classroom Report",
+};
+
+const emptyReportHistoryFilters: ReportHistoryFilters = {
+  type: "",
+  format: "",
+  source: "",
+  status: "",
+  generatedBy: "",
+  startDate: "",
+  endDate: "",
 };
 
 const dayNames = [
@@ -343,6 +369,8 @@ export const Reports = () => {
   const [previewData, setPreviewData] = useState<Record<string, string>[]>([]);
   const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [reportHistory, setReportHistory] = useState<ReportHistoryItem[]>([]);
+  const [reportHistoryFilters, setReportHistoryFilters] =
+    useState<ReportHistoryFilters>(emptyReportHistoryFilters);
   const [selectedHistoryItem, setSelectedHistoryItem] =
     useState<ReportHistoryItem | null>(null);
   const [reportPresets, setReportPresets] = useState<ReportPresetItem[]>([]);
@@ -481,6 +509,19 @@ export const Reports = () => {
   }, [scheduleRecipient, user?.email]);
 
   useEffect(() => {
+    if (!selectedHistoryItem) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedHistoryItem(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedHistoryItem]);
+
+  useEffect(() => {
     setSelectedColumns([]);
     loadPreviewData(1);
   }, [
@@ -565,9 +606,22 @@ export const Reports = () => {
     }
   };
 
-  const loadReportHistory = async () => {
+  const loadReportHistory = async (
+    filters: ReportHistoryFilters = reportHistoryFilters,
+  ) => {
     try {
-      const response = await fetch("/api/reports/history?limit=10", {
+      const queryParams = new URLSearchParams({ limit: "25" });
+      if (filters.type) queryParams.set("type", filters.type);
+      if (filters.format) queryParams.set("format", filters.format);
+      if (filters.source) queryParams.set("source", filters.source);
+      if (filters.status) queryParams.set("status", filters.status);
+      if (filters.generatedBy.trim()) {
+        queryParams.set("generatedBy", filters.generatedBy.trim());
+      }
+      if (filters.startDate) queryParams.set("startDate", filters.startDate);
+      if (filters.endDate) queryParams.set("endDate", filters.endDate);
+
+      const response = await fetch(`/api/reports/history?${queryParams}`, {
         credentials: "include",
       });
       const data = await response.json();
@@ -576,6 +630,11 @@ export const Reports = () => {
       console.error("Failed to load report history:", error);
       setReportHistory([]);
     }
+  };
+
+  const resetReportHistoryFilters = () => {
+    setReportHistoryFilters(emptyReportHistoryFilters);
+    loadReportHistory(emptyReportHistoryFilters);
   };
 
   const loadReportPresets = async () => {
@@ -1528,6 +1587,8 @@ export const Reports = () => {
                 </h5>
                 <p className="text-xs text-gray-400">
                   Send a saved preset automatically by email.
+                  {user?.role === "admin" &&
+                    " Admins can run schedules immediately."}
                 </p>
               </div>
               <button
@@ -2377,15 +2438,204 @@ export const Reports = () => {
           <div>
             <h4 className="text-lg font-medium text-white">Report History</h4>
             <p className="text-sm text-gray-400">
-              Last 10 generated reports with filters, format, owner, and row count.
+              Last 25 matching reports with filters, format, owner, and row count.
             </p>
           </div>
           <button
-            onClick={loadReportHistory}
+            onClick={() => loadReportHistory()}
             className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
           >
             Refresh
           </button>
+        </div>
+        <div className="mb-4 rounded-md border border-gray-700 bg-gray-900/40 p-4">
+          <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h5 className="text-sm font-medium text-white">
+                History Filters
+              </h5>
+              <p className="text-xs text-gray-500">
+                Find reports by type, format, source, status, owner, or date.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => loadReportHistory()}
+                className="rounded bg-cyan-600 px-3 py-2 text-xs font-medium text-white hover:bg-cyan-700"
+              >
+                Apply Filters
+              </button>
+              <button
+                onClick={resetReportHistoryFilters}
+                className="rounded bg-gray-700 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-600"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            <div>
+              <label
+                htmlFor="history-filter-type"
+                className="mb-1 block text-xs font-medium text-gray-400"
+              >
+                Report Type
+              </label>
+              <select
+                id="history-filter-type"
+                value={reportHistoryFilters.type}
+                onChange={(event) =>
+                  setReportHistoryFilters((current) => ({
+                    ...current,
+                    type: event.target.value as ReportHistoryFilters["type"],
+                  }))
+                }
+                className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              >
+                <option value="">All types</option>
+                <option value="attendance">Attendance</option>
+                <option value="students">Students</option>
+                <option value="classroom">Classroom</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor="history-filter-format"
+                className="mb-1 block text-xs font-medium text-gray-400"
+              >
+                Format
+              </label>
+              <select
+                id="history-filter-format"
+                value={reportHistoryFilters.format}
+                onChange={(event) =>
+                  setReportHistoryFilters((current) => ({
+                    ...current,
+                    format: event.target.value as ReportHistoryFilters["format"],
+                  }))
+                }
+                className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              >
+                <option value="">All formats</option>
+                <option value="csv">CSV</option>
+                <option value="xlsx">Excel</option>
+                <option value="pdf">PDF</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor="history-filter-source"
+                className="mb-1 block text-xs font-medium text-gray-400"
+              >
+                Source
+              </label>
+              <select
+                id="history-filter-source"
+                value={reportHistoryFilters.source}
+                onChange={(event) =>
+                  setReportHistoryFilters((current) => ({
+                    ...current,
+                    source:
+                      event.target.value as ReportHistoryFilters["source"],
+                  }))
+                }
+                className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              >
+                <option value="">All sources</option>
+                <option value="manual">Manual export</option>
+                <option value="email">Email export</option>
+                <option value="quick">Quick report</option>
+                <option value="scheduled">Scheduled report</option>
+                <option value="download-again">Download again</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor="history-filter-status"
+                className="mb-1 block text-xs font-medium text-gray-400"
+              >
+                Status
+              </label>
+              <select
+                id="history-filter-status"
+                value={reportHistoryFilters.status}
+                onChange={(event) =>
+                  setReportHistoryFilters((current) => ({
+                    ...current,
+                    status:
+                      event.target.value as ReportHistoryFilters["status"],
+                  }))
+                }
+                className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              >
+                <option value="">All statuses</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor="history-filter-start"
+                className="mb-1 block text-xs font-medium text-gray-400"
+              >
+                From
+              </label>
+              <input
+                id="history-filter-start"
+                type="date"
+                value={reportHistoryFilters.startDate}
+                onChange={(event) =>
+                  setReportHistoryFilters((current) => ({
+                    ...current,
+                    startDate: event.target.value,
+                  }))
+                }
+                className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="history-filter-end"
+                className="mb-1 block text-xs font-medium text-gray-400"
+              >
+                To
+              </label>
+              <input
+                id="history-filter-end"
+                type="date"
+                value={reportHistoryFilters.endDate}
+                onChange={(event) =>
+                  setReportHistoryFilters((current) => ({
+                    ...current,
+                    endDate: event.target.value,
+                  }))
+                }
+                className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+            <div className="md:col-span-3 xl:col-span-6">
+              <label
+                htmlFor="history-filter-generated-by"
+                className="mb-1 block text-xs font-medium text-gray-400"
+              >
+                Generated By
+              </label>
+              <input
+                id="history-filter-generated-by"
+                type="text"
+                value={reportHistoryFilters.generatedBy}
+                onChange={(event) =>
+                  setReportHistoryFilters((current) => ({
+                    ...current,
+                    generatedBy: event.target.value,
+                  }))
+                }
+                placeholder="Name, email, or user ID"
+                className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-700">
