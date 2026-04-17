@@ -8,6 +8,8 @@ import {
 } from "../hooks/useFormValidation";
 import { api } from "../lib/api";
 
+const getApiPayload = (response: any) => response?.data ?? response;
+
 export const Settings = () => {
   const { user } = useAuth();
   const { addNotification } = useNotifications();
@@ -109,14 +111,15 @@ export const Settings = () => {
 
     try {
       const response = await api.put("/settings/profile", profileData);
-      if ((response.data as any).success) {
+      const result = getApiPayload(response);
+      if (result?.success) {
         addNotification({
           type: "success",
           title: "Profile Updated",
           message: "Your profile has been updated successfully",
         });
       } else {
-        throw new Error((response.data as any).message || "Update failed");
+        throw new Error(result?.message || "Update failed");
       }
     } catch (error) {
       console.error("Profile update error:", error);
@@ -145,7 +148,8 @@ export const Settings = () => {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
-      if ((response.data as any).success) {
+      const result = getApiPayload(response);
+      if (result?.success) {
         addNotification({
           type: "success",
           title: "Password Changed",
@@ -158,9 +162,7 @@ export const Settings = () => {
         });
         passwordValidation.clearErrors();
       } else {
-        throw new Error(
-          (response.data as any).message || "Password change failed"
-        );
+        throw new Error(result?.message || "Password change failed");
       }
     } catch (error) {
       console.error("Password change error:", error);
@@ -175,14 +177,16 @@ export const Settings = () => {
   const handleSystemSettingsSave = async () => {
     try {
       const response = await api.put("/settings/system", systemSettings);
-      if ((response.data as any).success) {
+      const result = getApiPayload(response);
+      if (result?.success) {
+        if (result.settings) setSystemSettings(result.settings);
         addNotification({
           type: "success",
           title: "System Settings Saved",
           message: "System settings have been saved successfully",
         });
       } else {
-        throw new Error((response.data as any).message || "Save failed");
+        throw new Error(result?.message || "Save failed");
       }
     } catch (error) {
       console.error("System settings save error:", error);
@@ -197,14 +201,16 @@ export const Settings = () => {
   const handleHardwareSettingsSave = async () => {
     try {
       const response = await api.put("/settings/hardware", hardwareSettings);
-      if ((response.data as any).success) {
+      const result = getApiPayload(response);
+      if (result?.success) {
+        if (result.settings) setHardwareSettings(result.settings);
         addNotification({
           type: "success",
           title: "Hardware Settings Saved",
           message: "Hardware settings have been saved successfully",
         });
       } else {
-        throw new Error((response.data as any).message || "Save failed");
+        throw new Error(result?.message || "Save failed");
       }
     } catch (error) {
       console.error("Hardware settings save error:", error);
@@ -219,14 +225,16 @@ export const Settings = () => {
   const handleEmailSettingsSave = async () => {
     try {
       const response = await api.put("/settings/email", emailSettings);
-      if ((response.data as any).success) {
+      const result = getApiPayload(response);
+      if (result?.success) {
+        if (result.settings) setEmailSettings(result.settings);
         addNotification({
           type: "success",
           title: "Email Settings Saved",
           message: "Email settings have been saved successfully",
         });
       } else {
-        throw new Error((response.data as any).message || "Save failed");
+        throw new Error(result?.message || "Save failed");
       }
     } catch (error) {
       console.error("Email settings save error:", error);
