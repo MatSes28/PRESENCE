@@ -9,6 +9,7 @@ const isSqliteE2E = process.env.USE_SQLITE === "true";
  */
 export default defineConfig({
   testDir: "./tests/e2e",
+  globalSetup: "./tests/e2e/globalSetup.ts",
   // SQLite-backed local E2E is currently unsupported in this project; those
   // suites rely on the full app stack and production-like runtime wiring.
   testIgnore: isSqliteE2E ? ["**/*"] : undefined,

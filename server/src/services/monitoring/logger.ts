@@ -26,6 +26,14 @@ export class LoggerService {
 
   // Initialize Winston Logger with structured logging
   private initializeLogger(): void {
+    if (
+      process.env.NODE_ENV === "test" &&
+      process.env.DEBUG_TEST_LOGS !== "true"
+    ) {
+      this.logger = winston.createLogger({ silent: true });
+      return;
+    }
+
     const logFormat = winston.format.combine(
       winston.format.timestamp(),
       winston.format.errors({ stack: true }),

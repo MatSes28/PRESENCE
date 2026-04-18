@@ -36,6 +36,18 @@ if (!process.env.DATABASE_URL) {
     "postgresql://postgres:postgres@localhost:5432/test_db";
 }
 
+const originalConsole = {
+  error: console.error,
+  warn: console.warn,
+  log: console.log,
+};
+
+if (process.env.DEBUG_TEST_LOGS !== "true") {
+  jest.spyOn(console, "error").mockImplementation(() => undefined);
+  jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  jest.spyOn(console, "log").mockImplementation(() => undefined);
+}
+
 // Mock external services
 function mockWebsocket() {
   return {
@@ -167,6 +179,9 @@ afterEach(() => {
 
 // Cleanup after all tests
 afterAll(async () => {
+  console.error = originalConsole.error;
+  console.warn = originalConsole.warn;
+  console.log = originalConsole.log;
   // Close any open database connections
   // This will be handled by the global teardown
 });

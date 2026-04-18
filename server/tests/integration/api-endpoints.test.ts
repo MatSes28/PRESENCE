@@ -628,16 +628,73 @@ describeIntegration("API Endpoints Integration Tests", () => {
 
         expect(response.body.success).toBe(false);
       });
+
+      it("should update, duplicate, and enforce delete ownership for presets", async () => {
+        const createResponse = await agent
+          .post("/api/reports/presets")
+          .send({
+            name: "Preset Permission Source",
+            visibility: "personal",
+            parameters: {
+              type: "attendance",
+              format: "csv",
+              columns: ["Student Name"],
+            },
+          })
+          .expect(201);
+
+        const presetId = createResponse.body.data.id;
+
+        await agent
+          .put(`/api/reports/presets/${presetId}`)
+          .send({
+            name: "Preset Permission Updated",
+            visibility: "personal",
+            parameters: {
+              type: "attendance",
+              format: "xlsx",
+              columns: ["Student Name", "Status"],
+            },
+          })
+          .expect(200);
+
+        const duplicateResponse = await agent
+          .post(`/api/reports/presets/${presetId}/duplicate`)
+          .send({
+            name: "Preset Permission Copy",
+            visibility: "personal",
+          })
+          .expect(201);
+
+        await facultyAgent.delete(`/api/reports/presets/${presetId}`).expect(403);
+        await agent
+          .delete(`/api/reports/presets/${duplicateResponse.body.data.id}`)
+          .expect(200);
+        await agent.delete(`/api/reports/presets/${presetId}`).expect(200);
+      });
     });
 
     describe("Report schedules", () => {
       it("should create, list, update, and delete a scheduled report", async () => {
+        const presetResponse = await agent
+          .post("/api/reports/presets")
+          .send({
+            name: "Schedule Trigger Preset",
+            visibility: "personal",
+            parameters: {
+              type: "attendance",
+              format: "xlsx",
+              datePreset: "custom",
+            },
+          })
+          .expect(201);
+
         const createResponse = await agent
           .post("/api/reports/schedules")
           .send({
             name: "Monday Attendance Email",
-            presetId: "default-daily-attendance",
-            presetName: "Daily Attendance Summary",
+            presetId: String(presetResponse.body.data.id),
+            presetName: "Schedule Trigger Preset",
             frequency: "weekly",
             dayOfWeek: 1,
             timeOfDay: "08:00",
@@ -684,6 +741,9 @@ describeIntegration("API Endpoints Integration Tests", () => {
         sendSpy.mockRestore();
 
         await agent.delete(`/api/reports/schedules/${scheduleId}`).expect(200);
+        await agent
+          .delete(`/api/reports/presets/${presetResponse.body.data.id}`)
+          .expect(200);
       });
 
       it("should reject invalid scheduled report email addresses", async () => {
@@ -701,6 +761,115 @@ describeIntegration("API Endpoints Integration Tests", () => {
           .expect(400);
 
         expect(response.body.success).toBe(false);
+      });
+
+      it("should enforce schedule ownership when toggling and deleting", async () => {
+        const createResponse = await agent
+          .post("/api/reports/schedules")
+          .send({
+            name: "Owned Schedule",
+            presetId: "default-daily-attendance",
+            presetName: "Daily Attendance Summary",
+            frequency: "daily",
+            timeOfDay: "08:00",
+            format: "csv",
+            recipientEmail: adminEmail,
+            isActive: true,
+          })
+          .expect(201);
+
+        const scheduleId = createResponse.body.data.id;
+
+        await facultyAgent
+          .put(`/api/reports/schedules/${scheduleId}`)
+          .send({ isActive: false })
+          .expect(403);
+
+        await agent
+          .put(`/api/reports/schedules/${scheduleId}`)
+          .send({ isActive: false })
+          .expect(200);
+
+        await facultyAgent
+          .delete(`/api/reports/schedules/${scheduleId}`)
+          .expect(403);
+        await agent.delete(`/api/reports/schedules/${scheduleId}`).expect(200);
+      });
+    });
+
+    describe("Report history", () => {
+      it("should filter history by source, status, owner, type, and format", async () => {
+        await db.insert(reportHistory).values([
+          {
+            reportType: "attendance",
+            generatedBy: testUser.id,
+            filePath: "reports/admin-attendance.csv",
+            recordCount: 3,
+            status: "completed",
+            parameters: {
+              type: "attendance",
+              format: "csv",
+              source: "manual",
+            },
+          },
+          {
+            reportType: "students",
+            generatedBy: facultyUser.id,
+            filePath: "reports/faculty-students.pdf",
+            recordCount: 1,
+            status: "failed",
+            parameters: {
+              type: "students",
+              format: "pdf",
+              source: "scheduled",
+            },
+            errorMessage: "Expected test failure",
+          },
+        ]);
+
+        const response = await agent
+          .get(
+            `/api/reports/history?type=attendance&format=csv&source=manual&status=completed&generatedBy=${testUser.id}`,
+          )
+          .expect(200);
+
+        expect(response.body.success).toBe(true);
+        expect(response.body.data.length).toBeGreaterThanOrEqual(1);
+        expect(
+          response.body.data.every(
+            (item: any) =>
+              item.reportType === "attendance" &&
+              item.status === "completed" &&
+              item.parameters?.format === "csv",
+          ),
+        ).toBe(true);
+      });
+
+      it("should export filtered history as CSV for admins only", async () => {
+        await db.insert(reportHistory).values({
+          reportType: "attendance",
+          generatedBy: testUser.id,
+          filePath: "reports/history-export.csv",
+          recordCount: 2,
+          status: "completed",
+          parameters: {
+            type: "attendance",
+            format: "csv",
+            source: "manual",
+          },
+        });
+
+        await facultyAgent
+          .get("/api/reports/history/export?type=attendance")
+          .expect(403);
+
+        const response = await agent
+          .get("/api/reports/history/export?type=attendance&source=manual")
+          .expect(200);
+
+        expect(response.headers["content-type"]).toContain("text/csv");
+        expect(response.text).toContain("Report Type");
+        expect(response.text).toContain("attendance");
       });
     });
 
