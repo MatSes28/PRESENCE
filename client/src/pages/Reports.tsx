@@ -2,15 +2,36 @@ import { useMemo, useState, useEffect } from "react";
 import { useNotifications } from "../components/NotificationSystem";
 import { useAuth } from "../hooks/useAuth";
 import { ExportGuide } from "./reports/ExportGuide";
+import { ReportFilters } from "./reports/ReportFilters";
 import { ReportHistory } from "./reports/ReportHistory";
 import { ReportHistoryDetailsModal } from "./reports/ReportHistoryDetailsModal";
 import { ReportPresetsAndSchedules } from "./reports/ReportPresetsAndSchedules";
+import { ReportPreview } from "./reports/ReportPreview";
 import { ScheduleErrorModal } from "./reports/ScheduleErrorModal";
+import {
+  createReportPreset,
+  createReportSchedule,
+  deleteReportPreset,
+  deleteReportSchedule,
+  duplicateReportPreset,
+  fetchClassrooms,
+  fetchRealTimeStats,
+  fetchReportPresets,
+  fetchReportPreview,
+  fetchReportSchedules,
+  fetchSubjects,
+  resetDemoData,
+  seedDemoData,
+  triggerReportDownload,
+  triggerReportSchedule,
+  updateReportPreset,
+  updateReportSchedule,
+} from "./reports/reportApi";
+import { useReportHistory } from "./reports/useReportHistory";
 import type {
   ClassroomOption,
   ReportDatePreset,
   ReportDownloadPayload,
-  ReportHistoryFilters,
   ReportHistoryItem,
   ReportParams,
   ReportPresetItem,
@@ -23,15 +44,12 @@ import type {
 } from "./reports/types";
 import {
   dateRangeError,
-  emptyReportHistoryFilters,
   fallbackPreviewColumns,
   formatDateLabel,
   formatDateTimeLabel,
   getDateRangeForPreset,
-  getFilenameFromDisposition,
   reportTypeLabels,
   toTitle,
-  triggerReportDownload,
 } from "./reports/reportUtils";
 
 export const Reports = () => {
@@ -43,14 +61,17 @@ export const Reports = () => {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState<Record<string, string>[]>([]);
   const [summary, setSummary] = useState<SummaryItem[]>([]);
-  const [reportHistory, setReportHistory] = useState<ReportHistoryItem[]>([]);
-  const [reportHistoryFilters, setReportHistoryFilters] =
-    useState<ReportHistoryFilters>(emptyReportHistoryFilters);
-  const [reportHistoryPagination, setReportHistoryPagination] = useState({
-    page: 1,
-    limit: 25,
-    total: 0,
-  });
+  const {
+    reportHistory,
+    reportHistoryFilters,
+    reportHistoryPagination,
+    exportingHistory,
+    setReportHistoryFilters,
+    loadReportHistory,
+    resetReportHistoryFilters,
+    clearReportHistoryFilter,
+    exportReportHistoryCsv,
+  } = useReportHistory(addNotification);
   const [selectedHistoryItem, setSelectedHistoryItem] =
     useState<ReportHistoryItem | null>(null);
   const [reportPresets, setReportPresets] = useState<ReportPresetItem[]>([]);
@@ -93,7 +114,6 @@ export const Reports = () => {
   const [downloadingHistoryId, setDownloadingHistoryId] = useState<
     number | null
   >(null);
-  const [exportingHistory, setExportingHistory] = useState(false);
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [emailReport, setEmailReport] = useState(false);
   const [datePreset, setDatePreset] = useState<ReportDatePreset>("custom");
@@ -193,25 +213,138 @@ export const Reports = () => {
     datePreset,
     columns: selectedExportColumns,
   });
-  const buildReportHistoryQueryParams = (
-    filters: ReportHistoryFilters,
-    limit?: number,
-    offset?: number,
-  ) => {
-    const queryParams = new URLSearchParams();
-    if (typeof limit === "number") queryParams.set("limit", limit.toString());
-    if (typeof offset === "number") queryParams.set("offset", offset.toString());
-    if (filters.type) queryParams.set("type", filters.type);
-    if (filters.format) queryParams.set("format", filters.format);
-    if (filters.source) queryParams.set("source", filters.source);
-    if (filters.status) queryParams.set("status", filters.status);
-    if (filters.generatedBy.trim()) {
-      queryParams.set("generatedBy", filters.generatedBy.trim());
+  const loadPreviewData = async (page = pagination.page) => {
+    const dateError = dateRangeError(reportParams.startDate, reportParams.endDate);
+    if (dateError) {
+      setPreviewData([]);
+      setSummary([]);
+      setPagination((prev) => ({ ...prev, page: 1, total: 0 }));
+      return;
     }
-    if (filters.startDate) queryParams.set("startDate", filters.startDate);
-    if (filters.endDate) queryParams.set("endDate", filters.endDate);
-    return queryParams;
+
+    setPreviewLoading(true);
+    try {
+      const offset = (page - 1) * pagination.limit;
+      const queryParams = new URLSearchParams({
+        type: reportParams.type,
+        limit: pagination.limit.toString(),
+        offset: offset.toString(),
+      });
+      if (reportParams.startDate) {
+        queryParams.set("startDate", reportParams.startDate);
+      }
+      if (reportParams.endDate) {
+        queryParams.set("endDate", reportParams.endDate);
+      }
+      if (reportParams.subjectId) {
+        queryParams.set("subjectId", reportParams.subjectId.toString());
+      }
+      if (reportParams.classroomId) {
+        queryParams.set("classroomId", reportParams.classroomId.toString());
+      }
+
+      const data = await fetchReportPreview(queryParams);
+
+      if (data.success && Array.isArray(data.data)) {
+        const rows = data.data;
+        setPreviewData(rows);
+        setSummary(Array.isArray(data.summary) ? data.summary : []);
+        setPagination((prev) => ({
+          ...prev,
+          page,
+          total: typeof data.total === "number" ? data.total : rows.length,
+        }));
+      } else {
+        setPreviewData([]);
+        setSummary([]);
+        setPagination((prev) => ({ ...prev, page, total: 0 }));
+      }
+    } catch (error) {
+      console.error("Failed to load preview data:", error);
+      addNotification({
+        type: "error",
+        title: "Preview Error",
+        message: "Failed to load report preview. Please check your connection.",
+      });
+      setPreviewData([]);
+      setSummary([]);
+      setPagination((prev) => ({ ...prev, total: 0 }));
+    } finally {
+      setPreviewLoading(false);
+    }
   };
+
+  const loadReportPresets = async () => {
+    try {
+      const data = await fetchReportPresets();
+      setReportPresets(
+        data.success && Array.isArray(data.data) ? data.data : [],
+      );
+    } catch (error) {
+      console.error("Failed to load report presets:", error);
+      setReportPresets([]);
+    }
+  };
+
+  const loadReportSchedules = async () => {
+    try {
+      const data = await fetchReportSchedules();
+      setReportSchedules(
+        data.success && Array.isArray(data.data) ? data.data : [],
+      );
+    } catch (error) {
+      console.error("Failed to load report schedules:", error);
+      setReportSchedules([]);
+    }
+  };
+
+  const loadRealTimeStats = async () => {
+    try {
+      const data = await fetchRealTimeStats();
+
+      if (data.success && data.data && typeof data.data === "object") {
+        setRealTimeStats({
+          todayPresent: Number(data.data.todayPresent) ?? 0,
+          todayAbsent: Number(data.data.todayAbsent) ?? 0,
+          todayLate: Number(data.data.todayLate) ?? 0,
+          activeSessions: Number(data.data.activeSessions) ?? 0,
+        });
+      } else {
+        setRealTimeStats({
+          todayPresent: 0,
+          todayAbsent: 0,
+          todayLate: 0,
+          activeSessions: 0,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load real-time stats:", error);
+      setRealTimeStats({
+        todayPresent: 0,
+        todayAbsent: 0,
+        todayLate: 0,
+        activeSessions: 0,
+      });
+    }
+  };
+
+  const loadFilterOptions = async () => {
+    try {
+      // Load subjects
+      const subjectsData = await fetchSubjects();
+      const subjectsRaw = (subjectsData as { data?: unknown })?.data;
+      setSubjects(Array.isArray(subjectsRaw) ? subjectsRaw : []);
+
+      const classroomsData = await fetchClassrooms();
+      const classroomsRaw = (classroomsData as { data?: unknown })?.data;
+      setClassrooms(Array.isArray(classroomsRaw) ? classroomsRaw : []);
+    } catch (error) {
+      console.error("Failed to load filter options:", error);
+      setSubjects([]);
+      setClassrooms([]);
+    }
+  };
+
   useEffect(() => {
     loadRealTimeStats();
     loadFilterOptions();
@@ -263,7 +396,6 @@ export const Reports = () => {
     reportParams.classroomId,
   ]);
 
-  // Auto-refresh effect
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (autoRefresh) {
@@ -271,244 +403,12 @@ export const Reports = () => {
         loadPreviewData();
         loadRealTimeStats();
         setLastUpdated(new Date());
-      }, 30000); // Refresh every 30 seconds
+      }, 30000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [autoRefresh]);
-
-  const loadPreviewData = async (page = pagination.page) => {
-    const dateError = dateRangeError(reportParams.startDate, reportParams.endDate);
-    if (dateError) {
-      setPreviewData([]);
-      setSummary([]);
-      setPagination((prev) => ({ ...prev, page: 1, total: 0 }));
-      return;
-    }
-
-    setPreviewLoading(true);
-    try {
-      const offset = (page - 1) * pagination.limit;
-      const queryParams = new URLSearchParams({
-        type: reportParams.type,
-        limit: pagination.limit.toString(),
-        offset: offset.toString(),
-      });
-      if (reportParams.startDate)
-        queryParams.set("startDate", reportParams.startDate);
-      if (reportParams.endDate)
-        queryParams.set("endDate", reportParams.endDate);
-      if (reportParams.subjectId)
-        queryParams.set("subjectId", reportParams.subjectId.toString());
-      if (reportParams.classroomId)
-        queryParams.set("classroomId", reportParams.classroomId.toString());
-
-      const response = await fetch(`/api/reports/preview?${queryParams}`, {
-        credentials: "include",
-      });
-      const data = await response.json();
-
-      if (data.success && Array.isArray(data.data)) {
-        setPreviewData(data.data);
-        setSummary(Array.isArray(data.summary) ? data.summary : []);
-        setPagination((prev) => ({
-          ...prev,
-          page,
-          total: typeof data.total === "number" ? data.total : data.data.length,
-        }));
-      } else {
-        setPreviewData([]);
-        setSummary([]);
-        setPagination((prev) => ({ ...prev, page, total: 0 }));
-      }
-    } catch (error) {
-      console.error("Failed to load preview data:", error);
-      addNotification({
-        type: "error",
-        title: "Preview Error",
-        message: "Failed to load report preview. Please check your connection.",
-      });
-      setPreviewData([]);
-      setSummary([]);
-      setPagination((prev) => ({ ...prev, total: 0 }));
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  const loadReportHistory = async (
-    filters: ReportHistoryFilters = reportHistoryFilters,
-    page = reportHistoryPagination.page,
-  ) => {
-    try {
-      const offset = (page - 1) * reportHistoryPagination.limit;
-      const queryParams = buildReportHistoryQueryParams(
-        filters,
-        reportHistoryPagination.limit,
-        offset,
-      );
-
-      const response = await fetch(`/api/reports/history?${queryParams}`, {
-        credentials: "include",
-      });
-      const data = await response.json();
-      setReportHistory(data.success && Array.isArray(data.data) ? data.data : []);
-      setReportHistoryPagination((prev) => ({
-        ...prev,
-        page,
-        total: data.success ? Number(data.total || 0) : 0,
-      }));
-    } catch (error) {
-      console.error("Failed to load report history:", error);
-      setReportHistory([]);
-      setReportHistoryPagination((prev) => ({
-        ...prev,
-        page,
-        total: 0,
-      }));
-    }
-  };
-
-  const resetReportHistoryFilters = () => {
-    setReportHistoryFilters(emptyReportHistoryFilters);
-    loadReportHistory(emptyReportHistoryFilters, 1);
-  };
-
-  const clearReportHistoryFilter = (key: keyof ReportHistoryFilters) => {
-    const nextFilters = { ...reportHistoryFilters, [key]: "" };
-    setReportHistoryFilters(nextFilters);
-    loadReportHistory(nextFilters, 1);
-  };
-
-  const exportReportHistoryCsv = async () => {
-    setExportingHistory(true);
-    try {
-      const queryParams = buildReportHistoryQueryParams(reportHistoryFilters);
-      const response = await fetch(`/api/reports/history/export?${queryParams}`, {
-        credentials: "include",
-      });
-      const contentType = response.headers.get("content-type") || "";
-
-      if (!response.ok) {
-        const errorData = contentType.includes("application/json")
-          ? await response.json()
-          : { message: await response.text() };
-        throw new Error(errorData.message || "Failed to export history");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download =
-        getFilenameFromDisposition(response.headers.get("content-disposition")) ||
-        `report-history_${new Date().toISOString().split("T")[0]}.csv`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(anchor);
-    } catch (error) {
-      console.error("Failed to export report history:", error);
-      addNotification({
-        type: "error",
-        title: "History Export Failed",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to export report history.",
-      });
-    } finally {
-      setExportingHistory(false);
-    }
-  };
-
-  const loadReportPresets = async () => {
-    try {
-      const response = await fetch("/api/reports/presets", {
-        credentials: "include",
-      });
-      const data = await response.json();
-      setReportPresets(
-        data.success && Array.isArray(data.data) ? data.data : [],
-      );
-    } catch (error) {
-      console.error("Failed to load report presets:", error);
-      setReportPresets([]);
-    }
-  };
-
-  const loadReportSchedules = async () => {
-    try {
-      const response = await fetch("/api/reports/schedules", {
-        credentials: "include",
-      });
-      const data = await response.json();
-      setReportSchedules(
-        data.success && Array.isArray(data.data) ? data.data : [],
-      );
-    } catch (error) {
-      console.error("Failed to load report schedules:", error);
-      setReportSchedules([]);
-    }
-  };
-
-  const loadRealTimeStats = async () => {
-    try {
-      const response = await fetch("/api/reports/real-time-stats", {
-        credentials: "include",
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.data && typeof data.data === "object") {
-        setRealTimeStats({
-          todayPresent: Number(data.data.todayPresent) ?? 0,
-          todayAbsent: Number(data.data.todayAbsent) ?? 0,
-          todayLate: Number(data.data.todayLate) ?? 0,
-          activeSessions: Number(data.data.activeSessions) ?? 0,
-        });
-      } else {
-        setRealTimeStats({
-          todayPresent: 0,
-          todayAbsent: 0,
-          todayLate: 0,
-          activeSessions: 0,
-        });
-      }
-    } catch (error) {
-      console.error("Failed to load real-time stats:", error);
-      setRealTimeStats({
-        todayPresent: 0,
-        todayAbsent: 0,
-        todayLate: 0,
-        activeSessions: 0,
-      });
-    }
-  };
-
-  const loadFilterOptions = async () => {
-    try {
-      // Load subjects
-      const subjectsResponse = await fetch("/api/subjects", {
-        credentials: "include",
-      });
-      const subjectsData = await subjectsResponse.json();
-      const subjectsRaw = (subjectsData as { data?: unknown })?.data;
-      setSubjects(Array.isArray(subjectsRaw) ? subjectsRaw : []);
-
-      const classroomsResponse = await fetch("/api/classrooms", {
-        credentials: "include",
-      });
-      const classroomsData = await classroomsResponse.json();
-      const classroomsRaw = (classroomsData as { data?: unknown })?.data;
-      setClassrooms(Array.isArray(classroomsRaw) ? classroomsRaw : []);
-    } catch (error) {
-      console.error("Failed to load filter options:", error);
-      setSubjects([]);
-      setClassrooms([]);
-    }
-  };
 
   const handleQuickReport = async (type: "daily" | "weekly" | "analytics") => {
     setGenerating(true);
@@ -635,13 +535,9 @@ export const Reports = () => {
   const handleSeedDemoData = async () => {
     setSeedingDemo(true);
     try {
-      const response = await fetch("/api/reports/seed-demo-data", {
-        method: "POST",
-        credentials: "include",
-      });
-      const data = await response.json();
+      const data = await seedDemoData();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to seed demo data");
       }
 
@@ -675,13 +571,9 @@ export const Reports = () => {
   const handleResetDemoData = async () => {
     setResettingDemo(true);
     try {
-      const response = await fetch("/api/reports/seed-demo-data", {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const data = await response.json();
+      const data = await resetDemoData();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to reset demo data");
       }
 
@@ -724,23 +616,17 @@ export const Reports = () => {
 
     setSavingPreset(true);
     try {
-      const response = await fetch("/api/reports/presets", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: trimmedName,
-          visibility: user?.role === "admin" ? presetVisibility : "personal",
-          parameters: {
-            ...reportParams,
-            datePreset,
-            columns: selectedExportColumns,
-          },
-        }),
+      const data = await createReportPreset({
+        name: trimmedName,
+        visibility: user?.role === "admin" ? presetVisibility : "personal",
+        parameters: {
+          ...reportParams,
+          datePreset,
+          columns: selectedExportColumns,
+        },
       });
-      const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to save preset");
       }
 
@@ -766,23 +652,18 @@ export const Reports = () => {
 
   const handleUpdatePreset = async () => {
     if (!selectedPreset || !canEditSelectedPreset) return;
+    if (typeof selectedPreset.id !== "number") return;
 
     setUpdatingPreset(true);
     try {
-      const response = await fetch(`/api/reports/presets/${selectedPreset.id}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: selectedPreset.name,
-          visibility:
-            user?.role === "admin" ? selectedPreset.visibility : "personal",
-          parameters: currentPresetParameters(),
-        }),
+      const data = await updateReportPreset(selectedPreset.id, {
+        name: selectedPreset.name,
+        visibility:
+          user?.role === "admin" ? selectedPreset.visibility : "personal",
+        parameters: currentPresetParameters(),
       });
-      const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to update preset");
       }
 
@@ -811,20 +692,17 @@ export const Reports = () => {
 
     setSavingPreset(true);
     try {
-      const response = await fetch("/api/reports/presets", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: copyName,
-          visibility: user?.role === "admin" ? presetVisibility : "personal",
-          parameters: currentPresetParameters(),
-        }),
+      const data = await createReportPreset({
+        name: copyName,
+        visibility: user?.role === "admin" ? presetVisibility : "personal",
+        parameters: currentPresetParameters(),
       });
-      const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to save preset copy");
+      }
+      if (!data.data?.id) {
+        throw new Error("Preset copy response did not include an id");
       }
 
       setPresetName("");
@@ -856,33 +734,25 @@ export const Reports = () => {
     setDuplicatingPreset(true);
     try {
       const duplicateName = presetName.trim() || `${selectedPreset.name} Copy`;
-      const body = JSON.stringify({
+      const body = {
         name: duplicateName,
         visibility: user?.role === "admin" ? presetVisibility : "personal",
-      });
-      const response =
+      };
+      const data =
         typeof selectedPreset.id === "number"
-          ? await fetch(`/api/reports/presets/${selectedPreset.id}/duplicate`, {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body,
-            })
-          : await fetch("/api/reports/presets", {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
+          ? await duplicateReportPreset(selectedPreset.id, body)
+          : await createReportPreset({
                 name: duplicateName,
                 visibility:
                   user?.role === "admin" ? presetVisibility : "personal",
                 parameters: selectedPreset.parameters,
-              }),
             });
-      const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to duplicate preset");
+      }
+      if (!data.data?.id) {
+        throw new Error("Duplicated preset response did not include an id");
       }
 
       setPresetName("");
@@ -914,22 +784,17 @@ export const Reports = () => {
     if (!selectedPreset || !canEditSelectedPreset || user?.role !== "admin") {
       return;
     }
+    if (typeof selectedPreset.id !== "number") return;
 
     setUpdatingPreset(true);
     try {
-      const response = await fetch(`/api/reports/presets/${selectedPreset.id}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: selectedPreset.name,
-          visibility,
-          parameters: selectedPreset.parameters,
-        }),
+      const data = await updateReportPreset(selectedPreset.id, {
+        name: selectedPreset.name,
+        visibility,
+        parameters: selectedPreset.parameters,
       });
-      const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to update preset visibility");
       }
 
@@ -995,13 +860,9 @@ export const Reports = () => {
 
     setDeletingPresetId(String(preset.id));
     try {
-      const response = await fetch(`/api/reports/presets/${preset.id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const data = await response.json();
+      const data = await deleteReportPreset(preset.id);
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to delete preset");
       }
 
@@ -1061,26 +922,20 @@ export const Reports = () => {
 
     setSavingSchedule(true);
     try {
-      const response = await fetch("/api/reports/schedules", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: trimmedName,
-          presetId: String(preset.id),
-          presetName: preset.name,
-          frequency: scheduleFrequency,
-          dayOfWeek: scheduleDayOfWeek,
-          dayOfMonth: scheduleDayOfMonth,
-          timeOfDay: scheduleTime,
-          format: scheduleFormat,
-          recipientEmail: trimmedRecipient,
-          isActive: scheduleActive,
-        }),
+      const data = await createReportSchedule({
+        name: trimmedName,
+        presetId: String(preset.id),
+        presetName: preset.name,
+        frequency: scheduleFrequency,
+        dayOfWeek: scheduleDayOfWeek,
+        dayOfMonth: scheduleDayOfMonth,
+        timeOfDay: scheduleTime,
+        format: scheduleFormat,
+        recipientEmail: trimmedRecipient,
+        isActive: scheduleActive,
       });
-      const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to save report schedule");
       }
 
@@ -1109,15 +964,11 @@ export const Reports = () => {
   const handleToggleSchedule = async (schedule: ReportScheduleItem) => {
     setUpdatingScheduleId(schedule.id);
     try {
-      const response = await fetch(`/api/reports/schedules/${schedule.id}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !schedule.isActive }),
+      const data = await updateReportSchedule(schedule.id, {
+        isActive: !schedule.isActive,
       });
-      const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to update report schedule");
       }
 
@@ -1140,16 +991,9 @@ export const Reports = () => {
   const handleRunScheduleNow = async (schedule: ReportScheduleItem) => {
     setRunningScheduleId(schedule.id);
     try {
-      const response = await fetch(
-        `/api/reports/schedules/${schedule.id}/trigger`,
-        {
-          method: "POST",
-          credentials: "include",
-        },
-      );
-      const data = await response.json();
+      const data = await triggerReportSchedule(schedule.id);
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to run report schedule");
       }
 
@@ -1178,13 +1022,9 @@ export const Reports = () => {
   const handleDeleteSchedule = async (schedule: ReportScheduleItem) => {
     setDeletingScheduleId(schedule.id);
     try {
-      const response = await fetch(`/api/reports/schedules/${schedule.id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const data = await response.json();
+      const data = await deleteReportSchedule(schedule.id);
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.message || "Failed to delete report schedule");
       }
 
@@ -1519,541 +1359,47 @@ export const Reports = () => {
             setSelectedScheduleError={setSelectedScheduleError}
             renderStatus={renderStatus}
           />
-          {/* Date Range */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label
-                htmlFor="report-date-range"
-                className="block text-sm font-medium text-gray-300 mb-1"
-              >
-                Date Range
-              </label>
-              <select
-                id="report-date-range"
-                name="dateRangePreset"
-                value={datePreset}
-                onChange={(e) => {
-                  const value = e.target.value as ReportDatePreset;
-                  setDatePreset(value);
-                  if (value === "today") {
-                    const today = new Date().toISOString().split("T")[0];
-                    setReportParams({
-                      ...reportParams,
-                      startDate: today,
-                      endDate: today,
-                    });
-                  } else if (value === "week") {
-                    const weekAgo = new Date(
-                      Date.now() - 7 * 24 * 60 * 60 * 1000,
-                    )
-                      .toISOString()
-                      .split("T")[0];
-                    const today = new Date().toISOString().split("T")[0];
-                    setReportParams({
-                      ...reportParams,
-                      startDate: weekAgo,
-                      endDate: today,
-                    });
-                  } else if (value === "month") {
-                    const monthAgo = new Date(
-                      Date.now() - 30 * 24 * 60 * 60 * 1000,
-                    )
-                      .toISOString()
-                      .split("T")[0];
-                    const today = new Date().toISOString().split("T")[0];
-                    setReportParams({
-                      ...reportParams,
-                      startDate: monthAgo,
-                      endDate: today,
-                    });
-                  }
-                }}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              >
-                <option value="today">Today</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-                <option value="custom">Custom</option>
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor="report-start-date"
-                className="block text-sm font-medium text-gray-300 mb-1"
-              >
-                Start Date
-              </label>
-              <input
-                id="report-start-date"
-                name="startDate"
-                type="date"
-                value={reportParams.startDate}
-                onChange={(e) => {
-                  setDatePreset("custom");
-                  setReportParams({
-                    ...reportParams,
-                    startDate: e.target.value,
-                  });
-                }}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="report-end-date"
-                className="block text-sm font-medium text-gray-300 mb-1"
-              >
-                End Date
-              </label>
-              <input
-                id="report-end-date"
-                name="endDate"
-                type="date"
-                value={reportParams.endDate}
-                onChange={(e) => {
-                  setDatePreset("custom");
-                  setReportParams({ ...reportParams, endDate: e.target.value });
-                }}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label
-                htmlFor="report-subject"
-                className="block text-sm font-medium text-gray-300 mb-1"
-              >
-                Subject
-              </label>
-              <select
-                id="report-subject"
-                name="subjectId"
-                value={reportParams.subjectId || ""}
-                onChange={(e) =>
-                  setReportParams({
-                    ...reportParams,
-                    subjectId: e.target.value
-                      ? parseInt(e.target.value)
-                      : undefined,
-                  })
-                }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              >
-                <option value="">All Subjects</option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.code} - {subject.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor="report-classroom"
-                className="block text-sm font-medium text-gray-300 mb-1"
-              >
-                Class Section
-              </label>
-              <select
-                id="report-classroom"
-                name="classroomId"
-                value={reportParams.classroomId || ""}
-                onChange={(e) =>
-                  setReportParams({
-                    ...reportParams,
-                    classroomId: e.target.value
-                      ? parseInt(e.target.value)
-                      : undefined,
-                  })
-                }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              >
-                <option value="">All Sections</option>
-                {classrooms.map((classroom) => (
-                  <option key={classroom.id} value={classroom.id}>
-                    {classroom.name} - {classroom.location}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor="report-type"
-                className="block text-sm font-medium text-gray-300 mb-1"
-              >
-                Report Type
-              </label>
-              <select
-                id="report-type"
-                name="type"
-                value={reportParams.type}
-                onChange={(e) =>
-                  setReportParams({
-                    ...reportParams,
-                    type: e.target.value as
-                      | "attendance"
-                      | "students"
-                      | "classroom",
-                  })
-                }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              >
-                <option value="attendance">Attendance Report</option>
-                <option value="students">Student Report</option>
-                <option value="classroom">Classroom Report</option>
-              </select>
-            </div>
-          </div>
-
-          {validationMessage && (
-            <div className="rounded-md border border-red-800 bg-red-950/40 p-4 text-sm text-red-100">
-              {validationMessage}
-            </div>
-          )}
-
-          <div className="rounded-md border border-gray-700 bg-gray-900/40 p-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
-              <div>
-                <h5 className="text-sm font-medium text-white">
-                  Export Columns
-                </h5>
-                <p className="text-xs text-gray-400">
-                  Choose which preview columns are included in CSV, Excel, and PDF exports.
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedColumns(previewColumns)}
-                className="text-xs text-cyan-300 hover:text-cyan-200"
-              >
-                Select all
-              </button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-              {previewColumns.map((column) => (
-                <label
-                  key={column}
-                  className="flex items-center gap-2 text-sm text-gray-300"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedExportColumns.includes(column)}
-                    onChange={() => toggleColumn(column)}
-                    className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
-                  />
-                  {column}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Generate Report & Export (real API, no mock) */}
-          <div className="flex justify-between items-center flex-wrap gap-4">
-            <label className="flex items-center gap-2 text-sm text-gray-300">
-              <input
-                type="checkbox"
-                checked={emailReport}
-                onChange={(e) => setEmailReport(e.target.checked)}
-                className="h-4 w-4 text-cyan-600 focus:ring-cyan-500 border-gray-600 rounded bg-gray-700"
-              />
-              Email report file to me
-            </label>
-            <button
-              onClick={() => handleGenerateReport()}
-              disabled={generating || Boolean(validationMessage)}
-              className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-6 py-3 rounded-md text-sm font-medium flex items-center space-x-2"
-            >
-              {generating ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <>
-                  <span>📊</span>
-                  <span>Generate Report</span>
-                </>
-              )}
-            </button>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => {
-                  setReportParams((p) => ({ ...p, format: "csv" }));
-                  handleGenerateReport("csv");
-                }}
-                disabled={generating || Boolean(validationMessage)}
-                className={`px-4 py-2 rounded text-sm font-medium ${
-                  reportParams.format === "csv"
-                    ? "bg-cyan-600 text-white"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                Raw CSV
-              </button>
-              <button
-                onClick={() => {
-                  setReportParams((p) => ({ ...p, format: "xlsx" }));
-                  handleGenerateReport("xlsx");
-                }}
-                disabled={generating || Boolean(validationMessage)}
-                className={`px-4 py-2 rounded text-sm font-medium ${
-                  reportParams.format === "xlsx"
-                    ? "bg-cyan-600 text-white"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                Styled Excel
-              </button>
-              <button
-                onClick={() => {
-                  setReportParams((p) => ({ ...p, format: "pdf" }));
-                  handleGenerateReport("pdf");
-                }}
-                disabled={generating || Boolean(validationMessage)}
-                className={`px-4 py-2 rounded text-sm font-medium ${
-                  reportParams.format === "pdf"
-                    ? "bg-cyan-600 text-white"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                PDF
-              </button>
-            </div>
-          </div>
-          {pagination.total === 0 && !previewLoading && (
-            <div className="rounded-md border border-yellow-800 bg-yellow-950/40 p-4 text-sm text-yellow-100">
-              No rows match these filters yet. Seed demo data or adjust the date,
-              subject, or class section before exporting.
-              {reportParams.type === "attendance" &&
-                " Try All Subjects or a wider date range if you expected attendance records."}
-            </div>
-          )}
+          <ReportFilters
+            datePreset={datePreset}
+            reportParams={reportParams}
+            subjects={subjects}
+            classrooms={classrooms}
+            validationMessage={validationMessage}
+            previewColumns={previewColumns}
+            selectedExportColumns={selectedExportColumns}
+            emailReport={emailReport}
+            generating={generating}
+            paginationTotal={pagination.total}
+            previewLoading={previewLoading}
+            setDatePreset={setDatePreset}
+            setReportParams={setReportParams}
+            setSelectedColumns={setSelectedColumns}
+            setEmailReport={setEmailReport}
+            toggleColumn={toggleColumn}
+            handleGenerateReport={handleGenerateReport}
+          />
         </div>
       </div>
 
-      {/* Report Preview Table */}
-      <div className="print-report-preview bg-gray-800 rounded-lg shadow border border-gray-700">
-        <div className="print-only print-report-header">
-          <div className="print-report-brand">CLIRDEC:PRESENCE</div>
-          <h1 className="print-report-title">
-            {reportTypeLabels[reportParams.type]}
-          </h1>
-          <div className="print-report-meta">
-            <div className="print-report-meta-item">
-              <span>Report Type</span>
-              <strong>{reportTypeLabels[reportParams.type]}</strong>
-            </div>
-            <div className="print-report-meta-item">
-              <span>Date Range</span>
-              <strong>
-                {formatDateLabel(reportParams.startDate)} to{" "}
-                {formatDateLabel(reportParams.endDate)}
-              </strong>
-            </div>
-            <div className="print-report-meta-item">
-              <span>Subject</span>
-              <strong>
-                {selectedSubject
-                  ? `${selectedSubject.code} - ${selectedSubject.name}`
-                  : "All Subjects"}
-              </strong>
-            </div>
-            <div className="print-report-meta-item">
-              <span>Class Section</span>
-              <strong>
-                {selectedClassroom
-                  ? `${selectedClassroom.name} - ${selectedClassroom.location}`
-                  : "All Sections"}
-              </strong>
-            </div>
-            <div className="print-report-meta-item">
-              <span>Generated</span>
-              <strong>{printTimestampLabel}</strong>
-            </div>
-            <div className="print-report-meta-item">
-              <span>Generated By</span>
-              <strong>{generatedByLabel}</strong>
-            </div>
-          </div>
-          <p className="print-report-summary">
-            Live preview contains {previewData.length.toLocaleString()} rows from{" "}
-            {pagination.total.toLocaleString()} matching records.
-          </p>
-          {user?.role === "faculty" && (
-            <p className="print-report-scope">
-              Faculty scope: limited to your assigned schedules.
-            </p>
-          )}
-        </div>
-        <div className="print-only-grid print-overview-grid">
-          {overviewCards.map((item) => (
-            <div key={item.label} className="print-overview-card">
-              <div className="print-overview-value">{item.value}</div>
-              <div className="print-overview-label">{item.label}</div>
-            </div>
-          ))}
-        </div>
-        <div className="screen-only px-6 py-4 border-b border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="text-lg font-medium text-white">
-                Live Report Preview
-              </h4>
-              <p className="text-sm text-gray-300">
-                {reportTypeLabels[reportParams.type]} with{" "}
-                {pagination.total.toLocaleString()} matching rows
-                {autoRefresh && (
-                  <span className="ml-2 text-cyan-400">• Auto-refreshing</span>
-                )}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setLastUpdated(new Date());
-                  window.setTimeout(() => window.print(), 0);
-                }}
-                className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium"
-              >
-                Print Preview
-              </button>
-              <button
-                onClick={() => {
-                  loadPreviewData();
-                  loadRealTimeStats();
-                  setLastUpdated(new Date());
-                }}
-                className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium flex items-center space-x-1"
-              >
-                <span>🔄</span>
-                <span>Refresh</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className="print-report-table-wrap overflow-x-auto">
-          <table className="print-report-table min-w-full divide-y divide-gray-700">
-            <thead className="bg-gray-900">
-              <tr>
-                {previewColumns.map((column) => (
-                  <th
-                    key={column}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
-                  >
-                    {column}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-gray-800 divide-y divide-gray-700">
-              {previewLoading ? (
-                <tr>
-                  <td
-                    colSpan={previewColumns.length}
-                    className="px-6 py-10 text-center text-sm text-gray-400"
-                  >
-                    Loading preview...
-                  </td>
-                </tr>
-              ) : previewData.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={previewColumns.length}
-                    className="px-6 py-10 text-center text-sm text-gray-400"
-                  >
-                    No preview rows available for the selected filters.
-                  </td>
-                </tr>
-              ) : (
-                previewData.map((record, index) => (
-                  <tr
-                    key={`${record["Session ID"] || record["Student ID"] || "row"}-${index}`}
-                  >
-                    {previewColumns.map((column) => (
-                      <td
-                        key={column}
-                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-300"
-                      >
-                        {column === "Status"
-                          ? renderStatus(record[column])
-                          : record[column] || "-"}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="print-only print-report-footer">
-          <span>Confidential Academic Record</span>
-          <span>Page printed {printTimestampLabel}</span>
-          <span>Generated from live preview; exports may include all matching records.</span>
-        </div>
-      </div>
-
-      {/* Pagination Controls */}
-      {pagination.total > pagination.limit && (
-        <div className="screen-only flex items-center justify-between px-6 py-3 bg-gray-800 border-t border-gray-700">
-          <div className="text-sm text-gray-400">
-            Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
-            {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
-            {pagination.total} results
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => {
-                const newPage = pagination.page - 1;
-                setPagination((prev) => ({ ...prev, page: newPage }));
-                loadPreviewData(newPage);
-              }}
-              disabled={pagination.page <= 1}
-              className="px-3 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-400">
-              Page {pagination.page} of{" "}
-              {Math.ceil(pagination.total / pagination.limit)}
-            </span>
-            <button
-              onClick={() => {
-                const newPage = pagination.page + 1;
-                setPagination((prev) => ({ ...prev, page: newPage }));
-                loadPreviewData(newPage);
-              }}
-              disabled={
-                pagination.page >=
-                Math.ceil(pagination.total / pagination.limit)
-              }
-              className="px-3 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Summary Statistics */}
-      <div className="screen-only grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {overviewCards.map((item) => (
-          <div
-            key={item.label}
-            className="bg-gray-800 rounded-lg p-4 border border-gray-700"
-          >
-            <div className="text-center">
-              <div className="text-2xl font-bold text-white">{item.value}</div>
-              <div className="text-sm text-gray-400">{item.label}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                Selected filters
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
+      <ReportPreview
+        reportParams={reportParams}
+        selectedSubject={selectedSubject}
+        selectedClassroom={selectedClassroom}
+        generatedByLabel={generatedByLabel}
+        printTimestampLabel={printTimestampLabel}
+        previewData={previewData}
+        previewColumns={previewColumns}
+        previewLoading={previewLoading}
+        pagination={pagination}
+        overviewCards={overviewCards}
+        autoRefresh={autoRefresh}
+        userRole={user?.role}
+        setLastUpdated={setLastUpdated}
+        setPagination={setPagination}
+        loadPreviewData={loadPreviewData}
+        loadRealTimeStats={loadRealTimeStats}
+        renderStatus={renderStatus}
+      />
       <ReportHistory
         reportHistory={reportHistory}
         reportHistoryFilters={reportHistoryFilters}

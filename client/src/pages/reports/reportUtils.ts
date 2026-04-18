@@ -1,6 +1,5 @@
 import type {
   ReportDatePreset,
-  ReportDownloadPayload,
   ReportHistoryFilters,
   ReportHistoryItem,
   ReportParams,
@@ -82,58 +81,6 @@ export const getFilenameFromDisposition = (disposition: string | null) => {
 
   const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
   return filenameMatch?.[1] ?? null;
-};
-
-export const triggerReportDownload = async (
-  payload: ReportDownloadPayload,
-  filenameBase?: string,
-) => {
-  const response = await fetch("/api/reports/generate-report", {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const contentType = response.headers.get("content-type") || "";
-
-  if (!response.ok) {
-    const errorData = contentType.includes("application/json")
-      ? await response.json()
-      : { message: await response.text() };
-    throw new Error(errorData.message || "Failed to generate report");
-  }
-
-  if (
-    contentType.includes("text/csv") ||
-    contentType.includes("application/pdf") ||
-    contentType.includes(
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-  ) {
-    const blob = await response.blob();
-    const format = contentType.includes("application/pdf")
-      ? "pdf"
-      : contentType.includes("spreadsheetml")
-        ? "xlsx"
-        : "csv";
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    const baseName = filenameBase || `${payload.type}_report`;
-    anchor.download =
-      getFilenameFromDisposition(response.headers.get("content-disposition")) ||
-      `${baseName}_${new Date().toISOString().split("T")[0]}.${format}`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(anchor);
-    return { success: true, format };
-  }
-
-  return response.json();
 };
 
 export const formatDateLabel = (value?: string) => {

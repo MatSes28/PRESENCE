@@ -115,7 +115,6 @@ export const Discrepancies: React.FC = () => {
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryString]);
 
   const toggleSelectAll = (checked: boolean) => {
