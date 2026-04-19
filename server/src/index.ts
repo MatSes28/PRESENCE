@@ -90,7 +90,6 @@ globalThis.setInterval = ((handler: any, timeout?: any, ...args: any[]) => {
 import {
   generalRateLimit,
   attendanceRateLimit,
-  reportRateLimit,
   iotRateLimit,
   apiOptimization,
   requestCache,
@@ -366,7 +365,6 @@ app.use(dbConnectionOptimization);
 
 // Rate limiting with different limits for different endpoints
 app.use("/api/attendance", attendanceRateLimit);
-app.use("/api/reports", reportRateLimit);
 app.use("/api/iot", iotRateLimit);
 app.use("/api", generalRateLimit);
 

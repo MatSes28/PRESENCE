@@ -19,6 +19,7 @@ import { eq, and, gte, lte, lt, desc, sql, inArray, like, or } from "drizzle-orm
 import { reportSchedulerService } from "../services/reportScheduler.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { emailService } from "../services/emailService.js";
+import { reportRateLimit } from "../middleware/rateLimit.js";
 
 const router = Router();
 
@@ -1792,7 +1793,7 @@ router.delete("/schedules/:id", requireAuth, async (req, res) => {
 });
 
 // Manually trigger a report
-router.post("/schedules/:id/trigger", requireAdmin, async (req, res) => {
+router.post("/schedules/:id/trigger", requireAdmin, reportRateLimit, async (req, res) => {
   try {
     const scheduleId = parseInt(req.params.id, 10);
 
@@ -1839,7 +1840,7 @@ router.post("/schedules/:id/trigger", requireAdmin, async (req, res) => {
 });
 
 // Generate on-demand report
-router.post("/generate", requireAuth, async (req, res) => {
+router.post("/generate", requireAuth, reportRateLimit, async (req, res) => {
   try {
     const { reportType, filters = {}, dateRange } = req.body;
 
@@ -2479,7 +2480,7 @@ router.get("/attendance-records", requireAuth, async (req, res) => {
 });
 
 // Generate report (used by frontend Reports page)
-router.post("/generate-report", requireAuth, async (req, res) => {
+router.post("/generate-report", requireAuth, reportRateLimit, async (req, res) => {
   try {
     const isFaculty = req.session?.userRole === "faculty";
     const facultyUserId = Number(req.session?.userId);
@@ -2989,7 +2990,7 @@ router.get("/history", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/history/export", requireAuth, requireAdmin, async (req, res) => {
+router.get("/history/export", requireAuth, requireAdmin, reportRateLimit, async (req, res) => {
   try {
     const {
       type,
