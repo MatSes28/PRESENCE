@@ -31,8 +31,9 @@ CREATE TABLE students (
     student_id VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255),
-    rfid_uid VARCHAR(50) UNIQUE,
-    parent_email VARCHAR(255),
+    rfid_uid TEXT,
+    parent_email TEXT,
+    parent_name TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

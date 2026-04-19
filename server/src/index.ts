@@ -693,6 +693,30 @@ async function initializeDatabaseColumns() {
         "CREATE UNIQUE INDEX IF NOT EXISTS students_rfid_uid_hash_unique ON students (rfid_uid_hash)",
       )
       .catch(() => {});
+
+    // Encrypted student fields are JSON envelopes. PostgreSQL VARCHAR limits from
+    // older schemas can reject valid encrypted RFID/parent data during inserts.
+    await pool
+      .query(
+        "ALTER TABLE students DROP CONSTRAINT IF EXISTS students_rfid_uid_unique",
+      )
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE students DROP CONSTRAINT IF EXISTS students_rfid_uid_key")
+      .catch(() => {});
+    await pool
+      .query("DROP INDEX IF EXISTS students_rfid_uid_unique")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE students ALTER COLUMN rfid_uid TYPE TEXT")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE students ALTER COLUMN parent_email TYPE TEXT")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE students ALTER COLUMN parent_name TYPE TEXT")
+      .catch(() => {});
+
     await pool
       .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS api_key VARCHAR(128)")
       .catch(() => {});

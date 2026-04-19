@@ -45,9 +45,9 @@ export const students = pgTable("students", {
    * Used for uniqueness + lookups without storing plaintext UIDs.
    */
   rfidUidHash: varchar("rfid_uid_hash", { length: 64 }).unique(),
-  rfidUid: varchar("rfid_uid", { length: 50 }).unique(),
-  parentEmail: varchar("parent_email", { length: 255 }).notNull(), // Made mandatory
-  parentName: varchar("parent_name", { length: 255 }),
+  rfidUid: text("rfid_uid"),
+  parentEmail: text("parent_email").notNull(), // Encrypted at rest; ciphertext can exceed email length.
+  parentName: text("parent_name"),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
