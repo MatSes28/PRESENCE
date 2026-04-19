@@ -721,6 +721,42 @@ async function initializeDatabaseColumns() {
       .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS api_key VARCHAR(128)")
       .catch(() => {});
     await pool
+      .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS name VARCHAR(255)")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS location VARCHAR(255)")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS sensor_type VARCHAR(50)")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS mqtt_topic VARCHAR(255)")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS mac_address VARCHAR(17)")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS firmware_version VARCHAR(50)")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS battery_level INTEGER")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS signal_strength INTEGER")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE iot_devices ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true")
+      .catch(() => {});
+    await pool
+      .query("UPDATE iot_devices SET is_active = true WHERE is_active IS NULL")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE iot_devices ALTER COLUMN is_active SET DEFAULT true")
+      .catch(() => {});
+    await pool
+      .query("ALTER TABLE iot_devices ALTER COLUMN is_active SET NOT NULL")
+      .catch(() => {});
+    await pool
       .query(
         "UPDATE iot_devices SET api_key = CONCAT('pk_migrated_', md5(random()::text || clock_timestamp()::text || device_id)) WHERE api_key IS NULL OR api_key = ''",
       )

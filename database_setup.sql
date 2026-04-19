@@ -138,11 +138,23 @@ CREATE TABLE computer_assignments (
 CREATE TABLE iot_devices (
     id SERIAL PRIMARY KEY,
     device_id VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255),
+    location VARCHAR(255),
     classroom_id INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
     device_type VARCHAR(50) NOT NULL DEFAULT 'esp32_s3',
+    sensor_type VARCHAR(50),
+    mqtt_topic VARCHAR(255),
+    mac_address VARCHAR(17),
+    firmware_version VARCHAR(50),
     status VARCHAR(20) NOT NULL DEFAULT 'offline' CHECK (status IN ('online', 'offline', 'maintenance')),
     last_seen TIMESTAMP WITH TIME ZONE,
+    battery_level INTEGER,
+    signal_strength INTEGER,
     config JSONB,
+    api_key VARCHAR(128) NOT NULL UNIQUE,
+    certificate_fingerprint VARCHAR(128),
+    certificate_data TEXT,
+    is_active BOOLEAN DEFAULT true NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
