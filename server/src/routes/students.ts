@@ -408,8 +408,20 @@ router.post(
 router.put("/:id", requireAdmin, async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
-    const { name, email, year, section, rfidUid, parentEmail, parentName } =
-      req.body;
+    const {
+      name,
+      email,
+      year,
+      section,
+      rfidUid,
+      parentEmail,
+      parentName,
+      isActive,
+    } = req.body;
+    const parsedYear =
+      year === undefined || year === null || year === ""
+        ? null
+        : parseInt(year, 10);
 
     const rfidUidHash = rfidUid
       ? encryptionService.hashRFIDUidForLookup(rfidUid)
@@ -447,10 +459,14 @@ router.put("/:id", requireAdmin, async (req, res) => {
     const updateData: any = {
       name,
       email,
-      year,
-      section,
+      year: Number.isFinite(parsedYear) ? parsedYear : null,
+      section: typeof section === "string" && section.trim() === "" ? null : section,
       updatedAt: new Date(),
     };
+
+    if (typeof isActive === "boolean") {
+      updateData.isActive = isActive;
+    }
 
     if (rfidUidHash !== undefined) updateData.rfidUidHash = rfidUidHash;
     if (encryptedRfid !== undefined) updateData.rfidUid = encryptedRfid;

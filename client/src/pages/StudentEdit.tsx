@@ -8,6 +8,11 @@ import {
   useFormValidation,
   commonValidationRules,
 } from "../hooks/useFormValidation";
+import {
+  BSIT_SECTIONS,
+  formatYearLabel,
+  getYearFromSection,
+} from "../lib/studentSections";
 
 interface Student {
   id: number;
@@ -113,9 +118,22 @@ export const StudentEdit = () => {
       return;
     }
 
+    if (!formData.section) {
+      addNotification({
+        type: "error",
+        title: "Section Required",
+        message: "Select the student's BSIT section.",
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const response = await api.updateStudent(student!.id, formData);
+      const sectionYear = getYearFromSection(formData.section);
+      const response = await api.updateStudent(student!.id, {
+        ...formData,
+        year: sectionYear ?? "",
+      });
       if (response.success) {
         addNotification({
           type: "success",
@@ -333,39 +351,42 @@ export const StudentEdit = () => {
               <label htmlFor="student-edit-year" className="block text-sm font-medium text-gray-300 mb-1">
                 Year
               </label>
-              <select
+              <input
                 id="student-edit-year"
                 name="year"
-                value={formData.year}
-                onChange={(e) =>
-                  setFormData({ ...formData, year: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
-              >
-                <option value="">Select Year</option>
-                <option value="1">1st Year</option>
-                <option value="2">2nd Year</option>
-                <option value="3">3rd Year</option>
-                <option value="4">4th Year</option>
-              </select>
+                type="text"
+                value={formatYearLabel(
+                  getYearFromSection(formData.section) ?? formData.year,
+                )}
+                readOnly
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-md text-gray-300"
+              />
             </div>
             <div>
               <label htmlFor="student-edit-section" className="block text-sm font-medium text-gray-300 mb-1">
-                Section
+                Section *
               </label>
               <select
                 id="student-edit-section"
                 name="section"
                 value={formData.section}
-                onChange={(e) =>
-                  setFormData({ ...formData, section: e.target.value })
-                }
+                onChange={(e) => {
+                  const section = e.target.value;
+                  const year = getYearFromSection(section);
+                  setFormData({
+                    ...formData,
+                    section,
+                    year: year ? String(year) : "",
+                  });
+                }}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               >
                 <option value="">Select Section</option>
-                <option value="A">Section A</option>
-                <option value="B">Section B</option>
-                <option value="C">Section C</option>
+                {BSIT_SECTIONS.map((section) => (
+                  <option key={section} value={section}>
+                    {section}
+                  </option>
+                ))}
               </select>
             </div>
             <div>

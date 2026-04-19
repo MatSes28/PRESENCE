@@ -5,6 +5,7 @@ import { LoadingButton } from "../components/LoadingSpinner";
 import { useAuth } from "../hooks/useAuth";
 import { useLocation, useRoute } from "wouter";
 import { Link } from "wouter";
+import { formatYearLabel } from "../lib/studentSections";
 
 interface Student {
   id: number;
@@ -273,9 +274,7 @@ export const StudentDetail = () => {
             </div>
             <div>
               <p className="text-sm text-gray-400 mb-1">Year Level</p>
-              <p className="text-white">
-                {student.year ? `Year ${student.year}` : "Not specified"}
-              </p>
+              <p className="text-white">{formatYearLabel(student.year)}</p>
             </div>
             <div>
               <p className="text-sm text-gray-400 mb-1">Section</p>

@@ -8,6 +8,7 @@ import {
 } from "../hooks/useFormValidation";
 import { useAuth } from "../hooks/useAuth";
 import { useLocation } from "wouter";
+import { BSIT_SECTIONS, getYearFromSection } from "../lib/studentSections";
 
 interface Student {
   id: number;
@@ -214,6 +215,15 @@ export const Students = () => {
       return;
     }
 
+    if (!formData.section) {
+      addNotification({
+        type: "error",
+        title: "Section Required",
+        message: "Select the student's BSIT section.",
+      });
+      return;
+    }
+
     // Additional RFID uniqueness validation
     const normalizedRfidUid = normalizeRfidUid(formData.rfidUid);
     if (normalizedRfidUid) {
@@ -240,7 +250,7 @@ export const Students = () => {
         email: formData.email.trim() || undefined,
         rfidUid: normalizedRfidUid || undefined,
         parentEmail: formData.parentEmail.trim(),
-        year: formData.year ? Number(formData.year) : undefined,
+        year: getYearFromSection(formData.section) ?? undefined,
         section: formData.section.trim() || undefined,
       };
 
@@ -454,20 +464,12 @@ export const Students = () => {
           student.parentEmail.toLowerCase().includes(searchTerm.toLowerCase()));
 
       // Year filter
-      const matchesYear =
-        yearFilter === "All Years" ||
-        (student as any).year ===
-          yearFilter
-            .replace("st", "")
-            .replace("nd", "")
-            .replace("rd", "")
-            .replace("th", "")
-            .replace(" Year", "");
+      const studentYear = String((student as any).year ?? "");
+      const matchesYear = yearFilter === "All Years" || studentYear === yearFilter;
 
       // Section filter
       const matchesSection =
-        sectionFilter === "All Sections" ||
-        (student as any).section === sectionFilter.replace("Section ", "");
+        sectionFilter === "All Sections" || (student as any).section === sectionFilter;
 
       // RFID status filter
       const matchesRfidStatus =
@@ -614,10 +616,10 @@ export const Students = () => {
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
             >
               <option>All Years</option>
-              <option>1st Year</option>
-              <option>2nd Year</option>
-              <option>3rd Year</option>
-              <option>4th Year</option>
+              <option value="1">1st Year</option>
+              <option value="2">2nd Year</option>
+              <option value="3">3rd Year</option>
+              <option value="4">4th Year</option>
             </select>
           </div>
           <div>
@@ -632,9 +634,11 @@ export const Students = () => {
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
             >
               <option>All Sections</option>
-              <option>Section A</option>
-              <option>Section B</option>
-              <option>Section C</option>
+              {BSIT_SECTIONS.map((section) => (
+                <option key={section} value={section}>
+                  {section}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -868,6 +872,36 @@ export const Students = () => {
                     {studentValidation.getFieldError("email")}
                   </p>
                 )}
+              </div>
+              <div>
+                <label htmlFor="student-form-section" className="block text-sm font-medium text-gray-300 mb-1">
+                  Section *
+                </label>
+                <select
+                  id="student-form-section"
+                  name="section"
+                  value={formData.section}
+                  onChange={(e) => {
+                    const section = e.target.value;
+                    const year = getYearFromSection(section);
+                    setFormData({
+                      ...formData,
+                      section,
+                      year: year ? String(year) : "",
+                    });
+                  }}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="">Select Section</option>
+                  {BSIT_SECTIONS.map((section) => (
+                    <option key={section} value={section}>
+                      {section}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Year is set automatically from the selected BSIT section.
+                </p>
               </div>
               <div>
                 <label htmlFor="student-form-rfid" className="block text-sm font-medium text-gray-300 mb-1">

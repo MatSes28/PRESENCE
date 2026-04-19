@@ -296,6 +296,7 @@ export { app, server };
 // Root route for SPA
 app.get("/", (req, res) => {
   if (fs.existsSync(path.join(publicPath, "index.html"))) {
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.sendFile(path.join(publicPath, "index.html"));
   } else {
     res.send(`
@@ -402,7 +403,26 @@ if (!fs.existsSync(publicPath)) {
   console.log("Created public directory:", publicPath);
 }
 
-app.use(express.static(publicPath));
+app.use(
+  express.static(publicPath, {
+    setHeaders: (res, filePath) => {
+      const normalizedPath = filePath.replace(/\\/g, "/");
+      if (
+        normalizedPath.endsWith("/index.html") ||
+        normalizedPath.endsWith("/manifest.webmanifest") ||
+        normalizedPath.endsWith("/sw.js") ||
+        normalizedPath.includes("/workbox-")
+      ) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        return;
+      }
+
+      if (normalizedPath.includes("/assets/")) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    },
+  }),
+);
 
 // TEMPORARY: Fix session constraint endpoint
 app.get("/api/admin/fix-session", async (req, res) => {
@@ -504,6 +524,7 @@ app.use(errorHandler);
 
 // Catch all handler: send back React's index.html file for client-side routing
 app.get("*", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.sendFile(path.join(publicPath, "index.html"));
 });
 

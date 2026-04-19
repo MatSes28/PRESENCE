@@ -457,6 +457,9 @@ class ApiClient {
       email: string;
       rfidUid: string;
       parentEmail: string;
+      year: string | number;
+      section: string;
+      isActive: boolean;
     }>,
   ): Promise<ApiResponse<Student>> {
     const response = await this.request<Student>(`/students/${id}`, {

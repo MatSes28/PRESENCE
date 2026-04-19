@@ -1,5 +1,5 @@
 import { Router, Route, Switch, useLocation } from "wouter";
-import { lazy, Suspense, useEffect } from "react";
+import { Component, lazy, Suspense, useEffect, type ReactNode } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { useInactivityLogout } from "./hooks/useInactivityLogout";
 import { setOn401 } from "./lib/onUnauthorized";
@@ -80,6 +80,56 @@ const IoTDevices = lazy(() =>
   import("./pages/IoTDevices").then((m) => ({ default: m.IoTDevices })),
 );
 
+const CHUNK_RELOAD_KEY = "presence:chunk-reload-attempted";
+
+const isDynamicImportError = (error: unknown) => {
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+
+  return (
+    message.includes("Failed to fetch dynamically imported module") ||
+    message.includes("Importing a module script failed") ||
+    message.includes("error loading dynamically imported module")
+  );
+};
+
+const reloadForFreshBuild = () => {
+  const lastAttempt = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || "0");
+  if (Date.now() - lastAttempt < 60_000) {
+    return;
+  }
+
+  sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+  window.location.reload();
+};
+
+class ChunkReloadBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(error: unknown) {
+    return { hasError: isDynamicImportError(error) };
+  }
+
+  componentDidCatch(error: unknown) {
+    if (isDynamicImportError(error)) {
+      reloadForFreshBuild();
+    } else {
+      throw error;
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <PageFallback />;
+    }
+
+    return this.props.children;
+  }
+}
+
 function PageFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -120,6 +170,19 @@ function AppContent() {
     return () => setOn401(null);
   }, [user, logout, addNotification]);
 
+  useEffect(() => {
+    const handleChunkFailure = (event: PromiseRejectionEvent) => {
+      if (isDynamicImportError(event.reason)) {
+        event.preventDefault();
+        reloadForFreshBuild();
+      }
+    };
+
+    window.addEventListener("unhandledrejection", handleChunkFailure);
+    return () =>
+      window.removeEventListener("unhandledrejection", handleChunkFailure);
+  }, []);
+
   // Handle redirect after successful login
   useEffect(() => {
     if (!loading && user && (location === "/login" || location === "*")) {
@@ -138,22 +201,25 @@ function AppContent() {
   if (!user) {
     return (
       <Router>
-        <Suspense fallback={<PageFallback />}>
-          <Switch>
-            <Route path="/login" component={LoginForm} />
-            <Route path="/forgot-password" component={ForgotPassword} />
-            <Route path="/reset-password" component={ResetPassword} />
-            <Route path="*" component={LoginForm} />
-          </Switch>
-        </Suspense>
+        <ChunkReloadBoundary>
+          <Suspense fallback={<PageFallback />}>
+            <Switch>
+              <Route path="/login" component={LoginForm} />
+              <Route path="/forgot-password" component={ForgotPassword} />
+              <Route path="/reset-password" component={ResetPassword} />
+              <Route path="*" component={LoginForm} />
+            </Switch>
+          </Suspense>
+        </ChunkReloadBoundary>
       </Router>
     );
   }
 
   return (
     <Router>
-      <Suspense fallback={<PageFallback />}>
-        <Switch>
+      <ChunkReloadBoundary>
+        <Suspense fallback={<PageFallback />}>
+          <Switch>
           {/* Dashboard - Single route for overview */}
           <Route
             path="/"
@@ -359,8 +425,9 @@ function AppContent() {
               </Layout>
             )}
           />
-        </Switch>
-      </Suspense>
+          </Switch>
+        </Suspense>
+      </ChunkReloadBoundary>
     </Router>
   );
 }
