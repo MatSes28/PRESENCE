@@ -11,12 +11,11 @@ import type {
   SubjectOption,
   SummaryItem,
 } from "./types";
+import { api, type ApiResponse } from "../../lib/api";
+import { triggerOn401 } from "../../lib/onUnauthorized";
 import { getFilenameFromDisposition } from "./reportUtils";
 
-interface ApiResponse<T = unknown> {
-  success?: boolean;
-  message?: string;
-  data?: T;
+interface ReportApiResponse<T = unknown> extends ApiResponse<T> {
   total?: number;
   summary?: SummaryItem[];
 }
@@ -40,25 +39,24 @@ interface ReportScheduleMutation {
   isActive: boolean;
 }
 
-const requestJson = async <T>(
-  path: string,
-  init: RequestInit = {},
-): Promise<ApiResponse<T>> => {
-  const response = await fetch(path, {
-    credentials: "include",
-    ...init,
-    headers: {
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...init.headers,
-    },
-  });
-  const data = (await response.json()) as ApiResponse<T>;
+const asReportResponse = <T>(
+  response: ApiResponse<T>,
+): ReportApiResponse<T> => response as ReportApiResponse<T>;
 
-  if (!response.ok) {
-    throw new Error(data.message || "Request failed");
+const parseDownloadError = async (
+  response: Response,
+  fallbackMessage: string,
+) => {
+  if (response.status === 401) {
+    triggerOn401();
   }
 
-  return data;
+  const contentType = response.headers.get("content-type") || "";
+  const errorData = contentType.includes("application/json")
+    ? ((await response.json()) as { message?: string })
+    : { message: await response.text() };
+
+  return new Error(errorData.message || fallbackMessage);
 };
 
 export const triggerReportDownload = async (
@@ -77,10 +75,7 @@ export const triggerReportDownload = async (
   const contentType = response.headers.get("content-type") || "";
 
   if (!response.ok) {
-    const errorData = contentType.includes("application/json")
-      ? await response.json()
-      : { message: await response.text() };
-    throw new Error(errorData.message || "Failed to generate report");
+    throw await parseDownloadError(response, "Failed to generate report");
   }
 
   if (
@@ -113,106 +108,110 @@ export const triggerReportDownload = async (
   return response.json();
 };
 
-export const fetchReportPreview = (
+export const fetchReportPreview = async (
   queryParams: URLSearchParams,
-): Promise<ApiResponse<Record<string, string>[]>> =>
-  requestJson(`/api/reports/preview?${queryParams}`);
+): Promise<ReportApiResponse<Record<string, string>[]>> =>
+  asReportResponse(
+    await api.get<Record<string, string>[]>(
+      `/reports/preview?${queryParams}`,
+    ),
+  );
 
-export const fetchReportHistory = (
+export const fetchReportHistory = async (
   queryParams: URLSearchParams,
-): Promise<ApiResponse<ReportHistoryItem[]>> =>
-  requestJson(`/api/reports/history?${queryParams}`);
+): Promise<ReportApiResponse<ReportHistoryItem[]>> =>
+  asReportResponse(
+    await api.get<ReportHistoryItem[]>(`/reports/history?${queryParams}`),
+  );
 
-export const fetchReportHistoryExport = (
+export const fetchReportHistoryExport = async (
   queryParams: URLSearchParams,
-): Promise<Response> =>
-  fetch(`/api/reports/history/export?${queryParams}`, {
+): Promise<Response> => {
+  const response = await fetch(`/api/reports/history/export?${queryParams}`, {
     credentials: "include",
   });
+  if (response.status === 401) {
+    triggerOn401();
+  }
+  return response;
+};
 
 export const fetchReportPresets = (): Promise<
-  ApiResponse<ReportPresetItem[]>
-> => requestJson("/api/reports/presets");
+  ReportApiResponse<ReportPresetItem[]>
+> => api.get<ReportPresetItem[]>("/reports/presets").then(asReportResponse);
 
 export const fetchReportSchedules = (): Promise<
-  ApiResponse<ReportScheduleItem[]>
-> => requestJson("/api/reports/schedules");
+  ReportApiResponse<ReportScheduleItem[]>
+> => api.get<ReportScheduleItem[]>("/reports/schedules").then(asReportResponse);
 
 export const fetchRealTimeStats = (): Promise<
-  ApiResponse<{
+  ReportApiResponse<{
     todayPresent?: number;
     todayAbsent?: number;
     todayLate?: number;
     activeSessions?: number;
   }>
-> => requestJson("/api/reports/real-time-stats");
+> =>
+  api
+    .get<{
+      todayPresent?: number;
+      todayAbsent?: number;
+      todayLate?: number;
+      activeSessions?: number;
+    }>("/reports/real-time-stats")
+    .then(asReportResponse);
 
-export const fetchSubjects = (): Promise<ApiResponse<SubjectOption[]>> =>
-  requestJson("/api/subjects");
+export const fetchSubjects = (): Promise<ReportApiResponse<SubjectOption[]>> =>
+  api.get<SubjectOption[]>("/subjects").then(asReportResponse);
 
 export const fetchClassrooms = (): Promise<ApiResponse<ClassroomOption[]>> =>
-  requestJson("/api/classrooms");
+  api.get<ClassroomOption[]>("/classrooms").then(asReportResponse);
 
 export const seedDemoData = (): Promise<ApiResponse> =>
-  requestJson("/api/reports/seed-demo-data", { method: "POST" });
+  api.post("/reports/seed-demo-data");
 
 export const resetDemoData = (): Promise<ApiResponse> =>
-  requestJson("/api/reports/seed-demo-data", { method: "DELETE" });
+  api.delete("/reports/seed-demo-data");
 
 export const createReportPreset = (
   body: ReportPresetMutation,
-): Promise<ApiResponse<ReportPresetItem>> =>
-  requestJson("/api/reports/presets", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+): Promise<ReportApiResponse<ReportPresetItem>> =>
+  api.post<ReportPresetItem>("/reports/presets", body).then(asReportResponse);
 
 export const updateReportPreset = (
   presetId: number,
   body: ReportPresetMutation,
 ): Promise<ApiResponse> =>
-  requestJson(`/api/reports/presets/${presetId}`, {
-    method: "PUT",
-    body: JSON.stringify(body),
-  });
+  api.put(`/reports/presets/${presetId}`, body);
 
 export const duplicateReportPreset = (
   presetId: number,
   body: Omit<ReportPresetMutation, "parameters">,
-): Promise<ApiResponse<ReportPresetItem>> =>
-  requestJson(`/api/reports/presets/${presetId}/duplicate`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+): Promise<ReportApiResponse<ReportPresetItem>> =>
+  api
+    .post<ReportPresetItem>(`/reports/presets/${presetId}/duplicate`, body)
+    .then(asReportResponse);
 
 export const deleteReportPreset = (presetId: number): Promise<ApiResponse> =>
-  requestJson(`/api/reports/presets/${presetId}`, { method: "DELETE" });
+  api.delete(`/reports/presets/${presetId}`);
 
 export const createReportSchedule = (
   body: ReportScheduleMutation,
 ): Promise<ApiResponse> =>
-  requestJson("/api/reports/schedules", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  api.post("/reports/schedules", body);
 
 export const updateReportSchedule = (
   scheduleId: number,
   body: Partial<Pick<ReportScheduleItem, "isActive">>,
 ): Promise<ApiResponse> =>
-  requestJson(`/api/reports/schedules/${scheduleId}`, {
-    method: "PUT",
-    body: JSON.stringify(body),
-  });
+  api.put(`/reports/schedules/${scheduleId}`, body);
 
 export const triggerReportSchedule = (
   scheduleId: number,
 ): Promise<ApiResponse> =>
-  requestJson(`/api/reports/schedules/${scheduleId}/trigger`, {
-    method: "POST",
-  });
+  api.post(`/reports/schedules/${scheduleId}/trigger`);
 
 export const deleteReportSchedule = (
   scheduleId: number,
 ): Promise<ApiResponse> =>
-  requestJson(`/api/reports/schedules/${scheduleId}`, { method: "DELETE" });
+  api.delete(`/reports/schedules/${scheduleId}`);

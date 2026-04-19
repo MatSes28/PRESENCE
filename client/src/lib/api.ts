@@ -1,15 +1,67 @@
 import { triggerOn401 } from "./onUnauthorized";
+import type {
+  ApiRequestError,
+  ApiResponse,
+  AttendanceRecord,
+  Classroom,
+  ClassSession,
+  CurrentUser,
+  JsonObject,
+  JsonValue,
+  LoginResult,
+  QueryParams,
+  ReportParams,
+  Schedule,
+  ScheduleConflict,
+  Student,
+  Subject,
+  UserAccount,
+} from "./apiTypes";
 
 const API_BASE_URL = window.location.origin;
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  message?: string;
-  data?: T;
+export type { ApiRequestError, ApiResponse } from "./apiTypes";
+
+export function getApiPayload<T>(response: ApiResponse<T>): T;
+export function getApiPayload<T>(response: T): T;
+export function getApiPayload<T = JsonObject>(response: ApiResponse<T> | T): T {
+  if (response && typeof response === "object" && "data" in response) {
+    const apiResponse = response as ApiResponse<T>;
+    return (apiResponse.data ?? response) as T;
+  }
+
+  return response as T;
 }
 
-export const getApiPayload = <T = any>(response: any): T =>
-  (response?.data ?? response) as T;
+const createApiError = (
+  message: string,
+  status?: number,
+  data?: unknown,
+): ApiRequestError => {
+  const error = new Error(message) as ApiRequestError;
+  error.status = status;
+  error.data = data;
+  return error;
+};
+
+const toQueryString = (params?: QueryParams) => {
+  if (!params) return "";
+
+  const queryParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      queryParams.set(key, String(value));
+    }
+  });
+
+  const query = queryParams.toString();
+  return query ? `?${query}` : "";
+};
+
+const createRequestBody = (data?: unknown) => {
+  if (data === undefined) return undefined;
+  return data instanceof FormData ? data : JSON.stringify(data);
+};
 
 class ApiClient {
   private baseURL: string;
@@ -18,25 +70,31 @@ class ApiClient {
     this.baseURL = baseURL;
   }
 
-  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async get<T = JsonObject>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request(endpoint, { method: "GET" });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async post<T = JsonObject, TBody = unknown>(
+    endpoint: string,
+    data?: TBody,
+  ): Promise<ApiResponse<T>> {
     return this.request(endpoint, {
       method: "POST",
-      body: data ? JSON.stringify(data) : undefined,
+      body: createRequestBody(data),
     });
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async put<T = JsonObject, TBody = unknown>(
+    endpoint: string,
+    data?: TBody,
+  ): Promise<ApiResponse<T>> {
     return this.request(endpoint, {
       method: "PUT",
-      body: data ? JSON.stringify(data) : undefined,
+      body: createRequestBody(data),
     });
   }
 
-  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+  async delete<T = JsonObject>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request(endpoint, { method: "DELETE" });
   }
 
@@ -49,7 +107,9 @@ class ApiClient {
     const config: RequestInit = {
       credentials: "include",
       headers: {
-        "Content-Type": "application/json",
+        ...(options.body instanceof FormData
+          ? {}
+          : { "Content-Type": "application/json" }),
         ...options.headers,
       },
       ...options,
@@ -57,23 +117,26 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
+        ? ((await response.json()) as ApiResponse<T>)
+        : ({ success: response.ok, message: await response.text() } as ApiResponse<T>);
 
       if (!response.ok) {
         if (response.status === 401) {
           triggerOn401();
         }
-        const error = new Error(
+        throw createApiError(
           data.message || `Request failed with status ${response.status}`,
+          response.status,
+          data,
         );
-        (error as any).status = response.status;
-        (error as any).data = data;
-        throw error;
       }
 
       return data;
     } catch (error) {
-      if (!((error as any)?.status === 401 && endpoint === "/auth/me")) {
+      const apiError = error as ApiRequestError;
+      if (!(apiError.status === 401 && endpoint === "/auth/me")) {
         console.error("API request failed:", error);
       }
       throw error;
@@ -81,24 +144,24 @@ class ApiClient {
   }
 
   // Auth endpoints
-  async login(email: string, password: string) {
-    return this.request("/auth/login", {
+  async login(email: string, password: string): Promise<ApiResponse<LoginResult>> {
+    return this.request<LoginResult>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
   }
 
-  async logout() {
+  async logout(): Promise<ApiResponse> {
     return this.request("/auth/logout", {
       method: "POST",
     });
   }
 
-  async getCurrentUser() {
-    return this.request("/auth/me");
+  async getCurrentUser(): Promise<ApiResponse<CurrentUser>> {
+    return this.request<CurrentUser>("/auth/me");
   }
 
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string): Promise<ApiResponse> {
     return this.request("/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify({ email }),
@@ -110,15 +173,18 @@ class ApiClient {
     email: string,
     newPassword: string,
     confirmPassword: string,
-  ) {
+  ): Promise<ApiResponse> {
     return this.request("/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token, email, newPassword, confirmPassword }),
     });
   }
 
-  async updateProfile(profileData: { name: string; email: string }) {
-    return this.request("/auth/profile", {
+  async updateProfile(profileData: {
+    name: string;
+    email: string;
+  }): Promise<ApiResponse<CurrentUser>> {
+    return this.request<CurrentUser>("/auth/profile", {
       method: "PUT",
       body: JSON.stringify(profileData),
     });
@@ -127,7 +193,7 @@ class ApiClient {
   async changePassword(passwordData: {
     currentPassword: string;
     newPassword: string;
-  }) {
+  }): Promise<ApiResponse> {
     return this.request("/auth/change-password", {
       method: "PUT",
       body: JSON.stringify(passwordData),
@@ -138,7 +204,7 @@ class ApiClient {
     emailNotifications: boolean;
     darkMode: boolean;
     language: string;
-  }) {
+  }): Promise<ApiResponse> {
     return this.request("/auth/settings", {
       method: "PUT",
       body: JSON.stringify(settings),
@@ -146,8 +212,8 @@ class ApiClient {
   }
 
   // Users endpoints (admin only)
-  async getUsers() {
-    return this.request("/users");
+  async getUsers(): Promise<ApiResponse<UserAccount[]>> {
+    return this.request<UserAccount[]>("/users");
   }
 
   async createUser(userData: {
@@ -158,8 +224,8 @@ class ApiClient {
     facultyId?: string;
     department?: string;
     gender?: string;
-  }) {
-    return this.request("/users", {
+  }): Promise<ApiResponse<UserAccount>> {
+    return this.request<UserAccount>("/users", {
       method: "POST",
       body: JSON.stringify(userData),
     });
@@ -175,14 +241,14 @@ class ApiClient {
       department?: string;
       gender?: string;
     }>,
-  ) {
-    return this.request(`/users/${id}`, {
+  ): Promise<ApiResponse<UserAccount>> {
+    return this.request<UserAccount>(`/users/${id}`, {
       method: "PUT",
       body: JSON.stringify(userData),
     });
   }
 
-  async deleteUser(id: number) {
+  async deleteUser(id: number): Promise<ApiResponse> {
     return this.request(`/users/${id}`, {
       method: "DELETE",
     });
@@ -243,7 +309,7 @@ class ApiClient {
     description: string;
     scheduledDate?: string;
     cost?: number;
-    parts?: any;
+    parts?: JsonValue;
     notes?: string;
   }) {
     return this.request("/computers/maintenance", {
@@ -258,7 +324,7 @@ class ApiClient {
       status: string;
       completedDate?: string;
       cost?: number;
-      parts?: any;
+      parts?: JsonValue;
       notes?: string;
     }>,
   ) {
@@ -310,21 +376,21 @@ class ApiClient {
   }
 
   // Students endpoints
-  async getStudents() {
-    return this.request("/students");
+  async getStudents(): Promise<ApiResponse<Student[]>> {
+    return this.request<Student[]>("/students");
   }
 
-  async getStudent(id: number) {
-    return this.request(`/students/${id}`);
+  async getStudent(id: number): Promise<ApiResponse<Student>> {
+    return this.request<Student>(`/students/${id}`);
   }
 
   // Subjects endpoints
-  async getSubjects() {
-    return this.request("/subjects");
+  async getSubjects(): Promise<ApiResponse<Subject[]>> {
+    return this.request<Subject[]>("/subjects");
   }
 
-  async getSubject(id: number) {
-    return this.request(`/subjects/${id}`);
+  async getSubject(id: number): Promise<ApiResponse<Subject>> {
+    return this.request<Subject>(`/subjects/${id}`);
   }
 
   async createSubject(subject: {
@@ -332,8 +398,8 @@ class ApiClient {
     code: string;
     description?: string;
     credits?: number;
-  }) {
-    return this.request("/subjects", {
+  }): Promise<ApiResponse<Subject>> {
+    return this.request<Subject>("/subjects", {
       method: "POST",
       body: JSON.stringify(subject),
     });
@@ -347,14 +413,14 @@ class ApiClient {
       description: string;
       credits: number;
     }>,
-  ) {
-    return this.request(`/subjects/${id}`, {
+  ): Promise<ApiResponse<Subject>> {
+    return this.request<Subject>(`/subjects/${id}`, {
       method: "PUT",
       body: JSON.stringify(subject),
     });
   }
 
-  async deleteSubject(id: number) {
+  async deleteSubject(id: number): Promise<ApiResponse> {
     return this.request(`/subjects/${id}`, {
       method: "DELETE",
     });
@@ -366,8 +432,8 @@ class ApiClient {
     email?: string;
     rfidUid?: string;
     parentEmail?: string;
-  }) {
-    return this.request("/students", {
+  }): Promise<ApiResponse<Student>> {
+    return this.request<Student>("/students", {
       method: "POST",
       body: JSON.stringify(student),
     });
@@ -381,14 +447,14 @@ class ApiClient {
       rfidUid: string;
       parentEmail: string;
     }>,
-  ) {
-    return this.request(`/students/${id}`, {
+  ): Promise<ApiResponse<Student>> {
+    return this.request<Student>(`/students/${id}`, {
       method: "PUT",
       body: JSON.stringify(student),
     });
   }
 
-  async deleteStudent(id: number) {
+  async deleteStudent(id: number): Promise<ApiResponse> {
     return this.request(`/students/${id}`, {
       method: "DELETE",
     });
@@ -397,26 +463,33 @@ class ApiClient {
   async getStudentAttendance(
     id: number,
     params?: { limit?: number; offset?: number },
-  ) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : "";
-    const response = await this.request(`/students/${id}/attendance${query}`);
+  ): Promise<ApiResponse<AttendanceRecord[]> & { attendance: AttendanceRecord[] }> {
+    const query = toQueryString(params);
+    const response = await this.request<AttendanceRecord[]>(
+      `/students/${id}/attendance${query}`,
+    );
+    const fallbackAttendance =
+      "attendance" in response && Array.isArray(response.attendance)
+        ? (response.attendance as AttendanceRecord[])
+        : [];
+    const attendance = response.data ?? fallbackAttendance;
     return {
       ...response,
-      data: (response as any).data ?? (response as any).attendance ?? [],
-      attendance: (response as any).attendance ?? (response as any).data ?? [],
+      data: attendance,
+      attendance,
     };
   }
 
-  async assignRFID(id: number, rfidUid: string) {
-    return this.request(`/students/${id}/assign-rfid`, {
+  async assignRFID(id: number, rfidUid: string): Promise<ApiResponse<Student>> {
+    return this.request<Student>(`/students/${id}/assign-rfid`, {
       method: "POST",
       body: JSON.stringify({ rfidUid }),
     });
   }
 
   // Enrollments endpoints
-  async getEnrollments() {
-    return this.request("/enrollments");
+  async getEnrollments(): Promise<ApiResponse<unknown[]>> {
+    return this.request<unknown[]>("/enrollments");
   }
 
   async createEnrollment(enrollment: {
@@ -424,7 +497,7 @@ class ApiClient {
     subjectId: number;
     semester: string;
     academicYear: string;
-  }) {
+  }): Promise<ApiResponse> {
     return this.request("/enrollments", {
       method: "POST",
       body: JSON.stringify(enrollment),
@@ -436,44 +509,61 @@ class ApiClient {
     subjectId: number;
     semester: string;
     academicYear: string;
-  }) {
+  }): Promise<ApiResponse> {
     return this.request("/enrollments/bulk", {
       method: "POST",
       body: JSON.stringify(enrollments),
     });
   }
 
-  async deleteEnrollment(id: number) {
+  async deleteEnrollment(id: number): Promise<ApiResponse> {
     return this.request(`/enrollments/${id}`, {
       method: "DELETE",
     });
   }
 
-  async unenrollStudent(studentId: number, subjectId: number) {
+  async unenrollStudent(
+    studentId: number,
+    subjectId: number,
+  ): Promise<ApiResponse> {
     return this.request(`/enrollments/${studentId}/${subjectId}`, {
       method: "DELETE",
     });
   }
 
-  async getSubjectStudents(subjectId: number) {
-    const response = await this.request(`/enrollments/subject/${subjectId}`);
+  async getSubjectStudents(
+    subjectId: number,
+  ): Promise<ApiResponse<unknown[]> & { enrollments: unknown[] }> {
+    const response = await this.request<unknown[]>(
+      `/enrollments/subject/${subjectId}`,
+    );
+    const fallbackEnrollments =
+      "enrollments" in response && Array.isArray(response.enrollments)
+        ? response.enrollments
+        : [];
+    const enrollments = response.data ?? fallbackEnrollments;
     return {
       ...response,
-      data:
-        (response as any).data ?? (response as any).enrollments ?? [],
-      enrollments:
-        (response as any).enrollments ?? (response as any).data ?? [],
+      data: enrollments,
+      enrollments,
     };
   }
 
-  async getEnrollmentsForStudent(studentId: number) {
-    const response = await this.request(`/enrollments/student/${studentId}`);
+  async getEnrollmentsForStudent(
+    studentId: number,
+  ): Promise<ApiResponse<unknown[]> & { enrollments: unknown[] }> {
+    const response = await this.request<unknown[]>(
+      `/enrollments/student/${studentId}`,
+    );
+    const fallbackEnrollments =
+      "enrollments" in response && Array.isArray(response.enrollments)
+        ? response.enrollments
+        : [];
+    const enrollments = response.data ?? fallbackEnrollments;
     return {
       ...response,
-      data:
-        (response as any).data ?? (response as any).enrollments ?? [],
-      enrollments:
-        (response as any).enrollments ?? (response as any).data ?? [],
+      data: enrollments,
+      enrollments,
     };
   }
 
@@ -545,18 +635,18 @@ class ApiClient {
     date?: string;
     limit?: number;
     offset?: number;
-  }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : "";
-    return this.request(`/attendance${query}`);
+  }): Promise<ApiResponse<AttendanceRecord[]>> {
+    const query = toQueryString(params);
+    return this.request<AttendanceRecord[]>(`/attendance${query}`);
   }
 
-  async getAttendanceStats(sessionId: number) {
+  async getAttendanceStats(sessionId: number): Promise<ApiResponse> {
     return this.request(`/attendance/stats/${sessionId}`);
   }
 
   // Classrooms endpoints
-  async getClassrooms() {
-    return this.request("/classrooms");
+  async getClassrooms(): Promise<ApiResponse<Classroom[]>> {
+    return this.request<Classroom[]>("/classrooms");
   }
 
   async createClassroom(classroom: {
@@ -564,8 +654,8 @@ class ApiClient {
     type: "lecture" | "laboratory";
     location?: string;
     capacity?: number;
-  }) {
-    return this.request("/classrooms", {
+  }): Promise<ApiResponse<Classroom>> {
+    return this.request<Classroom>("/classrooms", {
       method: "POST",
       body: JSON.stringify(classroom),
     });
@@ -578,22 +668,22 @@ class ApiClient {
       location: string;
       capacity?: number;
     }>,
-  ) {
-    return this.request(`/classrooms/${id}`, {
+  ): Promise<ApiResponse<Classroom>> {
+    return this.request<Classroom>(`/classrooms/${id}`, {
       method: "PUT",
       body: JSON.stringify(classroom),
     });
   }
 
-  async deleteClassroom(id: number) {
+  async deleteClassroom(id: number): Promise<ApiResponse> {
     return this.request(`/classrooms/${id}`, {
       method: "DELETE",
     });
   }
 
   // Schedules endpoints
-  async getSchedules() {
-    return this.request("/schedules");
+  async getSchedules(): Promise<ApiResponse<Schedule[]>> {
+    return this.request<Schedule[]>("/schedules");
   }
 
   async createSchedule(schedule: {
@@ -605,8 +695,8 @@ class ApiClient {
     endTime: string;
     semester: string;
     academicYear: string;
-  }) {
-    return this.request("/schedules", {
+  }): Promise<ApiResponse<Schedule>> {
+    return this.request<Schedule>("/schedules", {
       method: "POST",
       body: JSON.stringify(schedule),
     });
@@ -624,14 +714,14 @@ class ApiClient {
       semester: string;
       academicYear: string;
     }>,
-  ) {
-    return this.request(`/schedules/${id}`, {
+  ): Promise<ApiResponse<Schedule>> {
+    return this.request<Schedule>(`/schedules/${id}`, {
       method: "PUT",
       body: JSON.stringify(schedule),
     });
   }
 
-  async deleteSchedule(id: number) {
+  async deleteSchedule(id: number): Promise<ApiResponse> {
     return this.request(`/schedules/${id}`, {
       method: "DELETE",
     });
@@ -647,58 +737,62 @@ class ApiClient {
     semester: string;
     academicYear: string;
     excludeId?: number;
-  }) {
-    return this.request("/schedules/check-conflicts", {
+  }): Promise<
+    ApiResponse<ScheduleConflict[]> & {
+      hasConflicts?: boolean;
+      conflicts?: ScheduleConflict[];
+    }
+  > {
+    return this.request<ScheduleConflict[]>("/schedules/check-conflicts", {
       method: "POST",
       body: JSON.stringify(conflictData),
     });
   }
 
   // Class Sessions endpoints
-  async getClassSessions() {
-    return this.request("/sessions");
+  async getClassSessions(): Promise<ApiResponse<ClassSession[]>> {
+    return this.request<ClassSession[]>("/sessions");
   }
 
-  async getClassSession(id: number) {
-    return this.request(`/sessions/${id}`);
+  async getClassSession(id: number): Promise<ApiResponse<ClassSession>> {
+    return this.request<ClassSession>(`/sessions/${id}`);
   }
 
-  async createClassSessionsForDate(date: string, scheduleId?: number) {
-    return this.request("/sessions/auto-create", {
+  async createClassSessionsForDate(
+    date: string,
+    scheduleId?: number,
+  ): Promise<ApiResponse<ClassSession[]>> {
+    return this.request<ClassSession[]>("/sessions/auto-create", {
       method: "POST",
       body: JSON.stringify({ date, scheduleId }),
     });
   }
 
-  async activateSessions(scheduleId?: number) {
+  async activateSessions(scheduleId?: number): Promise<ApiResponse> {
     return this.request("/sessions/auto-activate", {
       method: "POST",
       body: JSON.stringify({ scheduleId }),
     });
   }
 
-  async endSessions() {
+  async endSessions(): Promise<ApiResponse> {
     return this.request("/sessions/auto-end", {
       method: "POST",
     });
   }
 
-  async updateSessionStatus(id: number, status: string) {
-    return this.request(`/sessions/${id}/status`, {
+  async updateSessionStatus(
+    id: number,
+    status: string,
+  ): Promise<ApiResponse<ClassSession>> {
+    return this.request<ClassSession>(`/sessions/${id}/status`, {
       method: "PUT",
       body: JSON.stringify({ status }),
     });
   }
 
   // Reports endpoints
-  async generateReport(params: {
-    type: "attendance" | "students" | "classroom";
-    format: "pdf" | "csv" | "xlsx";
-    startDate?: string;
-    endDate?: string;
-    classroomId?: number;
-    subjectId?: number;
-  }) {
+  async generateReport(params: ReportParams): Promise<ApiResponse> {
     return this.request("/reports/generate-report", {
       method: "POST",
       body: JSON.stringify(params),
@@ -714,7 +808,11 @@ class ApiClient {
     return this.request(`/iot/devices/${deviceId}`);
   }
 
-  async sendDeviceCommand(deviceId: string, command: string, params?: any) {
+  async sendDeviceCommand(
+    deviceId: string,
+    command: string,
+    params?: JsonObject,
+  ) {
     return this.request(`/iot/devices/${deviceId}/command`, {
       method: "POST",
       body: JSON.stringify({ command, params }),
@@ -746,7 +844,7 @@ class ApiClient {
     });
   }
 
-  async assignCustom(sessionId: number, criteria: any) {
+  async assignCustom(sessionId: number, criteria: JsonObject) {
     return this.request(`/computers/smart-assign/custom/${sessionId}`, {
       method: "POST",
       body: JSON.stringify(criteria),
@@ -781,7 +879,7 @@ class ApiClient {
     startDate?: string;
     endDate?: string;
   }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : "";
+    const query = toQueryString(params);
     return this.request(`/ai-analytics/learning-analytics${query}`);
   }
 
@@ -790,7 +888,7 @@ class ApiClient {
     startDate?: string;
     endDate?: string;
   }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : "";
+    const query = toQueryString(params);
     return this.request(`/ai-analytics/insights${query}`);
   }
 
@@ -799,7 +897,7 @@ class ApiClient {
     startDate?: string;
     endDate?: string;
   }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : "";
+    const query = toQueryString(params);
     return this.request(`/ai-analytics/performance-trends${query}`);
   }
 
@@ -808,7 +906,7 @@ class ApiClient {
     startDate?: string;
     endDate?: string;
   }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : "";
+    const query = toQueryString(params);
     return this.request(`/ai-analytics/attendance-patterns${query}`);
   }
 
@@ -817,7 +915,7 @@ class ApiClient {
     startDate?: string;
     endDate?: string;
   }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : "";
+    const query = toQueryString(params);
     return this.request(`/ai-analytics/seating-effectiveness${query}`);
   }
 

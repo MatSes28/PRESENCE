@@ -7,6 +7,46 @@ import {
   commonValidationRules,
 } from "../hooks/useFormValidation";
 import { api, getApiPayload } from "../lib/api";
+import type { ApiRequestError } from "../lib/api";
+
+interface SettingsAuditEvent {
+  id: string;
+  timestamp: string;
+  userId?: number;
+  resourceId?: string;
+  oldValues?: Record<string, unknown>;
+  newValues?: Record<string, unknown>;
+  ipAddress?: string;
+}
+
+interface SystemSettings {
+  lateThreshold: number;
+  absentThreshold: number;
+  emailNotifications: boolean;
+  semester: string;
+  academicYear: string;
+}
+
+interface HardwareSettings {
+  rfidScannerPort: string;
+  proximitySensorThreshold: number;
+  dualValidation: boolean;
+  autoReconnect: boolean;
+}
+
+interface EmailSettings {
+  smtpServer: string;
+  senderEmail: string;
+  absenceThreshold: number;
+  dailySummary: boolean;
+  lateNotifications: boolean;
+}
+
+interface SettingsResponse<T> {
+  success?: boolean;
+  message?: string;
+  settings?: T;
+}
 
 export const Settings = () => {
   const { user } = useAuth();
@@ -18,15 +58,7 @@ export const Settings = () => {
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditReloadKey, setAuditReloadKey] = useState(0);
   const [settingsAuditEvents, setSettingsAuditEvents] = useState<
-    Array<{
-      id: string;
-      timestamp: string;
-      userId?: number;
-      resourceId?: string;
-      oldValues?: Record<string, unknown>;
-      newValues?: Record<string, unknown>;
-      ipAddress?: string;
-    }>
+    SettingsAuditEvent[]
   >([]);
 
   // Form validation hooks
@@ -50,7 +82,7 @@ export const Settings = () => {
     newPassword: "",
     confirmPassword: "",
   });
-  const [systemSettings, setSystemSettings] = useState({
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
     lateThreshold: 15, // Default: 15 minutes as per paper
     absentThreshold: 60, // Default: 60% of class time as per paper
     emailNotifications: true,
@@ -58,14 +90,14 @@ export const Settings = () => {
     academicYear: new Date().getFullYear().toString(),
   });
 
-  const [hardwareSettings, setHardwareSettings] = useState({
+  const [hardwareSettings, setHardwareSettings] = useState<HardwareSettings>({
     rfidScannerPort: "COM3",
     proximitySensorThreshold: 5,
     dualValidation: true,
     autoReconnect: true,
   });
 
-  const [emailSettings, setEmailSettings] = useState({
+  const [emailSettings, setEmailSettings] = useState<EmailSettings>({
     smtpServer: "smtp.gmail.com",
     senderEmail: "clirdec.presence@clsu.edu.ph",
     absenceThreshold: 3,
@@ -79,24 +111,28 @@ export const Settings = () => {
       if (user?.role !== "admin") return;
       try {
         const [systemRes, hardwareRes, emailRes] = await Promise.all([
-          api.get("/settings/system"),
-          api.get("/settings/hardware"),
-          api.get("/settings/email"),
+          api.get("/settings/system") as Promise<
+            SettingsResponse<SystemSettings>
+          >,
+          api.get("/settings/hardware") as Promise<
+            SettingsResponse<HardwareSettings>
+          >,
+          api.get("/settings/email") as Promise<SettingsResponse<EmailSettings>>,
         ]);
 
         // API returns { success, settings } directly (no .data wrapper)
-        if (systemRes?.success && (systemRes as any).settings) {
-          setSystemSettings((systemRes as any).settings);
+        if (systemRes?.success && systemRes.settings) {
+          setSystemSettings(systemRes.settings);
         }
-        if (hardwareRes?.success && (hardwareRes as any).settings) {
-          setHardwareSettings((hardwareRes as any).settings);
+        if (hardwareRes?.success && hardwareRes.settings) {
+          setHardwareSettings(hardwareRes.settings);
         }
-        if (emailRes?.success && (emailRes as any).settings) {
-          setEmailSettings((emailRes as any).settings);
+        if (emailRes?.success && emailRes.settings) {
+          setEmailSettings(emailRes.settings);
         }
       } catch (error) {
         console.error("Failed to load settings:", error);
-        const status = (error as any)?.status;
+        const status = (error as ApiRequestError)?.status;
         const isForbidden = status === 403;
         addNotification({
           type: "error",
@@ -126,7 +162,7 @@ export const Settings = () => {
     const loadAuditEvents = async () => {
       setAuditLoading(true);
       try {
-        const response = await api.get(
+        const response = await api.get<{ data?: SettingsAuditEvent[] }>(
           "/audit/events?action=SETTINGS_UPDATED&resource=settings&limit=10",
         );
         const result = getApiPayload(response);
@@ -160,7 +196,10 @@ export const Settings = () => {
 
     setSaving("profile");
     try {
-      const response = await api.put("/settings/profile", profileData);
+      const response = await api.put<SettingsResponse<typeof profileData>>(
+        "/settings/profile",
+        profileData,
+      );
       const result = getApiPayload(response);
       if (result?.success) {
         addNotification({
@@ -196,10 +235,13 @@ export const Settings = () => {
     }
 
     try {
-      const response = await api.put("/settings/password", {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword,
-      });
+      const response = await api.put<SettingsResponse<never>>(
+        "/settings/password",
+        {
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        },
+      );
       const result = getApiPayload(response);
       if (result?.success) {
         addNotification({
@@ -232,7 +274,10 @@ export const Settings = () => {
     setSaving("system");
     setSaving("password");
     try {
-      const response = await api.put("/settings/system", systemSettings);
+      const response = await api.put<SettingsResponse<SystemSettings>>(
+        "/settings/system",
+        systemSettings,
+      );
       const result = getApiPayload(response);
       if (result?.success) {
         if (result.settings) setSystemSettings(result.settings);
@@ -259,7 +304,10 @@ export const Settings = () => {
   const handleHardwareSettingsSave = async () => {
     setSaving("hardware");
     try {
-      const response = await api.put("/settings/hardware", hardwareSettings);
+      const response = await api.put<SettingsResponse<HardwareSettings>>(
+        "/settings/hardware",
+        hardwareSettings,
+      );
       const result = getApiPayload(response);
       if (result?.success) {
         if (result.settings) setHardwareSettings(result.settings);
@@ -286,7 +334,10 @@ export const Settings = () => {
   const handleEmailSettingsSave = async () => {
     setSaving("email");
     try {
-      const response = await api.put("/settings/email", emailSettings);
+      const response = await api.put<SettingsResponse<EmailSettings>>(
+        "/settings/email",
+        emailSettings,
+      );
       const result = getApiPayload(response);
       if (result?.success) {
         if (result.settings) setEmailSettings(result.settings);

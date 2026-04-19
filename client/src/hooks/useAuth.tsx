@@ -8,6 +8,7 @@ import {
 } from "react";
 import { api } from "../lib/api";
 import { connectWebSocket, disconnectWebSocket } from "../lib/websocket";
+import type { ApiResponse, LoginResult } from "../lib/apiTypes";
 
 interface User {
   id: number;
@@ -40,6 +41,28 @@ export const useAuth = () => {
 interface AuthProviderProps {
   children: ReactNode;
 }
+
+type AuthResponse = ApiResponse<LoginResult> & {
+  user?: User;
+};
+
+const isUserLike = (value: unknown): value is User => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<User>;
+  return (
+    typeof candidate.id === "number" &&
+    typeof candidate.email === "string" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.role === "string"
+  );
+};
+
+const getUserFromAuthResponse = (response: AuthResponse): User | undefined => {
+  const dataUser = response.data?.user;
+  if (isUserLike(dataUser)) return dataUser;
+  if (isUserLike(response.data)) return response.data;
+  return response.user;
+};
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
@@ -85,12 +108,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const response = await api.login(email, password);
       console.log("API response:", response);
 
-      if (response.success && (response.data || (response as any).user)) {
-        const userData = response.data || (response as any).user;
+      const userData = getUserFromAuthResponse(response);
+      if (response.success && userData) {
         localStorage.setItem(AUTH_SESSION_MARKER, "true");
-        setUser(userData as User);
+        setUser(userData);
         // Connect to WebSocket with user ID
-        await connectWebSocket((userData as User).id);
+        await connectWebSocket(userData.id);
         console.log("Login successful, user set:", userData);
         return true;
       } else {

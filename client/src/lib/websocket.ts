@@ -1,6 +1,6 @@
 export interface WSMessage {
   type: string;
-  payload: any;
+  payload: unknown;
   timestamp: string;
 }
 
@@ -40,6 +40,8 @@ export type WebSocketConnectionState =
   | "reconnecting"
   | "failed";
 
+type WebSocketMessageHandler<T = unknown> = (data: T) => void;
+
 const isWebSocketDebugEnabled = () =>
   typeof window !== "undefined" &&
   window.localStorage.getItem("presence.debugWebSocket") === "true";
@@ -51,7 +53,7 @@ class WebSocketClient {
   private maxReconnectAttempts = 5;
   private reconnectInterval = 3000;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-  private messageHandlers: Map<string, ((data: any) => void)[]> = new Map();
+  private messageHandlers: Map<string, WebSocketMessageHandler[]> = new Map();
   private manualDisconnect = false;
   private connectionState: WebSocketConnectionState = "disconnected";
 
@@ -219,14 +221,16 @@ class WebSocketClient {
     }
   }
 
-  on(event: string, handler: (data: any) => void) {
+  on<T = unknown>(event: string, handler: WebSocketMessageHandler<T>) {
     if (!this.messageHandlers.has(event)) {
       this.messageHandlers.set(event, []);
     }
-    this.messageHandlers.get(event)!.push(handler);
+    this.messageHandlers
+      .get(event)!
+      .push(handler as WebSocketMessageHandler);
   }
 
-  off(event: string, handler?: (data: any) => void) {
+  off<T = unknown>(event: string, handler?: WebSocketMessageHandler<T>) {
     if (!handler) {
       this.messageHandlers.delete(event);
       return;
@@ -234,14 +238,14 @@ class WebSocketClient {
 
     const handlers = this.messageHandlers.get(event);
     if (handlers) {
-      const index = handlers.indexOf(handler);
+      const index = handlers.indexOf(handler as WebSocketMessageHandler);
       if (index > -1) {
         handlers.splice(index, 1);
       }
     }
   }
 
-  private emit(event: string, data: any) {
+  private emit(event: string, data: unknown) {
     const handlers = this.messageHandlers.get(event);
     if (handlers) {
       handlers.forEach((handler) => handler(data));
@@ -258,7 +262,7 @@ class WebSocketClient {
     });
   }
 
-  send(type: string, payload: any) {
+  send(type: string, payload: unknown) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       const message: WSMessage = {
         type,
