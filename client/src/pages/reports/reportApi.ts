@@ -167,12 +167,6 @@ export const fetchSubjects = (): Promise<ReportApiResponse<SubjectOption[]>> =>
 export const fetchClassrooms = (): Promise<ApiResponse<ClassroomOption[]>> =>
   api.get<ClassroomOption[]>("/classrooms").then(asReportResponse);
 
-export const seedDemoData = (): Promise<ApiResponse> =>
-  api.post("/reports/seed-demo-data");
-
-export const resetDemoData = (): Promise<ApiResponse> =>
-  api.delete("/reports/seed-demo-data");
-
 export const createReportPreset = (
   body: ReportPresetMutation,
 ): Promise<ReportApiResponse<ReportPresetItem>> =>

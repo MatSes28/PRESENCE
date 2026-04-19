@@ -11,8 +11,6 @@ import { ScheduleErrorModal } from "./reports/ScheduleErrorModal";
 import {
   fetchClassrooms,
   fetchSubjects,
-  resetDemoData,
-  seedDemoData,
   triggerReportDownload,
 } from "./reports/reportApi";
 import { useReportHistory } from "./reports/useReportHistory";
@@ -39,8 +37,6 @@ export const Reports = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
   const [generating, setGenerating] = useState(false);
-  const [seedingDemo, setSeedingDemo] = useState(false);
-  const [resettingDemo, setResettingDemo] = useState(false);
   const {
     reportHistory,
     reportHistoryFilters,
@@ -427,77 +423,6 @@ export const Reports = () => {
     }
   };
 
-  const handleSeedDemoData = async () => {
-    setSeedingDemo(true);
-    try {
-      const data = await seedDemoData();
-
-      if (!data.success) {
-        throw new Error(data.message || "Failed to seed demo data");
-      }
-
-      await Promise.all([
-        loadFilterOptions(),
-        loadPreviewData(1),
-        loadRealTimeStats(),
-      ]);
-
-      addNotification({
-        type: "success",
-        title: "Demo Data Ready",
-        message:
-          "Reports now have realistic students, sessions, and attendance records.",
-      });
-    } catch (error) {
-      console.error("Failed to seed demo data:", error);
-      addNotification({
-        type: "error",
-        title: "Demo Seed Failed",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to seed demo report data.",
-      });
-    } finally {
-      setSeedingDemo(false);
-    }
-  };
-
-  const handleResetDemoData = async () => {
-    setResettingDemo(true);
-    try {
-      const data = await resetDemoData();
-
-      if (!data.success) {
-        throw new Error(data.message || "Failed to reset demo data");
-      }
-
-      await Promise.all([
-        loadFilterOptions(),
-        loadPreviewData(1),
-        loadRealTimeStats(),
-      ]);
-
-      addNotification({
-        type: "success",
-        title: "Demo Data Reset",
-        message: "Demo report data has been cleared.",
-      });
-    } catch (error) {
-      console.error("Failed to reset demo data:", error);
-      addNotification({
-        type: "error",
-        title: "Demo Reset Failed",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to reset demo report data.",
-      });
-    } finally {
-      setResettingDemo(false);
-    }
-  };
-
   const handleDownloadHistoryReport = async (item: ReportHistoryItem) => {
     const type =
       item.parameters?.type === "attendance" ||
@@ -589,24 +514,6 @@ export const Reports = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {user?.role === "admin" && (
-            <>
-              <button
-                onClick={handleSeedDemoData}
-                disabled={seedingDemo || resettingDemo}
-                className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-2 rounded text-sm font-medium"
-              >
-                {seedingDemo ? "Seeding..." : "Seed Demo Data"}
-              </button>
-              <button
-                onClick={handleResetDemoData}
-                disabled={seedingDemo || resettingDemo}
-                className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-2 rounded text-sm font-medium"
-              >
-                {resettingDemo ? "Resetting..." : "Reset Demo Data"}
-              </button>
-            </>
-          )}
           <div className="flex items-center space-x-2">
             <input
               type="checkbox"

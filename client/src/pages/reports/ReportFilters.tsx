@@ -346,8 +346,8 @@ export const ReportFilters = ({
       </div>
       {paginationTotal === 0 && !previewLoading && (
         <div className="rounded-md border border-yellow-800 bg-yellow-950/40 p-4 text-sm text-yellow-100">
-          No rows match these filters yet. Seed demo data or adjust the date,
-          subject, or class section before exporting.
+          No rows match these filters yet. Record attendance first, or adjust
+          the date, subject, or class section before exporting.
           {reportParams.type === "attendance" &&
             " Try All Subjects or a wider date range if you expected attendance records."}
         </div>
