@@ -1,5 +1,40 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { loggerService } from "../services/monitoring/logger.js";
+
+const authAccessDebugEnabled = () =>
+  process.env.LOG_AUTH_ACCESS_DEBUG === "true";
+
+const logAccessDenied = (
+  message: string,
+  req: Request,
+  requiredRole: string,
+) => {
+  loggerService.logWarning(
+    message,
+    {
+      endpoint: req.originalUrl,
+      userId: req.session?.userId,
+      sessionId: req.sessionID,
+      ipAddress: req.ip,
+      userAgent: req.get("User-Agent"),
+    },
+    { requiredRole, actualRole: req.session?.userRole ?? "none" },
+  );
+};
+
+const logAccessGranted = (req: Request, requiredRole: string) => {
+  if (!authAccessDebugEnabled()) return;
+  loggerService.logInfo(
+    "Role access granted",
+    {
+      endpoint: req.originalUrl,
+      userId: req.session?.userId,
+      sessionId: req.sessionID,
+    },
+    { requiredRole },
+  );
+};
 
 // Middleware to require authentication
 export const requireAuth = async (
@@ -71,16 +106,14 @@ export const requireAdmin = (
   next: NextFunction,
 ) => {
   if (!req.session?.userId || req.session?.userRole !== "admin") {
-    console.log(
-      `Unauthorized admin access attempt by user ${req.session?.userId}`,
-    );
+    logAccessDenied("Admin access denied", req, "admin");
     return res.status(403).json({
       success: false,
       message: "Admin access required",
     });
   }
 
-  console.log(`Admin access granted to user ${req.session?.userId}`);
+  logAccessGranted(req, "admin");
   next();
 };
 
@@ -94,16 +127,14 @@ export const requireAdminOrFaculty = (
     !req.session?.userId ||
     (req.session?.userRole !== "admin" && req.session?.userRole !== "faculty")
   ) {
-    console.log(
-      `Unauthorized faculty access attempt by user ${req.session?.userId}`,
-    );
+    logAccessDenied("Admin or faculty access denied", req, "admin|faculty");
     return res.status(403).json({
       success: false,
       message: "Admin or faculty access required",
     });
   }
 
-  console.log(`Faculty access granted to user ${req.session?.userId}`);
+  logAccessGranted(req, "admin|faculty");
   next();
 };
 
@@ -114,15 +145,13 @@ export const requireFaculty = (
   next: NextFunction,
 ) => {
   if (!req.session?.userId || req.session?.userRole !== "faculty") {
-    console.log(
-      `Unauthorized faculty access attempt by user ${req.session?.userId}`,
-    );
+    logAccessDenied("Faculty access denied", req, "faculty");
     return res.status(403).json({
       success: false,
       message: "Faculty access required",
     });
   }
 
-  console.log(`Faculty access granted to user ${req.session?.userId}`);
+  logAccessGranted(req, "faculty");
   next();
 };

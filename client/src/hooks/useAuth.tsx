@@ -29,6 +29,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_SESSION_MARKER = "presence.authenticated";
+const isAuthDebugEnabled = () =>
+  localStorage.getItem("presence.debugAuth") === "true";
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -104,9 +106,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setError(null);
       setLoading(true);
 
-      console.log("Making login API call...");
       const response = await api.login(email, password);
-      console.log("API response:", response);
 
       const userData = getUserFromAuthResponse(response);
       if (response.success && userData) {
@@ -114,13 +114,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(userData);
         // Connect to WebSocket with user ID
         await connectWebSocket(userData.id);
-        console.log("Login successful, user set:", userData);
+        if (isAuthDebugEnabled()) {
+          console.debug("Login successful", { userId: userData.id });
+        }
         return true;
       } else {
-        console.log(
-          "Login failed - response not successful:",
-          response.message
-        );
+        if (isAuthDebugEnabled()) {
+          console.debug("Login failed", { message: response.message });
+        }
         setError(response.message || "Login failed");
         return false;
       }

@@ -7,6 +7,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { emailService } from "../services/emailService.js";
 import { auditService } from "../services/auditService.js";
 import { authService } from "../services/authService.js";
+import { loggerService } from "../services/monitoring/logger.js";
 import rateLimit from "express-rate-limit";
 import {
   sanitizeInput,
@@ -116,16 +117,19 @@ function logAuthRequestContext(req: any, label: string): void {
   const cookieHeader = req.headers?.cookie as string | undefined;
   const sid = getPresenceSidFromCookieHeader(cookieHeader);
 
-  // Keep logs compact (do not dump full cookies)
-  console.log(
-    `[AUTH][${label}] ${req.method} ${req.originalUrl} ` +
-      `origin=${req.headers?.origin || "-"} ` +
-      `proto=${req.headers?.["x-forwarded-proto"] || (req.secure ? "https" : "http")} ` +
-      `cookieHeader=${cookieHeader ? "present" : "absent"} ` +
-      `presenceSid=${sid ? "present" : "absent"} ` +
-      `sessionID=${req.sessionID || "-"} ` +
-      `sessionUserId=${req.session?.userId || "-"}`,
-  );
+  loggerService.logInfo(`Auth ${label}`, {
+    endpoint: req.originalUrl,
+    userId: req.session?.userId,
+    sessionId: req.sessionID,
+    ipAddress: req.ip,
+    userAgent: req.get("User-Agent"),
+  }, {
+    method: req.method,
+    origin: req.headers?.origin || "-",
+    proto: req.headers?.["x-forwarded-proto"] || (req.secure ? "https" : "http"),
+    cookieHeader: cookieHeader ? "present" : "absent",
+    presenceSid: sid ? "present" : "absent",
+  });
 }
 
 function attachAuthResponseDebug(req: any, res: any, label: string): void {
@@ -136,9 +140,16 @@ function attachAuthResponseDebug(req: any, res: any, label: string): void {
     const setCookiePresent = Array.isArray(setCookie)
       ? setCookie.length > 0
       : !!setCookie;
-    console.log(
-      `[AUTH][${label}] response status=${res.statusCode} set-cookie=${setCookiePresent ? "present" : "absent"}`,
-    );
+    loggerService.logInfo(`Auth ${label}`, {
+      endpoint: req.originalUrl,
+      userId: req.session?.userId,
+      sessionId: req.sessionID,
+      ipAddress: req.ip,
+      userAgent: req.get("User-Agent"),
+    }, {
+      status: res.statusCode,
+      setCookie: setCookiePresent ? "present" : "absent",
+    });
   });
 }
 
@@ -255,11 +266,14 @@ router.post(
 
       // Verify password
       if (process.env.LOG_AUTH_DEBUG === "true") {
-        console.log(`[AUTH] Attempting login for ${email}`);
+        loggerService.logInfo("Auth login attempt", {}, { email });
       }
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (process.env.LOG_AUTH_DEBUG === "true") {
-        console.log(`[AUTH] Password valid: ${isValidPassword}`);
+        loggerService.logInfo("Auth password verification completed", {}, {
+          email,
+          valid: isValidPassword,
+        });
       }
       if (!isValidPassword) {
         // Log failed login attempt for invalid password
@@ -289,9 +303,13 @@ router.post(
         req.session.userRole = user.role;
 
         if (authDebugEnabled()) {
-          console.log(
-            `[AUTH][login] session set userId=${req.session.userId} role=${req.session.userRole} sessionID=${req.sessionID}`,
-          );
+          loggerService.logInfo("Auth login session established", {
+            endpoint: req.originalUrl,
+            userId: req.session.userId,
+            sessionId: req.sessionID,
+            ipAddress: req.ip,
+            userAgent: req.get("User-Agent"),
+          }, { role: req.session.userRole });
         }
 
         // Save session explicitly before sending response
@@ -428,9 +446,12 @@ router.get("/me", meRateLimit, async (req, res) => {
 
     if (!req.session?.userId) {
       if (authDebugEnabled()) {
-        console.log(
-          `[AUTH][me] Not authenticated: session=${req.session ? "present" : "absent"} sessionID=${req.sessionID || "-"}`,
-        );
+        loggerService.logInfo("Auth me not authenticated", {
+          endpoint: req.originalUrl,
+          sessionId: req.sessionID,
+          ipAddress: req.ip,
+          userAgent: req.get("User-Agent"),
+        }, { session: req.session ? "present" : "absent" });
       }
       return res.status(401).json({
         success: false,
@@ -890,7 +911,9 @@ router.post(
           resetLink,
         );
         if (emailSent) {
-          console.log(`[AUTH] Password reset email sent to ${email}`);
+          loggerService.logInfo("Password reset email sent", {}, {
+            email,
+          });
         } else {
           console.error(
             `[AUTH] Failed to send password reset email to ${email}`,
@@ -1033,7 +1056,7 @@ router.post(
 
       await authService.invalidateAllUserSessions(userResult[0].id);
 
-      console.log(`[AUTH] Password reset completed for ${email}`);
+      loggerService.logInfo("Password reset completed", {}, { email });
 
       res.json({
         success: true,
@@ -1101,7 +1124,13 @@ router.post("/force-reset-defaults", async (req, res) => {
       });
     }
 
-    console.log("[AUTH] Force resetting default passwords...");
+    loggerService.logWarning("Force resetting default passwords", {
+      endpoint: req.originalUrl,
+      userId: req.session.userId,
+      sessionId: req.sessionID,
+      ipAddress: req.ip,
+      userAgent: req.get("User-Agent"),
+    });
 
     // Hash default passwords
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || "12");
@@ -1151,7 +1180,13 @@ router.post("/force-reset-defaults", async (req, res) => {
       },
     });
 
-    console.log("[AUTH] Default passwords reset successfully");
+    loggerService.logWarning("Default passwords reset successfully", {
+      endpoint: req.originalUrl,
+      userId: req.session.userId,
+      sessionId: req.sessionID,
+      ipAddress: req.ip,
+      userAgent: req.get("User-Agent"),
+    });
 
     res.json({
       success: true,

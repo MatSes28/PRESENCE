@@ -64,6 +64,12 @@ jobs:
           REDIS_URL: redis://localhost:6379
           NODE_ENV: test
 
+      - name: Run production environment validation test
+        working-directory: server
+        run: npm run test -- --testPathPattern=unit/config/env.test.ts --runInBand
+        env:
+          NODE_ENV: test
+
       - name: Run integration tests
         working-directory: server
         run: npm run test:integration
