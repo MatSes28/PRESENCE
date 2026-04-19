@@ -381,7 +381,12 @@ class ApiClient {
   }
 
   async getStudent(id: number): Promise<ApiResponse<Student>> {
-    return this.request<Student>(`/students/${id}`);
+    const response = await this.request<Student>(`/students/${id}`);
+    const student = response.data ?? (response.student as Student | undefined);
+    return {
+      ...response,
+      data: student,
+    };
   }
 
   // Subjects endpoints
@@ -433,10 +438,16 @@ class ApiClient {
     rfidUid?: string;
     parentEmail?: string;
   }): Promise<ApiResponse<Student>> {
-    return this.request<Student>("/students", {
+    const response = await this.request<Student>("/students", {
       method: "POST",
       body: JSON.stringify(student),
     });
+    const createdStudent =
+      response.data ?? (response.student as Student | undefined);
+    return {
+      ...response,
+      data: createdStudent,
+    };
   }
 
   async updateStudent(
@@ -448,10 +459,16 @@ class ApiClient {
       parentEmail: string;
     }>,
   ): Promise<ApiResponse<Student>> {
-    return this.request<Student>(`/students/${id}`, {
+    const response = await this.request<Student>(`/students/${id}`, {
       method: "PUT",
       body: JSON.stringify(student),
     });
+    const updatedStudent =
+      response.data ?? (response.student as Student | undefined);
+    return {
+      ...response,
+      data: updatedStudent,
+    };
   }
 
   async deleteStudent(id: number): Promise<ApiResponse> {

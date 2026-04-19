@@ -250,6 +250,7 @@ router.get("/:id", requireAuth, async (req, res) => {
 
     res.json({
       success: true,
+      data: decryptedStudent,
       student: decryptedStudent,
     });
   } catch (error) {
@@ -368,10 +369,30 @@ router.post(
         })
         .returning();
 
+      const decryptedStudent = {
+        ...newStudent,
+        rfidUid: newStudent.rfidUid
+          ? encryptionService.decryptRFID(newStudent.rfidUid)
+          : null,
+        parentEmail: newStudent.parentEmail
+          ? encryptionService.decryptParentData(
+              newStudent.parentEmail,
+              newStudent.parentName || "",
+            ).email
+          : null,
+        parentName: newStudent.parentName
+          ? encryptionService.decryptParentData(
+              newStudent.parentEmail || "",
+              newStudent.parentName,
+            ).phone
+          : null,
+      };
+
       res.status(201).json({
         success: true,
         message: "Student created successfully",
-        student: newStudent,
+        data: decryptedStudent,
+        student: decryptedStudent,
       });
     } catch (error) {
       console.error("Create student error:", error);
@@ -487,6 +508,7 @@ router.put("/:id", requireAdmin, async (req, res) => {
     res.json({
       success: true,
       message: "Student updated successfully",
+      data: decryptedStudent,
       student: decryptedStudent,
     });
   } catch (error) {
@@ -646,6 +668,7 @@ router.post("/:id/assign-rfid", requireAdmin, async (req, res) => {
     res.json({
       success: true,
       message: "RFID assigned successfully",
+      data: decryptedStudent,
       student: decryptedStudent,
     });
   } catch (error) {
