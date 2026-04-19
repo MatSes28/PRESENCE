@@ -18,6 +18,9 @@ export const getYearFromSection = (section: string) => {
   return match ? Number(match[1]) : undefined;
 };
 
+export const isValidBSITSection = (section: string) =>
+  /^BSIT\s+[1-4]-[1-9][0-9]*$/i.test(section.trim());
+
 export const formatYearLabel = (year?: string | number | null) => {
   if (!year) return "Not specified";
 
@@ -28,4 +31,3 @@ export const formatYearLabel = (year?: string | number | null) => {
     yearNumber === 1 ? "st" : yearNumber === 2 ? "nd" : yearNumber === 3 ? "rd" : "th";
   return `${yearNumber}${suffix} Year`;
 };
-

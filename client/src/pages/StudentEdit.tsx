@@ -9,9 +9,9 @@ import {
   commonValidationRules,
 } from "../hooks/useFormValidation";
 import {
-  BSIT_SECTIONS,
   formatYearLabel,
   getYearFromSection,
+  isValidBSITSection,
 } from "../lib/studentSections";
 
 interface Student {
@@ -118,11 +118,20 @@ export const StudentEdit = () => {
       return;
     }
 
-    if (!formData.section) {
+    if (!formData.section.trim()) {
       addNotification({
         type: "error",
         title: "Section Required",
-        message: "Select the student's BSIT section.",
+        message: "Enter the student's BSIT section.",
+      });
+      return;
+    }
+
+    if (!isValidBSITSection(formData.section)) {
+      addNotification({
+        type: "error",
+        title: "Invalid Section",
+        message: "Enter a section like BSIT 1-2, BSIT 2-2, or BSIT 4-1.",
       });
       return;
     }
@@ -366,9 +375,10 @@ export const StudentEdit = () => {
               <label htmlFor="student-edit-section" className="block text-sm font-medium text-gray-300 mb-1">
                 Section *
               </label>
-              <select
+              <input
                 id="student-edit-section"
                 name="section"
+                type="text"
                 value={formData.section}
                 onChange={(e) => {
                   const section = e.target.value;
@@ -380,14 +390,11 @@ export const StudentEdit = () => {
                   });
                 }}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
-              >
-                <option value="">Select Section</option>
-                {BSIT_SECTIONS.map((section) => (
-                  <option key={section} value={section}>
-                    {section}
-                  </option>
-                ))}
-              </select>
+                placeholder="e.g., BSIT 2-2"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Enter a BSIT section like BSIT 2-2. Year is set automatically.
+              </p>
             </div>
             <div>
               <label htmlFor="student-edit-status" className="block text-sm font-medium text-gray-300 mb-1">

@@ -8,7 +8,11 @@ import {
 } from "../hooks/useFormValidation";
 import { useAuth } from "../hooks/useAuth";
 import { useLocation } from "wouter";
-import { BSIT_SECTIONS, getYearFromSection } from "../lib/studentSections";
+import {
+  BSIT_SECTIONS,
+  getYearFromSection,
+  isValidBSITSection,
+} from "../lib/studentSections";
 
 interface Student {
   id: number;
@@ -215,11 +219,20 @@ export const Students = () => {
       return;
     }
 
-    if (!formData.section) {
+    if (!formData.section.trim()) {
       addNotification({
         type: "error",
         title: "Section Required",
-        message: "Select the student's BSIT section.",
+        message: "Enter the student's BSIT section.",
+      });
+      return;
+    }
+
+    if (!isValidBSITSection(formData.section)) {
+      addNotification({
+        type: "error",
+        title: "Invalid Section",
+        message: "Enter a section like BSIT 1-2, BSIT 2-2, or BSIT 4-1.",
       });
       return;
     }
@@ -877,9 +890,10 @@ export const Students = () => {
                 <label htmlFor="student-form-section" className="block text-sm font-medium text-gray-300 mb-1">
                   Section *
                 </label>
-                <select
+                <input
                   id="student-form-section"
                   name="section"
+                  type="text"
                   value={formData.section}
                   onChange={(e) => {
                     const section = e.target.value;
@@ -891,16 +905,10 @@ export const Students = () => {
                     });
                   }}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                >
-                  <option value="">Select Section</option>
-                  {BSIT_SECTIONS.map((section) => (
-                    <option key={section} value={section}>
-                      {section}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="e.g., BSIT 1-2"
+                />
                 <p className="text-xs text-gray-400 mt-1">
-                  Year is set automatically from the selected BSIT section.
+                  Enter a BSIT section like BSIT 1-2. Year is set automatically.
                 </p>
               </div>
               <div>
