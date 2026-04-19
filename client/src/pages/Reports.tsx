@@ -284,12 +284,22 @@ export const Reports = () => {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (autoRefresh) {
-      interval = setInterval(() => {
+      const refreshVisiblePreview = () => {
+        if (document.visibilityState === "hidden") return;
         loadPreviewData();
         loadRealTimeStats();
         setLastUpdated(new Date());
-      }, 30000);
+      };
+
+      interval = setInterval(refreshVisiblePreview, 30000);
+      document.addEventListener("visibilitychange", refreshVisiblePreview);
+
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener("visibilitychange", refreshVisiblePreview);
+      };
     }
+
     return () => {
       if (interval) clearInterval(interval);
     };

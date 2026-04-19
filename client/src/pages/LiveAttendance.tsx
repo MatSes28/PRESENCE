@@ -5,6 +5,9 @@ import { api } from "../lib/api";
 import { useLocation } from "wouter";
 import { useNotifications } from "../components/NotificationSystem";
 
+const isDocumentHidden = () =>
+  typeof document !== "undefined" && document.visibilityState === "hidden";
+
 interface AttendanceEvent {
   id: string;
   type: "rfid_scan" | "sensor_trigger" | "attendance_record";
@@ -176,6 +179,7 @@ export const LiveAttendance = () => {
     };
 
     const handleRfidScan = (data: any) => {
+      if (isDocumentHidden()) return;
       addEvent({
         id: Date.now().toString(),
         type: "rfid_scan",
@@ -187,6 +191,7 @@ export const LiveAttendance = () => {
     };
 
     const handleSensorTrigger = (data: any) => {
+      if (isDocumentHidden()) return;
       addEvent({
         id: Date.now().toString(),
         type: "sensor_trigger",
@@ -199,6 +204,7 @@ export const LiveAttendance = () => {
     };
 
     const handleAttendanceRecord = (data: any) => {
+      if (isDocumentHidden()) return;
       addEvent({
         id: Date.now().toString(),
         type: "attendance_record",
@@ -213,6 +219,7 @@ export const LiveAttendance = () => {
     };
 
     const handleDeviceStatus = (data: any) => {
+      if (isDocumentHidden()) return;
       if (Array.isArray(data)) {
         setStats((prev) => ({
           ...prev,
@@ -234,8 +241,22 @@ export const LiveAttendance = () => {
       console.error("Failed to initialize WebSocket:", error);
     });
 
+    const handleVisibilityChange = () => {
+      if (isDocumentHidden()) return;
+      setIsConnected(wsClient.isConnected());
+      try {
+        wsClient.getDeviceStatus();
+      } catch (error) {
+        console.warn("Failed to refresh device status:", error);
+      }
+      refreshAttendanceDataRef.current();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       try {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
         wsClient.off("connect", handleConnect);
         wsClient.off("disconnect", handleDisconnect);
         wsClient.off("error", handleError);

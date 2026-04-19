@@ -1,22 +1,24 @@
 import { useAuth } from "../hooks/useAuth";
-import { useState, useEffect, useCallback } from "react";
+import {
+  Suspense,
+  lazy,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import { getWebSocketClient } from "../lib/websocket";
 import { api } from "../lib/api";
 import { useLocation } from "wouter";
 import { useNotifications } from "../components/NotificationSystem";
 import { ConfirmationDialog } from "../components/ConfirmationDialog";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-} from "recharts";
+
+const DashboardCharts = lazy(
+  () => import("../components/dashboard/DashboardCharts"),
+);
+
+const isDocumentHidden = () =>
+  typeof document !== "undefined" && document.visibilityState === "hidden";
 
 // Enhanced Dashboard with Statistics Cards and Tabs
 // Main Dashboard interface with comprehensive management features
@@ -199,6 +201,7 @@ export const Dashboard = () => {
         if (retryCount < 3) {
           const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
           setTimeout(() => {
+            if (isDocumentHidden()) return;
             setRetryCount((prev) => prev + 1);
             fetchDashboardStats(true);
           }, delay);
@@ -216,6 +219,11 @@ export const Dashboard = () => {
     },
     [user, deviceStatus, retryCount, addNotification]
   );
+  const fetchDashboardStatsRef = useRef(fetchDashboardStats);
+
+  useEffect(() => {
+    fetchDashboardStatsRef.current = fetchDashboardStats;
+  }, [fetchDashboardStats]);
 
   useEffect(() => {
     if (user) {
@@ -455,6 +463,7 @@ export const Dashboard = () => {
 
     // Subscribe to real-time updates
     const handleRfidScan = (data: any) => {
+      if (isDocumentHidden()) return;
       setRealTimeData((prev) => [
         { ...data, type: "rfid_scan" },
         ...prev.slice(0, 9),
@@ -466,6 +475,7 @@ export const Dashboard = () => {
     };
 
     const handleSensorTrigger = (data: any) => {
+      if (isDocumentHidden()) return;
       setRealTimeData((prev) => [
         { ...data, type: "sensor_trigger" },
         ...prev.slice(0, 9),
@@ -477,6 +487,7 @@ export const Dashboard = () => {
     };
 
     const handleAttendanceRecord = (data: any) => {
+      if (isDocumentHidden()) return;
       setRealTimeData((prev) => [
         { ...data, type: "attendance_record" },
         ...prev.slice(0, 9),
@@ -501,6 +512,7 @@ export const Dashboard = () => {
     };
 
     const handleDeviceStatus = (data: any) => {
+      if (isDocumentHidden()) return;
       setDeviceStatus(data);
       setDashboardStats((prev) => ({
         ...prev,
@@ -516,7 +528,16 @@ export const Dashboard = () => {
     // Get initial device status
     wsClient.getDeviceStatus();
 
+    const handleVisibilityChange = () => {
+      if (isDocumentHidden()) return;
+      wsClient.getDeviceStatus();
+      fetchDashboardStatsRef.current(true);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       wsClient.off("rfidScan", handleRfidScan);
       wsClient.off("sensorTrigger", handleSensorTrigger);
       wsClient.off("attendanceRecord", handleAttendanceRecord);
@@ -954,104 +975,22 @@ export const Dashboard = () => {
         </div>
       ) : analyticsData ? (
         <>
-          {/* Daily Attendance Trends Chart */}
-          <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-            <h4 className="text-lg font-medium text-cyan-400 mb-4">
-              Daily Attendance Trends
-            </h4>
-            {(!analyticsData.dailyTrends || analyticsData.dailyTrends.length === 0) ? (
-              <div className="h-[300px] flex items-center justify-center text-gray-400">
-                No attendance data in this period. Record attendance to see trends.
+          <Suspense
+            fallback={
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="h-[372px] rounded-lg border border-gray-700 bg-gray-800 animate-pulse" />
+                <div className="h-[322px] rounded-lg border border-gray-700 bg-gray-800 animate-pulse" />
               </div>
-            ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={analyticsData.dailyTrends}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#9CA3AF"
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) =>
-                    new Date(value).toLocaleDateString()
-                  }
-                />
-                <YAxis stroke="#9CA3AF" tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1F2937",
-                    border: "1px solid #374151",
-                    borderRadius: "0.5rem",
-                  }}
-                  labelFormatter={(value) =>
-                    new Date(value).toLocaleDateString()
-                  }
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="present"
-                  stroke="#10B981"
-                  strokeWidth={2}
-                  name="Present"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="absent"
-                  stroke="#EF4444"
-                  strokeWidth={2}
-                  name="Absent"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="rate"
-                  stroke="#06B6D4"
-                  strokeWidth={2}
-                  name="Attendance Rate (%)"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-            )}
-          </div>
+            }
+          >
+            <DashboardCharts
+              dailyTrends={analyticsData.dailyTrends}
+              hourlyPatterns={analyticsData.hourlyPatterns}
+            />
+          </Suspense>
 
-          {/* Hourly Patterns and Subject Performance */}
+          {/* Subject Performance */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
-              <h4 className="text-lg font-medium text-cyan-400 mb-4">
-                Hourly Attendance Patterns
-              </h4>
-              {(!analyticsData.hourlyPatterns || analyticsData.hourlyPatterns.length === 0) ? (
-                <div className="h-[250px] flex items-center justify-center text-gray-400 text-sm">
-                  No hourly data in this period.
-                </div>
-              ) : (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={analyticsData.hourlyPatterns}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis
-                    dataKey="hour"
-                    stroke="#9CA3AF"
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => `${value}:00`}
-                  />
-                  <YAxis stroke="#9CA3AF" tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1F2937",
-                      border: "1px solid #374151",
-                      borderRadius: "0.5rem",
-                    }}
-                    labelFormatter={(value) => `${value}:00`}
-                  />
-                  <Bar
-                    dataKey="count"
-                    fill="#06B6D4"
-                    name="Attendance Events"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-              )}
-            </div>
-
             <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
               <h4 className="text-lg font-medium text-cyan-400 mb-4">
                 Subject Performance
