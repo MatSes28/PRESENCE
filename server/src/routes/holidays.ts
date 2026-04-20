@@ -3,8 +3,35 @@ import db from "../storage.js";
 import { academicHolidays } from "../schema.js";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
+import {
+  getPhilippinesGoogleHolidays,
+  philippinesHolidayEmbedUrl,
+} from "../services/googleHolidayFeed.js";
 
 const router = Router();
+
+router.get("/philippines", requireAuth, async (req, res) => {
+  try {
+    const parsedYear =
+      typeof req.query.year === "string" && /^\d{4}$/.test(req.query.year)
+        ? Number(req.query.year)
+        : undefined;
+
+    const holidays = await getPhilippinesGoogleHolidays(parsedYear);
+
+    res.json({
+      success: true,
+      data: holidays,
+      sourceUrl: philippinesHolidayEmbedUrl,
+    });
+  } catch (error) {
+    console.error("Get Philippines holidays error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to load Philippines holidays",
+    });
+  }
+});
 
 router.get("/", requireAuth, async (req, res) => {
   try {

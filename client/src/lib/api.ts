@@ -834,6 +834,11 @@ class ApiClient {
     });
   }
 
+  async getPhilippinesHolidays(year?: number): Promise<ApiResponse<any[]>> {
+    const query = year ? `?year=${year}` : "";
+    return this.request<any[]>(`/holidays/philippines${query}`);
+  }
+
   // Reports endpoints
   async generateReport(params: ReportParams): Promise<ApiResponse> {
     return this.request("/reports/generate-report", {

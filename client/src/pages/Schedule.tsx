@@ -28,6 +28,21 @@ interface AcademicHoliday {
   recursAnnually: boolean;
 }
 
+interface PhilippinesHoliday {
+  holidayDate: string;
+  name: string;
+  description?: string | null;
+  source: "google_philippines";
+}
+
+interface DisplayHoliday {
+  holidayDate: string;
+  name: string;
+  description?: string | null;
+  recursAnnually?: boolean;
+  source: "manual" | "google_philippines";
+}
+
 const DAYS_OF_WEEK = [
   "Sunday",
   "Monday",
@@ -69,6 +84,12 @@ export const Schedule = () => {
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [checkingConflicts, setCheckingConflicts] = useState(false);
   const [holidays, setHolidays] = useState<AcademicHoliday[]>([]);
+  const [philippinesHolidays, setPhilippinesHolidays] = useState<
+    PhilippinesHoliday[]
+  >([]);
+  const [showPhilippinesHolidays, setShowPhilippinesHolidays] = useState(
+    () => localStorage.getItem("schedule_show_philippines_holidays") !== "false",
+  );
   const [holidayForm, setHolidayForm] = useState({
     holidayDate: "",
     name: "",
@@ -96,6 +117,21 @@ export const Schedule = () => {
     fetchHolidays();
   }, [currentDate]);
 
+  useEffect(() => {
+    localStorage.setItem(
+      "schedule_show_philippines_holidays",
+      String(showPhilippinesHolidays),
+    );
+  }, [showPhilippinesHolidays]);
+
+  useEffect(() => {
+    if (showPhilippinesHolidays) {
+      fetchPhilippinesHolidays();
+    } else {
+      setPhilippinesHolidays([]);
+    }
+  }, [currentDate, showPhilippinesHolidays]);
+
   const fetchHolidays = async () => {
     try {
       const response = await api.getHolidays(currentDate.getFullYear());
@@ -108,6 +144,23 @@ export const Schedule = () => {
     } catch (error) {
       console.error("Failed to fetch holidays:", error);
       setHolidays([]);
+    }
+  };
+
+  const fetchPhilippinesHolidays = async () => {
+    try {
+      const response = await api.getPhilippinesHolidays(
+        currentDate.getFullYear(),
+      );
+      const raw = (response as any)?.data;
+      if (response.success && Array.isArray(raw)) {
+        setPhilippinesHolidays(raw as PhilippinesHoliday[]);
+      } else {
+        setPhilippinesHolidays([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch Philippines holidays:", error);
+      setPhilippinesHolidays([]);
     }
   };
 
@@ -561,15 +614,63 @@ export const Schedule = () => {
     setCurrentDate(new Date());
   };
 
-  const isHolidayDate = (date: Date) => {
+  const navigateWeek = (direction: "prev" | "next") => {
+    setCurrentDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() + (direction === "prev" ? -7 : 7));
+      return newDate;
+    });
+  };
+
+  const getWeekDates = (date: Date) => {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - start.getDay());
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + index);
+      return day;
+    });
+  };
+
+  const getHolidayInfo = (date: Date): DisplayHoliday | undefined => {
     const dateOnly = date.toISOString().slice(0, 10);
     const monthDay = dateOnly.slice(5);
 
-    return holidays.find(
+    const manualHoliday = holidays.find(
       (holiday) =>
         holiday.holidayDate === dateOnly ||
         (holiday.recursAnnually && holiday.holidayDate.slice(5) === monthDay),
     );
+
+    if (manualHoliday) {
+      return {
+        ...manualHoliday,
+        source: "manual",
+      };
+    }
+
+    if (!showPhilippinesHolidays) {
+      return undefined;
+    }
+
+    const googleHoliday = philippinesHolidays.find(
+      (holiday) => holiday.holidayDate === dateOnly,
+    );
+
+    if (!googleHoliday) {
+      return undefined;
+    }
+
+    return {
+      ...googleHoliday,
+      source: "google_philippines",
+    };
+  };
+
+  const isHolidayDate = (date: Date) => {
+    return getHolidayInfo(date);
   };
 
   const handleHolidaySubmit = async (e: React.FormEvent) => {
@@ -658,6 +759,8 @@ export const Schedule = () => {
       setDeletingHolidayId(null);
     }
   };
+
+  const weekDates = getWeekDates(currentDate);
 
   if (loading) {
     return (
@@ -950,6 +1053,15 @@ export const Schedule = () => {
                 Automatic session creation and device-triggered class start are skipped on these dates.
               </p>
             </div>
+            <label className="flex items-center gap-2 text-sm text-gray-300">
+              <input
+                type="checkbox"
+                checked={showPhilippinesHolidays}
+                onChange={(e) => setShowPhilippinesHolidays(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-cyan-500 focus:ring-cyan-500"
+              />
+              Show Holidays in Philippines
+            </label>
           </div>
 
           <form
@@ -1094,12 +1206,48 @@ export const Schedule = () => {
         /* Grid View - Current Week Schedule */
         <div className="bg-gray-800 rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-700">
-            <h4 className="text-lg font-medium text-white">
-              Current Week Schedule
-            </h4>
-            <p className="text-sm text-gray-300">
-              Weekly class timetable with auto-start indicators
-            </p>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h4 className="text-lg font-medium text-white">
+                  Current Week Schedule
+                </h4>
+                <p className="text-sm text-gray-300">
+                  Weekly class timetable with auto-start indicators
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => navigateWeek("prev")}
+                  className="p-1 text-gray-400 hover:text-white"
+                >
+                  ‹
+                </button>
+                <span className="text-sm font-medium text-white">
+                  {weekDates[0].toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}{" "}
+                  to{" "}
+                  {weekDates[6].toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </span>
+                <button
+                  onClick={() => navigateWeek("next")}
+                  className="p-1 text-gray-400 hover:text-white"
+                >
+                  ›
+                </button>
+                <button
+                  onClick={goToToday}
+                  className="rounded bg-cyan-600 px-4 py-1 text-sm text-white hover:bg-cyan-700"
+                >
+                  Today
+                </button>
+              </div>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <div className="grid grid-cols-8 gap-px bg-gray-700">
@@ -1108,14 +1256,29 @@ export const Schedule = () => {
                 Time
               </div>
               {/* Day headers */}
-              {DAYS_OF_WEEK.map((day) => (
+              {weekDates.map((date, index) => {
+                const holiday = isHolidayDate(date);
+                return (
                 <div
-                  key={day}
-                  className="bg-gray-900 px-4 py-3 text-sm font-medium text-gray-300 text-center"
+                  key={date.toISOString()}
+                  className={`px-4 py-3 text-center text-sm font-medium ${
+                    holiday ? "bg-rose-950 text-rose-200" : "bg-gray-900 text-gray-300"
+                  }`}
                 >
-                  {day}
+                  <div>{DAYS_OF_WEEK[index]}</div>
+                  <div className="mt-1 text-xs opacity-80">
+                    {date.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </div>
+                  {holiday && (
+                    <div className="mt-1 text-[10px] font-medium uppercase tracking-wide">
+                      {holiday.name}
+                    </div>
+                  )}
                 </div>
-              ))}
+              )})}
 
               {/* Time slots */}
               {Array.from({ length: 12 }, (_, i) => {
@@ -1129,8 +1292,11 @@ export const Schedule = () => {
                     <div className="bg-gray-800 px-4 py-8 text-sm text-gray-400 border-r border-gray-700">
                       {timeLabel}
                     </div>
-                    {DAYS_OF_WEEK.map((day, dayIndex) => {
-                      const daySchedules = getSchedulesForDay(dayIndex);
+                    {weekDates.map((date, dayIndex) => {
+                      const holiday = isHolidayDate(date);
+                      const daySchedules = holiday
+                        ? []
+                        : getSchedulesForDay(dayIndex);
                       const hourSchedules = daySchedules.filter((schedule) => {
                         const startHour = parseInt(
                           schedule.startTime.split(":")[0],
@@ -1140,9 +1306,16 @@ export const Schedule = () => {
 
                       return (
                         <div
-                          key={`${day}-${hour}`}
-                          className="bg-gray-800 px-2 py-2 min-h-16 border-r border-gray-700"
+                          key={`${date.toISOString()}-${hour}`}
+                          className={`min-h-16 border-r border-gray-700 px-2 py-2 ${
+                            holiday ? "bg-rose-950/60" : "bg-gray-800"
+                          }`}
                         >
+                          {holiday && hour === 8 && (
+                            <div className="mb-1 rounded border border-rose-700 bg-rose-900/60 p-2 text-xs text-rose-200">
+                              No classes: {holiday.name}
+                            </div>
+                          )}
                           {hourSchedules.map((schedule) => (
                             <div
                               key={schedule.id}
