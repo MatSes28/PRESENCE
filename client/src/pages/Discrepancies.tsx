@@ -216,7 +216,7 @@ export const Discrepancies: React.FC = () => {
                   status: e.target.value as any,
                 }));
               }}
-              className="bg-gray-800 border border-gray-700 text-white rounded px-3 py-2"
+              className="bg-gray-800 border border-gray-700 text-white rounded px-4 py-2"
             >
               <option value="open">Open</option>
               <option value="resolved">Resolved</option>
@@ -239,7 +239,7 @@ export const Discrepancies: React.FC = () => {
                 setPagination((p) => ({ ...p, offset: 0 }));
                 setFilters((f) => ({ ...f, startDate: e.target.value }));
               }}
-              className="bg-gray-800 border border-gray-700 text-white rounded px-3 py-2"
+              className="bg-gray-800 border border-gray-700 text-white rounded px-4 py-2"
             />
           </div>
           <div>
@@ -258,7 +258,7 @@ export const Discrepancies: React.FC = () => {
                 setPagination((p) => ({ ...p, offset: 0 }));
                 setFilters((f) => ({ ...f, endDate: e.target.value }));
               }}
-              className="bg-gray-800 border border-gray-700 text-white rounded px-3 py-2"
+              className="bg-gray-800 border border-gray-700 text-white rounded px-4 py-2"
             />
           </div>
           <button
@@ -271,7 +271,7 @@ export const Discrepancies: React.FC = () => {
       </div>
 
       {canBulkResolve && (
-        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between bg-gray-800 border border-gray-700 rounded p-3">
+        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between bg-gray-800 border border-gray-700 rounded p-4">
           <div className="text-sm text-gray-200">
             Selected: <span className="font-semibold">{selectedCount}</span>
           </div>
@@ -279,21 +279,21 @@ export const Discrepancies: React.FC = () => {
             <button
               disabled={selectedCount === 0}
               onClick={() => bulkResolve("validate")}
-              className="disabled:opacity-50 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded"
+              className="disabled:opacity-50 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
             >
               Validate
             </button>
             <button
               disabled={selectedCount === 0}
               onClick={() => bulkResolve("excuse")}
-              className="disabled:opacity-50 bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded"
+              className="disabled:opacity-50 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded"
             >
               Excuse
             </button>
             <button
               disabled={selectedCount === 0}
               onClick={() => setSelectedIds(new Set())}
-              className="disabled:opacity-50 bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded"
+              className="disabled:opacity-50 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded"
             >
               Clear
             </button>
@@ -409,7 +409,7 @@ export const Discrepancies: React.FC = () => {
                       <td className="px-4 py-4 text-right">
                         <button
                           onClick={() => openEvidence(rec.id)}
-                          className="bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm"
+                          className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm"
                         >
                           Evidence
                         </button>
@@ -465,7 +465,7 @@ export const Discrepancies: React.FC = () => {
               </div>
               <button
                 onClick={() => setEvidenceOpen(false)}
-                className="bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 rounded"
+                className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded"
               >
                 Close
               </button>
@@ -478,7 +478,7 @@ export const Discrepancies: React.FC = () => {
                 <div className="text-gray-400">No evidence available.</div>
               ) : (
                 <>
-                  <div className="bg-gray-950 border border-gray-800 rounded p-3">
+                  <div className="bg-gray-950 border border-gray-800 rounded p-4">
                     <div className="text-sm text-gray-200 font-medium">
                       Nearest RFID_SCAN
                     </div>
@@ -486,7 +486,7 @@ export const Discrepancies: React.FC = () => {
                       {JSON.stringify(evidence.nearestRfid, null, 2)}
                     </pre>
                   </div>
-                  <div className="bg-gray-950 border border-gray-800 rounded p-3">
+                  <div className="bg-gray-950 border border-gray-800 rounded p-4">
                     <div className="text-sm text-gray-200 font-medium">
                       SENSOR_TRIGGER events (same device)
                     </div>
@@ -503,3 +503,4 @@ export const Discrepancies: React.FC = () => {
     </div>
   );
 };
+

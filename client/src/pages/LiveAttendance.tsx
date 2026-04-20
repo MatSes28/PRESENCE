@@ -931,7 +931,7 @@ export const LiveAttendance = () => {
               value={rfidInput}
               onChange={(e) => setRfidInput(e.target.value)}
               placeholder="Enter RFID card ID"
-              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+              className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
             />
             <button
               onClick={simulateRfidTap}
@@ -961,7 +961,7 @@ export const LiveAttendance = () => {
             </button>
           </div>
           {!hasActiveSessions && (
-            <div className="rounded border border-yellow-700 bg-yellow-900/30 p-3 text-sm text-yellow-100">
+            <div className="rounded border border-yellow-700 bg-yellow-900/30 p-4 text-sm text-yellow-100">
               No active class session is available for sensor simulation. Start
               a session from Dashboard or create one in Schedule before using
               the entry and exit sensor buttons.
@@ -997,7 +997,7 @@ export const LiveAttendance = () => {
                 setFilters((prev) => ({ ...prev, searchTerm: e.target.value }))
               }
               placeholder="Search by name, ID, or email"
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
             />
           </div>
           <div>
@@ -1011,7 +1011,7 @@ export const LiveAttendance = () => {
               onChange={(e) =>
                 setFilters((prev) => ({ ...prev, status: e.target.value }))
               }
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
             >
               <option value="all">All Status</option>
               <option value="present">Present</option>
@@ -1039,7 +1039,7 @@ export const LiveAttendance = () => {
                     dateRange: { ...prev.dateRange, start: e.target.value },
                   }))
                 }
-                className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               />
               <label htmlFor="attendance-date-end" className="sr-only">
                 Attendance end date
@@ -1056,7 +1056,7 @@ export const LiveAttendance = () => {
                     dateRange: { ...prev.dateRange, end: e.target.value },
                   }))
                 }
-                className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               />
             </div>
           </div>
@@ -1076,7 +1076,7 @@ export const LiveAttendance = () => {
                 onChange={(e) =>
                   setFilters((prev) => ({ ...prev, studentId: e.target.value }))
                 }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               >
                 <option value="">All Students</option>
                 {students.map((student: any) => (
@@ -1097,7 +1097,7 @@ export const LiveAttendance = () => {
                 onChange={(e) =>
                   setFilters((prev) => ({ ...prev, sessionId: e.target.value }))
                 }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               >
                 <option value="">All Sessions</option>
                 {sessions.map((session: any) => (
@@ -1120,7 +1120,7 @@ export const LiveAttendance = () => {
                   setFilters((prev) => ({ ...prev, deviceId: e.target.value }))
                 }
                 placeholder="Device ID"
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
               />
             </div>
           </div>
@@ -1153,7 +1153,7 @@ export const LiveAttendance = () => {
       {selectedRecords.size > 0 && (
         <div className="bg-blue-900 border border-blue-600 rounded-lg p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-4">
               <span className="text-blue-400 font-medium">
                 {selectedRecords.size} record
                 {selectedRecords.size !== 1 ? "s" : ""} selected
@@ -1163,21 +1163,21 @@ export const LiveAttendance = () => {
               <button
                 onClick={() => setBulkOperation("excuse")}
                 disabled={bulkProcessing}
-                className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
+                className="px-4 py-1 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
               >
                 Bulk Excuse
               </button>
               <button
                 onClick={() => setBulkOperation("contact")}
                 disabled={bulkProcessing}
-                className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
+                className="px-4 py-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
               >
                 Bulk Contact
               </button>
               <button
                 onClick={() => setBulkOperation("export")}
                 disabled={bulkProcessing}
-                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
+                className="px-4 py-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
               >
                 Export Selected
               </button>
@@ -1309,7 +1309,7 @@ export const LiveAttendance = () => {
                               {record.student?.name?.charAt(0) || "?"}
                             </span>
                           </div>
-                          <div className="ml-3">
+                          <div className="ml-4">
                             <div className="text-sm font-medium text-white">
                               {record.student?.name || "Unknown"}
                             </div>
@@ -1479,7 +1479,7 @@ export const LiveAttendance = () => {
             <div className="divide-y divide-gray-700">
               {events.map((event) => (
                 <div key={event.id} className="px-6 py-4 hover:bg-gray-700">
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-start space-x-4">
                     <div className="flex-shrink-0">
                       <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center">
                         <span className="text-lg">
@@ -1524,7 +1524,7 @@ export const LiveAttendance = () => {
           System Status
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
             <div
               className={`w-3 h-3 rounded-full ${
                 isConnected ? "bg-green-500" : "bg-red-500"
@@ -1542,7 +1542,7 @@ export const LiveAttendance = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
             <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
             <div>
               <p className="text-sm font-medium text-white">IoT Devices</p>
@@ -1553,7 +1553,7 @@ export const LiveAttendance = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
             <div className="w-3 h-3 bg-green-500 rounded-full"></div>
             <div>
               <p className="text-sm font-medium text-white">
@@ -1587,7 +1587,7 @@ export const LiveAttendance = () => {
                       studentId: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                 >
                   <option value="">Select Student</option>
                   {students.map((student: any) => (
@@ -1611,7 +1611,7 @@ export const LiveAttendance = () => {
                       classSessionId: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                 >
                   <option value="">Select Session</option>
                   {sessions.map((session: any) => (
@@ -1636,7 +1636,7 @@ export const LiveAttendance = () => {
                       entryTime: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                 />
               </div>
               <div>
@@ -1654,12 +1654,12 @@ export const LiveAttendance = () => {
                     })
                   }
                   placeholder="Optional notes..."
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                   rows={3}
                 />
               </div>
             </div>
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex justify-end space-x-4 mt-6">
               <button
                 onClick={() => setShowManualEntry(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
@@ -1701,12 +1701,12 @@ export const LiveAttendance = () => {
                   value={excuseReason}
                   onChange={(e) => setExcuseReason(e.target.value)}
                   placeholder="Enter reason for excusing the absence..."
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                   rows={3}
                 />
               </div>
             </div>
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex justify-end space-x-4 mt-6">
               <button
                 onClick={() => {
                   setShowExcuseModal(false);
@@ -1759,12 +1759,12 @@ export const LiveAttendance = () => {
                   value={contactMessage}
                   onChange={(e) => setContactMessage(e.target.value)}
                   placeholder="Enter message to send to parent..."
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                   rows={4}
                 />
               </div>
             </div>
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex justify-end space-x-4 mt-6">
               <button
                 onClick={() => {
                   setShowContactModal(false);
@@ -1799,7 +1799,7 @@ export const LiveAttendance = () => {
               student{selectedRecords.size !== 1 ? "s" : ""}? This will mark all
               selected records as excused.
             </p>
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setBulkOperation(null)}
                 className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
@@ -1829,7 +1829,7 @@ export const LiveAttendance = () => {
               {selectedRecords.size !== 1 ? "s" : ""}? This will send a
               notification to all selected students' parents.
             </p>
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setBulkOperation(null)}
                 className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
@@ -1858,7 +1858,7 @@ export const LiveAttendance = () => {
               Export {selectedRecords.size} record
               {selectedRecords.size !== 1 ? "s" : ""} to CSV file?
             </p>
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setBulkOperation(null)}
                 className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
@@ -1878,3 +1878,4 @@ export const LiveAttendance = () => {
     </div>
   );
 };
+

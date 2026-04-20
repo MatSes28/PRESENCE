@@ -52,6 +52,12 @@ interface AttendanceRecord {
   createdAt: string;
 }
 
+const formatDateValue = (value?: string) => {
+  if (!value) return "N/A";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "N/A" : parsed.toLocaleDateString();
+};
+
 export const StudentDetail = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
@@ -89,7 +95,25 @@ export const StudentDetail = () => {
       }
 
       if (enrollmentsResponse.success) {
-        setEnrollments(enrollmentsResponse.data as Enrollment[]);
+        const enrollmentsRaw = (enrollmentsResponse as { enrollments?: unknown[] })
+          .enrollments;
+        const source = Array.isArray(enrollmentsResponse.data)
+          ? enrollmentsResponse.data
+          : Array.isArray(enrollmentsRaw)
+            ? enrollmentsRaw
+            : [];
+        const flattened: Enrollment[] = source.map((item: any) => ({
+          id: item.enrollment?.id ?? item.id,
+          studentId: item.enrollment?.studentId ?? item.studentId ?? studentId,
+          subjectId: item.enrollment?.subjectId ?? item.subjectId,
+          semester: item.enrollment?.semester ?? item.semester ?? "",
+          academicYear:
+            item.enrollment?.academicYear ?? item.academicYear ?? "",
+          enrolledAt: item.enrollment?.enrolledAt ?? item.enrolledAt ?? "",
+          isActive: item.enrollment?.isActive ?? item.isActive ?? true,
+          subject: item.subject,
+        }));
+        setEnrollments(flattened);
       }
 
       if (attendanceResponse.success) {
@@ -176,7 +200,7 @@ export const StudentDetail = () => {
             Comprehensive student information and records
           </p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex space-x-4">
           <Link href="/students">
             <a className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm font-medium">
               Back to List
@@ -210,7 +234,7 @@ export const StudentDetail = () => {
             </p>
             <div className="mt-4 flex space-x-2">
               <span
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                className={`inline-flex items-center px-4 py-1 rounded-full text-sm font-medium ${
                   student.isActive
                     ? "bg-green-900 text-green-300"
                     : "bg-red-900 text-red-300"
@@ -219,7 +243,7 @@ export const StudentDetail = () => {
                 {student.isActive ? "Active" : "Inactive"}
               </span>
               <span
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                className={`inline-flex items-center px-4 py-1 rounded-full text-sm font-medium ${
                   student.rfidUid
                     ? "bg-blue-900 text-blue-300"
                     : "bg-gray-900 text-gray-300"
@@ -293,7 +317,7 @@ export const StudentDetail = () => {
             <div>
               <p className="text-sm text-gray-400 mb-1">Account Created</p>
               <p className="text-white">
-                {new Date(student.createdAt).toLocaleDateString()}
+                {formatDateValue(student.createdAt)}
               </p>
             </div>
           </div>
@@ -321,7 +345,7 @@ export const StudentDetail = () => {
               } regarding ${
                 student.name
               }'s academic progress, attendance, or other concerns.`}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             />
           </div>
           <div className="flex justify-end">
@@ -393,7 +417,7 @@ export const StudentDetail = () => {
                       {enrollment.academicYear}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {new Date(enrollment.enrolledAt).toLocaleDateString()}
+                      {formatDateValue(enrollment.enrolledAt)}
                     </td>
                   </tr>
                 ))}
@@ -441,7 +465,7 @@ export const StudentDetail = () => {
                 {attendanceRecords.map((record) => (
                   <tr key={record.id} className="hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {new Date(record.createdAt).toLocaleDateString()}
+                      {formatDateValue(record.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                       {record.entryTime
@@ -492,3 +516,4 @@ export const StudentDetail = () => {
     </div>
   );
 };
+

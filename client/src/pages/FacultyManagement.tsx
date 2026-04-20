@@ -184,13 +184,13 @@ export const FacultyManagement = () => {
           </h4>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-900 border border-red-700 rounded p-3">
+              <div className="bg-red-900 border border-red-700 rounded p-4">
                 <p className="text-red-400 text-sm">{error}</p>
               </div>
             )}
 
             {message && (
-              <div className="bg-green-900 border border-green-700 rounded p-3">
+              <div className="bg-green-900 border border-green-700 rounded p-4">
                 <p className="text-green-400 text-sm">{message}</p>
               </div>
             )}
@@ -210,7 +210,7 @@ export const FacultyManagement = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="user@clsu.edu.ph"
                 />
               </div>
@@ -228,7 +228,7 @@ export const FacultyManagement = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="Enter full name"
                 />
               </div>
@@ -246,7 +246,7 @@ export const FacultyManagement = () => {
                       role: e.target.value as "admin" | "faculty",
                     })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   <option value="faculty">Faculty</option>
                   <option value="admin">Administrator</option>
@@ -267,13 +267,13 @@ export const FacultyManagement = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
                     }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     placeholder="Enter password"
                   />
                 </div>
               )}
             </div>
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-4">
               <button
                 type="button"
                 onClick={resetForm}
@@ -376,3 +376,4 @@ export const FacultyManagement = () => {
     </div>
   );
 };
+

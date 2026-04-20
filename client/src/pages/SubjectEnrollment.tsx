@@ -32,6 +32,12 @@ interface Enrollment {
   subject?: Subject;
 }
 
+const formatEnrollmentDate = (value?: string) => {
+  if (!value) return "N/A";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "N/A" : parsed.toLocaleDateString();
+};
+
 const getDefaultAcademicYear = () => {
   const startYear = new Date().getFullYear();
   return `${startYear}-${startYear + 1}`;
@@ -96,7 +102,26 @@ export const SubjectEnrollment = () => {
     try {
       const response = await api.getSubjectStudents(subjectId);
       if (response.success) {
-        setEnrollments(response.data as Enrollment[]);
+        const enrollmentsRaw = (response as { enrollments?: unknown[] })
+          .enrollments;
+        const source = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray(enrollmentsRaw)
+            ? enrollmentsRaw
+            : [];
+        const flattened: Enrollment[] = source.map((item: any) => ({
+          id: item.enrollment?.id ?? item.id,
+          studentId: item.enrollment?.studentId ?? item.studentId,
+          subjectId: item.enrollment?.subjectId ?? item.subjectId ?? subjectId,
+          semester: item.enrollment?.semester ?? item.semester ?? "",
+          academicYear:
+            item.enrollment?.academicYear ?? item.academicYear ?? "",
+          enrolledAt: item.enrollment?.enrolledAt ?? item.enrolledAt ?? "",
+          isActive: item.enrollment?.isActive ?? item.isActive ?? true,
+          student: item.student ?? item,
+          subject: item.subject,
+        }));
+        setEnrollments(flattened);
       }
     } catch (error) {
       console.error("Failed to fetch subject enrollments:", error);
@@ -271,7 +296,7 @@ export const SubjectEnrollment = () => {
             onChange={(e) =>
               setSelectedSubject(parseInt(e.target.value) || null)
             }
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
           >
             <option value="">Select a subject</option>
             {subjects.map((subject) => (
@@ -289,7 +314,7 @@ export const SubjectEnrollment = () => {
             name="semester"
             value={semester}
             onChange={(e) => setSemester(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
           >
             <option value="1st Semester">1st Semester</option>
             <option value="2nd Semester">2nd Semester</option>
@@ -304,7 +329,7 @@ export const SubjectEnrollment = () => {
             name="academicYear"
             value={academicYear}
             onChange={(e) => setAcademicYear(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
           >
             <option value="2023-2024">2023-2024</option>
             <option value="2024-2025">2024-2025</option>
@@ -369,7 +394,7 @@ export const SubjectEnrollment = () => {
                                 {enrollment.student?.name.charAt(0) || ""}
                               </span>
                             </div>
-                            <div className="ml-3">
+                            <div className="ml-4">
                               <div className="text-sm font-medium text-white">
                                 {enrollment.student?.name || "Unknown"}
                               </div>
@@ -385,7 +410,7 @@ export const SubjectEnrollment = () => {
                             : ""}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                          {new Date(enrollment.enrolledAt).toLocaleDateString()}
+                          {formatEnrollmentDate(enrollment.enrolledAt)}
                         </td>
                         {user?.role === "admin" && (
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -437,7 +462,7 @@ export const SubjectEnrollment = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search students by name or ID"
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
                 />
               </div>
 
@@ -468,7 +493,7 @@ export const SubjectEnrollment = () => {
                             onChange={() => toggleStudentSelection(student.id)}
                             className="mr-2"
                           />
-                          <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center mr-3">
+                          <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center mr-4">
                             <span className="text-sm text-white">
                               {student.name.charAt(0)}
                             </span>
@@ -500,7 +525,7 @@ export const SubjectEnrollment = () => {
                 <p className="text-sm text-gray-300">
                   Selected: {selectedStudents.length} students
                 </p>
-                <div className="flex space-x-3">
+                <div className="flex space-x-4">
                   <button
                     type="button"
                     onClick={() => setShowEnrollForm(false)}
@@ -535,3 +560,4 @@ export const SubjectEnrollment = () => {
     </div>
   );
 };
+

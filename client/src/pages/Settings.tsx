@@ -431,7 +431,7 @@ export const Settings = () => {
                         );
                         profileValidation.setFieldTouched("name");
                       }}
-                      className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                      className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                         profileValidation.getFieldError("name")
                           ? "border-red-500"
                           : "border-gray-600"
@@ -464,7 +464,7 @@ export const Settings = () => {
                         );
                         profileValidation.setFieldTouched("email");
                       }}
-                      className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                      className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                         profileValidation.getFieldError("email")
                           ? "border-red-500"
                           : "border-gray-600"
@@ -520,7 +520,7 @@ export const Settings = () => {
                       );
                       passwordValidation.setFieldTouched("currentPassword");
                     }}
-                    className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                    className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                       passwordValidation.getFieldError("currentPassword")
                         ? "border-red-500"
                         : "border-gray-600"
@@ -555,7 +555,7 @@ export const Settings = () => {
                         );
                         passwordValidation.setFieldTouched("newPassword");
                       }}
-                      className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                      className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                         passwordValidation.getFieldError("newPassword")
                           ? "border-red-500"
                           : "border-gray-600"
@@ -589,7 +589,7 @@ export const Settings = () => {
                         );
                         passwordValidation.setFieldTouched("confirmPassword");
                       }}
-                      className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                      className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                         passwordValidation.getFieldError("confirmPassword")
                           ? "border-red-500"
                           : "border-gray-600"
@@ -641,7 +641,7 @@ export const Settings = () => {
                           rfidScannerPort: e.target.value,
                         })
                       }
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       placeholder="COM3"
                     />
                   </div>
@@ -755,7 +755,7 @@ export const Settings = () => {
                           smtpServer: e.target.value,
                         })
                       }
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       placeholder="smtp.gmail.com"
                     />
                   </div>
@@ -774,7 +774,7 @@ export const Settings = () => {
                           senderEmail: e.target.value,
                         })
                       }
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       placeholder="clirdec.presence@clsu.edu.ph"
                     />
                   </div>
@@ -794,7 +794,7 @@ export const Settings = () => {
                         absenceThreshold: parseInt(e.target.value),
                       })
                     }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   >
                     <option value="1">1 consecutive day</option>
                     <option value="2">2 consecutive days</option>
@@ -868,7 +868,7 @@ export const Settings = () => {
               <div className="space-y-6">
                 {/* Class Session Settings */}
                 <div>
-                  <h5 className="text-md font-medium text-cyan-400 mb-3">
+                  <h5 className="text-md font-medium text-cyan-400 mb-4">
                     Class Session Settings
                   </h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -889,7 +889,7 @@ export const Settings = () => {
                             lateThreshold: parseInt(e.target.value) || 15,
                           })
                         }
-                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       />
                     </div>
                     <div>
@@ -909,7 +909,7 @@ export const Settings = () => {
                             lateThreshold: parseInt(e.target.value) || 15,
                           })
                         }
-                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       />
                       <p className="text-xs text-gray-400 mt-1">
                         Default: 15 minutes (as per paper)
@@ -959,12 +959,12 @@ export const Settings = () => {
 
                 {/* System Status Card */}
                 <div>
-                  <h5 className="text-md font-medium text-cyan-400 mb-3">
+                  <h5 className="text-md font-medium text-cyan-400 mb-4">
                     System Status
                   </h5>
                   <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-4">
                         <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                         <div>
                           <p className="text-sm font-medium text-white">
@@ -973,7 +973,7 @@ export const Settings = () => {
                           <p className="text-xs text-gray-400">Connected</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-4">
                         <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                         <div>
                           <p className="text-sm font-medium text-white">
@@ -982,7 +982,7 @@ export const Settings = () => {
                           <p className="text-xs text-gray-400">Active</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-4">
                         <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                         <div>
                           <p className="text-sm font-medium text-white">
@@ -993,7 +993,7 @@ export const Settings = () => {
                       </div>
                     </div>
                     <div className="mt-4 flex justify-end">
-                      <button className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">
+                      <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-1 rounded text-sm">
                         Refresh
                       </button>
                     </div>
@@ -1030,7 +1030,7 @@ export const Settings = () => {
                 </div>
                 <button
                   onClick={() => setAuditReloadKey((key) => key + 1)}
-                  className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded text-sm"
+                  className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm"
                 >
                   Refresh
                 </button>
@@ -1102,3 +1102,4 @@ export const Settings = () => {
     </div>
   );
 };
+

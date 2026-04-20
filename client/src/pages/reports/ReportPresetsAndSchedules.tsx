@@ -139,7 +139,7 @@ export const ReportPresetsAndSchedules = ({
               id="report-preset"
               value={selectedPresetId}
               onChange={(event) => applyReportPreset(event.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               <option value="">Choose a preset</option>
               {reportPresets.map((preset) => (
@@ -158,14 +158,14 @@ export const ReportPresetsAndSchedules = ({
                   (preset) => String(preset.id) === selectedPresetId,
                 )?.isDefault
               }
-              className="px-3 py-2 rounded text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 whitespace-nowrap"
+              className="px-4 py-2 rounded text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 whitespace-nowrap"
             >
               {deletingPresetId === selectedPresetId ? "Deleting..." : "Delete"}
             </button>
             <button
               onClick={handleDuplicatePreset}
               disabled={!selectedPresetId || duplicatingPreset}
-              className="px-3 py-2 rounded text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 whitespace-nowrap"
+              className="px-4 py-2 rounded text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 whitespace-nowrap"
             >
               {duplicatingPreset ? "Duplicating..." : "Duplicate"}
             </button>
@@ -175,7 +175,7 @@ export const ReportPresetsAndSchedules = ({
             format, and columns.
           </p>
           {selectedPreset && (
-            <div className="mt-3 flex flex-col gap-2 rounded border border-gray-700 bg-gray-950/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-4 flex flex-col gap-2 rounded border border-gray-700 bg-gray-950/40 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-xs text-gray-400">
                 Selected:{" "}
                 <span className="font-medium text-gray-200">
@@ -218,7 +218,7 @@ export const ReportPresetsAndSchedules = ({
               value={presetName}
               onChange={(event) => setPresetName(event.target.value)}
               placeholder="Weekly Attendance - All Subjects"
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
             />
             {userRole === "admin" && (
               <select
@@ -228,7 +228,7 @@ export const ReportPresetsAndSchedules = ({
                     event.target.value as ReportPresetVisibility,
                   )
                 }
-                className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
                 <option value="personal">Personal</option>
                 <option value="shared">Shared</option>
@@ -247,14 +247,14 @@ export const ReportPresetsAndSchedules = ({
             <button
               onClick={handleUpdatePreset}
               disabled={!canEditSelectedPreset || updatingPreset}
-              className="rounded bg-gray-700 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+              className="rounded bg-gray-700 px-4 py-2 text-xs font-medium text-gray-200 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
             >
               {updatingPreset ? "Updating..." : "Update Selected Preset"}
             </button>
             <button
               onClick={handleSavePresetCopy}
               disabled={savingPreset}
-              className="rounded bg-gray-700 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+              className="rounded bg-gray-700 px-4 py-2 text-xs font-medium text-gray-200 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
             >
               Save as Copy
             </button>
@@ -274,13 +274,13 @@ export const ReportPresetsAndSchedules = ({
         </div>
         <button
           onClick={loadReportSchedules}
-          className="self-start bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
+          className="self-start bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded text-sm"
         >
           Refresh Schedules
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-6 gap-3 mb-5">
+      <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 mb-5">
         <div className="lg:col-span-2">
           <label
             htmlFor="schedule-preset"
@@ -304,7 +304,7 @@ export const ReportPresetsAndSchedules = ({
                 }
               }
             }}
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="">Choose a preset</option>
             {reportPresets.map((preset) => (
@@ -327,7 +327,7 @@ export const ReportPresetsAndSchedules = ({
             value={scheduleName}
             onChange={(event) => setScheduleName(event.target.value)}
             placeholder="Monday Attendance Email"
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
         <div>
@@ -345,7 +345,7 @@ export const ReportPresetsAndSchedules = ({
                 event.target.value as ReportScheduleFrequency,
               )
             }
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
@@ -364,7 +364,7 @@ export const ReportPresetsAndSchedules = ({
             type="time"
             value={scheduleTime}
             onChange={(event) => setScheduleTime(event.target.value)}
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
         {scheduleFrequency === "weekly" && (
@@ -381,7 +381,7 @@ export const ReportPresetsAndSchedules = ({
               onChange={(event) =>
                 setScheduleDayOfWeek(Number(event.target.value))
               }
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               {dayNames.map((day, index) => (
                 <option key={day} value={index}>
@@ -408,7 +408,7 @@ export const ReportPresetsAndSchedules = ({
               onChange={(event) =>
                 setScheduleDayOfMonth(Number(event.target.value))
               }
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             />
           </div>
         )}
@@ -425,7 +425,7 @@ export const ReportPresetsAndSchedules = ({
             onChange={(event) =>
               setScheduleFormat(event.target.value as ReportParams["format"])
             }
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="csv">CSV</option>
             <option value="xlsx">Excel</option>
@@ -445,10 +445,10 @@ export const ReportPresetsAndSchedules = ({
             value={scheduleRecipient}
             onChange={(event) => setScheduleRecipient(event.target.value)}
             placeholder="name@example.com"
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
-        <div className="flex items-end gap-3">
+        <div className="flex items-end gap-4">
           <label className="flex items-center gap-2 text-sm text-gray-300 pb-2">
             <input
               type="checkbox"
@@ -557,7 +557,7 @@ export const ReportPresetsAndSchedules = ({
                         <button
                           onClick={() => handleRunScheduleNow(schedule)}
                           disabled={runningScheduleId === schedule.id}
-                          className="bg-cyan-700 hover:bg-cyan-600 disabled:bg-cyan-900 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
+                          className="bg-cyan-700 hover:bg-cyan-600 disabled:bg-cyan-900 text-white px-4 py-1 rounded text-xs font-medium whitespace-nowrap"
                         >
                           {runningScheduleId === schedule.id
                             ? "Running..."
@@ -567,7 +567,7 @@ export const ReportPresetsAndSchedules = ({
                       <button
                         onClick={() => handleToggleSchedule(schedule)}
                         disabled={updatingScheduleId === schedule.id}
-                        className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
+                        className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-4 py-1 rounded text-xs font-medium whitespace-nowrap"
                       >
                         {updatingScheduleId === schedule.id
                           ? "Updating..."
@@ -578,7 +578,7 @@ export const ReportPresetsAndSchedules = ({
                       <button
                         onClick={() => handleDeleteSchedule(schedule)}
                         disabled={deletingScheduleId === schedule.id}
-                        className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
+                        className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-4 py-1 rounded text-xs font-medium whitespace-nowrap"
                       >
                         {deletingScheduleId === schedule.id
                           ? "Deleting..."
@@ -595,3 +595,4 @@ export const ReportPresetsAndSchedules = ({
     </div>
   </>
 );
+

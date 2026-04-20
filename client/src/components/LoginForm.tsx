@@ -45,21 +45,21 @@ export const LoginForm = () => {
               Proximity and RFID-Enabled Smart Entry for Classroom Engagement
             </p>
             <div className="space-y-4 text-left">
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                 <span className="text-cyan-100">
                   Real-time Attendance Monitoring
                 </span>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                 <span className="text-cyan-100">IoT Device Integration</span>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                 <span className="text-cyan-100">Automated Notifications</span>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                 <span className="text-cyan-100">
                   Ghost Attendance Prevention
@@ -188,3 +188,4 @@ export const LoginForm = () => {
     </div>
   );
 };
+

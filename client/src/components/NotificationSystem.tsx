@@ -22,14 +22,14 @@ interface NotificationContextType {
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(
-  undefined
+  undefined,
 );
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
   if (!context) {
     throw new Error(
-      "useNotifications must be used within a NotificationProvider"
+      "useNotifications must be used within a NotificationProvider",
     );
   }
   return context;
@@ -50,7 +50,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
         Date.now().toString() + Math.random().toString(36).substr(2, 9);
       const newNotification: Notification = {
         id,
-        duration: 5173,
+        duration: 5200,
         ...notification,
       };
 
@@ -63,7 +63,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
         }, newNotification.duration);
       }
     },
-    []
+    [],
   );
 
   const removeNotification = useCallback((id: string) => {
@@ -96,7 +96,7 @@ export const NotificationContainer: React.FC = () => {
   if (notifications.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+    <div className="fixed right-4 top-4 z-50 max-w-sm space-y-2">
       {notifications.map((notification) => (
         <NotificationItem
           key={notification.id}
@@ -149,12 +149,12 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
   return (
     <div
-      className={`p-4 rounded-lg border shadow-lg transform transition-all duration-300 ease-in-out ${getStyles(
+      className={`rounded-lg border p-4 shadow-lg transition-all duration-300 ease-in-out ${getStyles(
         notification.type
       )}`}
     >
       <div className="flex items-start">
-        <div className="flex-shrink-0 text-lg mr-3">
+        <div className="mr-4 flex-shrink-0 text-lg">
           {getIcon(notification.type)}
         </div>
         <div className="flex-1 min-w-0">
@@ -163,7 +163,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             <p className="text-sm mt-1 opacity-90">{notification.message}</p>
           )}
         </div>
-        <div className="flex-shrink-0 ml-3">
+        <div className="ml-4 flex-shrink-0">
           <button
             onClick={onClose}
             className="inline-flex text-current hover:opacity-75 transition-opacity"

@@ -401,6 +401,84 @@ describeIntegration("API Endpoints Integration Tests", () => {
         expect(response.body.success).toBe(false);
       });
     });
+
+    describe("POST /api/iot/heartbeat", () => {
+      it("should auto-start attendance for an online ESP32 assigned to a scheduled room", async () => {
+        const [automationClassroom] = await db
+          .insert(classrooms)
+          .values({
+            name: `Automation Lab ${uniqueSuffix}`,
+            location: "CLIRDEC Building",
+            type: "laboratory",
+            capacity: 30,
+            isActive: 1 as any,
+          })
+          .returning();
+
+        const [automationSchedule] = await db
+          .insert(schedules)
+          .values({
+            subjectId: testSubject.id,
+            classroomId: automationClassroom.id,
+            facultyId: testUser.id,
+            dayOfWeek: new Date().getDay(),
+            startTime: "00:00:00",
+            endTime: "23:59:59",
+            semester: "1st Semester",
+            academicYear: "2024-2025",
+            isRecurring: 0 as any,
+            isActive: 1 as any,
+          })
+          .returning();
+
+        const [automationDevice] = await db
+          .insert(iotDevices)
+          .values({
+            deviceId: `AUTO_DEVICE_${uniqueSuffix}`,
+            classroomId: automationClassroom.id,
+            deviceType: "esp32_s3",
+            status: "offline",
+            apiKey: `pk_auto_${uniqueSuffix}`,
+            isActive: 1 as any,
+          })
+          .returning();
+
+        try {
+          const response = await request(app)
+            .post("/api/iot/heartbeat")
+            .set("x-device-api-key", automationDevice.apiKey)
+            .send({ status: "online" })
+            .expect(200);
+
+          expect(response.body.success).toBe(true);
+          expect(response.body.sessionAutomation).toBeDefined();
+          expect(["created", "activated", "already_active"]).toContain(
+            response.body.sessionAutomation.action,
+          );
+
+          const todaysSessions = await db
+            .select()
+            .from(classSessions)
+            .where(eq(classSessions.scheduleId, automationSchedule.id));
+
+          expect(todaysSessions).toHaveLength(1);
+          expect(todaysSessions[0].status).toBe("active");
+        } finally {
+          await db
+            .delete(classSessions)
+            .where(eq(classSessions.scheduleId, automationSchedule.id));
+          await db
+            .delete(iotDevices)
+            .where(eq(iotDevices.id, automationDevice.id));
+          await db
+            .delete(schedules)
+            .where(eq(schedules.id, automationSchedule.id));
+          await db
+            .delete(classrooms)
+            .where(eq(classrooms.id, automationClassroom.id));
+        }
+      });
+    });
   });
 
   describe("Attendance Endpoints", () => {

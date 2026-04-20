@@ -49,15 +49,15 @@ export const ForgotPassword = () => {
                 Password reset initiated
               </p>
               <div className="space-y-4 text-left">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-4">
                   <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                   <span className="text-cyan-100">Check your email inbox</span>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-4">
                   <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                   <span className="text-cyan-100">Click the reset link</span>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-4">
                   <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                   <span className="text-cyan-100">Secure password update</span>
                 </div>
@@ -127,17 +127,17 @@ export const ForgotPassword = () => {
               Reset your password securely
             </p>
             <div className="space-y-4 text-left">
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                 <span className="text-cyan-100">Secure password recovery</span>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                 <span className="text-cyan-100">
                   Email verification required
                 </span>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                 <span className="text-cyan-100">
                   Contact administrator if needed
@@ -184,7 +184,7 @@ export const ForgotPassword = () => {
             </div>
 
             {error && (
-              <div className="bg-red-900/50 border border-red-500 rounded-lg p-3">
+              <div className="bg-red-900/50 border border-red-500 rounded-lg p-4">
                 <p className="text-red-400 text-sm">{error}</p>
               </div>
             )}
@@ -220,3 +220,4 @@ export const ForgotPassword = () => {
     </div>
   );
 };
+

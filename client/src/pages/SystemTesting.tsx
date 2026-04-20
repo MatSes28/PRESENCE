@@ -101,7 +101,7 @@ export const SystemTesting: React.FC = () => {
           <h3 className="text-lg font-semibold text-gray-900">Test Results</h3>
           <button
             onClick={clearResults}
-            className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+            className="px-4 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
           >
             Clear
           </button>
@@ -116,7 +116,7 @@ export const SystemTesting: React.FC = () => {
               {testResults.map((result, index) => (
                 <div
                   key={index}
-                  className="p-3 bg-gray-50 rounded border-l-4 border-blue-500"
+                  className="p-4 bg-gray-50 rounded border-l-4 border-blue-500"
                 >
                   <p className="text-sm text-gray-900">{result}</p>
                   <p className="text-xs text-gray-500 mt-1">
@@ -145,7 +145,7 @@ export const SystemTesting: React.FC = () => {
               type="number"
               min="1"
               max="1000"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="100"
             />
           </div>
@@ -159,3 +159,4 @@ export const SystemTesting: React.FC = () => {
     </div>
   );
 };
+

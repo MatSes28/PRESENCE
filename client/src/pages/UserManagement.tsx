@@ -377,7 +377,7 @@ export const UserManagement: React.FC = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="Enter full name"
                 />
                 {userValidation.errors.name && (
@@ -401,7 +401,7 @@ export const UserManagement: React.FC = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="Enter email address"
                 />
                 {userValidation.errors.email && (
@@ -427,7 +427,7 @@ export const UserManagement: React.FC = () => {
                       onChange={(e) =>
                         setFormData({ ...formData, password: e.target.value })
                       }
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       placeholder="Enter password"
                     />
                     {userValidation.errors.password && (
@@ -453,7 +453,7 @@ export const UserManagement: React.FC = () => {
                           confirmPassword: e.target.value,
                         })
                       }
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       placeholder="Confirm password"
                     />
                     {userValidation.errors.confirmPassword && (
@@ -480,7 +480,7 @@ export const UserManagement: React.FC = () => {
                         role: e.target.value as "admin" | "faculty",
                       })
                     }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   >
                     <option value="faculty">Faculty</option>
                     <option value="admin">Administrator</option>
@@ -497,7 +497,7 @@ export const UserManagement: React.FC = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, gender: e.target.value })
                     }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   >
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
@@ -521,7 +521,7 @@ export const UserManagement: React.FC = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, facultyId: e.target.value })
                     }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     placeholder="Enter faculty ID"
                   />
                   {userValidation.errors.facultyId && (
@@ -544,12 +544,12 @@ export const UserManagement: React.FC = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, department: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="Enter department"
                 />
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4">
+              <div className="flex justify-end space-x-4 pt-4">
                 <button
                   type="button"
                   onClick={resetForm}
@@ -574,3 +574,4 @@ export const UserManagement: React.FC = () => {
     </div>
   );
 };
+

@@ -561,7 +561,7 @@ export const Students = () => {
             Manage student records and RFID assignments
           </p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex space-x-4">
           <label
             className={`bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium cursor-pointer ${
               uploadingCsv ? "opacity-50 cursor-not-allowed" : ""
@@ -614,7 +614,7 @@ export const Students = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Name, ID, email, or parent email"
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
             />
           </div>
           <div>
@@ -626,7 +626,7 @@ export const Students = () => {
               name="yearFilter"
               value={yearFilter}
               onChange={(e) => setYearFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
             >
               <option>All Years</option>
               <option value="1">1st Year</option>
@@ -644,7 +644,7 @@ export const Students = () => {
               name="sectionFilter"
               value={sectionFilter}
               onChange={(e) => setSectionFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
             >
               <option>All Sections</option>
               {BSIT_SECTIONS.map((section) => (
@@ -664,7 +664,7 @@ export const Students = () => {
                 name="sortBy"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               >
                 <option value="name">Name</option>
                 <option value="studentId">Student ID</option>
@@ -676,7 +676,7 @@ export const Students = () => {
                 onClick={() =>
                   setSortOrder(sortOrder === "asc" ? "desc" : "asc")
                 }
-                className="px-3 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-md"
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-md"
                 title={`Sort ${
                   sortOrder === "asc" ? "Descending" : "Ascending"
                 }`}
@@ -699,7 +699,7 @@ export const Students = () => {
                 name="rfidStatusFilter"
                 value={rfidStatusFilter}
                 onChange={(e) => setRfidStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               >
                 <option value="all">All Students</option>
                 <option value="assigned">RFID Assigned</option>
@@ -725,7 +725,7 @@ export const Students = () => {
                       min: parseInt(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                   placeholder="Min %"
                 />
                 <input
@@ -742,7 +742,7 @@ export const Students = () => {
                       max: parseInt(e.target.value) || 100,
                     }))
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                   placeholder="Max %"
                 />
               </div>
@@ -756,7 +756,7 @@ export const Students = () => {
                 name="enrollmentStatusFilter"
                 value={enrollmentStatusFilter}
                 onChange={(e) => setEnrollmentStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               >
                 <option value="all">All Students</option>
                 <option value="active">Active</option>
@@ -811,7 +811,7 @@ export const Students = () => {
                     );
                     studentValidation.setFieldTouched("studentId");
                   }}
-                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                  className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                     studentValidation.getFieldError("studentId")
                       ? "border-red-500"
                       : "border-gray-600"
@@ -842,7 +842,7 @@ export const Students = () => {
                     );
                     studentValidation.setFieldTouched("name");
                   }}
-                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                  className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                     studentValidation.getFieldError("name")
                       ? "border-red-500"
                       : "border-gray-600"
@@ -873,7 +873,7 @@ export const Students = () => {
                     );
                     studentValidation.setFieldTouched("email");
                   }}
-                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                  className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                     studentValidation.getFieldError("email")
                       ? "border-red-500"
                       : "border-gray-600"
@@ -904,7 +904,7 @@ export const Students = () => {
                       year: year ? String(year) : "",
                     });
                   }}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="e.g., BSIT 1-2"
                 />
                 <p className="text-xs text-gray-400 mt-1">
@@ -939,7 +939,7 @@ export const Students = () => {
                       }
                     }
                   }}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="RFID card UID"
                 />
                 {formData.rfidUid && (
@@ -966,7 +966,7 @@ export const Students = () => {
                     );
                     studentValidation.setFieldTouched("parentEmail");
                   }}
-                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                  className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                     studentValidation.getFieldError("parentEmail")
                       ? "border-red-500"
                       : "border-gray-600"
@@ -980,7 +980,7 @@ export const Students = () => {
                 )}
               </div>
             </div>
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-4">
               <button
                 type="button"
                 onClick={resetForm}
@@ -1047,7 +1047,7 @@ export const Students = () => {
                           {student.name.charAt(0)}
                         </span>
                       </div>
-                      <div className="ml-3">
+                      <div className="ml-4">
                         <div className="text-sm font-medium text-white">
                           {student.name}
                         </div>
@@ -1147,7 +1147,7 @@ export const Students = () => {
                     {student.name.charAt(0)}
                   </span>
                 </div>
-                <div className="ml-3">
+                <div className="ml-4">
                   <div className="text-sm font-medium text-white">
                     {student.name}
                   </div>
@@ -1270,3 +1270,4 @@ export const Students = () => {
     </div>
   );
 };
+

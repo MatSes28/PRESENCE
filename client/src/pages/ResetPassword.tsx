@@ -99,15 +99,15 @@ export const ResetPassword = () => {
                 Password successfully reset
               </p>
               <div className="space-y-4 text-left">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-4">
                   <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                   <span className="text-cyan-100">Secure password updated</span>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-4">
                   <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                   <span className="text-cyan-100">Ready to log in</span>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-4">
                   <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                   <span className="text-cyan-100">Redirecting to login</span>
                 </div>
@@ -165,17 +165,17 @@ export const ResetPassword = () => {
             </h1>
             <p className="text-xl mb-8 text-cyan-100">Secure password reset</p>
             <div className="space-y-4 text-left">
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                 <span className="text-cyan-100">
                   Strong password requirements
                 </span>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                 <span className="text-cyan-100">Secure token validation</span>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <div className="w-2 h-2 bg-teal-300 rounded-full"></div>
                 <span className="text-cyan-100">
                   Encrypted password storage
@@ -285,7 +285,7 @@ export const ResetPassword = () => {
             </div>
 
             {error && (
-              <div className="bg-red-900/50 border border-red-500 rounded-lg p-3">
+              <div className="bg-red-900/50 border border-red-500 rounded-lg p-4">
                 <p className="text-red-400 text-sm">{error}</p>
               </div>
             )}
@@ -322,3 +322,4 @@ export const ResetPassword = () => {
     </div>
   );
 };
+

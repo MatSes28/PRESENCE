@@ -22,6 +22,7 @@
 #include <SPI.h>
 #include <MFRC522.h>
 #include <NewPing.h>
+#include <string.h>
 
 // =========================
 // Device / Network Config
@@ -30,9 +31,49 @@
 const char* WIFI_SSID = "Kupal kaba?";
 const char* WIFI_PASSWORD = "MatMir@12030908";
 
-const char* API_BASE_URL = "https://presence.clirdec.edu.ph/api/iot";
-const char* DEVICE_ID = "ESP32-001";
-const char* DEVICE_API_KEY = "YOUR_DEVICE_API_KEY";
+// Use your live backend base URL here, for example:
+// https://presence-production-1c78.up.railway.app/api/iot
+const char* API_BASE_URL = "https://presence-production-1c78.up.railway.app/api/iot";
+// This is only a human-friendly label for logs and metadata.
+// The backend identifies the real device by DEVICE_API_KEY.
+const char* DEVICE_LABEL = "ESP32-S3-LAB-201";
+const char* DEVICE_API_KEY = "pk_e68365e575ae6dd4486d192f62de9b8b";
+// Paste the PEM root/intermediate CA used by your HTTPS endpoint here.
+// If left as the placeholder, the sketch will fall back to insecure TLS
+// and print a warning on boot and first request.
+const char* SERVER_ROOT_CA = R"EOF(
+-----BEGIN CERTIFICATE-----
+MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
+WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
+ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
+MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
+h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
+0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
+A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
+T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
+B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
+B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
+KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
+OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
+jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
+qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
+rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
+HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
+hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
+3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
+NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
+ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
+TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
+jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
+oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
+4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
+mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
+emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
+-----END CERTIFICATE-----
+)EOF";
 
 // =========================
 // Hardware Pins (ESP32-S3)
@@ -55,7 +96,7 @@ constexpr uint8_t STATUS_LED_PIN = 2;
 // Runtime Defaults
 // =========================
 constexpr unsigned long HEARTBEAT_INTERVAL_MS_DEFAULT = 30000;
-constexpr unsigned long COMMAND_POLL_INTERVAL_MS = 2000;
+constexpr unsigned long COMMAND_POLL_INTERVAL_MS = 5000;
 constexpr unsigned long SENSOR_POLL_INTERVAL_MS_DEFAULT = 250;
 constexpr unsigned long RFID_DEBOUNCE_MS_DEFAULT = 1500;
 constexpr unsigned long SENSOR_EVENT_DEBOUNCE_MS_DEFAULT = 1200;
@@ -83,6 +124,12 @@ unsigned long lastRfidAt = 0;
 unsigned long lastEntryEventAt = 0;
 unsigned long lastExitEventAt = 0;
 bool missingDeviceApiKeyWarningShown = false;
+bool missingTlsCertificateWarningShown = false;
+
+bool hasConfiguredServerRootCa() {
+  return strlen(SERVER_ROOT_CA) > 0 &&
+         strstr(SERVER_ROOT_CA, "__PASTE_SERVER_ROOT_CA_HERE__") == nullptr;
+}
 
 bool hasConfiguredDeviceApiKey() {
   return strlen(DEVICE_API_KEY) > 0 &&
@@ -106,16 +153,27 @@ bool beginRequest(
   const String& endpoint
 ) {
   String url = String(API_BASE_URL) + endpoint;
-  client.setInsecure();
+  if (hasConfiguredServerRootCa()) {
+    client.setCACert(SERVER_ROOT_CA);
+  } else {
+    if (!missingTlsCertificateWarningShown) {
+      missingTlsCertificateWarningShown = true;
+      Serial.println(
+        "[TLS] SERVER_ROOT_CA is not configured. Falling back to insecure TLS. Paste the server CA certificate before production use."
+      );
+    }
+    client.setInsecure();
+  }
 
   if (!http.begin(client, url)) {
     Serial.printf("[HTTP] begin failed: %s\n", url.c_str());
     return false;
   }
 
-  http.setTimeout(5000);
+  http.setTimeout(8000);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("x-device-api-key", DEVICE_API_KEY);
+  http.addHeader("User-Agent", "CLIRDEC-PRESENCE-ESP32S3/1.0");
   return true;
 }
 
@@ -222,18 +280,44 @@ void sendHeartbeat() {
   payload["signalStrength"] = WiFi.RSSI();
 
   JsonObject metadata = payload.createNestedObject("metadata");
-  metadata["deviceId"] = DEVICE_ID;
+  metadata["deviceLabel"] = DEVICE_LABEL;
   metadata["freeHeap"] = ESP.getFreeHeap();
   metadata["rfidEnabled"] = rfidEnabled;
   metadata["ultrasonicEnabled"] = ultrasonicEnabled;
+  metadata["firmwareVersion"] = "1.1";
 
-  if (postJson("/heartbeat", payload)) {
-    Serial.println("[HB] heartbeat sent");
+  String responseBody;
+  if (postJson("/heartbeat", payload, &responseBody)) {
+    Serial.printf("[HB] heartbeat sent for %s\n", DEVICE_LABEL);
+
+    if (responseBody.length() > 0) {
+      DynamicJsonDocument responseDoc(1024);
+      if (deserializeJson(responseDoc, responseBody) == DeserializationError::Ok) {
+        JsonVariantConst automation = responseDoc["sessionAutomation"];
+        if (!automation.isNull()) {
+          const char* action = automation["action"] | "none";
+          long sessionId = automation["sessionId"] | 0;
+          long scheduleId = automation["scheduleId"] | 0;
+          if (strcmp(action, "created") == 0 || strcmp(action, "activated") == 0) {
+            Serial.printf(
+              "[HB] attendance auto-started action=%s sessionId=%ld scheduleId=%ld\n",
+              action,
+              sessionId,
+              scheduleId
+            );
+          }
+        }
+      }
+    }
+  } else {
+    Serial.println("[HB] heartbeat failed");
   }
 }
 
 void connectWiFi() {
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(false);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.printf("[WiFi] Connecting to %s", WIFI_SSID);
@@ -270,7 +354,6 @@ String rfidUidHex() {
 void sendRfid(const String& uid) {
   DynamicJsonDocument payload(256);
   payload["rfidUid"] = uid;
-  payload["timestamp"] = String(millis());
 
   if (postJson("/attendance/rfid", payload)) {
     Serial.printf("[RFID] sent uid=%s\n", uid.c_str());
@@ -282,7 +365,6 @@ void sendSensor(const char* sensorType, unsigned int distanceCm) {
   DynamicJsonDocument payload(256);
   payload["sensorType"] = sensorType;
   payload["distance"] = distanceCm;
-  payload["timestamp"] = String(millis());
 
   if (postJson("/sensor/ultrasonic", payload)) {
     Serial.printf("[SENSOR] sent type=%s distance=%u\n", sensorType, distanceCm);
@@ -531,6 +613,11 @@ void setup() {
   if (!hasConfiguredDeviceApiKey()) {
     Serial.println(
       "[CFG] DEVICE_API_KEY is not configured. The device can join Wi-Fi, but the server will reject all IoT requests until you replace the placeholder value."
+    );
+  }
+  if (!hasConfiguredServerRootCa()) {
+    Serial.println(
+      "[TLS] SERVER_ROOT_CA is not configured. HTTPS certificate validation is running in insecure fallback mode."
     );
   }
 

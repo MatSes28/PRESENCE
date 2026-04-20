@@ -31,6 +31,12 @@ interface Enrollment {
   enrolledAt: string;
 }
 
+const formatEnrollmentDate = (value?: string) => {
+  if (!value) return "N/A";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "N/A" : parsed.toLocaleDateString();
+};
+
 export const EnrollmentManagement = () => {
   const { addNotification } = useNotifications();
   const { user } = useAuth();
@@ -100,7 +106,7 @@ export const EnrollmentManagement = () => {
           semester: item.enrollment?.semester ?? item.semester ?? "",
           academicYear:
             item.enrollment?.academicYear ?? item.academicYear ?? "",
-          enrolledAt: item.enrollment?.createdAt ?? item.createdAt ?? "",
+          enrolledAt: item.enrollment?.enrolledAt ?? item.enrolledAt ?? "",
         }));
         setEnrollments(transformed);
       } else {
@@ -123,12 +129,33 @@ export const EnrollmentManagement = () => {
 
   const handleEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const studentId = parseInt(formData.studentId, 10);
+    const subjectId = parseInt(formData.subjectId, 10);
+    const duplicateEnrollment = enrollments.find(
+      (enrollment) =>
+        enrollment.studentId === studentId &&
+        enrollment.subjectId === subjectId &&
+        enrollment.semester === formData.semester &&
+        enrollment.academicYear === formData.academicYear,
+    );
+
+    if (duplicateEnrollment) {
+      addNotification({
+        type: "warning",
+        title: "Already Enrolled",
+        message:
+          "This student is already enrolled in the selected subject, semester, and academic year.",
+      });
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       const response = await api.createEnrollment({
-        studentId: parseInt(formData.studentId),
-        subjectId: parseInt(formData.subjectId),
+        studentId,
+        subjectId,
         semester: formData.semester,
         academicYear: formData.academicYear,
       });
@@ -241,6 +268,23 @@ export const EnrollmentManagement = () => {
     return matchesSearch && matchesSubject;
   });
 
+  const selectedStudentId = formData.studentId
+    ? parseInt(formData.studentId, 10)
+    : null;
+  const selectedSubjectId = formData.subjectId
+    ? parseInt(formData.subjectId, 10)
+    : null;
+  const isSelectedCombinationAlreadyEnrolled =
+    selectedStudentId !== null &&
+    selectedSubjectId !== null &&
+    enrollments.some(
+      (enrollment) =>
+        enrollment.studentId === selectedStudentId &&
+        enrollment.subjectId === selectedSubjectId &&
+        enrollment.semester === formData.semester &&
+        enrollment.academicYear === formData.academicYear,
+    );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -293,7 +337,7 @@ export const EnrollmentManagement = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by student name, ID, or subject"
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
             />
           </div>
           <div>
@@ -312,7 +356,7 @@ export const EnrollmentManagement = () => {
                   e.target.value ? parseInt(e.target.value) : null,
                 )
               }
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
             >
               <option value="">All Subjects</option>
               {subjects.map((subject) => (
@@ -348,7 +392,7 @@ export const EnrollmentManagement = () => {
                     setFormData({ ...formData, studentId: e.target.value })
                   }
                   required
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                 >
                   <option value="">Select Student</option>
                   {students.map((student) => (
@@ -373,7 +417,7 @@ export const EnrollmentManagement = () => {
                     setFormData({ ...formData, subjectId: e.target.value })
                   }
                   required
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                 >
                   <option value="">Select Subject</option>
                   {subjects.map((subject) => (
@@ -398,7 +442,7 @@ export const EnrollmentManagement = () => {
                     setFormData({ ...formData, semester: e.target.value })
                   }
                   required
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                 >
                   <option value="">Select Semester</option>
                   <option value="1st Semester">1st Semester</option>
@@ -421,7 +465,7 @@ export const EnrollmentManagement = () => {
                     setFormData({ ...formData, academicYear: e.target.value })
                   }
                   required
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                 >
                   <option value="">Select Academic Year</option>
                   <option value="2023-2024">2023-2024</option>
@@ -431,7 +475,13 @@ export const EnrollmentManagement = () => {
                 </select>
               </div>
             </div>
-            <div className="flex justify-end space-x-3">
+            {isSelectedCombinationAlreadyEnrolled && (
+              <div className="rounded-md border border-yellow-800 bg-yellow-950/40 p-4 text-sm text-yellow-100">
+                This student is already enrolled in that subject for the
+                selected semester and academic year.
+              </div>
+            )}
+            <div className="flex justify-end space-x-4">
               <button
                 type="button"
                 onClick={resetForm}
@@ -445,6 +495,7 @@ export const EnrollmentManagement = () => {
                 loading={submitting}
                 loadingText="Enrolling..."
                 className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-4 py-2 rounded-md text-sm font-medium"
+                disabled={submitting || isSelectedCombinationAlreadyEnrolled}
               >
                 Enroll Student
               </LoadingButton>
@@ -480,6 +531,9 @@ export const EnrollmentManagement = () => {
                   Academic Year
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                  Enrollment Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -494,7 +548,7 @@ export const EnrollmentManagement = () => {
                           {enrollment.student.name.charAt(0)}
                         </span>
                       </div>
-                      <div className="ml-3">
+                      <div className="ml-4">
                         <div className="text-sm font-medium text-white">
                           {enrollment.student.name}
                         </div>
@@ -517,6 +571,9 @@ export const EnrollmentManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                     {enrollment.academicYear}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                    {formatEnrollmentDate(enrollment.enrolledAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     {user?.role === "admin" && (
@@ -595,3 +652,4 @@ export const EnrollmentManagement = () => {
     </div>
   );
 };
+

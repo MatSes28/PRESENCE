@@ -225,7 +225,7 @@ export const Roster: React.FC = () => {
             name="selectedSubject"
             value={selectedSubject}
             onChange={(e) => setSelectedSubject(e.target.value)}
-            className="w-full max-w-md px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full max-w-md px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="">Choose a subject...</option>
             {subjects.map((subject) => (
@@ -353,7 +353,7 @@ export const Roster: React.FC = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search students..."
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
               />
             </div>
 
@@ -369,7 +369,7 @@ export const Roster: React.FC = () => {
                 filteredAvailableStudents.map((student) => (
                   <div
                     key={student.id}
-                    className="flex items-center justify-between bg-gray-700 p-3 rounded"
+                    className="flex items-center justify-between bg-gray-700 p-4 rounded"
                   >
                     <div>
                       <div className="text-white font-medium">
@@ -382,7 +382,7 @@ export const Roster: React.FC = () => {
                     <button
                       onClick={() => enrollStudent(student.id)}
                       disabled={enrolling === student.id}
-                      className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-3 py-1 rounded text-sm"
+                      className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white px-4 py-1 rounded text-sm"
                     >
                       {enrolling === student.id ? "Enrolling..." : "Enroll"}
                     </button>
@@ -391,7 +391,7 @@ export const Roster: React.FC = () => {
               )}
             </div>
 
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex justify-end space-x-4 mt-6">
               <button
                 onClick={() => setShowEnrollModal(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
@@ -405,3 +405,4 @@ export const Roster: React.FC = () => {
     </div>
   );
 };
+

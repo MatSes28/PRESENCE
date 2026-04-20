@@ -737,7 +737,7 @@ export const LabComputers = () => {
       {draggedStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 pointer-events-none">
           <div className="bg-blue-900 text-blue-100 px-6 py-4 rounded-lg shadow-lg border border-blue-700">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-4">
               <span className="text-2xl">👤</span>
               <div>
                 <div className="font-medium">
@@ -824,7 +824,7 @@ export const LabComputers = () => {
                 setSelectedLab(parseInt(e.target.value) || null);
                 setSelectedSubject(null); // Reset subject when lab changes
               }}
-              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 w-full sm:w-auto"
+              className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 w-full sm:w-auto"
             >
               <option value="">All Labs</option>
               {classroomList.map((classroomId) => (
@@ -847,7 +847,7 @@ export const LabComputers = () => {
                 onChange={(e) =>
                   setSelectedSubject(parseInt(e.target.value) || null)
                 }
-                className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 w-full sm:w-auto"
+                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500 w-full sm:w-auto"
               >
                 <option value="">All Subjects</option>
                 {subjects.map((subject) => (
@@ -946,8 +946,8 @@ export const LabComputers = () => {
             </div>
 
             {simpleAssignMode && (
-              <div className="mb-4 p-3 bg-blue-900 border border-blue-700 rounded-lg">
-                <div className="flex items-center space-x-3">
+              <div className="mb-4 p-4 bg-blue-900 border border-blue-700 rounded-lg">
+                <div className="flex items-center space-x-4">
                   <span className="text-blue-300">Selected Student:</span>
                   {selectedStudentForSimpleAssign ? (
                     <div className="flex items-center space-x-2">
@@ -972,7 +972,7 @@ export const LabComputers = () => {
                       <button
                         onClick={handleBulkAssign}
                         disabled={processing === "bulk-assign"}
-                        className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-sm font-medium"
+                        className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white px-4 py-1 rounded text-sm font-medium"
                       >
                         {processing === "bulk-assign"
                           ? "Assigning..."
@@ -1001,7 +1001,7 @@ export const LabComputers = () => {
                     simpleAssignMode &&
                     setSelectedStudentForSimpleAssign(student)
                   }
-                  className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors border select-none ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors border select-none ${
                     simpleAssignMode
                       ? selectedStudentForSimpleAssign?.id === student.id
                         ? "bg-green-900 text-green-100 border-green-600"
@@ -1050,7 +1050,7 @@ export const LabComputers = () => {
       )}
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-4">
         {(() => {
           const filteredComputers = selectedLab
             ? computers.filter((c) => c.classroomId === selectedLab)
@@ -1060,7 +1060,7 @@ export const LabComputers = () => {
             <>
               <div className="bg-gray-800 rounded-lg shadow p-4">
                 <div className="flex items-center">
-                  <div className="text-2xl mr-3">💻</div>
+                  <div className="text-2xl mr-4">💻</div>
                   <div>
                     <p className="text-sm font-medium text-gray-300">
                       Total Computers
@@ -1074,7 +1074,7 @@ export const LabComputers = () => {
               </div>
               <div className="bg-gray-800 rounded-lg shadow p-4">
                 <div className="flex items-center">
-                  <div className="text-2xl mr-3">🟢</div>
+                  <div className="text-2xl mr-4">🟢</div>
                   <div>
                     <p className="text-sm font-medium text-gray-300">
                       Available
@@ -1091,7 +1091,7 @@ export const LabComputers = () => {
               </div>
               <div className="bg-gray-800 rounded-lg shadow p-4">
                 <div className="flex items-center">
-                  <div className="text-2xl mr-3">🔵</div>
+                  <div className="text-2xl mr-4">🔵</div>
                   <div>
                     <p className="text-sm font-medium text-gray-300">In Use</p>
                     <p className="text-2xl font-bold text-blue-400">
@@ -1105,7 +1105,7 @@ export const LabComputers = () => {
               </div>
               <div className="bg-gray-800 rounded-lg shadow p-4">
                 <div className="flex items-center">
-                  <div className="text-2xl mr-3">🟡</div>
+                  <div className="text-2xl mr-4">🟡</div>
                   <div>
                     <p className="text-sm font-medium text-gray-300">
                       Maintenance
@@ -1154,7 +1154,7 @@ export const LabComputers = () => {
                     : "Drag students from the pool above onto available computer seats"}
                 </p>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <label className="flex items-center space-x-2 text-sm text-gray-300">
                   <input
                     type="checkbox"
@@ -1175,7 +1175,7 @@ export const LabComputers = () => {
             {/* Instructor Station */}
             <div className="mb-8 flex justify-center">
               <div className="bg-gradient-to-r from-blue-800 to-blue-900 p-4 rounded-lg border-2 border-blue-600 shadow-lg">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-4">
                   <div className="text-3xl">👨‍🏫</div>
                   <div>
                     <div className="text-white font-medium">
@@ -1189,7 +1189,7 @@ export const LabComputers = () => {
 
             {/* Door */}
             <div className="absolute top-8 right-8 z-20">
-              <div className="bg-amber-800 p-3 rounded-lg border-2 border-amber-600 shadow-lg">
+              <div className="bg-amber-800 p-4 rounded-lg border-2 border-amber-600 shadow-lg">
                 <div className="text-2xl">🚪</div>
                 <div className="text-amber-200 text-xs text-center">Exit</div>
               </div>
@@ -1243,15 +1243,15 @@ export const LabComputers = () => {
             {/* Lab Grid Layout - Representing physical arrangement */}
             <div className="space-y-8 relative">
               {/* Row 1 (Front) */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex items-center justify-center space-x-2">
                   <div className="h-px bg-gray-600 flex-1"></div>
-                  <h5 className="text-sm font-medium text-gray-400 bg-gray-800 px-3 py-1 rounded">
+                  <h5 className="text-sm font-medium text-gray-400 bg-gray-800 px-4 py-1 rounded">
                     🎯 Front Row (Closest to Instructor)
                   </h5>
                   <div className="h-px bg-gray-600 flex-1"></div>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 justify-center">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-4 justify-center">
                   {getComputersByClassroom(selectedLab)
                     .slice(0, 5)
                     .map((computer) => {
@@ -1356,15 +1356,15 @@ export const LabComputers = () => {
               </div>
 
               {/* Row 2 (Middle) */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex items-center justify-center space-x-2">
                   <div className="h-px bg-gray-600 flex-1"></div>
-                  <h5 className="text-sm font-medium text-gray-400 bg-gray-800 px-3 py-1 rounded">
+                  <h5 className="text-sm font-medium text-gray-400 bg-gray-800 px-4 py-1 rounded">
                     📚 Middle Row
                   </h5>
                   <div className="h-px bg-gray-600 flex-1"></div>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 justify-center">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-4 justify-center">
                   {getComputersByClassroom(selectedLab)
                     .slice(5, 10)
                     .map((computer) => {
@@ -1469,15 +1469,15 @@ export const LabComputers = () => {
               </div>
 
               {/* Row 3 (Back) */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex items-center justify-center space-x-2">
                   <div className="h-px bg-gray-600 flex-1"></div>
-                  <h5 className="text-sm font-medium text-gray-400 bg-gray-800 px-3 py-1 rounded">
+                  <h5 className="text-sm font-medium text-gray-400 bg-gray-800 px-4 py-1 rounded">
                     🪑 Back Row (Farthest from Instructor)
                   </h5>
                   <div className="h-px bg-gray-600 flex-1"></div>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 justify-center">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-4 justify-center">
                   {getComputersByClassroom(selectedLab)
                     .slice(10, 15)
                     .map((computer) => {
@@ -1588,8 +1588,8 @@ export const LabComputers = () => {
       {/* Add Computers Modal */}
       {showAddComputers && (
         <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-gray-800 border-gray-700">
-            <div className="mt-3">
+          <div className="relative top-20 mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-gray-800 border-gray-700">
+            <div className="mt-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-white">
                   Add Computers to Lab
@@ -1614,7 +1614,7 @@ export const LabComputers = () => {
                     onChange={(e) =>
                       setSelectedClassroom(parseInt(e.target.value) || null)
                     }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
                   >
                     <option value="">Choose a room...</option>
                     {classrooms.map((classroom) => (
@@ -1639,7 +1639,7 @@ export const LabComputers = () => {
                     onChange={(e) =>
                       setComputerCount(parseInt(e.target.value) || 1)
                     }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
 
@@ -1669,8 +1669,8 @@ export const LabComputers = () => {
       {/* Smart Assignment Modal */}
       {showSmartAssignModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-gray-800 border-gray-700">
-            <div className="mt-3">
+          <div className="relative top-20 mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-gray-800 border-gray-700">
+            <div className="mt-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-white">
                   Smart Assignment
@@ -1695,7 +1695,7 @@ export const LabComputers = () => {
                     onChange={(e) =>
                       setSmartAssignSessionId(parseInt(e.target.value) || null)
                     }
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="">Choose a session...</option>
                     {/* For now, we'll simulate session selection */}
@@ -1705,21 +1705,21 @@ export const LabComputers = () => {
                   </select>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <h4 className="text-sm font-medium text-gray-300">
                     Assignment Methods:
                   </h4>
 
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-1 gap-4">
                     <button
                       onClick={() => handleSmartAssignment("performance")}
                       disabled={
                         processing === "smart-assign-performance" ||
                         !smartAssignSessionId
                       }
-                      className="flex items-center p-3 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                      className="flex items-center p-4 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
                     >
-                      <div className="text-2xl mr-3">🏆</div>
+                      <div className="text-2xl mr-4">🏆</div>
                       <div className="text-left">
                         <div className="font-medium">Performance-Based</div>
                         <div className="text-xs opacity-90">
@@ -1734,9 +1734,9 @@ export const LabComputers = () => {
                         processing === "smart-assign-learning-style" ||
                         !smartAssignSessionId
                       }
-                      className="flex items-center p-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                      className="flex items-center p-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
                     >
-                      <div className="text-2xl mr-3">🧠</div>
+                      <div className="text-2xl mr-4">🧠</div>
                       <div className="text-left">
                         <div className="font-medium">Learning Style</div>
                         <div className="text-xs opacity-90">
@@ -1751,9 +1751,9 @@ export const LabComputers = () => {
                         processing === "smart-assign-conflict-free" ||
                         !smartAssignSessionId
                       }
-                      className="flex items-center p-3 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                      className="flex items-center p-4 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
                     >
-                      <div className="text-2xl mr-3">🤝</div>
+                      <div className="text-2xl mr-4">🤝</div>
                       <div className="text-left">
                         <div className="font-medium">Conflict-Free</div>
                         <div className="text-xs opacity-90">
@@ -1768,9 +1768,9 @@ export const LabComputers = () => {
                         processing === "smart-assign-random" ||
                         !smartAssignSessionId
                       }
-                      className="flex items-center p-3 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                      className="flex items-center p-4 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all"
                     >
-                      <div className="text-2xl mr-3">🎲</div>
+                      <div className="text-2xl mr-4">🎲</div>
                       <div className="text-left">
                         <div className="font-medium">Random Assignment</div>
                         <div className="text-xs opacity-90">
@@ -1798,8 +1798,8 @@ export const LabComputers = () => {
       {/* Maintenance Modal */}
       {showMaintenanceModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-gray-800 border-gray-700">
-            <div className="mt-3">
+          <div className="relative top-20 mx-auto p-6 border w-full max-w-4xl shadow-lg rounded-md bg-gray-800 border-gray-700">
+            <div className="mt-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-white">
                   Computer Maintenance Management
@@ -1926,7 +1926,7 @@ export const LabComputers = () => {
                       <label htmlFor="lab-computers-maintenance-computer" className="block text-sm font-medium text-gray-300 mb-2">
                         Computer
                       </label>
-                      <select id="lab-computers-maintenance-computer" name="maintenanceComputer" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                      <select id="lab-computers-maintenance-computer" name="maintenanceComputer" className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
                         <option>Select computer...</option>
                         {computers.map((computer) => (
                           <option key={computer.id} value={computer.id}>
@@ -1939,7 +1939,7 @@ export const LabComputers = () => {
                       <label htmlFor="lab-computers-maintenance-type" className="block text-sm font-medium text-gray-300 mb-2">
                         Maintenance Type
                       </label>
-                      <select id="lab-computers-maintenance-type" name="maintenanceType" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                      <select id="lab-computers-maintenance-type" name="maintenanceType" className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
                         <option>Preventive</option>
                         <option>Corrective</option>
                         <option>Upgrade</option>
@@ -1953,7 +1953,7 @@ export const LabComputers = () => {
                         id="lab-computers-maintenance-date"
                         name="scheduledDate"
                         type="date"
-                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
                     <div>
@@ -1965,7 +1965,7 @@ export const LabComputers = () => {
                         name="maintenanceDescription"
                         type="text"
                         placeholder="Brief description"
-                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
                   </div>
@@ -2039,3 +2039,4 @@ export const LabComputers = () => {
     </div>
   );
 };
+

@@ -96,7 +96,7 @@ export const ReportFilters = ({
             onChange={(event) =>
               applyDatePreset(event.target.value as ReportDatePreset)
             }
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="today">Today</option>
             <option value="week">This Week</option>
@@ -123,7 +123,7 @@ export const ReportFilters = ({
                 startDate: event.target.value,
               });
             }}
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
         <div>
@@ -142,7 +142,7 @@ export const ReportFilters = ({
               setDatePreset("custom");
               setReportParams({ ...reportParams, endDate: event.target.value });
             }}
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
       </div>
@@ -167,7 +167,7 @@ export const ReportFilters = ({
                   : undefined,
               })
             }
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="">All Subjects</option>
             {subjects.map((subject) => (
@@ -196,7 +196,7 @@ export const ReportFilters = ({
                   : undefined,
               })
             }
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="">All Sections</option>
             {classrooms.map((classroom) => (
@@ -223,7 +223,7 @@ export const ReportFilters = ({
                 type: event.target.value as ReportParams["type"],
               })
             }
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="attendance">Attendance Report</option>
             <option value="students">Student Report</option>
@@ -239,7 +239,7 @@ export const ReportFilters = ({
       )}
 
       <div className="rounded-md border border-gray-700 bg-gray-900/40 p-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
           <div>
             <h5 className="text-sm font-medium text-white">Export Columns</h5>
             <p className="text-xs text-gray-400">
@@ -355,3 +355,4 @@ export const ReportFilters = ({
     </>
   );
 };
+

@@ -88,14 +88,14 @@ export const TopBar: React.FC<TopBarProps> = ({
         : "bg-red-400";
 
   return (
-    <header className="bg-gray-800 shadow-sm border-b border-gray-700 px-4 md:px-6 py-4 pt-safe-top ios-safe-header ios-gesture-area">
-      <div className="flex items-center justify-between">
+    <header className="border-b border-gray-700 bg-gray-800 px-4 py-4 pt-safe-top shadow-sm ios-safe-header ios-gesture-area md:px-6">
+      <div className="flex items-center justify-between gap-4">
         {/* Mobile Menu Button */}
         {showMenuButton && (
           <button
             data-sidebar-toggle
             onClick={onMenuClick}
-            className="md:hidden p-2 mr-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors ios-button ios-touch-target ios-gesture-area"
+            className="mr-4 rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white ios-button ios-touch-target ios-gesture-area md:hidden"
             aria-label="Open menu"
           >
             <svg
@@ -115,11 +115,11 @@ export const TopBar: React.FC<TopBarProps> = ({
         )}
 
         {/* Page Title / Breadcrumb */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl md:text-2xl font-semibold text-cyan-400 truncate ios-font-optimized">
             {currentTitle}
           </h1>
-          <nav className="text-sm text-gray-400 hidden sm:block">
+          <nav className="mt-2 hidden text-sm text-gray-400 sm:block">
             <span>Home</span>
             {location !== "/" && (
               <>
@@ -131,9 +131,9 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {/* Right Side Actions */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-4">
           <div
-            className="hidden lg:flex items-center space-x-2 text-xs text-gray-300"
+            className="hidden items-center gap-2 text-xs text-gray-300 lg:flex"
             title={liveLabel}
           >
             <span className={`w-2 h-2 rounded-full ${liveDotClass}`}></span>
@@ -144,7 +144,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             type="button"
             aria-label="Notifications coming soon"
-            className="p-2 text-gray-400 hover:text-gray-200 transition-colors"
+            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-700 hover:text-gray-200"
           >
             🔔
           </button>
@@ -153,7 +153,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowLogoutConfirm(true)}
-              className="flex items-center space-x-3 hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors"
+              className="flex items-center gap-4 rounded-lg px-4 py-2 transition-colors hover:bg-gray-700"
             >
               <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
                 {user?.name?.charAt(0).toUpperCase()}

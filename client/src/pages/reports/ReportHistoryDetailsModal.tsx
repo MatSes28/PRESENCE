@@ -35,7 +35,7 @@ export const ReportHistoryDetailsModal = ({
       className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 shadow-xl"
       onClick={(event) => event.stopPropagation()}
     >
-      <div className="flex items-start justify-between border-b border-gray-700 p-5">
+      <div className="flex items-start justify-between border-b border-gray-700 p-6">
         <div>
           <h4
             id="report-history-details-title"
@@ -49,14 +49,14 @@ export const ReportHistoryDetailsModal = ({
         </div>
         <button
           onClick={onClose}
-          className="rounded bg-gray-700 px-3 py-1 text-sm font-medium text-white hover:bg-gray-600"
+          className="rounded bg-gray-700 px-4 py-1 text-sm font-medium text-white hover:bg-gray-600"
         >
           Close
         </button>
       </div>
 
-      <div className="space-y-5 p-5">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="space-y-6 p-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {[
             {
               label: "Report Type",
@@ -85,7 +85,7 @@ export const ReportHistoryDetailsModal = ({
           ].map((detail) => (
             <div
               key={detail.label}
-              className="rounded border border-gray-700 bg-gray-900/50 p-3"
+              className="rounded border border-gray-700 bg-gray-900/50 p-4"
             >
               <div className="text-xs font-medium uppercase text-gray-500">
                 {detail.label}
@@ -100,7 +100,7 @@ export const ReportHistoryDetailsModal = ({
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded border border-gray-700 bg-gray-900/40 p-4">
             <h5 className="text-sm font-medium text-white">Saved Filters</h5>
-            <dl className="mt-3 space-y-2 text-sm">
+            <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">Date range</dt>
                 <dd className="text-right text-gray-200">
@@ -145,7 +145,7 @@ export const ReportHistoryDetailsModal = ({
 
           <div className="rounded border border-gray-700 bg-gray-900/40 p-4">
             <h5 className="text-sm font-medium text-white">File and Status</h5>
-            <dl className="mt-3 space-y-2 text-sm">
+            <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">Status</dt>
                 <dd>{renderStatus(item.status)}</dd>
@@ -175,7 +175,7 @@ export const ReportHistoryDetailsModal = ({
         <div className="rounded border border-gray-700 bg-gray-900/40 p-4">
           <h5 className="text-sm font-medium text-white">Selected Columns</h5>
           {item.parameters?.columns?.length ? (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               {item.parameters.columns.map((column) => (
                 <span
                   key={column}
@@ -207,3 +207,4 @@ export const ReportHistoryDetailsModal = ({
     </div>
   </div>
 );
+

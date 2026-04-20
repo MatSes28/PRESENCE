@@ -203,31 +203,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   };
 
   return (
-    <div className="w-64 bg-gray-900 shadow-lg flex flex-col ios-scroll ios-safe-area">
+    <div className="flex w-64 flex-col bg-gray-900 shadow-lg ios-scroll ios-safe-area">
       {/* Logo and Branding */}
-      <div className="p-4 border-b border-gray-700 ios-safe-top">
+      <div className="border-b border-gray-700 p-4 ios-safe-top">
         <h1 className="text-lg font-bold text-cyan-400 ios-font-optimized truncate">
           CLIRDEC Presence
         </h1>
-        <p className="text-xs text-gray-400">Attendance System</p>
+        <p className="mt-2 text-xs text-gray-400">Attendance System</p>
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 p-2 overflow-y-auto ios-scroll">
+      <nav className="flex-1 overflow-y-auto p-4 ios-scroll">
         {filteredSections.map((section) => {
           const isExpanded = expandedSections[section.title] !== false;
 
           return (
-            <div key={section.title} className="mb-2">
+            <div key={section.title} className="mb-4">
               {/* Section Header */}
               <button
                 onClick={() => toggleSection(section.title)}
                 aria-expanded={isExpanded}
                 aria-controls={`sidebar-section-${section.title.replace(/\s+/g, "-").toLowerCase()}`}
-                className="w-full flex items-center justify-between px-3 py-2 text-gray-300 hover:bg-gray-800 rounded-lg transition-colors ios-button"
+                className="flex w-full items-center justify-between rounded-lg px-4 py-2 text-gray-300 transition-colors hover:bg-gray-800 ios-button"
               >
                 <div className="flex items-center">
-                  <span className="mr-2">{section.icon}</span>
+                  <span className="mr-4">{section.icon}</span>
                   <span className="font-medium text-sm">{section.title}</span>
                 </div>
                 <svg
@@ -249,20 +249,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
               {isExpanded && (
                 <ul
                   id={`sidebar-section-${section.title.replace(/\s+/g, "-").toLowerCase()}`}
-                  className="ml-2 mt-1 space-y-1 border-l-2 border-gray-700"
+                  className="ml-4 mt-2 space-y-2 border-l-2 border-gray-700"
                 >
                   {section.items.map((item) => (
                     <li key={item.path}>
                       <Link
                         href={item.path}
                         onClick={onCloseMobile}
-                        className={`flex items-center pl-4 pr-3 py-2 text-sm rounded-r-lg transition-colors ios-button ios-touch-target ${
+                        className={`flex items-center rounded-r-lg py-2 pl-4 pr-4 text-sm transition-colors ios-button ios-touch-target ${
                           isActive(item.path)
                             ? "bg-cyan-600 text-white border-l-2 border-cyan-400 -ml-0.5"
                             : "text-gray-400 hover:bg-gray-700 hover:text-white"
                         }`}
                       >
-                        <span className="mr-2">{item.icon}</span>
+                        <span className="mr-4">{item.icon}</span>
                         {item.label}
                       </Link>
                     </li>
@@ -275,12 +275,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
       </nav>
 
       {/* User Profile Section */}
-      <div className="p-4 border-t border-gray-700 ios-safe-bottom">
-        <div className="flex items-center mb-3">
+      <div className="border-t border-gray-700 p-4 ios-safe-bottom">
+        <div className="mb-4 flex items-center">
           <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
             {user?.name?.charAt(0).toUpperCase()}
           </div>
-          <div className="ml-2 flex-1 min-w-0">
+          <div className="ml-4 flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">
               {user?.name}
             </p>
@@ -289,9 +289,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
         </div>
         <button
           onClick={() => setShowLogoutConfirm(true)}
-          className="w-full px-3 py-2 text-left text-red-400 hover:bg-red-900/30 rounded-lg transition-colors text-sm flex items-center ios-button ios-touch-target"
+          className="flex w-full items-center rounded-lg px-4 py-2 text-left text-sm text-red-400 transition-colors hover:bg-red-900/30 ios-button ios-touch-target"
         >
-          <span className="mr-2">🚪</span>
+          <span className="mr-4">🚪</span>
           Logout
         </button>
       </div>

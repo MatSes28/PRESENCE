@@ -186,7 +186,7 @@ export const AIAnalytics = () => {
             key={index}
             className="bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700 border-l-4 border-teal-500"
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-4">
               <span
                 className={`px-2 py-1 rounded text-xs font-medium ${
                   insight.type === "performance"
@@ -203,7 +203,7 @@ export const AIAnalytics = () => {
               </span>
             </div>
             <h3 className="font-semibold text-white mb-2">{insight.title}</h3>
-            <p className="text-gray-300 text-sm mb-3">{insight.description}</p>
+            <p className="text-gray-300 text-sm mb-4">{insight.description}</p>
             <div className="text-sm text-teal-400 font-medium">
               {insight.recommendation}
             </div>
@@ -217,7 +217,7 @@ export const AIAnalytics = () => {
           <h2 className="text-xl font-semibold text-cyan-400 mb-4">
             Engagement Metrics
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex justify-between">
               <span className="text-gray-300">Attendance Consistency</span>
               <span className="font-medium">
@@ -264,7 +264,7 @@ export const AIAnalytics = () => {
           <h2 className="text-xl font-semibold text-cyan-400 mb-4">
             Seating Effectiveness
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {analytics?.seatingEffectiveness?.optimization?.map(
               (item: any, index: number) => (
                 <div key={index} className="text-sm">
@@ -282,7 +282,7 @@ export const AIAnalytics = () => {
         <h2 className="text-xl font-semibold text-cyan-400 mb-4">
           Select Session
         </h2>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-4">
           <label
             htmlFor="session-select"
             className="text-sm font-medium text-gray-300 shrink-0"
@@ -376,12 +376,12 @@ export const AIAnalytics = () => {
           <h2 className="text-xl font-semibold text-cyan-400 mb-4">
             Performance Insights
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {analytics.performanceTrends.insights.map(
               (insight: any, index: number) => (
                 <div
                   key={index}
-                  className={`p-3 rounded-lg border-l-4 ${
+                  className={`p-4 rounded-lg border-l-4 ${
                     insight.impact === "positive"
                       ? "bg-green-900/30 border-green-500 text-gray-200"
                       : insight.impact === "negative"
@@ -399,3 +399,4 @@ export const AIAnalytics = () => {
     </div>
   );
 };
+

@@ -10,6 +10,7 @@ import { validateRequest, validationRules } from "../middleware/validation.js";
 import { v4 as uuidv4 } from "uuid";
 import { auditEventLogger } from "../services/audit/auditEvents.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
+import { ensureScheduledSessionActivatedForDevice } from "../services/classSessionAutomation.js";
 
 const router = Router();
 
@@ -564,6 +565,11 @@ router.post("/heartbeat", requireDeviceAuth, async (req: any, res: any) => {
 
     await iotDeviceManager.recordHeartbeat(req.deviceId, heartbeatData);
 
+    const sessionAutomation = await ensureScheduledSessionActivatedForDevice({
+      deviceId: req.deviceId,
+      classroomId: req.deviceClassroomId,
+    });
+
     // Broadcast heartbeat to web clients
     broadcastToWebClients("deviceHeartbeat", heartbeatData);
     await broadcastDeviceStatusSnapshot();
@@ -571,6 +577,7 @@ router.post("/heartbeat", requireDeviceAuth, async (req: any, res: any) => {
     res.json({
       success: true,
       message: "Heartbeat recorded",
+      sessionAutomation,
       serverTime: new Date().toISOString(),
     });
   } catch (error) {

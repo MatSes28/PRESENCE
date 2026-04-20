@@ -339,7 +339,7 @@ export const Classrooms = () => {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search by room name, type, or location"
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
             />
           </div>
 
@@ -356,7 +356,7 @@ export const Classrooms = () => {
                   event.target.value as "all" | "lecture" | "laboratory",
                 )
               }
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
             >
               <option value="all">All Rooms</option>
               <option value="lecture">Lecture Rooms</option>
@@ -402,7 +402,7 @@ export const Classrooms = () => {
                     setFormData((prev) => ({ ...prev, name: event.target.value }))
                   }
                   placeholder="e.g. Room 101"
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
                 />
               </div>
 
@@ -421,7 +421,7 @@ export const Classrooms = () => {
                     }))
                   }
                   disabled={Boolean(editingClassroom)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white disabled:opacity-60"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white disabled:opacity-60"
                 >
                   <option value="lecture">Lecture</option>
                   <option value="laboratory">Laboratory</option>
@@ -450,7 +450,7 @@ export const Classrooms = () => {
                     }))
                   }
                   placeholder="Optional"
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
                 />
               </div>
             </div>
@@ -536,7 +536,7 @@ export const Classrooms = () => {
                       {classroom.location}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-4">
                         <button
                           onClick={() => startEdit(classroom)}
                           className="text-cyan-400 hover:text-cyan-300"
@@ -564,3 +564,4 @@ export const Classrooms = () => {
     </div>
   );
 };
+

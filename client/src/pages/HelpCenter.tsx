@@ -209,7 +209,7 @@ export const HelpCenter: React.FC = () => {
                 key={video.id}
                 className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
               >
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
                     <span className="text-indigo-600 text-xl">▶</span>
                   </div>
@@ -242,7 +242,7 @@ export const HelpCenter: React.FC = () => {
                   id="help-support-subject"
                   name="subject"
                   type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="Brief description of your issue"
                 />
               </div>
@@ -250,7 +250,7 @@ export const HelpCenter: React.FC = () => {
                 <label htmlFor="help-support-priority" className="block text-sm font-medium text-gray-700 mb-1">
                   Priority
                 </label>
-                <select id="help-support-priority" name="priority" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <select id="help-support-priority" name="priority" className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
                   <option>Low</option>
                   <option>Medium</option>
                   <option>High</option>
@@ -265,7 +265,7 @@ export const HelpCenter: React.FC = () => {
                   id="help-support-description"
                   name="description"
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="Detailed description of your issue or question"
                 />
               </div>
@@ -308,3 +308,4 @@ export const HelpCenter: React.FC = () => {
     </div>
   );
 };
+

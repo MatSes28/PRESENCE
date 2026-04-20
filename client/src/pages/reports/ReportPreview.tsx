@@ -134,7 +134,7 @@ export const ReportPreview = ({
                 setLastUpdated(new Date());
                 window.setTimeout(() => window.print(), 0);
               }}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium"
+              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded text-sm font-medium"
             >
               Print Preview
             </button>
@@ -144,7 +144,7 @@ export const ReportPreview = ({
                 loadRealTimeStats();
                 setLastUpdated(new Date());
               }}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm font-medium flex items-center space-x-1"
+              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded text-sm font-medium flex items-center space-x-1"
             >
               <span>🔄</span>
               <span>Refresh</span>
@@ -230,7 +230,7 @@ export const ReportPreview = ({
               loadPreviewData(newPage);
             }}
             disabled={pagination.page <= 1}
-            className="px-3 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+            className="px-4 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
           >
             Previous
           </button>
@@ -247,7 +247,7 @@ export const ReportPreview = ({
             disabled={
               pagination.page >= Math.ceil(pagination.total / pagination.limit)
             }
-            className="px-3 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+            className="px-4 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
           >
             Next
           </button>
@@ -271,3 +271,4 @@ export const ReportPreview = ({
     </div>
   </>
 );
+

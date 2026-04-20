@@ -202,7 +202,7 @@ export const StudentEdit = () => {
             Update student information and RFID assignments
           </p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex space-x-4">
           <Link href={`/students/${student.id}`}>
             <a className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm font-medium">
               Cancel
@@ -232,7 +232,7 @@ export const StudentEdit = () => {
                   );
                   studentValidation.setFieldTouched("studentId");
                 }}
-                className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                   studentValidation.getFieldError("studentId")
                     ? "border-red-500"
                     : "border-gray-600"
@@ -260,7 +260,7 @@ export const StudentEdit = () => {
                   studentValidation.validateSingleField("name", e.target.value);
                   studentValidation.setFieldTouched("name");
                 }}
-                className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                   studentValidation.getFieldError("name")
                     ? "border-red-500"
                     : "border-gray-600"
@@ -291,7 +291,7 @@ export const StudentEdit = () => {
                   );
                   studentValidation.setFieldTouched("email");
                 }}
-                className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                   studentValidation.getFieldError("email")
                     ? "border-red-500"
                     : "border-gray-600"
@@ -316,7 +316,7 @@ export const StudentEdit = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, rfidUid: e.target.value })
                 }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 placeholder="RFID card UID"
               />
               {formData.rfidUid && (
@@ -343,7 +343,7 @@ export const StudentEdit = () => {
                   );
                   studentValidation.setFieldTouched("parentEmail");
                 }}
-                className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                className={`w-full px-4 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                   studentValidation.getFieldError("parentEmail")
                     ? "border-red-500"
                     : "border-gray-600"
@@ -368,7 +368,7 @@ export const StudentEdit = () => {
                   getYearFromSection(formData.section) ?? formData.year,
                 )}
                 readOnly
-                className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-md text-gray-300"
+                className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-md text-gray-300"
               />
             </div>
             <div>
@@ -389,7 +389,7 @@ export const StudentEdit = () => {
                     year: year ? String(year) : "",
                   });
                 }}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
                 placeholder="e.g., BSIT 2-2"
               />
               <p className="text-xs text-gray-400 mt-1">
@@ -410,14 +410,14 @@ export const StudentEdit = () => {
                     isActive: e.target.value === "active",
                   })
                 }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
             </div>
           </div>
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-end space-x-4">
             <Link href={`/students/${student.id}`}>
               <a className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-md">
                 Cancel
@@ -437,3 +437,4 @@ export const StudentEdit = () => {
     </div>
   );
 };
+

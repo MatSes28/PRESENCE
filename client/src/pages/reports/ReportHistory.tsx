@@ -105,7 +105,7 @@ export const ReportHistory = ({
             <button
               onClick={exportReportHistoryCsv}
               disabled={exportingHistory}
-              className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-1 rounded text-sm"
+              className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-4 py-1 rounded text-sm"
             >
               {exportingHistory ? "Exporting..." : "Export History CSV"}
             </button>
@@ -117,14 +117,14 @@ export const ReportHistory = ({
                 reportHistoryPagination.page,
               )
             }
-            className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded text-sm"
           >
             Refresh
           </button>
         </div>
       </div>
       <div className="mb-4 rounded-md border border-gray-700 bg-gray-900/40 p-4">
-        <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+        <div className="mb-4 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
           <div>
             <h5 className="text-sm font-medium text-white">History Filters</h5>
             <p className="text-xs text-gray-500">
@@ -134,19 +134,19 @@ export const ReportHistory = ({
           <div className="flex gap-2">
             <button
               onClick={() => loadReportHistory(reportHistoryFilters, 1)}
-              className="rounded bg-cyan-600 px-3 py-2 text-xs font-medium text-white hover:bg-cyan-700"
+              className="rounded bg-cyan-600 px-4 py-2 text-xs font-medium text-white hover:bg-cyan-700"
             >
               Apply Filters
             </button>
             <button
               onClick={resetReportHistoryFilters}
-              className="rounded bg-gray-700 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-gray-600"
+              className="rounded bg-gray-700 px-4 py-2 text-xs font-medium text-gray-200 hover:bg-gray-600"
             >
               Reset
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
           <div>
             <label
               htmlFor="history-filter-type"
@@ -163,7 +163,7 @@ export const ReportHistory = ({
                   type: event.target.value as ReportHistoryFilters["type"],
                 }))
               }
-              className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               <option value="">All types</option>
               <option value="attendance">Attendance</option>
@@ -187,7 +187,7 @@ export const ReportHistory = ({
                   format: event.target.value as ReportHistoryFilters["format"],
                 }))
               }
-              className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               <option value="">All formats</option>
               <option value="csv">CSV</option>
@@ -211,7 +211,7 @@ export const ReportHistory = ({
                   source: event.target.value as ReportHistoryFilters["source"],
                 }))
               }
-              className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               <option value="">All sources</option>
               <option value="manual">Manual export</option>
@@ -237,7 +237,7 @@ export const ReportHistory = ({
                   status: event.target.value as ReportHistoryFilters["status"],
                 }))
               }
-              className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               <option value="">All statuses</option>
               <option value="completed">Completed</option>
@@ -262,7 +262,7 @@ export const ReportHistory = ({
                   startDate: event.target.value,
                 }))
               }
-              className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             />
           </div>
           <div>
@@ -282,7 +282,7 @@ export const ReportHistory = ({
                   endDate: event.target.value,
                 }))
               }
-              className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             />
           </div>
           <div className="md:col-span-3 xl:col-span-6">
@@ -303,7 +303,7 @@ export const ReportHistory = ({
                 }))
               }
               placeholder="Name, email, or user ID"
-              className="w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
             />
           </div>
         </div>
@@ -390,14 +390,14 @@ export const ReportHistory = ({
                     <div className="flex gap-2">
                       <button
                         onClick={() => setSelectedHistoryItem(item)}
-                        className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
+                        className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded text-xs font-medium whitespace-nowrap"
                       >
                         Details
                       </button>
                       <button
                         onClick={() => handleDownloadHistoryReport(item)}
                         disabled={downloadingHistoryId === item.id}
-                        className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-3 py-1 rounded text-xs font-medium whitespace-nowrap"
+                        className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-white px-4 py-1 rounded text-xs font-medium whitespace-nowrap"
                       >
                         {downloadingHistoryId === item.id
                           ? "Downloading..."
@@ -411,7 +411,7 @@ export const ReportHistory = ({
           </tbody>
         </table>
       </div>
-      <div className="mt-4 flex flex-col gap-3 border-t border-gray-700 pt-4 text-sm text-gray-400 md:flex-row md:items-center md:justify-between">
+      <div className="mt-4 flex flex-col gap-4 border-t border-gray-700 pt-4 text-sm text-gray-400 md:flex-row md:items-center md:justify-between">
         <div>
           Showing {reportHistoryStart.toLocaleString()} to{" "}
           {reportHistoryEnd.toLocaleString()} of{" "}
@@ -426,7 +426,7 @@ export const ReportHistory = ({
               )
             }
             disabled={reportHistoryPagination.page <= 1}
-            className="rounded bg-gray-700 px-3 py-1 text-sm text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+            className="rounded bg-gray-700 px-4 py-1 text-sm text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
           >
             Previous
           </button>
@@ -441,7 +441,7 @@ export const ReportHistory = ({
               )
             }
             disabled={reportHistoryPagination.page >= reportHistoryPageCount}
-            className="rounded bg-gray-700 px-3 py-1 text-sm text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+            className="rounded bg-gray-700 px-4 py-1 text-sm text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
           >
             Next
           </button>
@@ -450,3 +450,4 @@ export const ReportHistory = ({
     </div>
   );
 };
+

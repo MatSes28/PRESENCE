@@ -179,7 +179,7 @@ export const MobileApp = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Notifications */}
             <div className="bg-white rounded-lg shadow-md p-4">
-              <h2 className="text-lg font-semibold mb-3">🔔 Notifications</h2>
+              <h2 className="text-lg font-semibold mb-4">🔔 Notifications</h2>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {dashboard.notifications
                   ?.slice(0, 3)
@@ -199,7 +199,7 @@ export const MobileApp = () => {
 
             {/* Upcoming Sessions */}
             <div className="bg-white rounded-lg shadow-md p-4">
-              <h2 className="text-lg font-semibold mb-3">
+              <h2 className="text-lg font-semibold mb-4">
                 📅 Upcoming Sessions
               </h2>
               <div className="space-y-2">
@@ -216,7 +216,7 @@ export const MobileApp = () => {
                     </div>
                     <button
                       onClick={() => generateQRCode(session.id)}
-                      className="px-3 py-1 bg-teal-500 text-white text-sm rounded hover:bg-teal-600"
+                      className="px-4 py-1 bg-teal-500 text-white text-sm rounded hover:bg-teal-600"
                       disabled={loading}
                     >
                       QR Code
@@ -231,7 +231,7 @@ export const MobileApp = () => {
         {/* QR Code Section */}
         {qrCode && currentSession && (
           <div className="bg-white rounded-lg shadow-md p-4">
-            <h2 className="text-lg font-semibold mb-3">
+            <h2 className="text-lg font-semibold mb-4">
               📱 QR Code for {currentSession.subject}
             </h2>
             <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
@@ -246,7 +246,7 @@ export const MobileApp = () => {
                 </p>
               </div>
 
-              <div className="flex-1 space-y-3">
+              <div className="flex-1 space-y-4">
                 <div>
                   <label htmlFor="mobile-app-student-id" className="block text-sm font-medium text-gray-700 mb-1">Student ID</label>
                   <input
@@ -256,7 +256,7 @@ export const MobileApp = () => {
                     value={selectedStudentId}
                     onChange={(e) => setSelectedStudentId(e.target.value)}
                     placeholder="Enter student ID"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm"
                   />
                 </div>
                 <div className="text-center">
@@ -270,7 +270,7 @@ export const MobileApp = () => {
                 </div>
 
                 {attendanceStatus && (
-                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
                     <div className="font-medium">{attendanceStatus}</div>
                   </div>
                 )}
@@ -294,7 +294,7 @@ export const MobileApp = () => {
         {/* Recent Activity */}
         {dashboard?.recentActivity && (
           <div className="bg-white rounded-lg shadow-md p-4">
-            <h2 className="text-lg font-semibold mb-3">📊 Recent Activity</h2>
+            <h2 className="text-lg font-semibold mb-4">📊 Recent Activity</h2>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {dashboard.recentActivity.map((activity: any, index: number) => (
                 <div key={index} className="text-sm p-2 bg-gray-50 rounded">
@@ -310,8 +310,8 @@ export const MobileApp = () => {
 
         {/* Mobile Actions */}
         <div className="bg-white rounded-lg shadow-md p-4">
-          <h2 className="text-lg font-semibold mb-3">⚙️ Mobile Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <h2 className="text-lg font-semibold mb-4">⚙️ Mobile Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
               onClick={registerDevice}
               className="px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
@@ -350,3 +350,4 @@ export const MobileApp = () => {
     </div>
   );
 };
+

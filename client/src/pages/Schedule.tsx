@@ -542,12 +542,12 @@ export const Schedule = () => {
             Manage class timetables and sessions
           </p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex space-x-4">
           {/* View Toggle */}
           <div className="flex bg-gray-700 rounded-lg p-1">
             <button
               onClick={() => setViewMode("grid")}
-              className={`px-3 py-1 text-sm font-medium rounded ${
+              className={`px-4 py-1 text-sm font-medium rounded ${
                 viewMode === "grid"
                   ? "bg-cyan-600 text-white"
                   : "text-gray-300 hover:text-white"
@@ -557,7 +557,7 @@ export const Schedule = () => {
             </button>
             <button
               onClick={() => setViewMode("calendar")}
-              className={`px-3 py-1 text-sm font-medium rounded ${
+              className={`px-4 py-1 text-sm font-medium rounded ${
                 viewMode === "calendar"
                   ? "bg-cyan-600 text-white"
                   : "text-gray-300 hover:text-white"
@@ -612,7 +612,7 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, subjectId: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   <option value="">Select Subject</option>
                   {subjects.map((subject: any) => (
@@ -634,7 +634,7 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, classroomId: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   <option value="">Select Classroom</option>
                   {classrooms.map((classroom: any) => (
@@ -656,7 +656,7 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, facultyId: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   <option value="">Select Faculty</option>
                   {faculty.map((member: any) => (
@@ -677,7 +677,7 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, dayOfWeek: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   {DAYS_OF_WEEK.map((day, index) => (
                     <option key={index} value={index.toString()}>
@@ -699,7 +699,7 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, startTime: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
               </div>
               <div>
@@ -715,7 +715,7 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, endTime: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
               </div>
               <div>
@@ -729,7 +729,7 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, semester: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   <option value="1st Semester">1st Semester</option>
                   <option value="2nd Semester">2nd Semester</option>
@@ -749,7 +749,7 @@ export const Schedule = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, academicYear: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   placeholder="2024-2025"
                 />
               </div>
@@ -774,7 +774,7 @@ export const Schedule = () => {
               </div>
             )}
 
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-4">
               <button
                 type="button"
                 onClick={resetForm}
@@ -921,7 +921,7 @@ export const Schedule = () => {
                 </button>
                 <button
                   onClick={goToToday}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1 rounded text-sm"
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-1 rounded text-sm"
                 >
                   Today
                 </button>
@@ -1011,7 +1011,7 @@ export const Schedule = () => {
                   day: "numeric",
                 })}
               </h5>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {getSchedulesForDate(selectedDate).map((schedule) => (
                   <div
                     key={schedule.id}
@@ -1212,3 +1212,4 @@ export const Schedule = () => {
     </div>
   );
 };
+

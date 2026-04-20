@@ -513,7 +513,7 @@ export const Reports = () => {
             Generate and download comprehensive attendance reports
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center space-x-2">
             <input
               type="checkbox"
@@ -536,7 +536,7 @@ export const Reports = () => {
       <div className="screen-only grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="flex items-center">
-            <div className="text-2xl mr-3">📊</div>
+            <div className="text-2xl mr-4">📊</div>
             <div>
               <p className="text-sm font-medium text-gray-300">
                 Today's Present
@@ -549,7 +549,7 @@ export const Reports = () => {
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="flex items-center">
-            <div className="text-2xl mr-3">⏰</div>
+            <div className="text-2xl mr-4">⏰</div>
             <div>
               <p className="text-sm font-medium text-gray-300">Today's Late</p>
               <p className="text-2xl font-bold text-yellow-400">
@@ -560,7 +560,7 @@ export const Reports = () => {
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="flex items-center">
-            <div className="text-2xl mr-3">❌</div>
+            <div className="text-2xl mr-4">❌</div>
             <div>
               <p className="text-sm font-medium text-gray-300">
                 Today's Absent
@@ -573,7 +573,7 @@ export const Reports = () => {
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="flex items-center">
-            <div className="text-2xl mr-3">🏫</div>
+            <div className="text-2xl mr-4">🏫</div>
             <div>
               <p className="text-sm font-medium text-gray-300">
                 Active Sessions
@@ -599,7 +599,7 @@ export const Reports = () => {
             <button
               onClick={() => handleQuickReport("daily")}
               disabled={generating}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-3 py-1 rounded text-xs"
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-4 py-1 rounded text-xs"
             >
               Download
             </button>
@@ -616,7 +616,7 @@ export const Reports = () => {
             <button
               onClick={() => handleQuickReport("weekly")}
               disabled={generating}
-              className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white px-3 py-1 rounded text-xs"
+              className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white px-4 py-1 rounded text-xs"
             >
               Download
             </button>
@@ -635,7 +635,7 @@ export const Reports = () => {
             <button
               onClick={() => handleQuickReport("analytics")}
               disabled={generating}
-              className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white px-3 py-1 rounded text-xs"
+              className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white px-4 py-1 rounded text-xs"
             >
               Download
             </button>
@@ -646,7 +646,7 @@ export const Reports = () => {
       {/* Report Filters */}
       <div className="screen-only bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
         <h4 className="text-lg font-medium text-white mb-4">Report Filters</h4>
-        <div className="mb-4 rounded-md border border-gray-700 bg-gray-900/50 p-3">
+        <div className="mb-4 rounded-md border border-gray-700 bg-gray-900/50 p-4">
           <p className="text-sm text-gray-300">{exportContext}</p>
           <p className="text-xs text-gray-500 mt-1">
             Report includes {pagination.total.toLocaleString()} records from{" "}
@@ -792,3 +792,4 @@ export const Reports = () => {
     </div>
   );
 };
+

@@ -21,7 +21,7 @@ export const ScheduleErrorModal = ({
       className="w-full max-w-2xl rounded-lg border border-gray-700 bg-gray-800 shadow-xl"
       onClick={(event) => event.stopPropagation()}
     >
-      <div className="flex items-start justify-between border-b border-gray-700 p-5">
+      <div className="flex items-start justify-between border-b border-gray-700 p-6">
         <div>
           <h4
             id="schedule-error-title"
@@ -33,12 +33,12 @@ export const ScheduleErrorModal = ({
         </div>
         <button
           onClick={onClose}
-          className="rounded bg-gray-700 px-3 py-1 text-sm font-medium text-white hover:bg-gray-600"
+          className="rounded bg-gray-700 px-4 py-1 text-sm font-medium text-white hover:bg-gray-600"
         >
           Close
         </button>
       </div>
-      <div className="p-5">
+      <div className="p-6">
         <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded bg-gray-950 p-4 text-sm text-red-100">
           {error.error}
         </pre>
@@ -46,3 +46,4 @@ export const ScheduleErrorModal = ({
     </div>
   </div>
 );
+

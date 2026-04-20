@@ -572,12 +572,12 @@ export const Dashboard = () => {
         <div className="flex-shrink-0">
           <span className="text-red-400 text-2xl">⚠️</span>
         </div>
-        <div className="ml-3 flex-1">
+        <div className="ml-4 flex-1">
           <h3 className="text-sm font-medium text-red-400">Dashboard Error</h3>
           <p className="text-sm text-red-200 mt-1">{message}</p>
           <button
             onClick={onRetry}
-            className="mt-3 bg-red-700 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-medium"
+            className="mt-4 bg-red-700 hover:bg-red-600 text-white px-4 py-1 rounded text-sm font-medium"
           >
             Try Again
           </button>
@@ -733,7 +733,7 @@ export const Dashboard = () => {
                     scheduleId: e.target.value,
                   })
                 }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               >
                 <option value="">Select a schedule...</option>
                 {availableSchedules.map((schedule: any) => (
@@ -758,14 +758,14 @@ export const Dashboard = () => {
                     action: e.target.value,
                   })
                 }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
               >
                 <option value="create">Create New Session</option>
                 <option value="activate">Activate Existing Session</option>
               </select>
             </div>
           </div>
-          <div className="flex justify-end space-x-3 mt-6">
+          <div className="flex justify-end space-x-4 mt-6">
             <button
               onClick={() => {
                 onClose();
@@ -840,7 +840,7 @@ export const Dashboard = () => {
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             Active Sessions
           </h4>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {activeSessionsList.length > 0 ? (
               activeSessionsList.map((s: any) => (
                 <div key={s.id} className="flex justify-between items-center">
@@ -866,16 +866,16 @@ export const Dashboard = () => {
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             Quick Actions
           </h4>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <button
               onClick={() => setLocation("/students")}
-              className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded"
+              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded"
             >
               📚 Add Students
             </button>
             <button
               onClick={() => setLocation("/reports")}
-              className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded"
+              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded"
             >
               📊 View Reports
             </button>
@@ -883,7 +883,7 @@ export const Dashboard = () => {
               type="button"
               onClick={handleSendNotifications}
               disabled={notificationSending}
-              className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
             >
               {notificationSending ? "⏳ Sending…" : "📢 Send Notifications"}
             </button>
@@ -894,7 +894,7 @@ export const Dashboard = () => {
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             System Overview
           </h4>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Total Events</span>
               <span className="text-white">{error ? "—" : (dashboardStats.totalEvents ?? 0)}</span>
@@ -912,14 +912,14 @@ export const Dashboard = () => {
         <h4 className="text-lg font-medium text-cyan-400 mb-4">
           Real-time Activity
         </h4>
-        <div className="space-y-3 max-h-64 overflow-y-auto">
+        <div className="space-y-4 max-h-64 overflow-y-auto">
           {realTimeData.length === 0 ? (
             <p className="text-gray-400">No recent activity</p>
           ) : (
             realTimeData.map((data: any, index: number) => (
               <div
                 key={`${data.type ?? "event"}-${data.timestamp ?? index}`}
-                className="bg-gray-700 p-3 rounded border border-gray-600"
+                className="bg-gray-700 p-4 rounded border border-gray-600"
               >
                 <p className="text-xs text-gray-400">
                   {new Date(data.timestamp).toLocaleTimeString()}
@@ -953,7 +953,7 @@ export const Dashboard = () => {
                 setAnalyticsPeriod(period);
                 fetchAnalytics(period);
               }}
-              className={`px-3 py-1 text-sm rounded ${
+              className={`px-4 py-1 text-sm rounded ${
                 analyticsPeriod === period
                   ? "bg-cyan-600 text-white"
                   : "bg-gray-700 text-gray-300 hover:bg-gray-600"
@@ -995,7 +995,7 @@ export const Dashboard = () => {
               <h4 className="text-lg font-medium text-cyan-400 mb-4">
                 Subject Performance
               </h4>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
+              <div className="space-y-4 max-h-64 overflow-y-auto">
                 {(!analyticsData.subjectPerformance || analyticsData.subjectPerformance.length === 0) ? (
                   <p className="text-gray-400 text-sm">No subject data in this period.</p>
                 ) : analyticsData.subjectPerformance.map(
@@ -1139,11 +1139,11 @@ export const Dashboard = () => {
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             Recent Security Events
           </h4>
-          <div className="space-y-3 max-h-64 overflow-y-auto">
+          <div className="space-y-4 max-h-64 overflow-y-auto">
             {securityMetrics?.suspiciousActivities?.length > 0 ? securityMetrics.suspiciousActivities.slice(0, 10).map((event: any, index: number) => (
               <div
                 key={`${event.timestamp ?? event.message ?? "security"}-${index}`}
-                className="flex items-center space-x-3"
+                className="flex items-center space-x-4"
               >
                 <div className="w-2 h-2 rounded-full bg-amber-500"></div>
                 <div className="flex-1 min-w-0">
@@ -1268,7 +1268,7 @@ export const Dashboard = () => {
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             API Performance
           </h4>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex justify-between">
               <span className="text-gray-300">Average Response</span>
               <span className="text-gray-400">{performanceMetrics?.api?.avgResponseTime != null ? `${performanceMetrics.api.avgResponseTime}ms` : "—"}</span>
@@ -1292,7 +1292,7 @@ export const Dashboard = () => {
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             Database Performance
           </h4>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex justify-between">
               <span className="text-gray-300">Avg Query Time</span>
               <span className="text-gray-400">{performanceMetrics?.database?.avgQueryTime != null ? `${Math.round(Number(performanceMetrics.database.avgQueryTime))}ms` : "—"}</span>
@@ -1348,7 +1348,7 @@ export const Dashboard = () => {
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             RFID Diagnostics
           </h4>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <button
               type="button"
               onClick={() => runRfidDiagnostic("test-reader", api.testRfidReader.bind(api), "Test RFID Reader")}
@@ -1399,7 +1399,7 @@ export const Dashboard = () => {
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             Device Status
           </h4>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex justify-between">
               <span className="text-gray-300">Active devices (today)</span>
               <span className="text-white">{dashboardStats.activeDevices ?? 0}</span>
@@ -1419,7 +1419,7 @@ export const Dashboard = () => {
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             RFID Simulation
           </h4>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <label htmlFor="dashboard-rfid-simulate" className="sr-only">
               RFID UID for simulation
             </label>
@@ -1430,7 +1430,7 @@ export const Dashboard = () => {
               placeholder="Enter RFID UID (e.g. card ID or student RFID)"
               value={rfidSimulateUid}
               onChange={(e) => setRfidSimulateUid(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm placeholder-gray-400"
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm placeholder-gray-400"
             />
             <button
               type="button"
@@ -1509,7 +1509,7 @@ export const Dashboard = () => {
           <h4 className="text-lg font-medium text-cyan-400 mb-4">
             System Calibration
           </h4>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex justify-between">
               <span className="text-gray-300">Last Calibration</span>
               <span className="text-white">
@@ -1550,7 +1550,7 @@ export const Dashboard = () => {
         <h4 className="text-lg font-medium text-cyan-400 mb-4">
           RFID Activity Log
         </h4>
-        <div className="space-y-3 max-h-64 overflow-y-auto">
+        <div className="space-y-4 max-h-64 overflow-y-auto">
           {rfidActivityLoading ? (
             <div className="flex justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
@@ -1558,7 +1558,7 @@ export const Dashboard = () => {
           ) : rfidActivityList.length > 0 ? rfidActivityList.map((event: any, index: number) => (
             <div
               key={`${event.time ?? event.message ?? "rfid"}-${index}`}
-              className="flex items-center space-x-3"
+              className="flex items-center space-x-4"
             >
               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${event.type === "warning" ? "bg-amber-500" : "bg-green-500"}`}></div>
               <div className="flex-1 min-w-0">
@@ -1603,14 +1603,14 @@ export const Dashboard = () => {
             Real-time attendance monitoring and analytics
           </p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-4">
           {error && (
             <span className="text-red-400 text-sm">⚠️ Offline Mode</span>
           )}
           <button
             onClick={() => fetchDashboardStats()}
             disabled={loading}
-            className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed flex items-center space-x-1"
+            className="px-4 py-1 bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed flex items-center space-x-1"
           >
             <span>🔄</span>
             <span>{loading ? "Refreshing..." : "Refresh"}</span>
@@ -1697,3 +1697,4 @@ export const Dashboard = () => {
     </div>
   );
 };
+

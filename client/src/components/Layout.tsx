@@ -67,7 +67,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Mobile Overlay */}
       {isMobile && sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -84,7 +84,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 }`
               : "relative w-64"
           }
-          bg-gray-800 border-r border-gray-700 ios-scroll
+          border-r border-gray-700 bg-gray-800 ios-scroll
         `}
         role="navigation"
         aria-label="Main navigation"
@@ -93,13 +93,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Top Bar */}
         <TopBar onMenuClick={toggleSidebar} showMenuButton={isMobile} />
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto bg-gray-900 px-4 py-4 md:px-6 md:py-6 pb-safe-bottom ios-scroll">
-          <div className="max-w-full mx-auto">{children}</div>
+        <main className="flex-1 overflow-y-auto bg-gray-900 px-4 py-4 pb-safe-bottom ios-scroll md:px-6 md:py-6">
+          <div className="mx-auto max-w-full app-page">{children}</div>
         </main>
       </div>
     </div>

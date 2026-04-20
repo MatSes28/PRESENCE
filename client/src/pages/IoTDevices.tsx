@@ -68,10 +68,10 @@ const defaultRegistrationForm = (): RegistrationFormState => ({
 });
 
 const fieldClassName =
-  "w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500";
+  "w-full rounded-lg border border-gray-600 bg-gray-900 px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500";
 
 const modalCardClassName =
-  "relative top-16 mx-auto w-full max-w-md rounded-xl border border-gray-700 bg-gray-800 p-5 shadow-2xl";
+  "relative top-16 mx-auto w-full max-w-md rounded-lg border border-gray-700 bg-gray-800 p-6 shadow-2xl";
 
 export const IoTDevices = () => {
   const { addNotification } = useNotifications();
@@ -490,7 +490,7 @@ export const IoTDevices = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center rounded-xl border border-gray-700 bg-gray-800/70">
+      <div className="flex min-h-[40vh] items-center justify-center rounded-lg border border-gray-700 bg-gray-800/70">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-cyan-500" />
           <p className="mt-4 text-sm text-gray-300">Loading IoT devices...</p>
@@ -501,7 +501,7 @@ export const IoTDevices = () => {
 
   return (
     <div className="space-y-6 text-white">
-      <section className="rounded-xl border border-gray-700 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 p-6 shadow-lg">
+      <section className="rounded-lg border border-gray-700 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 p-6 shadow-lg">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-2">
             <p className="text-sm font-medium uppercase tracking-[0.24em] text-cyan-400">
@@ -543,8 +543,8 @@ export const IoTDevices = () => {
           { label: "Offline", value: stats.offline, accent: "text-rose-400", icon: "🔴" },
           { label: "Maintenance", value: stats.maintenance, accent: "text-amber-400", icon: "🟡" },
         ].map((card) => (
-          <div key={card.label} className="rounded-xl border border-gray-700 bg-gray-800 p-4 shadow-lg">
-            <div className="flex items-center gap-3">
+          <div key={card.label} className="rounded-lg border border-gray-700 bg-gray-800 p-4 shadow-lg">
+            <div className="flex items-center gap-4">
               <div className="text-2xl">{card.icon}</div>
               <div>
                 <p className="text-xs uppercase tracking-wide text-gray-400">{card.label}</p>
@@ -556,7 +556,7 @@ export const IoTDevices = () => {
       </section>
 
       {devices.length === 0 ? (
-        <section className="rounded-xl border border-dashed border-gray-600 bg-gray-800/70 p-10 text-center">
+        <section className="rounded-lg border border-dashed border-gray-600 bg-gray-800/70 p-10 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-500/10 text-3xl">
             📡
           </div>
@@ -566,7 +566,7 @@ export const IoTDevices = () => {
           </p>
           <button
             onClick={() => setShowRegisterModal(true)}
-            className="mt-6 rounded-lg bg-cyan-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-500"
+            className="mt-6 rounded-lg bg-cyan-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-500"
           >
             Register Device
           </button>
@@ -580,11 +580,11 @@ export const IoTDevices = () => {
             return (
               <article
                 key={device.id}
-                className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-lg"
+                className="overflow-hidden rounded-lg border border-gray-700 bg-gray-800 shadow-lg"
               >
-                <div className="border-b border-gray-700 bg-gray-900/60 px-5 py-4">
+                <div className="border-b border-gray-700 bg-gray-900/60 px-6 py-4">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                       <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-cyan-500/10 text-2xl">
                         {getDeviceIcon(device.deviceType)}
                       </div>
@@ -594,7 +594,7 @@ export const IoTDevices = () => {
                       </div>
                     </div>
                     <span
-                      className={`rounded-full border px-3 py-1 text-xs font-medium capitalize ${getStatusBadgeClass(
+                      className={`rounded-full border px-4 py-1 text-xs font-medium capitalize ${getStatusBadgeClass(
                         device.status,
                       )}`}
                     >
@@ -603,7 +603,7 @@ export const IoTDevices = () => {
                   </div>
                 </div>
 
-                <div className="space-y-4 px-5 py-4">
+                <div className="space-y-4 px-6 py-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-xs uppercase tracking-wide text-gray-500">Type</p>
@@ -625,7 +625,7 @@ export const IoTDevices = () => {
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-gray-700 bg-gray-900/60 p-3 text-sm">
+                  <div className="rounded-lg border border-gray-700 bg-gray-900/60 p-4 text-sm">
                     <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">Configuration</p>
                     <div className="space-y-1 text-gray-200">
                       <div>
@@ -639,19 +639,19 @@ export const IoTDevices = () => {
                   </div>
                 </div>
 
-                <div className="border-t border-gray-700 bg-gray-900/50 px-5 py-4">
+                <div className="border-t border-gray-700 bg-gray-900/50 px-6 py-4">
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => handleSendCommand(device.deviceId, "ping")}
                       disabled={!!activeCommand}
-                      className="rounded-lg bg-cyan-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {commandTarget === `${device.deviceId}:ping` ? "Sending..." : "Ping"}
                     </button>
                     <button
                       onClick={() => handleSendCommand(device.deviceId, "restart")}
                       disabled={!!activeCommand}
-                      className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs font-medium text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {commandTarget === `${device.deviceId}:restart` ? "Sending..." : "Restart"}
                     </button>
@@ -660,20 +660,20 @@ export const IoTDevices = () => {
                         setSelectedDevice(deviceData);
                         setShowConfigModal(true);
                       }}
-                      className="rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 transition hover:border-cyan-500 hover:text-white"
+                      className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-xs font-medium text-gray-200 transition hover:border-cyan-500 hover:text-white"
                     >
                       Configure
                     </button>
                     <button
                       onClick={() => handleSendCommand(device.deviceId, "diagnostics")}
                       disabled={!!activeCommand}
-                      className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {commandTarget === `${device.deviceId}:diagnostics` ? "Sending..." : "Diagnostics"}
                     </button>
                     <button
                       onClick={() => void handleOpenSecurity(device.deviceId)}
-                      className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-200 transition hover:bg-rose-500/20"
+                      className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs font-medium text-rose-200 transition hover:bg-rose-500/20"
                     >
                       Security
                     </button>
@@ -769,7 +769,7 @@ export const IoTDevices = () => {
               </div>
 
               {classrooms.length === 0 && (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
                   Registration is disabled until at least one room exists.
                 </div>
               )}
@@ -809,7 +809,7 @@ export const IoTDevices = () => {
               </div>
 
               <div className="space-y-4">
-                <label className="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-900/60 px-3 py-3 text-sm text-gray-200">
+                <label className="flex items-center gap-4 rounded-lg border border-gray-700 bg-gray-900/60 px-4 py-3 text-sm text-gray-200">
                   <input
                     type="checkbox"
                     checked={selectedDevice.device.config?.rfidEnabled ?? true}
@@ -833,7 +833,7 @@ export const IoTDevices = () => {
                   Enable RFID scanning
                 </label>
 
-                <label className="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-900/60 px-3 py-3 text-sm text-gray-200">
+                <label className="flex items-center gap-4 rounded-lg border border-gray-700 bg-gray-900/60 px-4 py-3 text-sm text-gray-200">
                   <input
                     type="checkbox"
                     checked={selectedDevice.device.config?.ultrasonicEnabled ?? true}
@@ -927,14 +927,14 @@ export const IoTDevices = () => {
 
               <div>
                 <p className="mb-2 text-sm font-medium text-gray-200">API Key</p>
-                <div className="rounded-lg border border-gray-700 bg-gray-900/70 p-3 font-mono text-sm break-all text-cyan-300">
+                <div className="rounded-lg border border-gray-700 bg-gray-900/70 p-4 font-mono text-sm break-all text-cyan-300">
                   {apiKeyLoading
                     ? "Loading API key..."
                     : deviceApiKey || "API key unavailable."}
                 </div>
               </div>
 
-              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-3 text-sm text-cyan-100">
+              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100">
                 Paste this value into `ESP32_S3_DUAL_SENSOR_ATTENDANCE/ESP32_S3_DUAL_SENSOR_ATTENDANCE.ino` at `const char* DEVICE_API_KEY = "...";`
               </div>
 
@@ -972,3 +972,4 @@ export const IoTDevices = () => {
     </div>
   );
 };
+
