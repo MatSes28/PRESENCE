@@ -1063,9 +1063,9 @@ export const Schedule = () => {
       )}
 
       {user?.role === "admin" && showHolidayModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg border border-gray-700 bg-gray-800 shadow-2xl">
-            <div className="flex items-start justify-between border-b border-gray-700 px-6 py-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 sm:p-6">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-lg border border-gray-700 bg-gray-800 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-gray-700 px-6 py-5 sm:px-8">
               <div>
                 <h4 className="text-lg font-medium text-white">
                   Holiday Management
@@ -1084,10 +1084,11 @@ export const Schedule = () => {
               </button>
             </div>
 
-            <div className="max-h-[calc(90vh-80px)] overflow-y-auto px-6 py-6">
-              <div className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-900 px-4 py-4">
+            <div className="max-h-[calc(90vh-88px)] overflow-y-auto px-6 py-6 sm:px-8">
+              <div className="space-y-6">
+              <div className="flex flex-col gap-4 rounded-lg border border-gray-700 bg-gray-900 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h5 className="text-sm font-medium text-white">
+                  <h5 className="text-base font-medium text-white">
                     Enable Holidays
                   </h5>
                   <p className="mt-1 text-sm text-gray-400">
@@ -1116,10 +1117,10 @@ export const Schedule = () => {
 
               <form
                 onSubmit={handleHolidaySubmit}
-                className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2"
+                className="grid grid-cols-1 gap-5 lg:grid-cols-2"
               >
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-300">
+                  <label className="mb-2 block text-sm font-medium text-gray-300">
                     Holiday Name
                   </label>
                   <input
@@ -1133,7 +1134,7 @@ export const Schedule = () => {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-300">
+                  <label className="mb-2 block text-sm font-medium text-gray-300">
                     Date
                   </label>
                   <input
@@ -1149,7 +1150,7 @@ export const Schedule = () => {
                   />
                 </div>
                 <div className="lg:col-span-2">
-                  <label className="mb-1 block text-sm font-medium text-gray-300">
+                  <label className="mb-2 block text-sm font-medium text-gray-300">
                     Description
                   </label>
                   <input
@@ -1165,7 +1166,7 @@ export const Schedule = () => {
                     className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   />
                 </div>
-                <div className="lg:col-span-2 rounded-lg border border-dashed border-gray-600 bg-gray-900 px-4 py-4">
+                <div className="lg:col-span-2 rounded-lg border border-dashed border-gray-600 bg-gray-900 px-5 py-5">
                   <label className="flex items-start gap-3 text-sm text-gray-300">
                     <input
                       type="checkbox"
@@ -1188,7 +1189,7 @@ export const Schedule = () => {
                     </span>
                   </label>
                 </div>
-                <div className="flex flex-col gap-4 lg:col-span-2 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-4 pt-1 lg:col-span-2 lg:flex-row lg:items-center lg:justify-between">
                   <label className="flex items-center gap-2 text-sm text-gray-300">
                     <input
                       type="checkbox"
@@ -1207,14 +1208,15 @@ export const Schedule = () => {
                     type="submit"
                     loading={savingHoliday}
                     loadingText="Saving..."
-                    className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+                    className="rounded-md bg-cyan-600 px-5 py-2 text-sm font-medium text-white hover:bg-cyan-700"
                   >
                     Add Holiday
                   </LoadingButton>
                 </div>
               </form>
 
-              <div className="mt-6 overflow-x-auto">
+              <div className="overflow-hidden rounded-lg border border-gray-700">
+              <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-700">
                   <thead className="bg-gray-900">
                     <tr>
@@ -1267,11 +1269,13 @@ export const Schedule = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
                 {holidays.length === 0 && (
-                  <div className="py-6 text-center text-sm text-gray-400">
+                  <div className="border-t border-gray-700 bg-gray-800 py-6 text-center text-sm text-gray-400">
                     No custom holidays added yet.
                   </div>
                 )}
+              </div>
               </div>
             </div>
           </div>
