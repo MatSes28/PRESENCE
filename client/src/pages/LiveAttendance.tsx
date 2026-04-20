@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { getWebSocketClient } from "../lib/websocket";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
@@ -50,6 +50,10 @@ export const LiveAttendance = () => {
   });
   const [students, setStudents] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [studentSubjectIds, setStudentSubjectIds] = useState<
+    Record<string, number[]>
+  >({});
+  const [loadingStudentSessions, setLoadingStudentSessions] = useState(false);
   const [sensorSimulationPending, setSensorSimulationPending] = useState<
     "entry" | "exit" | null
   >(null);
@@ -749,14 +753,13 @@ export const LiveAttendance = () => {
     try {
       const [studentsRes, sessionsRes] = await Promise.all([
         api.getStudents(),
-        api.get("/attendance/sessions/active"),
+        api.getClassSessions(),
       ]);
       if (studentsRes.success) {
         setStudents(((studentsRes as any).data as any[]) || []);
       }
-      // Server returns { success, sessions } (not data.sessions)
       if ((sessionsRes as any).success) {
-        const list = (sessionsRes as any).sessions ?? [];
+        const list = (sessionsRes as any).sessions ?? (sessionsRes as any).data ?? [];
         setSessions(Array.isArray(list) ? list : []);
       }
     } catch (error) {
@@ -765,6 +768,84 @@ export const LiveAttendance = () => {
   };
 
   const hasActiveSessions = sessions.length > 0;
+
+  useEffect(() => {
+    const selectedStudentId = manualEntryData.studentId;
+
+    if (!showManualEntry || !selectedStudentId) {
+      return;
+    }
+
+    if (studentSubjectIds[selectedStudentId]) {
+      return;
+    }
+
+    const loadStudentEnrollments = async () => {
+      try {
+        setLoadingStudentSessions(true);
+        const response = await api.getEnrollmentsForStudent(
+          parseInt(selectedStudentId, 10),
+        );
+        const enrollments = (response.data ?? response.enrollments ?? []) as any[];
+        const subjectIds = [
+          ...new Set(
+            enrollments
+              .map((item: any) => item?.enrollment?.subjectId)
+              .filter((value: unknown): value is number => typeof value === "number"),
+          ),
+        ];
+
+        setStudentSubjectIds((previous) => ({
+          ...previous,
+          [selectedStudentId]: subjectIds,
+        }));
+      } catch (error) {
+        console.error("Failed to load student enrollments:", error);
+        setStudentSubjectIds((previous) => ({
+          ...previous,
+          [selectedStudentId]: [],
+        }));
+      } finally {
+        setLoadingStudentSessions(false);
+      }
+    };
+
+    loadStudentEnrollments();
+  }, [manualEntryData.studentId, showManualEntry, studentSubjectIds]);
+
+  const filteredManualSessions = useMemo(() => {
+    if (!manualEntryData.studentId) {
+      return sessions;
+    }
+
+    const subjectIds = studentSubjectIds[manualEntryData.studentId] ?? [];
+    if (subjectIds.length === 0) {
+      return [];
+    }
+
+    return sessions.filter((session: any) =>
+      subjectIds.includes(session?.schedule?.subjectId),
+    );
+  }, [manualEntryData.studentId, sessions, studentSubjectIds]);
+
+  useEffect(() => {
+    if (!manualEntryData.classSessionId) {
+      return;
+    }
+
+    const selectedSessionStillValid = filteredManualSessions.some(
+      (session: any) =>
+        String(session?.session?.id ?? session?.id) ===
+        manualEntryData.classSessionId,
+    );
+
+    if (!selectedSessionStillValid) {
+      setManualEntryData((previous) => ({
+        ...previous,
+        classSessionId: "",
+      }));
+    }
+  }, [filteredManualSessions, manualEntryData.classSessionId]);
 
   useEffect(() => {
     if (user) {
@@ -1585,6 +1666,7 @@ export const LiveAttendance = () => {
                     setManualEntryData({
                       ...manualEntryData,
                       studentId: e.target.value,
+                      classSessionId: "",
                     })
                   }
                   className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
@@ -1612,14 +1694,41 @@ export const LiveAttendance = () => {
                     })
                   }
                   className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                  disabled={
+                    !manualEntryData.studentId || loadingStudentSessions
+                  }
                 >
-                  <option value="">Select Session</option>
-                  {sessions.map((session: any) => (
+                  <option value="">
+                    {!manualEntryData.studentId
+                      ? "Select Student First"
+                      : loadingStudentSessions
+                        ? "Loading Sessions..."
+                        : filteredManualSessions.length === 0
+                          ? "No Matching Sessions"
+                          : "Select Session"}
+                  </option>
+                  {filteredManualSessions.map((session: any) => (
                     <option key={session.session?.id ?? session.id} value={session.session?.id ?? session.id}>
-                      {[session.schedule?.subject, session.schedule?.classroom].filter(Boolean).join(" - ") || "Session"}
+                      {[
+                        session.schedule?.subject,
+                        session.schedule?.classroom,
+                        session.session?.date
+                          ? new Date(session.session.date).toLocaleString()
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" - ") || "Session"}
                     </option>
                   ))}
                 </select>
+                {manualEntryData.studentId &&
+                  !loadingStudentSessions &&
+                  filteredManualSessions.length === 0 && (
+                    <p className="mt-2 text-xs text-amber-300">
+                      No class sessions were found for this student&apos;s enrolled
+                      subjects yet.
+                    </p>
+                  )}
               </div>
               <div>
                 <label htmlFor="manual-attendance-entry-time" className="block text-sm font-medium text-gray-300 mb-2">
