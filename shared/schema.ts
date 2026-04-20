@@ -110,6 +110,17 @@ export const schedules = pgTable("schedules", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const academicHolidays = pgTable("academic_holidays", {
+  id: serial("id").primaryKey(),
+  holidayDate: varchar("holiday_date", { length: 10 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  recursAnnually: boolean("recurs_annually").default(false).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Class Sessions table (auto-generated from schedules)
 export const classSessions = pgTable("class_sessions", {
   id: serial("id").primaryKey(),

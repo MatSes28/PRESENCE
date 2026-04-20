@@ -811,6 +811,29 @@ class ApiClient {
     });
   }
 
+  async getHolidays(year?: number): Promise<ApiResponse<any[]>> {
+    const query = year ? `?year=${year}` : "";
+    return this.request<any[]>(`/holidays${query}`);
+  }
+
+  async createHoliday(holiday: {
+    holidayDate: string;
+    name: string;
+    description?: string;
+    recursAnnually?: boolean;
+  }): Promise<ApiResponse<any>> {
+    return this.request<any>("/holidays", {
+      method: "POST",
+      body: JSON.stringify(holiday),
+    });
+  }
+
+  async deleteHoliday(id: number): Promise<ApiResponse<any>> {
+    return this.request<any>(`/holidays/${id}`, {
+      method: "DELETE",
+    });
+  }
+
   // Reports endpoints
   async generateReport(params: ReportParams): Promise<ApiResponse> {
     return this.request("/reports/generate-report", {

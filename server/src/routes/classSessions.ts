@@ -9,6 +9,7 @@ import {
 } from "../schema.js";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { requireAdminOrFaculty, requireAuth } from "../middleware/auth.js";
+import { getHolidayForDate } from "../services/academicCalendar.js";
 
 const router = Router();
 
@@ -130,6 +131,16 @@ router.post("/auto-create", requireAdminOrFaculty, async (req, res) => {
 
     const targetDate = new Date(date);
     const dayOfWeek = targetDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const holiday = await getHolidayForDate(targetDate);
+
+    if (holiday) {
+      return res.json({
+        success: true,
+        message: `No classes created because ${holiday.name} is marked as a holiday`,
+        sessions: [],
+        holiday,
+      });
+    }
 
     // Find all schedules for this day
     const scheduleFilters = [eq(schedules.dayOfWeek, dayOfWeek)];
@@ -200,6 +211,16 @@ router.post("/auto-activate", requireAdminOrFaculty, async (req, res) => {
   try {
     const now = new Date();
     const { scheduleId } = req.body;
+    const holiday = await getHolidayForDate(now);
+
+    if (holiday) {
+      return res.json({
+        success: true,
+        message: `No sessions activated because ${holiday.name} is marked as a holiday`,
+        sessions: [],
+        holiday,
+      });
+    }
 
     const activationFilters = [
       eq(classSessions.status, "scheduled"),

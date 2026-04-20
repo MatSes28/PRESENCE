@@ -9,6 +9,7 @@
     "start": "node dist/server/src/index.js",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
+    "db:cleanup-demo-students": "tsx --env-file=../.env scripts/cleanup-demo-students.ts",
     "check": "tsc --noEmit",
     "test": "node --experimental-vm-modules ../node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules ../node_modules/jest/bin/jest.js --watch",

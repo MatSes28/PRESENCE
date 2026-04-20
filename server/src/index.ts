@@ -858,6 +858,20 @@ async function initializeDatabaseColumns() {
         "ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true",
       )
       .catch(() => {});
+    await pool
+      .query(`
+        CREATE TABLE IF NOT EXISTS academic_holidays (
+          id SERIAL PRIMARY KEY,
+          holiday_date VARCHAR(10) NOT NULL UNIQUE,
+          name VARCHAR(255) NOT NULL,
+          description TEXT,
+          recurs_annually BOOLEAN NOT NULL DEFAULT false,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `)
+      .catch(() => {});
 
     await pool.end();
     console.log("✅ Database column migrations completed");
@@ -936,6 +950,23 @@ function initializeSqliteColumns() {
     if (!String(error?.message || error).includes("duplicate column name")) {
       console.warn("SQLite migration warning (iot_devices.certificate_data):", error);
     }
+  }
+
+  try {
+    dbClient.exec(`
+      CREATE TABLE IF NOT EXISTS academic_holidays (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        holiday_date TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        description TEXT,
+        recurs_annually INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  } catch (error) {
+    console.warn("SQLite migration warning (academic_holidays):", error);
   }
 }
 

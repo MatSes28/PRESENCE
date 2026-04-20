@@ -1,15 +1,18 @@
 import db from "../storage.js";
 import { classSessions, iotDevices, schedules } from "../schema.js";
 import { and, eq, gte, lte, asc } from "drizzle-orm";
+import { getHolidayForDate } from "./academicCalendar.js";
 
 type SessionAutomationResult = {
   action: "none" | "created" | "activated" | "already_active";
   reason?:
+    | "holiday"
     | "device_not_found"
     | "device_not_supported"
     | "classroom_not_assigned"
     | "no_matching_schedule"
     | "session_not_activatable";
+  holidayName?: string;
   sessionId?: number;
   scheduleId?: number;
   classroomId?: number;
@@ -61,6 +64,16 @@ export const ensureScheduledSessionActivatedForDevice = async ({
   const resolvedClassroomId = classroomId ?? device.classroomId;
   if (!resolvedClassroomId) {
     return { action: "none", reason: "classroom_not_assigned" };
+  }
+
+  const holiday = await getHolidayForDate(now);
+  if (holiday) {
+    return {
+      action: "none",
+      reason: "holiday",
+      holidayName: holiday.name,
+      classroomId: resolvedClassroomId,
+    };
   }
 
   const { startOfDay, endOfDay } = getDayBounds(now);

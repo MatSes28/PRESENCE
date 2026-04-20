@@ -42,15 +42,9 @@ cd server
 npm run db:migrate
 cd ..
 
-# Step 6: Seed initial data (optional)
-echo -e "${YELLOW}🌱 Step 6: Seeding initial data...${NC}"
-read -p "Do you want to seed initial data? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    cd server
-    npm run db:seed
-    cd ..
-fi
+# Step 6: Do not seed demo data in production deployments
+echo -e "${YELLOW}🌱 Step 6: Skipping demo/test seed...${NC}"
+echo "Production deployment keeps the database on real data only."
 
 # Step 7: Start the application
 echo -e "${GREEN}✅ Deployment complete!${NC}"

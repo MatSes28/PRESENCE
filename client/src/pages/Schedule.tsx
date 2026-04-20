@@ -20,6 +20,14 @@ interface Schedule {
   createdAt: string;
 }
 
+interface AcademicHoliday {
+  id: number;
+  holidayDate: string;
+  name: string;
+  description?: string | null;
+  recursAnnually: boolean;
+}
+
 const DAYS_OF_WEEK = [
   "Sunday",
   "Monday",
@@ -60,6 +68,17 @@ export const Schedule = () => {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [checkingConflicts, setCheckingConflicts] = useState(false);
+  const [holidays, setHolidays] = useState<AcademicHoliday[]>([]);
+  const [holidayForm, setHolidayForm] = useState({
+    holidayDate: "",
+    name: "",
+    description: "",
+    recursAnnually: false,
+  });
+  const [savingHoliday, setSavingHoliday] = useState(false);
+  const [deletingHolidayId, setDeletingHolidayId] = useState<number | null>(
+    null,
+  );
 
   // Calendar view state
   const [viewMode, setViewMode] = useState<"grid" | "calendar">("grid");
@@ -70,7 +89,27 @@ export const Schedule = () => {
     fetchSchedules();
     fetchSessions();
     fetchReferenceData();
+    fetchHolidays();
   }, []);
+
+  useEffect(() => {
+    fetchHolidays();
+  }, [currentDate]);
+
+  const fetchHolidays = async () => {
+    try {
+      const response = await api.getHolidays(currentDate.getFullYear());
+      const raw = (response as any)?.data;
+      if (response.success && Array.isArray(raw)) {
+        setHolidays(raw as AcademicHoliday[]);
+      } else {
+        setHolidays([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch holidays:", error);
+      setHolidays([]);
+    }
+  };
 
   const fetchReferenceData = async () => {
     try {
@@ -522,6 +561,104 @@ export const Schedule = () => {
     setCurrentDate(new Date());
   };
 
+  const isHolidayDate = (date: Date) => {
+    const dateOnly = date.toISOString().slice(0, 10);
+    const monthDay = dateOnly.slice(5);
+
+    return holidays.find(
+      (holiday) =>
+        holiday.holidayDate === dateOnly ||
+        (holiday.recursAnnually && holiday.holidayDate.slice(5) === monthDay),
+    );
+  };
+
+  const handleHolidaySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!holidayForm.holidayDate || !holidayForm.name.trim()) {
+      addNotification({
+        type: "error",
+        title: "Holiday Incomplete",
+        message: "Holiday date and name are required.",
+      });
+      return;
+    }
+
+    setSavingHoliday(true);
+    try {
+      const response = await api.createHoliday({
+        holidayDate: holidayForm.holidayDate,
+        name: holidayForm.name.trim(),
+        description: holidayForm.description.trim() || undefined,
+        recursAnnually: holidayForm.recursAnnually,
+      });
+
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Holiday Saved",
+          message: "Classes will be skipped automatically on that date.",
+        });
+        setHolidayForm({
+          holidayDate: "",
+          name: "",
+          description: "",
+          recursAnnually: false,
+        });
+        fetchHolidays();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Save Failed",
+          message: response.message || "Failed to save holiday",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to save holiday:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message: "Failed to save holiday. Please try again.",
+      });
+    } finally {
+      setSavingHoliday(false);
+    }
+  };
+
+  const handleDeleteHoliday = async (holiday: AcademicHoliday) => {
+    if (!confirm(`Delete holiday "${holiday.name}"?`)) {
+      return;
+    }
+
+    setDeletingHolidayId(holiday.id);
+    try {
+      const response = await api.deleteHoliday(holiday.id);
+      if (response.success) {
+        addNotification({
+          type: "success",
+          title: "Holiday Deleted",
+          message: "Automatic class skipping was removed for that date.",
+        });
+        fetchHolidays();
+      } else {
+        addNotification({
+          type: "error",
+          title: "Delete Failed",
+          message: response.message || "Failed to delete holiday",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete holiday:", error);
+      addNotification({
+        type: "error",
+        title: "Network Error",
+        message: "Failed to delete holiday. Please try again.",
+      });
+    } finally {
+      setDeletingHolidayId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -533,7 +670,7 @@ export const Schedule = () => {
   return (
     <div className="space-y-6">
       {/* Header Actions */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h3 className="text-lg font-medium text-white">
             Class Schedule Management
@@ -542,9 +679,9 @@ export const Schedule = () => {
             Manage class timetables and sessions
           </p>
         </div>
-        <div className="flex space-x-4">
+        <div className="flex flex-wrap gap-4">
           {/* View Toggle */}
-          <div className="flex bg-gray-700 rounded-lg p-1">
+            <div className="flex rounded-lg bg-gray-700 p-1">
             <button
               onClick={() => setViewMode("grid")}
               className={`px-4 py-1 text-sm font-medium rounded ${
@@ -802,6 +939,156 @@ export const Schedule = () => {
         </div>
       )}
 
+      {user?.role === "admin" && (
+        <div className="bg-gray-800 rounded-lg shadow p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h4 className="text-lg font-medium text-white">
+                Academic Holidays
+              </h4>
+              <p className="text-sm text-gray-300">
+                Automatic session creation and device-triggered class start are skipped on these dates.
+              </p>
+            </div>
+          </div>
+
+          <form
+            onSubmit={handleHolidaySubmit}
+            className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-4"
+          >
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-300">
+                Holiday Date
+              </label>
+              <input
+                type="date"
+                value={holidayForm.holidayDate}
+                onChange={(e) =>
+                  setHolidayForm({
+                    ...holidayForm,
+                    holidayDate: e.target.value,
+                  })
+                }
+                className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-300">
+                Holiday Name
+              </label>
+              <input
+                type="text"
+                value={holidayForm.name}
+                onChange={(e) =>
+                  setHolidayForm({ ...holidayForm, name: e.target.value })
+                }
+                placeholder="e.g. Independence Day"
+                className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-300">
+                Description
+              </label>
+              <input
+                type="text"
+                value={holidayForm.description}
+                onChange={(e) =>
+                  setHolidayForm({
+                    ...holidayForm,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="Optional note"
+                className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+            <div className="flex flex-col justify-end gap-4">
+              <label className="flex items-center gap-2 text-sm text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={holidayForm.recursAnnually}
+                  onChange={(e) =>
+                    setHolidayForm({
+                      ...holidayForm,
+                      recursAnnually: e.target.checked,
+                    })
+                  }
+                  className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-cyan-500 focus:ring-cyan-500"
+                />
+                Repeat every year
+              </label>
+              <LoadingButton
+                type="submit"
+                loading={savingHoliday}
+                loadingText="Saving..."
+                className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+              >
+                Save Holiday
+              </LoadingButton>
+            </div>
+          </form>
+
+          <div className="mt-6 overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-700">
+              <thead className="bg-gray-900">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
+                    Date
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
+                    Holiday
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
+                    Rule
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
+                    Notes
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700 bg-gray-800">
+                {holidays.map((holiday) => (
+                  <tr key={holiday.id} className="hover:bg-gray-700">
+                    <td className="whitespace-nowrap px-4 py-4 text-sm text-white">
+                      {holiday.holidayDate}
+                    </td>
+                    <td className="px-4 py-4 text-sm font-medium text-white">
+                      {holiday.name}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-gray-300">
+                      {holiday.recursAnnually ? "Repeats yearly" : "Specific date"}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-gray-300">
+                      {holiday.description || "-"}
+                    </td>
+                    <td className="px-4 py-4 text-sm">
+                      <button
+                        onClick={() => handleDeleteHoliday(holiday)}
+                        disabled={deletingHolidayId === holiday.id}
+                        className="text-red-400 hover:text-red-300 disabled:cursor-not-allowed disabled:text-red-600"
+                      >
+                        {deletingHolidayId === holiday.id
+                          ? "Deleting..."
+                          : "Delete"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {holidays.length === 0 && (
+              <div className="py-6 text-center text-sm text-gray-400">
+                No holidays added yet.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Schedule Views */}
       {viewMode === "grid" ? (
         /* Grid View - Current Week Schedule */
@@ -950,7 +1237,8 @@ export const Schedule = () => {
                   return <div key={index} className="p-2"></div>;
                 }
 
-                const daySchedules = getSchedulesForDate(date);
+                const holiday = isHolidayDate(date);
+                const daySchedules = holiday ? [] : getSchedulesForDate(date);
                 const isToday =
                   date.toDateString() === new Date().toDateString();
                 const isSelected =
@@ -963,6 +1251,8 @@ export const Schedule = () => {
                     className={`min-h-24 p-2 border rounded cursor-pointer transition-colors ${
                       isSelected
                         ? "bg-cyan-900 border-cyan-600"
+                        : holiday
+                          ? "bg-rose-950 border-rose-700"
                         : isToday
                           ? "bg-gray-700 border-gray-600"
                           : "bg-gray-800 border-gray-700 hover:bg-gray-700"
@@ -970,11 +1260,20 @@ export const Schedule = () => {
                   >
                     <div
                       className={`text-sm font-medium mb-1 ${
-                        isToday ? "text-cyan-400" : "text-white"
+                        holiday
+                          ? "text-rose-300"
+                          : isToday
+                            ? "text-cyan-400"
+                            : "text-white"
                       }`}
                     >
                       {date.getDate()}
                     </div>
+                    {holiday && (
+                      <div className="mb-1 rounded bg-rose-900 px-1 py-0.5 text-[10px] font-medium text-rose-200">
+                        Holiday
+                      </div>
+                    )}
                     <div className="space-y-1">
                       {daySchedules.slice(0, 3).map((schedule) => (
                         <div
@@ -1012,7 +1311,20 @@ export const Schedule = () => {
                 })}
               </h5>
               <div className="space-y-4">
-                {getSchedulesForDate(selectedDate).map((schedule) => (
+                {isHolidayDate(selectedDate) && (
+                  <div className="rounded-lg border border-rose-700 bg-rose-950 p-4">
+                    <h6 className="text-sm font-medium text-rose-200">
+                      {isHolidayDate(selectedDate)?.name}
+                    </h6>
+                    <p className="mt-1 text-sm text-rose-300">
+                      Automatic class creation and auto-start are disabled for this date.
+                    </p>
+                  </div>
+                )}
+                {(!isHolidayDate(selectedDate)
+                  ? getSchedulesForDate(selectedDate)
+                  : []
+                ).map((schedule) => (
                   <div
                     key={schedule.id}
                     className="bg-gray-700 border border-gray-600 rounded-lg p-4"
@@ -1056,9 +1368,14 @@ export const Schedule = () => {
                     </div>
                   </div>
                 ))}
-                {getSchedulesForDate(selectedDate).length === 0 && (
+                {(!isHolidayDate(selectedDate)
+                  ? getSchedulesForDate(selectedDate)
+                  : []
+                ).length === 0 && (
                   <p className="text-gray-400 text-center py-8">
-                    No schedules for this date
+                    {isHolidayDate(selectedDate)
+                      ? "No classes on this holiday"
+                      : "No schedules for this date"}
                   </p>
                 )}
               </div>
