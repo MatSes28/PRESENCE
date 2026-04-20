@@ -88,14 +88,14 @@ export const TopBar: React.FC<TopBarProps> = ({
         : "bg-red-400";
 
   return (
-    <header className="border-b border-gray-700 bg-gray-800 px-4 py-4 pt-safe-top shadow-sm ios-safe-header ios-gesture-area md:px-6">
-      <div className="flex items-center justify-between gap-4">
+    <header className="border-b border-gray-700 bg-gray-800 px-2 py-4 pt-safe-top shadow-sm ios-safe-header ios-gesture-area sm:px-4 md:px-6">
+      <div className="flex items-center justify-between gap-2 sm:gap-4">
         {/* Mobile Menu Button */}
         {showMenuButton && (
           <button
             data-sidebar-toggle
             onClick={onMenuClick}
-            className="mr-4 rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white ios-button ios-touch-target ios-gesture-area md:hidden"
+            className="mr-2 rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white ios-button ios-touch-target ios-gesture-area md:hidden sm:mr-4"
             aria-label="Open menu"
           >
             <svg
@@ -116,7 +116,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Page Title / Breadcrumb */}
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl md:text-2xl font-semibold text-cyan-400 truncate ios-font-optimized">
+          <h1 className="truncate text-lg font-semibold text-cyan-400 ios-font-optimized sm:text-xl md:text-2xl">
             {currentTitle}
           </h1>
           <nav className="mt-2 hidden text-sm text-gray-400 sm:block">
@@ -131,7 +131,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {/* Right Side Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <div
             className="hidden items-center gap-2 text-xs text-gray-300 lg:flex"
             title={liveLabel}
@@ -144,7 +144,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             type="button"
             aria-label="Notifications coming soon"
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-700 hover:text-gray-200"
+            className="hidden rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-700 hover:text-gray-200 sm:inline-flex"
           >
             🔔
           </button>
@@ -153,9 +153,9 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowLogoutConfirm(true)}
-              className="flex items-center gap-4 rounded-lg px-4 py-2 transition-colors hover:bg-gray-700"
+              className="flex items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-gray-700 sm:gap-4 sm:px-4"
             >
-              <div className="w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500 text-sm font-medium text-white">
                 {user?.name?.charAt(0).toUpperCase()}
               </div>
               <div className="hidden md:block text-left">
@@ -163,7 +163,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <p className="text-xs text-gray-400 capitalize">{user?.role}</p>
               </div>
               <svg
-                className="w-4 h-4 text-gray-400"
+                className="hidden h-4 w-4 text-gray-400 sm:block"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

@@ -38,10 +38,10 @@ export const LoginForm = () => {
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
           <div className="max-w-md text-center">
-            <h1 className="text-5xl font-bold mb-4 text-teal-100">
+            <h1 className="mb-4 text-5xl font-bold text-teal-100">
               CLIRDEC:PRESENCE
             </h1>
-            <p className="text-xl mb-8 text-cyan-100">
+            <p className="mb-8 text-xl text-cyan-100">
               Proximity and RFID-Enabled Smart Entry for Classroom Engagement
             </p>
             <div className="space-y-4 text-left">
@@ -69,13 +69,13 @@ export const LoginForm = () => {
           </div>
         </div>
         {/* Decorative Elements */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-300/10 rounded-full translate-y-32 -translate-x-32"></div>
+        <div className="absolute right-0 top-0 hidden h-64 w-64 translate-x-32 -translate-y-32 rounded-full bg-white/5 xl:block xl:h-96 xl:w-96 xl:translate-x-48 xl:-translate-y-48"></div>
+        <div className="absolute bottom-0 left-0 hidden h-48 w-48 -translate-x-24 translate-y-24 rounded-full bg-teal-300/10 xl:block xl:h-64 xl:w-64 xl:-translate-x-32 xl:translate-y-32"></div>
       </div>
 
       {/* Right Panel - Login Form */}
       <div className="flex-1 flex items-center justify-center bg-gray-900 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
+        <div className="w-full max-w-md space-y-8">
           {/* Mobile-only branding (left panel hidden on small screens) */}
           <div className="lg:hidden text-center pb-4 border-b border-gray-700/50">
             <h1 className="text-2xl font-bold text-teal-400 tracking-tight">

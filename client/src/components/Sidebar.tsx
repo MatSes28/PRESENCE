@@ -203,7 +203,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   };
 
   return (
-    <div className="flex w-64 flex-col bg-gray-900 shadow-lg ios-scroll ios-safe-area">
+    <div className="flex h-full w-full flex-col bg-gray-900 shadow-lg ios-scroll ios-safe-area">
       {/* Logo and Branding */}
       <div className="border-b border-gray-700 p-4 ios-safe-top">
         <h1 className="text-lg font-bold text-cyan-400 ios-font-optimized truncate">

@@ -42,10 +42,10 @@ export const ForgotPassword = () => {
           <div className="absolute inset-0 bg-black/20"></div>
           <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
             <div className="max-w-md text-center">
-              <h1 className="text-5xl font-bold mb-4 text-teal-100">
+              <h1 className="mb-4 text-5xl font-bold text-teal-100">
                 CLIRDEC:PRESENCE
               </h1>
-              <p className="text-xl mb-8 text-cyan-100">
+              <p className="mb-8 text-xl text-cyan-100">
                 Password reset initiated
               </p>
               <div className="space-y-4 text-left">
@@ -64,18 +64,18 @@ export const ForgotPassword = () => {
               </div>
             </div>
           </div>
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-300/10 rounded-full translate-y-32 -translate-x-32"></div>
+          <div className="absolute right-0 top-0 hidden h-64 w-64 translate-x-32 -translate-y-32 rounded-full bg-white/5 xl:block xl:h-96 xl:w-96 xl:translate-x-48 xl:-translate-y-48"></div>
+          <div className="absolute bottom-0 left-0 hidden h-48 w-48 -translate-x-24 translate-y-24 rounded-full bg-teal-300/10 xl:block xl:h-64 xl:w-64 xl:-translate-x-32 xl:translate-y-32"></div>
         </div>
 
         {/* Right Panel - Success Message */}
         <div className="flex-1 flex items-center justify-center bg-gray-900 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-md w-full space-y-8">
+          <div className="w-full max-w-md space-y-8">
             <div className="text-center">
-              <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 bg-green-900/50 rounded-full flex items-center justify-center">
+              <div className="mb-4 flex justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-900/50">
                   <svg
-                    className="w-8 h-8 text-green-400"
+                    className="h-8 w-8 text-green-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -89,7 +89,7 @@ export const ForgotPassword = () => {
                   </svg>
                 </div>
               </div>
-              <h2 className="text-3xl font-bold text-teal-400 mb-2">
+              <h2 className="mb-2 text-3xl font-bold text-teal-400">
                 Check Your Email
               </h2>
               <p className="text-gray-400">
@@ -102,7 +102,7 @@ export const ForgotPassword = () => {
             <div className="text-center">
               <button
                 onClick={() => setLocation("/")}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
+                className="flex w-full justify-center rounded-lg border border-transparent bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:scale-105 hover:from-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Back to Login
               </button>
@@ -120,10 +120,10 @@ export const ForgotPassword = () => {
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="relative z-10 flex flex-col justify-center items-center w-full p-12 text-white">
           <div className="max-w-md text-center">
-            <h1 className="text-5xl font-bold mb-4 text-teal-100">
+            <h1 className="mb-4 text-5xl font-bold text-teal-100">
               CLIRDEC:PRESENCE
             </h1>
-            <p className="text-xl mb-8 text-cyan-100">
+            <p className="mb-8 text-xl text-cyan-100">
               Reset your password securely
             </p>
             <div className="space-y-4 text-left">
@@ -146,15 +146,15 @@ export const ForgotPassword = () => {
             </div>
           </div>
         </div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-48 translate-x-48"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-300/10 rounded-full translate-y-32 -translate-x-32"></div>
+        <div className="absolute right-0 top-0 hidden h-64 w-64 translate-x-32 -translate-y-32 rounded-full bg-white/5 xl:block xl:h-96 xl:w-96 xl:translate-x-48 xl:-translate-y-48"></div>
+        <div className="absolute bottom-0 left-0 hidden h-48 w-48 -translate-x-24 translate-y-24 rounded-full bg-teal-300/10 xl:block xl:h-64 xl:w-64 xl:-translate-x-32 xl:translate-y-32"></div>
       </div>
 
       {/* Right Panel - Forgot Password Form */}
       <div className="flex-1 flex items-center justify-center bg-gray-900 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
+        <div className="w-full max-w-md space-y-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-teal-400 mb-2">
+            <h2 className="mb-2 text-3xl font-bold text-teal-400">
               Forgot Password
             </h2>
             <p className="text-gray-400">

@@ -114,9 +114,9 @@ export const ReportPreview = ({
           </div>
         ))}
       </div>
-      <div className="screen-only px-6 py-4 border-b border-gray-700">
-        <div className="flex items-center justify-between">
-          <div>
+      <div className="screen-only border-b border-gray-700 px-4 py-4 sm:px-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <h4 className="text-lg font-medium text-white">
               Live Report Preview
             </h4>
@@ -128,13 +128,13 @@ export const ReportPreview = ({
               )}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <button
               onClick={() => {
                 setLastUpdated(new Date());
                 window.setTimeout(() => window.print(), 0);
               }}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded text-sm font-medium"
+              className="rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-600"
             >
               Print Preview
             </button>
@@ -144,7 +144,7 @@ export const ReportPreview = ({
                 loadRealTimeStats();
                 setLastUpdated(new Date());
               }}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-1 rounded text-sm font-medium flex items-center space-x-1"
+              className="flex items-center justify-center space-x-1 rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-600"
             >
               <span>🔄</span>
               <span>Refresh</span>
@@ -216,13 +216,13 @@ export const ReportPreview = ({
     </div>
 
     {pagination.total > pagination.limit && (
-      <div className="screen-only flex items-center justify-between px-6 py-3 bg-gray-800 border-t border-gray-700">
+      <div className="screen-only flex flex-col gap-4 border-t border-gray-700 bg-gray-800 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="text-sm text-gray-400">
           Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
           {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
           {pagination.total} results
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => {
               const newPage = pagination.page - 1;
@@ -230,7 +230,7 @@ export const ReportPreview = ({
               loadPreviewData(newPage);
             }}
             disabled={pagination.page <= 1}
-            className="px-4 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+            className="rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
           >
             Previous
           </button>
@@ -247,7 +247,7 @@ export const ReportPreview = ({
             disabled={
               pagination.page >= Math.ceil(pagination.total / pagination.limit)
             }
-            className="px-4 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+            className="rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
           >
             Next
           </button>

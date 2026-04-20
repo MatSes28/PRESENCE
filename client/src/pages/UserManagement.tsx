@@ -265,11 +265,11 @@ export const UserManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-2xl font-bold text-white">User Management</h2>
         <button
           onClick={() => setShowCreateForm(true)}
-          className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
+          className="rounded-lg bg-cyan-600 px-4 py-2 text-white hover:bg-cyan-700"
         >
           Add New User
         </button>
@@ -277,6 +277,7 @@ export const UserManagement: React.FC = () => {
 
       {/* Users Table */}
       <div className="bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-700">
           <thead className="bg-gray-900">
             <tr>
@@ -353,6 +354,7 @@ export const UserManagement: React.FC = () => {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Create User Modal */}
