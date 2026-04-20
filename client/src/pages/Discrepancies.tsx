@@ -263,7 +263,7 @@ export const Discrepancies: React.FC = () => {
           </div>
           <button
             onClick={() => load()}
-            className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded"
+            className="self-start rounded-md bg-cyan-600 px-4 py-2 text-white transition-colors hover:bg-cyan-700 sm:self-end"
           >
             Refresh
           </button>
