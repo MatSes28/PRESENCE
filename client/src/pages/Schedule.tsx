@@ -100,6 +100,10 @@ export const Schedule = () => {
   const [deletingHolidayId, setDeletingHolidayId] = useState<number | null>(
     null,
   );
+  const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [holidayManagementEnabled, setHolidayManagementEnabled] = useState(
+    () => localStorage.getItem("schedule_holiday_management_enabled") !== "false",
+  );
 
   // Calendar view state
   const [viewMode, setViewMode] = useState<"grid" | "calendar">("grid");
@@ -123,6 +127,13 @@ export const Schedule = () => {
       String(showPhilippinesHolidays),
     );
   }, [showPhilippinesHolidays]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "schedule_holiday_management_enabled",
+      String(holidayManagementEnabled),
+    );
+  }, [holidayManagementEnabled]);
 
   useEffect(() => {
     if (showPhilippinesHolidays) {
@@ -651,7 +662,7 @@ export const Schedule = () => {
       };
     }
 
-    if (!showPhilippinesHolidays) {
+    if (!holidayManagementEnabled || !showPhilippinesHolidays) {
       return undefined;
     }
 
@@ -821,6 +832,15 @@ export const Schedule = () => {
               className="hidden"
             />
           </label>
+          {user?.role === "admin" && (
+            <button
+              type="button"
+              onClick={() => setShowHolidayModal(true)}
+              className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
+            >
+              Manage Holidays
+            </button>
+          )}
           {user?.role === "admin" && (
             <button
               onClick={() => setShowAddForm(true)}
@@ -1042,161 +1062,218 @@ export const Schedule = () => {
         </div>
       )}
 
-      {user?.role === "admin" && (
-        <div className="bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h4 className="text-lg font-medium text-white">
-                Academic Holidays
-              </h4>
-              <p className="text-sm text-gray-300">
-                Automatic session creation and device-triggered class start are skipped on these dates.
-              </p>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-gray-300">
-              <input
-                type="checkbox"
-                checked={showPhilippinesHolidays}
-                onChange={(e) => setShowPhilippinesHolidays(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-cyan-500 focus:ring-cyan-500"
-              />
-              Show Holidays in Philippines
-            </label>
-          </div>
-
-          <form
-            onSubmit={handleHolidaySubmit}
-            className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-4"
-          >
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-300">
-                Holiday Date
-              </label>
-              <input
-                type="date"
-                value={holidayForm.holidayDate}
-                onChange={(e) =>
-                  setHolidayForm({
-                    ...holidayForm,
-                    holidayDate: e.target.value,
-                  })
-                }
-                className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-300">
-                Holiday Name
-              </label>
-              <input
-                type="text"
-                value={holidayForm.name}
-                onChange={(e) =>
-                  setHolidayForm({ ...holidayForm, name: e.target.value })
-                }
-                placeholder="e.g. Independence Day"
-                className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-300">
-                Description
-              </label>
-              <input
-                type="text"
-                value={holidayForm.description}
-                onChange={(e) =>
-                  setHolidayForm({
-                    ...holidayForm,
-                    description: e.target.value,
-                  })
-                }
-                placeholder="Optional note"
-                className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
-            <div className="flex flex-col justify-end gap-4">
-              <label className="flex items-center gap-2 text-sm text-gray-300">
-                <input
-                  type="checkbox"
-                  checked={holidayForm.recursAnnually}
-                  onChange={(e) =>
-                    setHolidayForm({
-                      ...holidayForm,
-                      recursAnnually: e.target.checked,
-                    })
-                  }
-                  className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-cyan-500 focus:ring-cyan-500"
-                />
-                Repeat every year
-              </label>
-              <LoadingButton
-                type="submit"
-                loading={savingHoliday}
-                loadingText="Saving..."
-                className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
-              >
-                Save Holiday
-              </LoadingButton>
-            </div>
-          </form>
-
-          <div className="mt-6 overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-700">
-              <thead className="bg-gray-900">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
-                    Date
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
-                    Holiday
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
-                    Rule
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
-                    Notes
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700 bg-gray-800">
-                {holidays.map((holiday) => (
-                  <tr key={holiday.id} className="hover:bg-gray-700">
-                    <td className="whitespace-nowrap px-4 py-4 text-sm text-white">
-                      {holiday.holidayDate}
-                    </td>
-                    <td className="px-4 py-4 text-sm font-medium text-white">
-                      {holiday.name}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-300">
-                      {holiday.recursAnnually ? "Repeats yearly" : "Specific date"}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-300">
-                      {holiday.description || "-"}
-                    </td>
-                    <td className="px-4 py-4 text-sm">
-                      <button
-                        onClick={() => handleDeleteHoliday(holiday)}
-                        disabled={deletingHolidayId === holiday.id}
-                        className="text-red-400 hover:text-red-300 disabled:cursor-not-allowed disabled:text-red-600"
-                      >
-                        {deletingHolidayId === holiday.id
-                          ? "Deleting..."
-                          : "Delete"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {holidays.length === 0 && (
-              <div className="py-6 text-center text-sm text-gray-400">
-                No holidays added yet.
+      {user?.role === "admin" && showHolidayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg border border-gray-700 bg-gray-800 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-gray-700 px-6 py-4">
+              <div>
+                <h4 className="text-lg font-medium text-white">
+                  Holiday Management
+                </h4>
+                <p className="mt-1 text-sm text-gray-300">
+                  Add or update holidays. Classes and auto-started sessions are skipped on holiday dates.
+                </p>
               </div>
-            )}
+              <button
+                type="button"
+                onClick={() => setShowHolidayModal(false)}
+                className="rounded-lg p-2 text-gray-400 hover:bg-gray-700 hover:text-white"
+                aria-label="Close holiday management"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="max-h-[calc(90vh-80px)] overflow-y-auto px-6 py-6">
+              <div className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-900 px-4 py-4">
+                <div>
+                  <h5 className="text-sm font-medium text-white">
+                    Enable Holidays
+                  </h5>
+                  <p className="mt-1 text-sm text-gray-400">
+                    Show holiday markers in the schedule calendar and grid views.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setHolidayManagementEnabled((previous) => !previous)
+                  }
+                  className={`relative h-7 w-14 rounded-full transition-colors ${
+                    holidayManagementEnabled ? "bg-cyan-600" : "bg-gray-600"
+                  }`}
+                  aria-pressed={holidayManagementEnabled}
+                >
+                  <span
+                    className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-transform ${
+                      holidayManagementEnabled
+                        ? "translate-x-8"
+                        : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleHolidaySubmit}
+                className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2"
+              >
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-300">
+                    Holiday Name
+                  </label>
+                  <input
+                    type="text"
+                    value={holidayForm.name}
+                    onChange={(e) =>
+                      setHolidayForm({ ...holidayForm, name: e.target.value })
+                    }
+                    placeholder="e.g. New Year's Day"
+                    className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-300">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={holidayForm.holidayDate}
+                    onChange={(e) =>
+                      setHolidayForm({
+                        ...holidayForm,
+                        holidayDate: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                </div>
+                <div className="lg:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-gray-300">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={holidayForm.description}
+                    onChange={(e) =>
+                      setHolidayForm({
+                        ...holidayForm,
+                        description: e.target.value,
+                      })
+                    }
+                    placeholder="Optional note"
+                    className="w-full rounded-md border border-gray-600 bg-gray-700 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  />
+                </div>
+                <div className="lg:col-span-2 rounded-lg border border-dashed border-gray-600 bg-gray-900 px-4 py-4">
+                  <label className="flex items-start gap-3 text-sm text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={showPhilippinesHolidays}
+                      onChange={(e) => setShowPhilippinesHolidays(e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-gray-600 bg-gray-700 text-cyan-500 focus:ring-cyan-500"
+                    />
+                    <span>
+                      <span className="block font-medium text-white">
+                        Holidays in Philippines
+                      </span>
+                      <span className="mt-1 block text-gray-400">
+                        Show holidays from the public Philippines Google Calendar feed directly on the calendar.
+                      </span>
+                      <span className="mt-2 block text-sm text-gray-300">
+                        {showPhilippinesHolidays
+                          ? "Philippines holidays are visible on the schedule views."
+                          : "Philippines holidays are hidden from the schedule views."}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                <div className="flex flex-col gap-4 lg:col-span-2 lg:flex-row lg:items-center lg:justify-between">
+                  <label className="flex items-center gap-2 text-sm text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={holidayForm.recursAnnually}
+                      onChange={(e) =>
+                        setHolidayForm({
+                          ...holidayForm,
+                          recursAnnually: e.target.checked,
+                        })
+                      }
+                      className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-cyan-500 focus:ring-cyan-500"
+                    />
+                    Repeat every year
+                  </label>
+                  <LoadingButton
+                    type="submit"
+                    loading={savingHoliday}
+                    loadingText="Saving..."
+                    className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700"
+                  >
+                    Add Holiday
+                  </LoadingButton>
+                </div>
+              </form>
+
+              <div className="mt-6 overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-700">
+                  <thead className="bg-gray-900">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
+                        Holiday
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
+                        Rule
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
+                        Notes
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-300">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700 bg-gray-800">
+                    {holidays.map((holiday) => (
+                      <tr key={holiday.id} className="hover:bg-gray-700">
+                        <td className="whitespace-nowrap px-4 py-4 text-sm text-white">
+                          {holiday.holidayDate}
+                        </td>
+                        <td className="px-4 py-4 text-sm font-medium text-white">
+                          {holiday.name}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-300">
+                          {holiday.recursAnnually
+                            ? "Repeats yearly"
+                            : "Specific date"}
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-300">
+                          {holiday.description || "-"}
+                        </td>
+                        <td className="px-4 py-4 text-sm">
+                          <button
+                            onClick={() => handleDeleteHoliday(holiday)}
+                            disabled={deletingHolidayId === holiday.id}
+                            className="text-red-400 hover:text-red-300 disabled:cursor-not-allowed disabled:text-red-600"
+                          >
+                            {deletingHolidayId === holiday.id
+                              ? "Deleting..."
+                              : "Delete"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {holidays.length === 0 && (
+                  <div className="py-6 text-center text-sm text-gray-400">
+                    No custom holidays added yet.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
