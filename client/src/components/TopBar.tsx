@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "../hooks/useAuth";
-import { ConfirmationDialog } from "./ConfirmationDialog";
 import {
   getWebSocketClient,
   type WebSocketConnectionState,
@@ -41,20 +40,14 @@ export const TopBar: React.FC<TopBarProps> = ({
   onMenuClick,
   showMenuButton = false,
 }) => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [location] = useLocation();
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [liveState, setLiveState] =
     useState<WebSocketConnectionState>("disconnected");
 
   const currentTitle =
     pageTitles[location] ||
     (location.startsWith("/students/") ? "Student Details" : "Dashboard");
-
-  const handleLogout = async () => {
-    setShowLogoutConfirm(false);
-    await logout();
-  };
 
   useEffect(() => {
     if (!user?.id) {
@@ -140,55 +133,6 @@ export const TopBar: React.FC<TopBarProps> = ({
             <span>{liveLabel}</span>
           </div>
 
-          {/* Notifications */}
-          <button
-            type="button"
-            aria-label="Notifications coming soon"
-            className="hidden rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-700 hover:text-gray-200 sm:inline-flex"
-          >
-            🔔
-          </button>
-
-          {/* User Avatar Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowLogoutConfirm(true)}
-              className="flex items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-gray-700 sm:gap-4 sm:px-4"
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500 text-sm font-medium text-white">
-                {user?.name?.charAt(0).toUpperCase()}
-              </div>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-white">{user?.name}</p>
-                <p className="text-xs text-gray-400 capitalize">{user?.role}</p>
-              </div>
-              <svg
-                className="hidden h-4 w-4 text-gray-400 sm:block"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-
-            {/* Logout Confirmation Modal */}
-            <ConfirmationDialog
-              isOpen={showLogoutConfirm}
-              title="Confirm Logout"
-              message="Are you sure you want to log out of your account?"
-              confirmText="Yes"
-              cancelText="No"
-              confirmButtonClass="bg-red-600 hover:bg-red-700"
-              onConfirm={handleLogout}
-              onCancel={() => setShowLogoutConfirm(false)}
-            />
-          </div>
         </div>
       </div>
     </header>
