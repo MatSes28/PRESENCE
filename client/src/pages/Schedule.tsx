@@ -1087,7 +1087,7 @@ export const Schedule = () => {
             <div className="max-h-[calc(90vh-88px)] overflow-y-auto px-6 py-6 sm:px-8">
               <div className="space-y-6">
               <div className="flex flex-col gap-4 rounded-lg border border-gray-700 bg-gray-900 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+                <div className="flex-1">
                   <h5 className="text-base font-medium text-white">
                     Enable Holidays
                   </h5>
@@ -1100,16 +1100,16 @@ export const Schedule = () => {
                   onClick={() =>
                     setHolidayManagementEnabled((previous) => !previous)
                   }
-                  className={`relative h-7 w-14 rounded-full transition-colors ${
+                  className={`inline-flex h-8 w-14 shrink-0 items-center self-start rounded-full p-1 transition-colors sm:self-center ${
                     holidayManagementEnabled ? "bg-cyan-600" : "bg-gray-600"
                   }`}
                   aria-pressed={holidayManagementEnabled}
                 >
                   <span
-                    className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-transform ${
+                    className={`h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${
                       holidayManagementEnabled
-                        ? "translate-x-8"
-                        : "translate-x-1"
+                        ? "translate-x-6"
+                        : "translate-x-0"
                     }`}
                   />
                 </button>
