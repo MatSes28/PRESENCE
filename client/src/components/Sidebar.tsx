@@ -134,12 +134,6 @@ const navigationSections: NavSection[] = [
         icon: "👤",
         roles: ["admin"],
       },
-      {
-        path: "/roles",
-        label: "User Management",
-        icon: "🔐",
-        roles: ["admin"],
-      },
     ],
   },
 ];
