@@ -1,14 +1,25 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import db from "../storage.js";
 import {
   users,
   schedules,
+  classSessions,
+  attendanceRecords,
+  computerAssignments,
+  emailNotifications,
   subjectSessions,
+  sessionAssignments,
   computerMaintenance,
   pushNotifications,
   userSessions,
   pushSubscriptions,
+  errorLogs,
+  parentConsentRequests,
+  dataSubjectRequests,
+  legalHolds,
+  auditLogs,
+  auditLogsArchive,
   reportHistory,
   reportPresets,
   reportSchedules,
@@ -196,56 +207,110 @@ router.delete("/:id", requireAdmin, async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    const blockingChecks = await Promise.all([
-      db.select({ id: schedules.id }).from(schedules).where(eq(schedules.facultyId, userId)).limit(1),
-      db.select({ id: subjectSessions.id }).from(subjectSessions).where(eq(subjectSessions.facultyId, userId)).limit(1),
-      db.select({ id: computerMaintenance.id }).from(computerMaintenance).where(eq(computerMaintenance.performedBy, userId)).limit(1),
-      db.select({ id: pushNotifications.id }).from(pushNotifications).where(eq(pushNotifications.userId, userId)).limit(1),
-      db.select({ id: userSessions.id }).from(userSessions).where(eq(userSessions.userId, userId)).limit(1),
-      db.select({ id: pushSubscriptions.id }).from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId)).limit(1),
-      db.select({ id: reportHistory.id }).from(reportHistory).where(eq(reportHistory.generatedBy, userId)).limit(1),
-      db.select({ id: reportPresets.id }).from(reportPresets).where(eq(reportPresets.createdBy, userId)).limit(1),
-      db.select({ id: reportSchedules.id }).from(reportSchedules).where(eq(reportSchedules.createdBy, userId)).limit(1),
-    ]);
+    await db.transaction(async (tx) => {
+      const ownedSchedules = await tx
+        .select({ id: schedules.id })
+        .from(schedules)
+        .where(eq(schedules.facultyId, userId));
+      const scheduleIds = ownedSchedules.map((row) => row.id);
 
-    const blockingLabels = [
-      "class schedules",
-      "lab subject sessions",
-      "computer maintenance records",
-      "notifications",
-      "active sessions",
-      "push subscriptions",
-      "report history",
-      "report presets",
-      "scheduled reports",
-    ].filter((_, index) => blockingChecks[index].length > 0);
+      if (scheduleIds.length > 0) {
+        const ownedClassSessions = await tx
+          .select({ id: classSessions.id })
+          .from(classSessions)
+          .where(inArray(classSessions.scheduleId, scheduleIds));
+        const classSessionIds = ownedClassSessions.map((row) => row.id);
 
-    if (blockingLabels.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message: `Cannot delete this user because it is still linked to ${blockingLabels.join(", ")}.`,
-      });
-    }
+        if (classSessionIds.length > 0) {
+          await tx
+            .delete(emailNotifications)
+            .where(inArray(emailNotifications.classSessionId, classSessionIds));
+          await tx
+            .delete(computerAssignments)
+            .where(inArray(computerAssignments.classSessionId, classSessionIds));
+          await tx
+            .delete(attendanceRecords)
+            .where(inArray(attendanceRecords.classSessionId, classSessionIds));
+          await tx
+            .delete(classSessions)
+            .where(inArray(classSessions.id, classSessionIds));
+        }
 
-    await db.delete(users).where(eq(users.id, userId));
+        await tx.delete(schedules).where(inArray(schedules.id, scheduleIds));
+      }
 
-    res.json({ success: true, message: "User deleted successfully" });
+      const ownedSubjectSessions = await tx
+        .select({ id: subjectSessions.id })
+        .from(subjectSessions)
+        .where(eq(subjectSessions.facultyId, userId));
+      const subjectSessionIds = ownedSubjectSessions.map((row) => row.id);
+
+      if (subjectSessionIds.length > 0) {
+        await tx
+          .delete(sessionAssignments)
+          .where(inArray(sessionAssignments.sessionId, subjectSessionIds));
+        await tx
+          .delete(subjectSessions)
+          .where(inArray(subjectSessions.id, subjectSessionIds));
+      }
+
+      await tx
+        .delete(computerMaintenance)
+        .where(eq(computerMaintenance.performedBy, userId));
+      await tx
+        .delete(pushNotifications)
+        .where(eq(pushNotifications.userId, userId));
+      await tx.delete(userSessions).where(eq(userSessions.userId, userId));
+      await tx
+        .delete(pushSubscriptions)
+        .where(eq(pushSubscriptions.userId, userId));
+
+      await tx
+        .update(errorLogs)
+        .set({ userId: null })
+        .where(eq(errorLogs.userId, userId));
+      await tx
+        .update(errorLogs)
+        .set({ resolvedBy: null })
+        .where(eq(errorLogs.resolvedBy, userId));
+      await tx
+        .update(parentConsentRequests)
+        .set({ requestedBy: null })
+        .where(eq(parentConsentRequests.requestedBy, userId));
+      await tx
+        .update(dataSubjectRequests)
+        .set({ reviewedBy: null })
+        .where(eq(dataSubjectRequests.reviewedBy, userId));
+
+      await tx
+        .delete(dataSubjectRequests)
+        .where(eq(dataSubjectRequests.requestedBy, userId));
+      await tx.delete(legalHolds).where(eq(legalHolds.createdBy, userId));
+
+      await tx.update(auditLogs).set({ userId: null }).where(eq(auditLogs.userId, userId));
+      await tx
+        .update(auditLogsArchive)
+        .set({ userId: null })
+        .where(eq(auditLogsArchive.userId, userId));
+      await tx
+        .update(reportHistory)
+        .set({ generatedBy: null })
+        .where(eq(reportHistory.generatedBy, userId));
+      await tx
+        .update(reportPresets)
+        .set({ createdBy: null })
+        .where(eq(reportPresets.createdBy, userId));
+      await tx
+        .update(reportSchedules)
+        .set({ createdBy: null })
+        .where(eq(reportSchedules.createdBy, userId));
+
+      await tx.delete(users).where(eq(users.id, userId));
+    });
+
+    res.json({ success: true, message: "User deleted permanently" });
   } catch (error: any) {
     console.error("Error deleting user:", error);
-
-    const rawMessage = String(error?.message || "").toLowerCase();
-    if (
-      error?.code === "23503" ||
-      rawMessage.includes("foreign key") ||
-      rawMessage.includes("violates foreign key constraint") ||
-      rawMessage.includes("constraint failed")
-    ) {
-      return res.status(409).json({
-        success: false,
-        message:
-          "Cannot delete this user because it is still linked to schedules, reports, or other records.",
-      });
-    }
 
     res.status(500).json({ success: false, message: "Failed to delete user" });
   }
