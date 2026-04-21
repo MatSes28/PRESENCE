@@ -200,11 +200,14 @@ export const UserManagement: React.FC = () => {
       }
     } catch (error) {
       console.error("Failed to delete user:", error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to delete user. Please check your connection and try again.";
       addNotification({
         type: "error",
-        title: "Network Error",
-        message:
-          "Failed to delete user. Please check your connection and try again.",
+        title: "Delete Failed",
+        message,
       });
     } finally {
       setDeleting(null);

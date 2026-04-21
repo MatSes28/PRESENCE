@@ -188,8 +188,17 @@ router.delete("/:id", requireAdmin, async (req, res) => {
     await db.delete(users).where(eq(users.id, userId));
 
     res.json({ success: true, message: "User deleted successfully" });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error deleting user:", error);
+
+    if (error?.code === "23503") {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Cannot delete this user because it is still linked to schedules, reports, or other records.",
+      });
+    }
+
     res.status(500).json({ success: false, message: "Failed to delete user" });
   }
 });
