@@ -34,18 +34,38 @@ const toSafeUser = (user: any) => {
   return safeUser;
 };
 
-const isMissingTableError = (error: unknown) => {
+const isSkippableCleanupError = (error: unknown) => {
   const message =
     error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
 
-  return message.includes("no such table") || message.includes("does not exist");
+  return (
+    message.includes("no such table") ||
+    message.includes("does not exist") ||
+    message.includes("column") && message.includes("does not exist") ||
+    code === "42P01" || // postgres undefined_table
+    code === "42703" // postgres undefined_column
+  );
 };
 
-const runIfTableExists = async (operation: () => Promise<void>) => {
+const runOptionalCleanup = async (
+  label: string,
+  operation: () => Promise<void>,
+) => {
   try {
     await operation();
   } catch (error) {
-    if (isMissingTableError(error)) {
+    if (isSkippableCleanupError(error)) {
+      console.warn(`Skipping optional user cleanup step: ${label}`, {
+        message: error instanceof Error ? error.message : String(error),
+        code:
+          error && typeof error === "object" && "code" in error
+            ? (error as { code?: unknown }).code
+            : undefined,
+      });
       return;
     }
 
@@ -90,7 +110,7 @@ const deleteUserAssociations = async (executor: typeof db, userId: number) => {
     await executor.delete(schedules).where(inArray(schedules.id, scheduleIds));
   }
 
-  await runIfTableExists(async () => {
+  await runOptionalCleanup("subject_sessions", async () => {
     const ownedSubjectSessions = await executor
       .select({ id: subjectSessions.id })
       .from(subjectSessions)
@@ -107,20 +127,20 @@ const deleteUserAssociations = async (executor: typeof db, userId: number) => {
     }
   });
 
-  await runIfTableExists(async () => {
+  await runOptionalCleanup("computer_maintenance", async () => {
     await executor
       .delete(computerMaintenance)
       .where(eq(computerMaintenance.performedBy, userId));
   });
-  await runIfTableExists(async () => {
+  await runOptionalCleanup("push_notifications", async () => {
     await executor
       .delete(pushNotifications)
       .where(eq(pushNotifications.userId, userId));
   });
-  await runIfTableExists(async () => {
+  await runOptionalCleanup("user_sessions", async () => {
     await executor.delete(userSessions).where(eq(userSessions.userId, userId));
   });
-  await runIfTableExists(async () => {
+  await runOptionalCleanup("push_subscriptions", async () => {
     await executor
       .delete(pushSubscriptions)
       .where(eq(pushSubscriptions.userId, userId));
@@ -134,40 +154,56 @@ const deleteUserAssociations = async (executor: typeof db, userId: number) => {
     .update(errorLogs)
     .set({ resolvedBy: null })
     .where(eq(errorLogs.resolvedBy, userId));
-  await executor
-    .update(parentConsentRequests)
-    .set({ requestedBy: null })
-    .where(eq(parentConsentRequests.requestedBy, userId));
-  await executor
-    .update(dataSubjectRequests)
-    .set({ reviewedBy: null })
-    .where(eq(dataSubjectRequests.reviewedBy, userId));
+  await runOptionalCleanup("parent_consent_requests", async () => {
+    await executor
+      .update(parentConsentRequests)
+      .set({ requestedBy: null })
+      .where(eq(parentConsentRequests.requestedBy, userId));
+  });
+  await runOptionalCleanup("data_subject_requests.reviewed_by", async () => {
+    await executor
+      .update(dataSubjectRequests)
+      .set({ reviewedBy: null })
+      .where(eq(dataSubjectRequests.reviewedBy, userId));
+  });
 
-  await executor
-    .delete(dataSubjectRequests)
-    .where(eq(dataSubjectRequests.requestedBy, userId));
-  await executor.delete(legalHolds).where(eq(legalHolds.createdBy, userId));
+  await runOptionalCleanup("data_subject_requests.requested_by", async () => {
+    await executor
+      .delete(dataSubjectRequests)
+      .where(eq(dataSubjectRequests.requestedBy, userId));
+  });
+  await runOptionalCleanup("legal_holds", async () => {
+    await executor.delete(legalHolds).where(eq(legalHolds.createdBy, userId));
+  });
 
   await executor
     .update(auditLogs)
     .set({ userId: null })
     .where(eq(auditLogs.userId, userId));
-  await executor
-    .update(auditLogsArchive)
-    .set({ userId: null })
-    .where(eq(auditLogsArchive.userId, userId));
-  await executor
-    .update(reportHistory)
-    .set({ generatedBy: null })
-    .where(eq(reportHistory.generatedBy, userId));
-  await executor
-    .update(reportPresets)
-    .set({ createdBy: null })
-    .where(eq(reportPresets.createdBy, userId));
-  await executor
-    .update(reportSchedules)
-    .set({ createdBy: null })
-    .where(eq(reportSchedules.createdBy, userId));
+  await runOptionalCleanup("audit_logs_archive", async () => {
+    await executor
+      .update(auditLogsArchive)
+      .set({ userId: null })
+      .where(eq(auditLogsArchive.userId, userId));
+  });
+  await runOptionalCleanup("report_history", async () => {
+    await executor
+      .update(reportHistory)
+      .set({ generatedBy: null })
+      .where(eq(reportHistory.generatedBy, userId));
+  });
+  await runOptionalCleanup("report_presets", async () => {
+    await executor
+      .update(reportPresets)
+      .set({ createdBy: null })
+      .where(eq(reportPresets.createdBy, userId));
+  });
+  await runOptionalCleanup("report_schedules", async () => {
+    await executor
+      .update(reportSchedules)
+      .set({ createdBy: null })
+      .where(eq(reportSchedules.createdBy, userId));
+  });
 };
 
 // GET /api/users - Get all users (admin only)
@@ -356,7 +392,16 @@ router.delete("/:id", requireAdmin, async (req, res) => {
 
     res.json({ success: true, message: "User deleted permanently" });
   } catch (error: any) {
-    console.error("Error deleting user:", error);
+    console.error("Error deleting user:", {
+      message: error?.message,
+      code: error?.code,
+      detail: error?.detail,
+      table: error?.table,
+      constraint: error?.constraint,
+      column: error?.column,
+      where: error?.where,
+      stack: error?.stack,
+    });
 
     res.status(500).json({ success: false, message: "Failed to delete user" });
   }
