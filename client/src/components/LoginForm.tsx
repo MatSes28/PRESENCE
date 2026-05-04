@@ -24,10 +24,6 @@ export const LoginForm = () => {
 
     if (success) {
       setLoginSuccess(true);
-      // Redirect to dashboard after successful login
-      setTimeout(() => {
-        setLocation("/");
-      }, 1000); // Small delay to show success message
     }
   };
 

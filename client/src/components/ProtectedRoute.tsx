@@ -1,4 +1,6 @@
 import React from "react";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "../hooks/useAuth";
 
 interface ProtectedRouteProps {
@@ -11,25 +13,26 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles,
 }) => {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!user) {
+      const redirect = `${window.location.pathname}${window.location.search}`;
+      setLocation(`/login?redirect=${encodeURIComponent(redirect)}`);
+      return;
+    }
+
+    if (!allowedRoles.includes(user.role as "admin" | "faculty")) {
+      setLocation("/");
+    }
+  }, [user, allowedRoles, setLocation]);
 
   if (!user) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-        <p className="text-gray-600">Please log in to access this page.</p>
-      </div>
-    );
+    return null;
   }
 
   if (!allowedRoles.includes(user.role as "admin" | "faculty")) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-        <p className="text-gray-600">
-          You don't have permission to access this page.
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return <>{children}</>;

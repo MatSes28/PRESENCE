@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import { useNotifications } from "../components/NotificationSystem";
@@ -21,6 +22,7 @@ interface User {
 
 export const UserManagement: React.FC = () => {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const { addNotification } = useNotifications();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,6 +72,12 @@ export const UserManagement: React.FC = () => {
       loadUsers();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user && user.role !== "admin") {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
 
   const loadUsers = async () => {
     try {
@@ -247,14 +255,7 @@ export const UserManagement: React.FC = () => {
   };
 
   if (user?.role !== "admin") {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-white mb-4">Access Denied</h2>
-        <p className="text-gray-400">
-          You don't have permission to access this page.
-        </p>
-      </div>
-    );
+    return null;
   }
 
   if (loading) {

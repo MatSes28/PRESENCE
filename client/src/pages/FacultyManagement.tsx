@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import { useNotifications } from "../components/NotificationSystem";
@@ -14,6 +15,7 @@ interface User {
 
 export const FacultyManagement = () => {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const { addNotification } = useNotifications();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,21 +35,15 @@ export const FacultyManagement = () => {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    if (user && user.role !== "admin") {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
   // Check if current user is admin
   if (user?.role !== "admin") {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🚫</div>
-          <h3 className="text-xl font-semibold text-white mb-2">
-            Access Denied
-          </h3>
-          <p className="text-gray-400">
-            You need administrator privileges to access this page.
-          </p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const fetchUsers = async () => {

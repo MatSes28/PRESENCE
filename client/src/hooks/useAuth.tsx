@@ -82,20 +82,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const checkAuthStatus = async () => {
-    if (localStorage.getItem(AUTH_SESSION_MARKER) !== "true") {
-      setLoading(false);
-      return;
-    }
-
     try {
       const response = await api.getCurrentUser();
       if (response.success && response.data) {
+        localStorage.setItem(AUTH_SESSION_MARKER, "true");
         setUser(response.data as User);
         // Connect to WebSocket with user ID
         await connectWebSocket((response.data as User).id);
+      } else {
+        localStorage.removeItem(AUTH_SESSION_MARKER);
+        setUser(null);
       }
     } catch (err) {
       localStorage.removeItem(AUTH_SESSION_MARKER);
+      setUser(null);
     } finally {
       setLoading(false);
     }

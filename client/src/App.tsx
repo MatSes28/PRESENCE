@@ -81,6 +81,38 @@ const IoTDevices = lazy(() =>
 );
 
 const CHUNK_RELOAD_KEY = "presence:chunk-reload-attempted";
+const PUBLIC_PATHS = new Set(["/login", "/forgot-password", "/reset-password"]);
+
+const isPublicPath = (path: string) => PUBLIC_PATHS.has(path);
+
+const getCurrentPathWithSearch = () => {
+  if (typeof window === "undefined") {
+    return "/";
+  }
+
+  return `${window.location.pathname}${window.location.search}`;
+};
+
+const getPostLoginRedirectPath = () => {
+  if (typeof window === "undefined") {
+    return "/";
+  }
+
+  const redirect = new URLSearchParams(window.location.search).get("redirect");
+  if (!redirect || !redirect.startsWith("/")) {
+    return "/";
+  }
+
+  return redirect;
+};
+
+const buildLoginPath = (redirectPath: string) => {
+  if (!redirectPath || !redirectPath.startsWith("/")) {
+    return "/login";
+  }
+
+  return `/login?redirect=${encodeURIComponent(redirectPath)}`;
+};
 
 const isDynamicImportError = (error: unknown) => {
   const message =
@@ -143,15 +175,22 @@ function AppContent() {
   const { addNotification } = useNotifications();
   const [location, setLocation] = useLocation();
 
+  const redirectToLogin = (targetPath: string) => {
+    setLocation(buildLoginPath(targetPath));
+  };
+
   // 10-minute inactivity auto-logout: show message then logout
   const handleInactivityLogout = () => {
+    const currentPath = getCurrentPathWithSearch();
     addNotification({
       type: "info",
       title: "Session expired",
       message:
         "You have been logged out due to 10 minutes of inactivity. Please sign in again.",
     });
-    logout();
+    void logout().finally(() => {
+      redirectToLogin(currentPath);
+    });
   };
   useInactivityLogout(!!user, handleInactivityLogout);
 
@@ -159,16 +198,19 @@ function AppContent() {
   useEffect(() => {
     if (user) {
       setOn401(() => {
+        const currentPath = getCurrentPathWithSearch();
         addNotification({
           type: "info",
           title: "Session expired",
           message: "Your session has expired. Please sign in again.",
         });
-        logout();
+        void logout().finally(() => {
+          redirectToLogin(currentPath);
+        });
       });
     }
     return () => setOn401(null);
-  }, [user, logout, addNotification]);
+  }, [user, logout, addNotification, setLocation]);
 
   useEffect(() => {
     const handleChunkFailure = (event: PromiseRejectionEvent) => {
@@ -183,10 +225,20 @@ function AppContent() {
       window.removeEventListener("unhandledrejection", handleChunkFailure);
   }, []);
 
-  // Handle redirect after successful login
+  // Keep auth routing explicit so protected pages always land on /login when the
+  // user/session disappears instead of rendering stale page content.
   useEffect(() => {
-    if (!loading && user && (location === "/login" || location === "*")) {
-      setLocation("/");
+    if (loading) {
+      return;
+    }
+
+    if (!user && !isPublicPath(location)) {
+      redirectToLogin(getCurrentPathWithSearch());
+      return;
+    }
+
+    if (user && isPublicPath(location)) {
+      setLocation(getPostLoginRedirectPath());
     }
   }, [user, loading, location, setLocation]);
 

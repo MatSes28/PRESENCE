@@ -101,7 +101,7 @@ export const ForgotPassword = () => {
 
             <div className="text-center">
               <button
-                onClick={() => setLocation("/")}
+                onClick={() => setLocation("/login")}
                 className="flex w-full justify-center rounded-lg border border-transparent bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:scale-105 hover:from-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Back to Login

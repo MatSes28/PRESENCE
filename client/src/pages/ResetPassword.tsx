@@ -60,7 +60,7 @@ export const ResetPassword = () => {
       if (response.success) {
         setSuccess(true);
         setTimeout(() => {
-          setLocation("/");
+          setLocation("/login");
         }, 3000);
       } else {
         setError(response.message || "Failed to reset password");
@@ -308,13 +308,13 @@ export const ResetPassword = () => {
             </div>
 
             <div className="text-center">
-              <button
-                type="button"
-                className="text-teal-400 hover:text-teal-300 text-sm"
-                onClick={() => setLocation("/")}
-              >
-                ← Back to Login
-              </button>
+                <button
+                  type="button"
+                  className="text-teal-400 hover:text-teal-300 text-sm"
+                  onClick={() => setLocation("/login")}
+                >
+                  ← Back to Login
+                </button>
             </div>
           </form>
         </div>

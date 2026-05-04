@@ -20,6 +20,28 @@ const DashboardCharts = lazy(
 const isDocumentHidden = () =>
   typeof document !== "undefined" && document.visibilityState === "hidden";
 
+const DASHBOARD_TAB_STORAGE_KEY = "presence.dashboard.activeTab";
+const DASHBOARD_TABS = new Set([
+  "overview",
+  "analytics",
+  "security",
+  "performance",
+  "rfid-tools",
+]);
+
+const getInitialDashboardTab = () => {
+  if (typeof window === "undefined") {
+    return "overview";
+  }
+
+  const storedTab = sessionStorage.getItem(DASHBOARD_TAB_STORAGE_KEY);
+  if (storedTab && DASHBOARD_TABS.has(storedTab)) {
+    return storedTab;
+  }
+
+  return "overview";
+};
+
 // Enhanced Dashboard with Statistics Cards and Tabs
 // Main Dashboard interface with comprehensive management features
 
@@ -38,7 +60,7 @@ export const Dashboard = () => {
   const { user } = useAuth();
   const { addNotification } = useNotifications();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(getInitialDashboardTab);
   const [realTimeData, setRealTimeData] = useState<any[]>([]);
   const [deviceStatus, setDeviceStatus] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
@@ -86,6 +108,10 @@ export const Dashboard = () => {
   const [rfidEmergencyActive, setRfidEmergencyActive] = useState(false);
   const [rfidCalibrationLast, setRfidCalibrationLast] = useState<string | null>(null);
   const [showEmergencyStopConfirm, setShowEmergencyStopConfirm] = useState(false);
+
+  useEffect(() => {
+    sessionStorage.setItem(DASHBOARD_TAB_STORAGE_KEY, activeTab);
+  }, [activeTab]);
 
   // Data persistence keys
   const STORAGE_KEYS = {
