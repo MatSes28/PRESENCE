@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import db from "../storage.js";
 import {
   users,
@@ -77,6 +77,80 @@ const isSqliteRuntime =
   !!dbClient &&
   typeof dbClient.prepare === "function" &&
   typeof dbClient.exec === "function";
+
+const quoteIdentifier = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
+
+const cleanupRemainingUserReferences = async (
+  executor: typeof db,
+  userId: number,
+) => {
+  if (isSqliteRuntime) {
+    return;
+  }
+
+  const references = (await (executor as any).execute(sql.raw(`
+    SELECT
+      tc.table_name,
+      kcu.column_name,
+      cols.is_nullable,
+      rc.delete_rule
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu
+      ON tc.constraint_name = kcu.constraint_name
+     AND tc.table_schema = kcu.table_schema
+    JOIN information_schema.constraint_column_usage ccu
+      ON ccu.constraint_name = tc.constraint_name
+     AND ccu.table_schema = tc.table_schema
+    JOIN information_schema.referential_constraints rc
+      ON rc.constraint_name = tc.constraint_name
+     AND rc.constraint_schema = tc.table_schema
+    JOIN information_schema.columns cols
+      ON cols.table_schema = tc.table_schema
+     AND cols.table_name = tc.table_name
+     AND cols.column_name = kcu.column_name
+    WHERE tc.constraint_type = 'FOREIGN KEY'
+      AND tc.table_schema = 'public'
+      AND ccu.table_schema = 'public'
+      AND ccu.table_name = 'users'
+      AND ccu.column_name = 'id'
+  `))) as Array<{
+    table_name: string;
+    column_name: string;
+    is_nullable: "YES" | "NO";
+    delete_rule: string;
+  }>;
+
+  for (const reference of references) {
+    const tableName = reference.table_name;
+    const columnName = reference.column_name;
+    const deleteRule = String(reference.delete_rule || "").toUpperCase();
+    const isNullable = reference.is_nullable === "YES";
+
+    // Already handled or safe to let the FK do the work.
+    if (deleteRule === "CASCADE" || deleteRule === "SET NULL") {
+      continue;
+    }
+
+    const qualifiedTable = `${quoteIdentifier("public")}.${quoteIdentifier(tableName)}`;
+    const qualifiedColumn = quoteIdentifier(columnName);
+
+    await runOptionalCleanup(`dynamic_fk_cleanup:${tableName}.${columnName}`, async () => {
+      if (isNullable) {
+        await (executor as any).execute(
+          sql.raw(
+            `UPDATE ${qualifiedTable} SET ${qualifiedColumn} = NULL WHERE ${qualifiedColumn} = ${userId}`,
+          ),
+        );
+      } else {
+        await (executor as any).execute(
+          sql.raw(
+            `DELETE FROM ${qualifiedTable} WHERE ${qualifiedColumn} = ${userId}`,
+          ),
+        );
+      }
+    });
+  }
+};
 
 const deleteUserAssociations = async (executor: typeof db, userId: number) => {
   const ownedSchedules = await executor
@@ -204,6 +278,8 @@ const deleteUserAssociations = async (executor: typeof db, userId: number) => {
       .set({ createdBy: null })
       .where(eq(reportSchedules.createdBy, userId));
   });
+
+  await cleanupRemainingUserReferences(executor, userId);
 };
 
 // GET /api/users - Get all users (admin only)
