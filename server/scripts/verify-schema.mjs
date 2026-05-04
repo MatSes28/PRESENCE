@@ -40,6 +40,11 @@ async function main() {
   // Sessions for connect-pg-simple (required for multi-instance deployments).
   await requireTable("session");
 
+  // Reporting features and user-deletion cleanup paths.
+  await requireTable("report_history");
+  await requireTable("report_presets");
+  await requireTable("report_schedules");
+
   console.log("✅ Schema verification passed (required tables present)");
 }
 
