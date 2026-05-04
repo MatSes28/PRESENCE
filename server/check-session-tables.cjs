@@ -3,13 +3,15 @@
  */
 
 const postgres = require("postgres");
-
-const GONDOLA_DATABASE_URL =
-  "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
+const {
+  getRequiredDatabaseUrl,
+  getDatabaseLabel,
+} = require("./scripts/database-url-utils.cjs");
 
 async function checkSessionTables() {
-  console.log("🔌 Connecting to Gondola...");
-  const sql = postgres(GONDOLA_DATABASE_URL);
+  const databaseUrl = getRequiredDatabaseUrl();
+  console.log(`🔌 Connecting to ${getDatabaseLabel(databaseUrl)}...`);
+  const sql = postgres(databaseUrl);
 
   try {
     // Check ALL tables with "session" in the name

@@ -1,8 +1,10 @@
 const { Pool } = require("pg");
+const {
+  getRequiredDatabaseUrl,
+} = require("./scripts/database-url-utils.cjs");
 
 const pool = new Pool({
-  connectionString:
-    "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway",
+  connectionString: getRequiredDatabaseUrl(),
 });
 
 async function migrate() {

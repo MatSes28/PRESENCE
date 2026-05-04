@@ -1,44 +1,27 @@
--- Migration: Create session table for connect-pg-simple
--- This table is required for express-session storage
--- Run this after the main tables are created
+-- Migration: align user_sessions for connect-pg-simple
+-- Runtime stores Express sessions in user_sessions, not a separate session table.
 
--- Create the session table for connect-pg-simple
--- Using a different name to avoid conflict with user_sessions table
-CREATE TABLE IF NOT EXISTS "session" (
-    "sid" varchar NOT NULL COLLATE "default",
-    "sess" json NOT NULL,
-    "expire" timestamp(6) NOT NULL,
-    PRIMARY KEY ("sid")
-);
+ALTER TABLE "user_sessions" ADD COLUMN IF NOT EXISTS "sid" varchar;
+--> statement-breakpoint
+ALTER TABLE "user_sessions" ADD COLUMN IF NOT EXISTS "sess" json;
+--> statement-breakpoint
+ALTER TABLE "user_sessions" ADD COLUMN IF NOT EXISTS "expire" timestamp(6);
+--> statement-breakpoint
 
--- Create index on expire for faster cleanup of expired sessions
-CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+ALTER TABLE "user_sessions" ALTER COLUMN "user_id" DROP NOT NULL;
+--> statement-breakpoint
+ALTER TABLE "user_sessions" ALTER COLUMN "ip_address" DROP NOT NULL;
+--> statement-breakpoint
+ALTER TABLE "user_sessions" ALTER COLUMN "expires_at" DROP NOT NULL;
+--> statement-breakpoint
+ALTER TABLE "user_sessions" ALTER COLUMN "session_id" DROP NOT NULL;
+--> statement-breakpoint
 
--- Add comment for documentation
-COMMENT ON TABLE "session" IS 'Express session storage table for connect-pg-simple';
+ALTER TABLE "user_sessions" DROP CONSTRAINT IF EXISTS "session_sid_key";
+--> statement-breakpoint
+ALTER TABLE "user_sessions" ADD CONSTRAINT "session_sid_key" UNIQUE ("sid");
+--> statement-breakpoint
 
--- Also ensure user_sessions table has the correct structure if it exists
--- This handles the case where the table exists but may have issues
-
-DO $$
-BEGIN
-    -- Check if user_sessions exists and add any missing columns
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_sessions' AND table_schema = 'public') THEN
-        -- Add user_id column if it doesn't exist (for metrics queries)
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_sessions' AND column_name = 'user_id') THEN
-            ALTER TABLE user_sessions ADD COLUMN user_id INTEGER REFERENCES users(id);
-        END IF;
-        
-        -- Add is_active column if it doesn't exist
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_sessions' AND column_name = 'is_active') THEN
-            ALTER TABLE user_sessions ADD COLUMN is_active BOOLEAN DEFAULT true;
-        END IF;
-    END IF;
-END $$;
-
--- Enable pg_stat_statements extension if not already enabled
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
-
--- Grant necessary permissions
-GRANT ALL PRIVILEGES ON TABLE "session" TO PUBLIC;
-GRANT ALL PRIVILEGES ON TABLE "user_sessions" TO PUBLIC;
+DROP INDEX IF EXISTS "user_sessions_expire_idx";
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "user_sessions_expire_idx" ON "user_sessions" ("expire");

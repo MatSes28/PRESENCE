@@ -3,21 +3,23 @@
  */
 
 const postgres = require("postgres");
-
-const GONDOLA_DATABASE_URL =
-  "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
+const {
+  getRequiredDatabaseUrl,
+  getDatabaseLabel,
+} = require("./scripts/database-url-utils.cjs");
 
 async function deepCheck() {
-  console.log("🔌 Connecting to Gondola...");
-  const sql = postgres(GONDOLA_DATABASE_URL);
+  const databaseUrl = getRequiredDatabaseUrl();
+  console.log(`🔌 Connecting to ${getDatabaseLabel(databaseUrl)}...`);
+  const sql = postgres(databaseUrl);
 
   try {
-    // Check session table details
-    console.log("\n📋 Session table details:");
+    // Check user_sessions table details
+    console.log("\n📋 user_sessions table details:");
     const sessionInfo = await sql`
       SELECT column_name, data_type, is_nullable, column_default
       FROM information_schema.columns 
-      WHERE table_name = 'session' AND table_schema = 'public'
+      WHERE table_name = 'user_sessions' AND table_schema = 'public'
       ORDER BY ordinal_position
     `;
 
@@ -28,10 +30,10 @@ async function deepCheck() {
     }
 
     // Try to manually query the session table
-    console.log("\n🔍 Testing session table query...");
+    console.log("\n🔍 Testing user_sessions table query...");
     try {
       const testQuery =
-        await sql`SELECT sid, sess, expire FROM "session" LIMIT 1`;
+        await sql`SELECT sid, sess, expire FROM "user_sessions" LIMIT 1`;
       console.log("   ✅ Query successful!");
       console.log(`   Rows: ${testQuery.length}`);
     } catch (qerr) {
@@ -39,11 +41,11 @@ async function deepCheck() {
     }
 
     // Check indexes
-    console.log("\n📊 Indexes on session table:");
+    console.log("\n📊 Indexes on user_sessions table:");
     const indexes = await sql`
       SELECT indexname, indexdef
       FROM pg_indexes
-      WHERE tablename = 'session'
+      WHERE tablename = 'user_sessions'
     `;
     for (const idx of indexes) {
       console.log(`   ${idx.indexname}`);

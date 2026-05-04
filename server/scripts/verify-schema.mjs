@@ -33,12 +33,28 @@ async function requireTable(tableName) {
   }
 }
 
+async function requireColumns(tableName, columnNames) {
+  const rows = await sql`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = ${tableName}
+  `;
+
+  const available = new Set(rows.map((row) => row.column_name));
+  for (const columnName of columnNames) {
+    if (!available.has(columnName)) {
+      throw new Error(`Missing required column: ${tableName}.${columnName}`);
+    }
+  }
+}
+
 async function main() {
   // Critical security flows.
   await requireTable("password_reset_tokens");
 
-  // Sessions for connect-pg-simple (required for multi-instance deployments).
-  await requireTable("session");
+  // Runtime session store for connect-pg-simple.
+  await requireTable("user_sessions");
+  await requireColumns("user_sessions", ["sid", "sess", "expire"]);
 
   // Reporting features and user-deletion cleanup paths.
   await requireTable("report_history");

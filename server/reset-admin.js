@@ -1,9 +1,8 @@
 // Quick script to reset admin password in Railway PostgreSQL
 import postgres from "postgres";
+import { requireEnv } from "./src/config/env.js";
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
+const connectionString = requireEnv("DATABASE_URL");
 
 // Pre-hashed password for "Admin@123" with bcrypt 12 rounds
 const hashedPassword =

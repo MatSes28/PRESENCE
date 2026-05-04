@@ -4,78 +4,81 @@
  */
 
 const postgres = require("postgres");
-
-const HOPPER_DATABASE_URL =
-  "postgresql://postgres:XcHxhpIlNzRbviwtaqaJQiayKtudQbxM@hopper.proxy.rlwy.net:14374/railway";
+const {
+  getRequiredDatabaseUrl,
+  getDatabaseLabel,
+} = require("./scripts/database-url-utils.cjs");
 
 async function migrate() {
-  console.log("🔌 Connecting to Railway database (hopper)...");
-  const sql = postgres(HOPPER_DATABASE_URL);
+  const databaseUrl = getRequiredDatabaseUrl();
+  console.log(`🔌 Connecting to Railway database (${getDatabaseLabel(databaseUrl)})...`);
+  const sql = postgres(databaseUrl);
 
   try {
     // Check current users count
     const userCount = await sql`SELECT COUNT(*) as count FROM users`;
     console.log(`📊 Current users in database: ${userCount[0].count}`);
 
-    // ===== 1. Fix SESSION table for connect-pg-simple =====
-    console.log("\n🔧 Fixing session table...");
+    // ===== 1. Fix user_sessions for connect-pg-simple =====
+    console.log("\n🔧 Fixing user_sessions table...");
 
     // Check if session table exists
     const sessionTable = await sql`
       SELECT table_name 
       FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_name = 'session'
+      WHERE table_schema = 'public' AND table_name = 'user_sessions'
     `;
 
     if (sessionTable.length === 0) {
-      console.log("   Creating session table...");
-      await sql`
-        CREATE TABLE "session" (
-          "sid" character varying NOT NULL,
-          "sess" json NOT NULL,
-          "expire" timestamp(6) NOT NULL,
-          PRIMARY KEY ("sid")
-        )
-      `;
-      await sql`CREATE INDEX "IDX_session_expire" ON "session" ("expire")`;
-      console.log("   ✅ Session table created");
+      throw new Error("user_sessions table is missing");
     } else {
-      console.log("   Session table exists, checking columns...");
+      console.log("   user_sessions table exists, checking columns...");
 
       // Check for sess column
       const sessCol = await sql`
         SELECT column_name 
         FROM information_schema.columns 
-        WHERE table_name = 'session' AND column_name = 'sess'
+        WHERE table_name = 'user_sessions' AND column_name = 'sess'
       `;
 
       if (sessCol.length === 0) {
         console.log("   Adding sess column...");
-        await sql`ALTER TABLE "session" ADD COLUMN "sess" json NOT NULL DEFAULT '{}'`;
+        await sql`ALTER TABLE "user_sessions" ADD COLUMN "sess" json`;
       }
 
       // Check for expire column
       const expireCol = await sql`
         SELECT column_name 
         FROM information_schema.columns 
-        WHERE table_name = 'session' AND column_name = 'expire'
+        WHERE table_name = 'user_sessions' AND column_name = 'expire'
       `;
 
       if (expireCol.length === 0) {
         console.log("   Adding expire column...");
-        await sql`ALTER TABLE "session" ADD COLUMN "expire" timestamp(6) NOT NULL DEFAULT NOW()`;
+        await sql`ALTER TABLE "user_sessions" ADD COLUMN "expire" timestamp(6)`;
+      }
+
+      const sidCol = await sql`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'user_sessions' AND column_name = 'sid'
+      `;
+
+      if (sidCol.length === 0) {
+        console.log("   Adding sid column...");
+        await sql`ALTER TABLE "user_sessions" ADD COLUMN "sid" character varying`;
       }
 
       // Create index if not exists
       const indexExists = await sql`
         SELECT indexname 
         FROM pg_indexes 
-        WHERE indexname = 'IDX_session_expire'
+        WHERE indexname = 'user_sessions_expire_idx'
       `;
 
       if (indexExists.length === 0) {
         console.log("   Creating expire index...");
-        await sql`CREATE INDEX "IDX_session_expire" ON "session" ("expire")`;
+        await sql`CREATE INDEX "user_sessions_expire_idx" ON "user_sessions" ("expire")`;
       }
 
       console.log("   ✅ Session table fixed");

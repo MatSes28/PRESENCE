@@ -1,8 +1,10 @@
 const { Pool } = require("pg");
+const {
+  getRequiredDatabaseUrl,
+} = require("./scripts/database-url-utils.cjs");
 
 const pool = new Pool({
-  connectionString:
-    "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway",
+  connectionString: getRequiredDatabaseUrl(),
 });
 
 async function checkTables() {
@@ -15,13 +17,6 @@ async function checkTables() {
       "SELECT column_name FROM information_schema.columns WHERE table_name = 'user_sessions' ORDER BY ordinal_position",
     );
     console.log(us.rows.map((r) => r.column_name).join(", "));
-
-    // Check session table
-    console.log("\n=== session ===");
-    const sess = await client.query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'session' ORDER BY ordinal_position",
-    );
-    console.log(sess.rows.map((r) => r.column_name).join(", "));
 
     // Check error_logs table
     console.log("\n=== error_logs ===");

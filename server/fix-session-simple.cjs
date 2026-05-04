@@ -2,10 +2,11 @@
 // Run with: node server/fix-session-simple.cjs
 
 const { Client } = require("pg");
+const {
+  getRequiredDatabaseUrl,
+} = require("./scripts/database-url-utils.cjs");
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
+const DATABASE_URL = getRequiredDatabaseUrl();
 
 async function runMigration() {
   const client = new Client({
@@ -19,50 +20,46 @@ async function runMigration() {
     await client.connect();
     console.log("Connected!\n");
 
-    // 1. Check and fix session table
-    console.log("=== Checking session table ===");
+    // 1. Check and fix user_sessions table
+    console.log("=== Checking user_sessions table ===");
 
     // Check if session table exists
     const tableCheck = await client.query(`
       SELECT table_name FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_name = 'session'
+      WHERE table_schema = 'public' AND table_name = 'user_sessions'
     `);
 
     if (tableCheck.rows.length === 0) {
-      console.log("Creating session table...");
-      await client.query(`
-        CREATE TABLE "session" (
-          "sid" varchar NOT NULL COLLATE "default",
-          "sess" json NOT NULL,
-          "expire" timestamp(6) NOT NULL,
-          PRIMARY KEY ("sid")
-        )
-      `);
-      console.log("✓ Created session table");
-
-      // Create index
-      await client.query(
-        `CREATE INDEX "IDX_session_expire" ON "session" ("expire")`,
-      );
-      console.log("✓ Created index on session.expire");
+      console.log("❌ user_sessions table does not exist");
+      throw new Error("user_sessions table is missing");
     } else {
-      console.log("Session table exists, checking columns...");
+      console.log("user_sessions table exists, checking columns...");
 
-      // Check if sess column exists
-      const colCheck = await client.query(`
-        SELECT column_name FROM information_schema.columns 
-        WHERE table_schema = 'public' AND table_name = 'session' AND column_name = 'sess'
-      `);
+      const requiredColumns = [
+        ['sid', `ALTER TABLE "user_sessions" ADD COLUMN "sid" varchar`],
+        ['sess', `ALTER TABLE "user_sessions" ADD COLUMN "sess" json`],
+        ['expire', `ALTER TABLE "user_sessions" ADD COLUMN "expire" timestamp(6)`],
+      ];
 
-      if (colCheck.rows.length === 0) {
-        console.log("Adding sess column...");
-        await client.query(
-          `ALTER TABLE "session" ADD COLUMN "sess" json NOT NULL DEFAULT '{}'`,
-        );
-        console.log("✓ Added sess column");
-      } else {
-        console.log("✓ sess column already exists");
+      for (const [columnName, statement] of requiredColumns) {
+        const colCheck = await client.query(`
+          SELECT column_name FROM information_schema.columns 
+          WHERE table_schema = 'public' AND table_name = 'user_sessions' AND column_name = '${columnName}'
+        `);
+
+        if (colCheck.rows.length === 0) {
+          console.log(`Adding ${columnName} column...`);
+          await client.query(statement);
+          console.log(`✓ Added ${columnName} column`);
+        } else {
+          console.log(`✓ ${columnName} column already exists`);
+        }
       }
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS "user_sessions_expire_idx" ON "user_sessions" ("expire")
+      `);
+      console.log("✓ Ensured index on user_sessions.expire");
     }
 
     // 2. Fix error_logs table
