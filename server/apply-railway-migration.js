@@ -22,50 +22,45 @@ async function fixDatabase() {
   });
 
   try {
-    // 1. Check and create session table with correct schema for connect-pg-simple
-    console.log("\n📋 Checking 'session' table...");
+    // 1. Check and align user_sessions for connect-pg-simple
+    console.log("\n📋 Checking 'user_sessions' table...");
     const sessionTableExists = await sql`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' AND table_name = 'session'
+        WHERE table_schema = 'public' AND table_name = 'user_sessions'
       ) as exists
     `;
 
     if (!sessionTableExists[0].exists) {
-      console.log("➕ Creating 'session' table...");
-      await sql`
-        CREATE TABLE "session" (
-          "sid" varchar NOT NULL COLLATE "default",
-          "sess" json NOT NULL,
-          "expire" timestamp(6) NOT NULL,
-          PRIMARY KEY ("sid")
-        )
-      `;
-      console.log("✅ Created 'session' table");
-
-      await sql`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")`;
-      console.log("✅ Created index");
+      throw new Error("Missing user_sessions table");
     } else {
-      console.log("✅ 'session' table already exists");
+      console.log("✅ 'user_sessions' table already exists");
 
-      // Check if sess and expire columns exist
+      // Check if connect-pg-simple columns exist
       const sessionColumns = await sql`
         SELECT column_name 
         FROM information_schema.columns 
-        WHERE table_name = 'session'
+        WHERE table_name = 'user_sessions'
       `;
       const sessionCols = sessionColumns.map((c) => c.column_name);
-      console.log("Session columns:", sessionCols.join(", "));
+      console.log("user_sessions columns:", sessionCols.join(", "));
+
+      if (!sessionCols.includes("sid")) {
+        console.log("➕ Adding 'sid' column...");
+        await sql`ALTER TABLE "user_sessions" ADD COLUMN "sid" varchar`;
+      }
 
       if (!sessionCols.includes("sess")) {
         console.log("➕ Adding 'sess' column...");
-        await sql`ALTER TABLE "session" ADD COLUMN "sess" json NOT NULL DEFAULT '{}'`;
+        await sql`ALTER TABLE "user_sessions" ADD COLUMN "sess" json`;
       }
 
       if (!sessionCols.includes("expire")) {
         console.log("➕ Adding 'expire' column...");
-        await sql`ALTER TABLE "session" ADD COLUMN "expire" timestamp(6) NOT NULL DEFAULT NOW()`;
+        await sql`ALTER TABLE "user_sessions" ADD COLUMN "expire" timestamp(6)`;
       }
+
+      await sql`CREATE INDEX IF NOT EXISTS "user_sessions_expire_idx" ON "user_sessions" ("expire")`;
     }
 
     // 2. Check current error_logs structure

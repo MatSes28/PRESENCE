@@ -1,5 +1,5 @@
 // Migration script to fix Railway PostgreSQL database schema issues
-// Fixes: session table missing 'sess' column for connect-pg-simple
+// Fixes: user_sessions missing connect-pg-simple columns
 // Fixes: error_logs table missing 'session_id' column
 
 import postgres from "postgres";
@@ -18,57 +18,84 @@ async function runMigrations() {
   console.log("Starting database migrations...\n");
 
   try {
-    // 1. Check and create/fix session table for connect-pg-simple
-    console.log("Checking session table...");
+    // 1. Check and align user_sessions for connect-pg-simple
+    console.log("Checking user_sessions table...");
 
-    // Check if session table exists
+    // Check if user_sessions table exists
     const sessionTableExists = await sql`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = 'public' 
-        AND table_name = 'session'
+        AND table_name = 'user_sessions'
       ) as exists;
     `;
 
     if (!sessionTableExists[0].exists) {
-      console.log("Creating session table...");
-      await sql`
-        CREATE TABLE "session" (
-          "sid" varchar NOT NULL COLLATE "default",
-          "sess" json NOT NULL,
-          "expire" timestamp(6) NOT NULL,
-          PRIMARY KEY ("sid")
-        );
-      `;
-      console.log("✓ Created session table");
-
-      // Create index on expire
-      await sql`
-        CREATE INDEX "IDX_session_expire" ON "session" ("expire");
-      `;
-      console.log("✓ Created index on session.expire");
+      throw new Error("user_sessions table is missing");
     } else {
-      console.log("Session table exists, checking columns...");
+      console.log("user_sessions table exists, checking columns...");
 
-      // Check if 'sess' column exists
+      const sidColumnExists = await sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns 
+          WHERE table_schema = 'public' 
+          AND table_name = 'user_sessions'
+          AND column_name = 'sid'
+        ) as exists;
+      `;
+
+      if (!sidColumnExists[0].exists) {
+        console.log("Adding sid column to user_sessions table...");
+        await sql`
+          ALTER TABLE "user_sessions" ADD COLUMN "sid" varchar;
+        `;
+        console.log("✓ Added sid column to user_sessions table");
+      } else {
+        console.log("✓ sid column already exists in user_sessions table");
+      }
+
       const sessColumnExists = await sql`
         SELECT EXISTS (
           SELECT FROM information_schema.columns 
           WHERE table_schema = 'public' 
-          AND table_name = 'session'
+          AND table_name = 'user_sessions'
           AND column_name = 'sess'
         ) as exists;
       `;
 
       if (!sessColumnExists[0].exists) {
-        console.log("Adding sess column to session table...");
+        console.log("Adding sess column to user_sessions table...");
         await sql`
-          ALTER TABLE "session" ADD COLUMN "sess" json NOT NULL DEFAULT '{}';
+          ALTER TABLE "user_sessions" ADD COLUMN "sess" json;
         `;
-        console.log("✓ Added sess column to session table");
+        console.log("✓ Added sess column to user_sessions table");
       } else {
-        console.log("✓ sess column already exists in session table");
+        console.log("✓ sess column already exists in user_sessions table");
       }
+
+      const expireColumnExists = await sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.columns 
+          WHERE table_schema = 'public' 
+          AND table_name = 'user_sessions'
+          AND column_name = 'expire'
+        ) as exists;
+      `;
+
+      if (!expireColumnExists[0].exists) {
+        console.log("Adding expire column to user_sessions table...");
+        await sql`
+          ALTER TABLE "user_sessions" ADD COLUMN "expire" timestamp(6);
+        `;
+        console.log("✓ Added expire column to user_sessions table");
+      } else {
+        console.log("✓ expire column already exists in user_sessions table");
+      }
+
+      await sql`
+        CREATE INDEX IF NOT EXISTS "user_sessions_expire_idx" ON "user_sessions" ("expire");
+      `;
+      console.log("✓ Ensured index on user_sessions.expire");
     }
 
     // 2. Fix error_logs table - add session_id column
