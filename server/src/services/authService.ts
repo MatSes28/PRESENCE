@@ -9,6 +9,10 @@ import { eq, and, gt, sql, desc } from "drizzle-orm";
 import { requireEnv } from "../config/env.js";
 import { auditService } from "./auditService.js";
 import { isTestEnv, sessionStore } from "../session.js";
+import {
+  recordSessionSyncFailure,
+  recordSessionSyncSuccess,
+} from "./sessionSyncHealth.js";
 
 interface TwoFactorSetup {
   secret: string;
@@ -236,7 +240,10 @@ class AuthService {
             is_active = true
         `);
       }
+
+      recordSessionSyncSuccess();
     } catch (error) {
+      recordSessionSyncFailure(error);
       console.warn("Failed to sync express session metadata:", error);
     }
   }

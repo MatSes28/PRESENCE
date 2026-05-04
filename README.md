@@ -73,7 +73,7 @@ clirdec-presence/
 │   │   └── iotDeviceManager.ts
 │   └── utils/             # Server utilities
 ├── shared/                # Shared code
-│   └── schema.ts          # Database schema & types
+│   └── schema.ts          # Re-export of the server schema/types
 ├── .vscode/               # VS Code configuration
 ├── railway.json           # Railway deployment config
 ├── .env.example           # Environment variables template
@@ -114,7 +114,8 @@ clirdec-presence/
 4. **Database setup**
 
    ```bash
-   npm run db:push
+   npm run db:push --workspace=server
+   npm run db:verify-schema --workspace=server
    ```
 
 5. **Start development server**
@@ -131,7 +132,8 @@ npm run build        # Build for production
 npm start            # Run production build
 
 # Database
-npm run db:push      # Push schema changes to database
+npm run db:push --workspace=server            # Push schema changes to database
+npm run db:verify-schema --workspace=server   # Verify critical production tables
 
 # Type Checking
 npm run check        # TypeScript type check
@@ -148,6 +150,13 @@ npm run check        # TypeScript type check
 5. Deploy! 🎉
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for complete guide.
+
+### Deployment Notes
+
+- The canonical schema lives in [server/src/schema.ts](server/src/schema.ts).
+- `shared/schema.ts` re-exports the server schema so client/server types stay aligned.
+- The runtime PostgreSQL session store is `user_sessions`.
+- Production deployments should always run `npm run db:push --workspace=server` and `npm run db:verify-schema --workspace=server`.
 
 ## 📊 Database Schema
 

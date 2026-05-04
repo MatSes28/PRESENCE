@@ -78,7 +78,8 @@ cp .env.example .env
 nano .env
 
 # Push database schema
-npm run db:push
+npm run db:push --workspace=server
+npm run db:verify-schema --workspace=server
 
 # Start development server
 npm run dev
@@ -112,7 +113,8 @@ cp .env.example .env
 
 # Setup database
 sudo -u postgres createdb clirdec_presence
-npm run db:push
+npm run db:push --workspace=server
+npm run db:verify-schema --workspace=server
 
 # Install PM2 for process management
 sudo npm install -g pm2
@@ -222,8 +224,16 @@ JWT_SECRET=your_jwt_secret_key_min_32_chars
 
 For Postgres deployments, run migrations and then verify critical tables exist:
 
-- Migrate: [`npm run db:push`](server/package.json:10)
+- Migrate: [`npm run db:push --workspace=server`](server/package.json:10)
+- Verify: [`npm run db:verify-schema --workspace=server`](server/package.json:12)
 - Verify: [`server/scripts/verify-schema.mjs`](server/scripts/verify-schema.mjs:1)
+
+### Current runtime assumptions
+
+- The canonical schema lives in [`server/src/schema.ts`](server/src/schema.ts:1).
+- [`shared/schema.ts`](shared/schema.ts:1) re-exports that schema for shared typing.
+- The active PostgreSQL session store is `user_sessions`.
+- If schema verification fails in production, treat that as a deployment issue and do not rely on fallback behavior as the long-term fix.
 
 ## Secrets rotation
 

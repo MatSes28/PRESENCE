@@ -101,6 +101,7 @@ import {
 import { cacheService } from "./services/cacheService.js";
 import { databaseBackupService } from "./services/databaseBackup.js";
 import { monitoringService } from "./services/monitoringService.js";
+import { getSessionSyncHealth } from "./services/sessionSyncHealth.js";
 import {
   errorHandler,
   requestIdMiddleware,
@@ -238,6 +239,7 @@ async function healthCheckHandler(req: express.Request, res: express.Response) {
     const criticalChecks = [healthChecks.database, healthChecks.filesystem];
     const allHealthy =
       criticalChecks.every(Boolean) && healthChecks.environment;
+    const sessionSyncHealth = getSessionSyncHealth();
     const status = allHealthy
       ? "healthy"
       : healthChecks.database && healthChecks.filesystem
@@ -257,7 +259,10 @@ async function healthCheckHandler(req: express.Request, res: express.Response) {
         environment: healthChecks.environment
           ? "configured"
           : "missing_variables",
+        sessionSync:
+          sessionSyncHealth.status === "ok" ? "healthy" : "degraded",
       },
+      sessionSync: sessionSyncHealth,
       warnings:
         missingEnvVars.length > 0
           ? [`Missing environment variables: ${missingEnvVars.join(", ")}`]
