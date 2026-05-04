@@ -34,22 +34,69 @@ const toSafeUser = (user: any) => {
   return safeUser;
 };
 
+const getErrorMessages = (error: unknown): string[] => {
+  const messages: string[] = [];
+  const queue: unknown[] = [error];
+  const seen = new Set<unknown>();
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || seen.has(current)) continue;
+    seen.add(current);
+
+    if (current instanceof Error) {
+      messages.push(current.message.toLowerCase());
+    } else {
+      messages.push(String(current).toLowerCase());
+    }
+
+    if (current && typeof current === "object" && "cause" in current) {
+      queue.push((current as { cause?: unknown }).cause);
+    }
+  }
+
+  return messages;
+};
+
+const getErrorCodes = (error: unknown): string[] => {
+  const codes: string[] = [];
+  const queue: unknown[] = [error];
+  const seen = new Set<unknown>();
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || seen.has(current)) continue;
+    seen.add(current);
+
+    if (current && typeof current === "object") {
+      if ("code" in current && (current as { code?: unknown }).code != null) {
+        codes.push(String((current as { code?: unknown }).code));
+      }
+
+      if ("cause" in current) {
+        queue.push((current as { cause?: unknown }).cause);
+      }
+    }
+  }
+
+  return codes;
+};
+
 const isSkippableCleanupError = (error: unknown) => {
-  const message =
-    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-  const code =
-    error && typeof error === "object" && "code" in error
-      ? String((error as { code?: unknown }).code ?? "")
-      : "";
+  const messages = getErrorMessages(error);
+  const codes = getErrorCodes(error);
 
   return (
-    message.includes("no such table") ||
-    message.includes("does not exist") ||
-    message.includes("column") && message.includes("does not exist") ||
-    code === "42P01" || // postgres undefined_table
-    code === "42703" || // postgres undefined_column
-    code === "42883" || // postgres operator does not exist
-    code === "42804" // postgres datatype mismatch
+    messages.some(
+      (message) =>
+        message.includes("no such table") ||
+        message.includes("does not exist") ||
+        (message.includes("column") && message.includes("does not exist")),
+    ) ||
+    codes.includes("42P01") || // postgres undefined_table
+    codes.includes("42703") || // postgres undefined_column
+    codes.includes("42883") || // postgres operator does not exist
+    codes.includes("42804") // postgres datatype mismatch
   );
 };
 

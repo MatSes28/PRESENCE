@@ -1441,16 +1441,65 @@ const runScheduledReport = async (schedule: typeof reportSchedules.$inferSelect)
 };
 
 let persistentReportRunnerStarted = false;
+
+const isMissingReportSchedulesTableError = (error: unknown) => {
+  const queue: unknown[] = [error];
+  const seen = new Set<unknown>();
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || seen.has(current)) continue;
+    seen.add(current);
+
+    const message =
+      current instanceof Error
+        ? current.message.toLowerCase()
+        : String(current).toLowerCase();
+    const code =
+      current && typeof current === "object" && "code" in current
+        ? String((current as { code?: unknown }).code ?? "")
+        : "";
+
+    if (
+      code === "42P01" ||
+      message.includes("relation \"report_schedules\" does not exist") ||
+      message.includes("table \"report_schedules\" does not exist") ||
+      message.includes("no such table: report_schedules")
+    ) {
+      return true;
+    }
+
+    if (current && typeof current === "object" && "cause" in current) {
+      queue.push((current as { cause?: unknown }).cause);
+    }
+  }
+
+  return false;
+};
+
 const processDueReportSchedules = async () => {
-  const dueSchedules = await db
-    .select()
-    .from(reportSchedules)
-    .where(
-      and(
-        eq(reportSchedules.isActive, true),
-        lte(reportSchedules.nextRunAt, new Date()),
-      ),
-    );
+  let dueSchedules: typeof reportSchedules.$inferSelect[];
+
+  try {
+    dueSchedules = await db
+      .select()
+      .from(reportSchedules)
+      .where(
+        and(
+          eq(reportSchedules.isActive, true),
+          lte(reportSchedules.nextRunAt, new Date()),
+        ),
+      );
+  } catch (error) {
+    if (isMissingReportSchedulesTableError(error)) {
+      console.warn(
+        "Skipping scheduled report processing because report_schedules is not available yet.",
+      );
+      return;
+    }
+
+    throw error;
+  }
 
   for (const schedule of dueSchedules) {
     await runScheduledReport(schedule);
