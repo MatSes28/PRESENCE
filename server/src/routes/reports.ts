@@ -1442,7 +1442,13 @@ const runScheduledReport = async (schedule: typeof reportSchedules.$inferSelect)
 
 let persistentReportRunnerStarted = false;
 
-const isMissingReportSchedulesTableError = (error: unknown) => {
+const isMissingReportingTableError = (
+  error: unknown,
+  tableNames: string[],
+) => {
+  const normalizedTableNames = tableNames.map((tableName) =>
+    tableName.toLowerCase(),
+  );
   const queue: unknown[] = [error];
   const seen = new Set<unknown>();
 
@@ -1461,10 +1467,19 @@ const isMissingReportSchedulesTableError = (error: unknown) => {
         : "";
 
     if (
-      code === "42P01" ||
-      message.includes("relation \"report_schedules\" does not exist") ||
-      message.includes("table \"report_schedules\" does not exist") ||
-      message.includes("no such table: report_schedules")
+      normalizedTableNames.some(
+        (tableName) =>
+          message.includes(`relation "${tableName}" does not exist`) ||
+          message.includes(`table "${tableName}" does not exist`) ||
+          message.includes(`no such table: ${tableName}`),
+      )
+    ) {
+      return true;
+    }
+
+    if (
+      code === "42P01" &&
+      normalizedTableNames.some((tableName) => message.includes(tableName))
     ) {
       return true;
     }
@@ -1491,7 +1506,7 @@ const processDueReportSchedules = async () => {
         ),
       );
   } catch (error) {
-    if (isMissingReportSchedulesTableError(error)) {
+    if (isMissingReportingTableError(error, ["report_schedules"])) {
       console.warn(
         "Skipping scheduled report processing because report_schedules is not available yet.",
       );
@@ -1568,6 +1583,16 @@ router.get("/schedules", requireAuth, async (req, res) => {
       data: schedules,
     });
   } catch (error) {
+    if (isMissingReportingTableError(error, ["report_schedules"])) {
+      console.warn(
+        "Report schedules table is not available yet. Returning empty schedules list.",
+      );
+      return res.json({
+        success: true,
+        data: [],
+      });
+    }
+
     console.error("Get report schedules error:", error);
     res.status(500).json({
       success: false,
@@ -2650,6 +2675,17 @@ router.get("/history", requireAuth, async (req, res) => {
       total: Number(total || 0),
     });
   } catch (error) {
+    if (isMissingReportingTableError(error, ["report_history"])) {
+      console.warn(
+        "Report history table is not available yet. Returning empty history list.",
+      );
+      return res.json({
+        success: true,
+        data: [],
+        total: 0,
+      });
+    }
+
     console.error("Get report history error:", error);
     res.status(500).json({
       success: false,
@@ -2865,6 +2901,16 @@ router.get("/presets", requireAuth, async (req, res) => {
       data: [...defaultReportPresets, ...savedPresets],
     });
   } catch (error) {
+    if (isMissingReportingTableError(error, ["report_presets"])) {
+      console.warn(
+        "Report presets table is not available yet. Returning default presets only.",
+      );
+      return res.json({
+        success: true,
+        data: defaultReportPresets,
+      });
+    }
+
     console.error("Get report presets error:", error);
     res.status(500).json({
       success: false,
