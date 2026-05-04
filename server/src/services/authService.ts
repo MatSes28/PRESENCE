@@ -162,13 +162,14 @@ class AuthService {
   ): Promise<string> {
     const sessionId = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 hours
+    const expiresAtIso = expiresAt.toISOString();
 
     // Store session in database using raw SQL
     await db.execute(sql`
       INSERT INTO user_sessions (session_id, user_id, ip_address, user_agent, device_fingerprint, expires_at, is_active)
       VALUES (${sessionId}, ${userId}, ${ipAddress}, ${userAgent}, ${
         deviceFingerprint || null
-      }, ${expiresAt}, true)
+      }, ${expiresAtIso}, true)
     `);
 
     return sessionId;
@@ -189,6 +190,7 @@ class AuthService {
       userAgent,
       ipAddress,
     );
+    const expiresAtIso = expiresAt.toISOString();
 
     try {
       const updateResult: any = await db.execute(sql`
@@ -199,7 +201,7 @@ class AuthService {
           ip_address = ${ipAddress},
           user_agent = ${userAgent},
           device_fingerprint = ${deviceFingerprint},
-          expires_at = ${expiresAt},
+          expires_at = ${expiresAtIso},
           is_active = true
         WHERE sid = ${sessionId} OR session_id = ${sessionId}
       `);
@@ -221,7 +223,7 @@ class AuthService {
             ${ipAddress},
             ${userAgent},
             ${deviceFingerprint},
-            ${expiresAt},
+            ${expiresAtIso},
             true
           )
           ON CONFLICT (session_id)
