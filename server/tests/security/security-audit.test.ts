@@ -126,6 +126,28 @@ describe("Security regression", () => {
     it("prevents users from accessing other users' GDPR data", async () => {
       await facultyAgent.get(`/api/gdpr/access/${admin.id}`).expect(403);
     });
+
+    it("allows an admin to delete another user even when optional cleanup tables are absent", async () => {
+      const deleteEmail = `sec-delete-${Date.now()}@example.com`;
+      const [deleteTarget] = await db
+        .insert(users)
+        .values({
+          email: deleteEmail,
+          password: await bcrypt.hash(passwordPlain, 12),
+          name: "Delete Target",
+          role: "faculty",
+          isActive: true,
+        })
+        .returning();
+
+      await adminAgent.delete(`/api/users/${deleteTarget.id}`).expect(200);
+
+      const remaining = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, deleteTarget.id));
+      expect(remaining).toHaveLength(0);
+    });
   });
 
   describe("CORS + security headers", () => {

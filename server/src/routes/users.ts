@@ -25,12 +25,149 @@ import {
   reportSchedules,
 } from "../schema.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { dbClient } from "../storage.js";
 
 const router = Router();
 
 const toSafeUser = (user: any) => {
   const { password, ...safeUser } = user;
   return safeUser;
+};
+
+const isMissingTableError = (error: unknown) => {
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+
+  return message.includes("no such table") || message.includes("does not exist");
+};
+
+const runIfTableExists = async (operation: () => Promise<void>) => {
+  try {
+    await operation();
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      return;
+    }
+
+    throw error;
+  }
+};
+
+const isSqliteRuntime =
+  !!dbClient &&
+  typeof dbClient.prepare === "function" &&
+  typeof dbClient.exec === "function";
+
+const deleteUserAssociations = async (executor: typeof db, userId: number) => {
+  const ownedSchedules = await executor
+    .select({ id: schedules.id })
+    .from(schedules)
+    .where(eq(schedules.facultyId, userId));
+  const scheduleIds = ownedSchedules.map((row) => row.id);
+
+  if (scheduleIds.length > 0) {
+    const ownedClassSessions = await executor
+      .select({ id: classSessions.id })
+      .from(classSessions)
+      .where(inArray(classSessions.scheduleId, scheduleIds));
+    const classSessionIds = ownedClassSessions.map((row) => row.id);
+
+    if (classSessionIds.length > 0) {
+      await executor
+        .delete(emailNotifications)
+        .where(inArray(emailNotifications.classSessionId, classSessionIds));
+      await executor
+        .delete(computerAssignments)
+        .where(inArray(computerAssignments.classSessionId, classSessionIds));
+      await executor
+        .delete(attendanceRecords)
+        .where(inArray(attendanceRecords.classSessionId, classSessionIds));
+      await executor
+        .delete(classSessions)
+        .where(inArray(classSessions.id, classSessionIds));
+    }
+
+    await executor.delete(schedules).where(inArray(schedules.id, scheduleIds));
+  }
+
+  await runIfTableExists(async () => {
+    const ownedSubjectSessions = await executor
+      .select({ id: subjectSessions.id })
+      .from(subjectSessions)
+      .where(eq(subjectSessions.facultyId, userId));
+    const subjectSessionIds = ownedSubjectSessions.map((row) => row.id);
+
+    if (subjectSessionIds.length > 0) {
+      await executor
+        .delete(sessionAssignments)
+        .where(inArray(sessionAssignments.sessionId, subjectSessionIds));
+      await executor
+        .delete(subjectSessions)
+        .where(inArray(subjectSessions.id, subjectSessionIds));
+    }
+  });
+
+  await runIfTableExists(async () => {
+    await executor
+      .delete(computerMaintenance)
+      .where(eq(computerMaintenance.performedBy, userId));
+  });
+  await runIfTableExists(async () => {
+    await executor
+      .delete(pushNotifications)
+      .where(eq(pushNotifications.userId, userId));
+  });
+  await runIfTableExists(async () => {
+    await executor.delete(userSessions).where(eq(userSessions.userId, userId));
+  });
+  await runIfTableExists(async () => {
+    await executor
+      .delete(pushSubscriptions)
+      .where(eq(pushSubscriptions.userId, userId));
+  });
+
+  await executor
+    .update(errorLogs)
+    .set({ userId: null })
+    .where(eq(errorLogs.userId, userId));
+  await executor
+    .update(errorLogs)
+    .set({ resolvedBy: null })
+    .where(eq(errorLogs.resolvedBy, userId));
+  await executor
+    .update(parentConsentRequests)
+    .set({ requestedBy: null })
+    .where(eq(parentConsentRequests.requestedBy, userId));
+  await executor
+    .update(dataSubjectRequests)
+    .set({ reviewedBy: null })
+    .where(eq(dataSubjectRequests.reviewedBy, userId));
+
+  await executor
+    .delete(dataSubjectRequests)
+    .where(eq(dataSubjectRequests.requestedBy, userId));
+  await executor.delete(legalHolds).where(eq(legalHolds.createdBy, userId));
+
+  await executor
+    .update(auditLogs)
+    .set({ userId: null })
+    .where(eq(auditLogs.userId, userId));
+  await executor
+    .update(auditLogsArchive)
+    .set({ userId: null })
+    .where(eq(auditLogsArchive.userId, userId));
+  await executor
+    .update(reportHistory)
+    .set({ generatedBy: null })
+    .where(eq(reportHistory.generatedBy, userId));
+  await executor
+    .update(reportPresets)
+    .set({ createdBy: null })
+    .where(eq(reportPresets.createdBy, userId));
+  await executor
+    .update(reportSchedules)
+    .set({ createdBy: null })
+    .where(eq(reportSchedules.createdBy, userId));
 };
 
 // GET /api/users - Get all users (admin only)
@@ -207,106 +344,15 @@ router.delete("/:id", requireAdmin, async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    await db.transaction(async (tx) => {
-      const ownedSchedules = await tx
-        .select({ id: schedules.id })
-        .from(schedules)
-        .where(eq(schedules.facultyId, userId));
-      const scheduleIds = ownedSchedules.map((row) => row.id);
-
-      if (scheduleIds.length > 0) {
-        const ownedClassSessions = await tx
-          .select({ id: classSessions.id })
-          .from(classSessions)
-          .where(inArray(classSessions.scheduleId, scheduleIds));
-        const classSessionIds = ownedClassSessions.map((row) => row.id);
-
-        if (classSessionIds.length > 0) {
-          await tx
-            .delete(emailNotifications)
-            .where(inArray(emailNotifications.classSessionId, classSessionIds));
-          await tx
-            .delete(computerAssignments)
-            .where(inArray(computerAssignments.classSessionId, classSessionIds));
-          await tx
-            .delete(attendanceRecords)
-            .where(inArray(attendanceRecords.classSessionId, classSessionIds));
-          await tx
-            .delete(classSessions)
-            .where(inArray(classSessions.id, classSessionIds));
-        }
-
-        await tx.delete(schedules).where(inArray(schedules.id, scheduleIds));
-      }
-
-      const ownedSubjectSessions = await tx
-        .select({ id: subjectSessions.id })
-        .from(subjectSessions)
-        .where(eq(subjectSessions.facultyId, userId));
-      const subjectSessionIds = ownedSubjectSessions.map((row) => row.id);
-
-      if (subjectSessionIds.length > 0) {
-        await tx
-          .delete(sessionAssignments)
-          .where(inArray(sessionAssignments.sessionId, subjectSessionIds));
-        await tx
-          .delete(subjectSessions)
-          .where(inArray(subjectSessions.id, subjectSessionIds));
-      }
-
-      await tx
-        .delete(computerMaintenance)
-        .where(eq(computerMaintenance.performedBy, userId));
-      await tx
-        .delete(pushNotifications)
-        .where(eq(pushNotifications.userId, userId));
-      await tx.delete(userSessions).where(eq(userSessions.userId, userId));
-      await tx
-        .delete(pushSubscriptions)
-        .where(eq(pushSubscriptions.userId, userId));
-
-      await tx
-        .update(errorLogs)
-        .set({ userId: null })
-        .where(eq(errorLogs.userId, userId));
-      await tx
-        .update(errorLogs)
-        .set({ resolvedBy: null })
-        .where(eq(errorLogs.resolvedBy, userId));
-      await tx
-        .update(parentConsentRequests)
-        .set({ requestedBy: null })
-        .where(eq(parentConsentRequests.requestedBy, userId));
-      await tx
-        .update(dataSubjectRequests)
-        .set({ reviewedBy: null })
-        .where(eq(dataSubjectRequests.reviewedBy, userId));
-
-      await tx
-        .delete(dataSubjectRequests)
-        .where(eq(dataSubjectRequests.requestedBy, userId));
-      await tx.delete(legalHolds).where(eq(legalHolds.createdBy, userId));
-
-      await tx.update(auditLogs).set({ userId: null }).where(eq(auditLogs.userId, userId));
-      await tx
-        .update(auditLogsArchive)
-        .set({ userId: null })
-        .where(eq(auditLogsArchive.userId, userId));
-      await tx
-        .update(reportHistory)
-        .set({ generatedBy: null })
-        .where(eq(reportHistory.generatedBy, userId));
-      await tx
-        .update(reportPresets)
-        .set({ createdBy: null })
-        .where(eq(reportPresets.createdBy, userId));
-      await tx
-        .update(reportSchedules)
-        .set({ createdBy: null })
-        .where(eq(reportSchedules.createdBy, userId));
-
-      await tx.delete(users).where(eq(users.id, userId));
-    });
+    if (isSqliteRuntime) {
+      await deleteUserAssociations(db, userId);
+      await db.delete(users).where(eq(users.id, userId));
+    } else {
+      await db.transaction(async (tx) => {
+        await deleteUserAssociations(tx as typeof db, userId);
+        await tx.delete(users).where(eq(users.id, userId));
+      });
+    }
 
     res.json({ success: true, message: "User deleted permanently" });
   } catch (error: any) {
