@@ -170,6 +170,103 @@ const cleanupRemainingUserReferences = async (
   }
 };
 
+const getForeignKeyConstraintTarget = async (
+  executor: typeof db,
+  constraintName: string,
+) => {
+  const escapedConstraintName = constraintName.replace(/'/g, "''");
+  const rows = (await (executor as any).execute(
+    sql.raw(`
+      SELECT
+        child_ns.nspname AS schema_name,
+        child_tbl.relname AS table_name,
+        child_att.attname AS column_name,
+        NOT child_att.attnotnull AS is_nullable,
+        format_type(child_att.atttypid, child_att.atttypmod) AS data_type
+      FROM pg_constraint con
+      JOIN pg_class child_tbl
+        ON child_tbl.oid = con.conrelid
+      JOIN pg_namespace child_ns
+        ON child_ns.oid = child_tbl.relnamespace
+      JOIN unnest(con.conkey) WITH ORDINALITY AS cols(attnum, ord)
+        ON TRUE
+      JOIN pg_attribute child_att
+        ON child_att.attrelid = con.conrelid
+       AND child_att.attnum = cols.attnum
+      WHERE con.contype = 'f'
+        AND con.conname = '${escapedConstraintName}'
+        AND con.confrelid = 'public.users'::regclass
+      ORDER BY cols.ord
+    `),
+  )) as Array<{
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+    is_nullable: boolean;
+    data_type: string;
+  }>;
+
+  if (rows.length !== 1) {
+    return null;
+  }
+
+  return rows[0];
+};
+
+const deleteUserWithConstraintRecovery = async (
+  executor: typeof db,
+  userId: number,
+) => {
+  const MAX_DELETE_RETRIES = 10;
+
+  for (let attempt = 0; attempt < MAX_DELETE_RETRIES; attempt += 1) {
+    try {
+      await executor.delete(users).where(eq(users.id, userId));
+      return;
+    } catch (error: any) {
+      if (error?.code !== "23503" || !error?.constraint || isSqliteRuntime) {
+        throw error;
+      }
+
+      const target = await getForeignKeyConstraintTarget(
+        executor,
+        String(error.constraint),
+      );
+
+      if (!target) {
+        throw error;
+      }
+
+      const qualifiedTable = `${quoteIdentifier(target.schema_name)}.${quoteIdentifier(target.table_name)}`;
+      const qualifiedColumn = quoteIdentifier(target.column_name);
+      const userIdLiteral = toSqlUserIdLiteral(target.data_type, userId);
+
+      console.warn("Recovering from user delete FK constraint", {
+        constraint: error.constraint,
+        table: target.table_name,
+        column: target.column_name,
+        nullable: target.is_nullable,
+      });
+
+      if (target.is_nullable) {
+        await (executor as any).execute(
+          sql.raw(
+            `UPDATE ${qualifiedTable} SET ${qualifiedColumn} = NULL WHERE ${qualifiedColumn} = ${userIdLiteral}`,
+          ),
+        );
+      } else {
+        await (executor as any).execute(
+          sql.raw(
+            `DELETE FROM ${qualifiedTable} WHERE ${qualifiedColumn} = ${userIdLiteral}`,
+          ),
+        );
+      }
+    }
+  }
+
+  throw new Error("Failed to delete user after foreign key recovery attempts");
+};
+
 const deleteUserAssociations = async (executor: typeof db, userId: number) => {
   const ownedSchedules = await executor
     .select({ id: schedules.id })
@@ -482,11 +579,11 @@ router.delete("/:id", requireAdmin, async (req, res) => {
 
     if (isSqliteRuntime) {
       await deleteUserAssociations(db, userId);
-      await db.delete(users).where(eq(users.id, userId));
+      await deleteUserWithConstraintRecovery(db, userId);
     } else {
       await db.transaction(async (tx) => {
         await deleteUserAssociations(tx as typeof db, userId);
-        await tx.delete(users).where(eq(users.id, userId));
+        await deleteUserWithConstraintRecovery(tx as typeof db, userId);
       });
     }
 
