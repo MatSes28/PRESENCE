@@ -47,7 +47,9 @@ const isSkippableCleanupError = (error: unknown) => {
     message.includes("does not exist") ||
     message.includes("column") && message.includes("does not exist") ||
     code === "42P01" || // postgres undefined_table
-    code === "42703" // postgres undefined_column
+    code === "42703" || // postgres undefined_column
+    code === "42883" || // postgres operator does not exist
+    code === "42804" // postgres datatype mismatch
   );
 };
 
@@ -80,6 +82,19 @@ const isSqliteRuntime =
 
 const quoteIdentifier = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
 
+const toSqlUserIdLiteral = (columnType: string, userId: number) => {
+  const normalizedType = columnType.toLowerCase();
+  if (
+    normalizedType.includes("char") ||
+    normalizedType.includes("text") ||
+    normalizedType.includes("uuid")
+  ) {
+    return `'${String(userId).replace(/'/g, "''")}'`;
+  }
+
+  return String(userId);
+};
+
 const cleanupRemainingUserReferences = async (
   executor: typeof db,
   userId: number,
@@ -93,7 +108,8 @@ const cleanupRemainingUserReferences = async (
       tc.table_name,
       kcu.column_name,
       cols.is_nullable,
-      rc.delete_rule
+      rc.delete_rule,
+      cols.data_type
     FROM information_schema.table_constraints tc
     JOIN information_schema.key_column_usage kcu
       ON tc.constraint_name = kcu.constraint_name
@@ -118,6 +134,7 @@ const cleanupRemainingUserReferences = async (
     column_name: string;
     is_nullable: "YES" | "NO";
     delete_rule: string;
+    data_type: string;
   }>;
 
   for (const reference of references) {
@@ -125,6 +142,7 @@ const cleanupRemainingUserReferences = async (
     const columnName = reference.column_name;
     const deleteRule = String(reference.delete_rule || "").toUpperCase();
     const isNullable = reference.is_nullable === "YES";
+    const userIdLiteral = toSqlUserIdLiteral(reference.data_type, userId);
 
     // Already handled or safe to let the FK do the work.
     if (deleteRule === "CASCADE" || deleteRule === "SET NULL") {
@@ -138,13 +156,13 @@ const cleanupRemainingUserReferences = async (
       if (isNullable) {
         await (executor as any).execute(
           sql.raw(
-            `UPDATE ${qualifiedTable} SET ${qualifiedColumn} = NULL WHERE ${qualifiedColumn} = ${userId}`,
+            `UPDATE ${qualifiedTable} SET ${qualifiedColumn} = NULL WHERE ${qualifiedColumn} = ${userIdLiteral}`,
           ),
         );
       } else {
         await (executor as any).execute(
           sql.raw(
-            `DELETE FROM ${qualifiedTable} WHERE ${qualifiedColumn} = ${userId}`,
+            `DELETE FROM ${qualifiedTable} WHERE ${qualifiedColumn} = ${userIdLiteral}`,
           ),
         );
       }
@@ -220,14 +238,18 @@ const deleteUserAssociations = async (executor: typeof db, userId: number) => {
       .where(eq(pushSubscriptions.userId, userId));
   });
 
-  await executor
-    .update(errorLogs)
-    .set({ userId: null })
-    .where(eq(errorLogs.userId, userId));
-  await executor
-    .update(errorLogs)
-    .set({ resolvedBy: null })
-    .where(eq(errorLogs.resolvedBy, userId));
+  await runOptionalCleanup("error_logs.user_id", async () => {
+    await executor
+      .update(errorLogs)
+      .set({ userId: null })
+      .where(eq(errorLogs.userId, userId));
+  });
+  await runOptionalCleanup("error_logs.resolved_by", async () => {
+    await executor
+      .update(errorLogs)
+      .set({ resolvedBy: null })
+      .where(eq(errorLogs.resolvedBy, userId));
+  });
   await runOptionalCleanup("parent_consent_requests", async () => {
     await executor
       .update(parentConsentRequests)
@@ -250,10 +272,12 @@ const deleteUserAssociations = async (executor: typeof db, userId: number) => {
     await executor.delete(legalHolds).where(eq(legalHolds.createdBy, userId));
   });
 
-  await executor
-    .update(auditLogs)
-    .set({ userId: null })
-    .where(eq(auditLogs.userId, userId));
+  await runOptionalCleanup("audit_logs.user_id", async () => {
+    await executor
+      .update(auditLogs)
+      .set({ userId: null })
+      .where(eq(auditLogs.userId, userId));
+  });
   await runOptionalCleanup("audit_logs_archive", async () => {
     await executor
       .update(auditLogsArchive)
