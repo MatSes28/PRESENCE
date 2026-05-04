@@ -54,11 +54,18 @@ const isSkippableCleanupError = (error: unknown) => {
 };
 
 const runOptionalCleanup = async (
+  executor: typeof db,
   label: string,
-  operation: () => Promise<void>,
+  operation: (cleanupExecutor: typeof db) => Promise<void>,
 ) => {
   try {
-    await operation();
+    if (!isSqliteRuntime && typeof (executor as any).transaction === "function") {
+      await (executor as any).transaction(async (cleanupTx: typeof db) => {
+        await operation(cleanupTx);
+      });
+    } else {
+      await operation(executor);
+    }
   } catch (error) {
     if (isSkippableCleanupError(error)) {
       console.warn(`Skipping optional user cleanup step: ${label}`, {
@@ -152,21 +159,25 @@ const cleanupRemainingUserReferences = async (
     const qualifiedTable = `${quoteIdentifier("public")}.${quoteIdentifier(tableName)}`;
     const qualifiedColumn = quoteIdentifier(columnName);
 
-    await runOptionalCleanup(`dynamic_fk_cleanup:${tableName}.${columnName}`, async () => {
+    await runOptionalCleanup(
+      executor,
+      `dynamic_fk_cleanup:${tableName}.${columnName}`,
+      async (cleanupExecutor) => {
       if (isNullable) {
-        await (executor as any).execute(
+        await (cleanupExecutor as any).execute(
           sql.raw(
             `UPDATE ${qualifiedTable} SET ${qualifiedColumn} = NULL WHERE ${qualifiedColumn} = ${userIdLiteral}`,
           ),
         );
       } else {
-        await (executor as any).execute(
+        await (cleanupExecutor as any).execute(
           sql.raw(
             `DELETE FROM ${qualifiedTable} WHERE ${qualifiedColumn} = ${userIdLiteral}`,
           ),
         );
       }
-    });
+      },
+    );
   }
 };
 
@@ -299,102 +310,102 @@ const deleteUserAssociations = async (executor: typeof db, userId: number) => {
     await executor.delete(schedules).where(inArray(schedules.id, scheduleIds));
   }
 
-  await runOptionalCleanup("subject_sessions", async () => {
-    const ownedSubjectSessions = await executor
+  await runOptionalCleanup(executor, "subject_sessions", async (cleanupExecutor) => {
+    const ownedSubjectSessions = await cleanupExecutor
       .select({ id: subjectSessions.id })
       .from(subjectSessions)
       .where(eq(subjectSessions.facultyId, userId));
     const subjectSessionIds = ownedSubjectSessions.map((row) => row.id);
 
     if (subjectSessionIds.length > 0) {
-      await executor
+      await cleanupExecutor
         .delete(sessionAssignments)
         .where(inArray(sessionAssignments.sessionId, subjectSessionIds));
-      await executor
+      await cleanupExecutor
         .delete(subjectSessions)
         .where(inArray(subjectSessions.id, subjectSessionIds));
     }
   });
 
-  await runOptionalCleanup("computer_maintenance", async () => {
-    await executor
+  await runOptionalCleanup(executor, "computer_maintenance", async (cleanupExecutor) => {
+    await cleanupExecutor
       .delete(computerMaintenance)
       .where(eq(computerMaintenance.performedBy, userId));
   });
-  await runOptionalCleanup("push_notifications", async () => {
-    await executor
+  await runOptionalCleanup(executor, "push_notifications", async (cleanupExecutor) => {
+    await cleanupExecutor
       .delete(pushNotifications)
       .where(eq(pushNotifications.userId, userId));
   });
-  await runOptionalCleanup("user_sessions", async () => {
-    await executor.delete(userSessions).where(eq(userSessions.userId, userId));
+  await runOptionalCleanup(executor, "user_sessions", async (cleanupExecutor) => {
+    await cleanupExecutor.delete(userSessions).where(eq(userSessions.userId, userId));
   });
-  await runOptionalCleanup("push_subscriptions", async () => {
-    await executor
+  await runOptionalCleanup(executor, "push_subscriptions", async (cleanupExecutor) => {
+    await cleanupExecutor
       .delete(pushSubscriptions)
       .where(eq(pushSubscriptions.userId, userId));
   });
 
-  await runOptionalCleanup("error_logs.user_id", async () => {
-    await executor
+  await runOptionalCleanup(executor, "error_logs.user_id", async (cleanupExecutor) => {
+    await cleanupExecutor
       .update(errorLogs)
       .set({ userId: null })
       .where(eq(errorLogs.userId, userId));
   });
-  await runOptionalCleanup("error_logs.resolved_by", async () => {
-    await executor
+  await runOptionalCleanup(executor, "error_logs.resolved_by", async (cleanupExecutor) => {
+    await cleanupExecutor
       .update(errorLogs)
       .set({ resolvedBy: null })
       .where(eq(errorLogs.resolvedBy, userId));
   });
-  await runOptionalCleanup("parent_consent_requests", async () => {
-    await executor
+  await runOptionalCleanup(executor, "parent_consent_requests", async (cleanupExecutor) => {
+    await cleanupExecutor
       .update(parentConsentRequests)
       .set({ requestedBy: null })
       .where(eq(parentConsentRequests.requestedBy, userId));
   });
-  await runOptionalCleanup("data_subject_requests.reviewed_by", async () => {
-    await executor
+  await runOptionalCleanup(executor, "data_subject_requests.reviewed_by", async (cleanupExecutor) => {
+    await cleanupExecutor
       .update(dataSubjectRequests)
       .set({ reviewedBy: null })
       .where(eq(dataSubjectRequests.reviewedBy, userId));
   });
 
-  await runOptionalCleanup("data_subject_requests.requested_by", async () => {
-    await executor
+  await runOptionalCleanup(executor, "data_subject_requests.requested_by", async (cleanupExecutor) => {
+    await cleanupExecutor
       .delete(dataSubjectRequests)
       .where(eq(dataSubjectRequests.requestedBy, userId));
   });
-  await runOptionalCleanup("legal_holds", async () => {
-    await executor.delete(legalHolds).where(eq(legalHolds.createdBy, userId));
+  await runOptionalCleanup(executor, "legal_holds", async (cleanupExecutor) => {
+    await cleanupExecutor.delete(legalHolds).where(eq(legalHolds.createdBy, userId));
   });
 
-  await runOptionalCleanup("audit_logs.user_id", async () => {
-    await executor
+  await runOptionalCleanup(executor, "audit_logs.user_id", async (cleanupExecutor) => {
+    await cleanupExecutor
       .update(auditLogs)
       .set({ userId: null })
       .where(eq(auditLogs.userId, userId));
   });
-  await runOptionalCleanup("audit_logs_archive", async () => {
-    await executor
+  await runOptionalCleanup(executor, "audit_logs_archive", async (cleanupExecutor) => {
+    await cleanupExecutor
       .update(auditLogsArchive)
       .set({ userId: null })
       .where(eq(auditLogsArchive.userId, userId));
   });
-  await runOptionalCleanup("report_history", async () => {
-    await executor
+  await runOptionalCleanup(executor, "report_history", async (cleanupExecutor) => {
+    await cleanupExecutor
       .update(reportHistory)
       .set({ generatedBy: null })
       .where(eq(reportHistory.generatedBy, userId));
   });
-  await runOptionalCleanup("report_presets", async () => {
-    await executor
+  await runOptionalCleanup(executor, "report_presets", async (cleanupExecutor) => {
+    await cleanupExecutor
       .update(reportPresets)
       .set({ createdBy: null })
       .where(eq(reportPresets.createdBy, userId));
   });
-  await runOptionalCleanup("report_schedules", async () => {
-    await executor
+  await runOptionalCleanup(executor, "report_schedules", async (cleanupExecutor) => {
+    await cleanupExecutor
       .update(reportSchedules)
       .set({ createdBy: null })
       .where(eq(reportSchedules.createdBy, userId));
