@@ -292,13 +292,12 @@ const wss = new WebSocketServer({
 // Export for integration tests (Supertest can run against the Express app instance)
 export { app, server };
 
-// Root route for SPA
-app.get("/", (req, res) => {
+const serveSpa = (res: express.Response) => {
   if (fs.existsSync(path.join(publicPath, "index.html"))) {
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.sendFile(path.join(publicPath, "index.html"));
+    return res.sendFile(path.join(publicPath, "index.html"));
   } else {
-    res.send(`
+    return res.send(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -314,6 +313,11 @@ app.get("/", (req, res) => {
       </html>
     `);
   }
+};
+
+// Root route for SPA
+app.get("/", (req, res) => {
+  serveSpa(res);
 });
 
 // Request ID middleware (must be first)
@@ -514,17 +518,16 @@ app.get("/api/admin/fix-session", async (req, res) => {
 // Routes
 app.use("/api", routes);
 
+// SPA fallback for client-side routes.
+// Keep this before the API notFound/error middleware so browser refreshes on
+// frontend routes return index.html instead of a JSON 404 payload.
+app.get(/^\/(?!api(?:\/|$)).*/, (req, res) => {
+  serveSpa(res);
+});
+
 // Error handling middleware (must be last)
 app.use(notFoundHandler);
 app.use(errorHandler);
-
-// Removed specific routes for client-side navigation - let React handle routing
-
-// Catch all handler: send back React's index.html file for client-side routing
-app.get("*", (req, res) => {
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.sendFile(path.join(publicPath, "index.html"));
-});
 
 // Setup WebSocket
 setupWebSocket(wss);
