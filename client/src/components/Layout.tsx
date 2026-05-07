@@ -98,7 +98,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <TopBar onMenuClick={toggleSidebar} showMenuButton={isMobile} />
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto bg-gray-900 px-2 py-4 pb-safe-bottom ios-scroll sm:px-4 md:px-6 md:py-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-900 px-2 py-4 pb-safe-bottom ios-scroll sm:px-4 md:px-6 md:py-6">
           <div className="mx-auto min-w-0 max-w-full app-page">{children}</div>
         </main>
       </div>

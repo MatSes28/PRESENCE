@@ -8,6 +8,11 @@ export const isTestEnv =
   process.env.NODE_ENV === "test" ||
   typeof process.env.JEST_WORKER_ID !== "undefined";
 
+const useSqliteSessions =
+  process.env.USE_SQLITE === "true" ||
+  process.env.NODE_ENV === "development" ||
+  !process.env.DATABASE_URL?.startsWith("postgres");
+
 export const sessionCookieName = "presence.sid";
 export const sessionSecret = isTestEnv
   ? process.env.SESSION_SECRET || "test-session-secret-please-change-32chars"
@@ -24,7 +29,7 @@ const sessionDbConfig = {
   }),
 };
 
-export const sessionStore: session.Store = isTestEnv
+export const sessionStore: session.Store = isTestEnv || useSqliteSessions
   ? new session.MemoryStore()
   : new PgSession({
       ...sessionDbConfig,

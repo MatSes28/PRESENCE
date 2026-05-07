@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+const fs = require("node:fs");
+const path = require("node:path");
 const Database = require("better-sqlite3");
 
 /**
@@ -17,7 +19,11 @@ const Database = require("better-sqlite3");
  */
 
 // Initialize SQLite database (allow override)
-const dbPath = process.env.SQLITE_PATH || "./server/presence.db";
+const configuredDbPath = process.env.SQLITE_PATH;
+const dbPath = configuredDbPath
+  ? path.resolve(process.cwd(), configuredDbPath)
+  : path.join(__dirname, "server", "presence.db");
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const db = new Database(dbPath);
 
 console.log("📦 Applying SQLite-specific database migrations...");

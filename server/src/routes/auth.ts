@@ -156,7 +156,7 @@ function attachAuthResponseDebug(req: any, res: any, label: string): void {
 // Specific rate limiters for auth endpoints
 const loginRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 login attempts per window
+  max: isProductionLike() ? 5 : 100,
   message: {
     success: false,
     message: "Too many login attempts, please try again later.",
@@ -168,7 +168,7 @@ const loginRateLimit = rateLimit({
 
 const meRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 status checks per window (more generous)
+  max: isProductionLike() ? 100 : 2000,
   message: {
     success: false,
     message: "Too many requests, please try again later.",

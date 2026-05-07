@@ -956,10 +956,10 @@ export const LiveAttendance = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
           <h3 className="text-lg font-medium text-cyan-400">
             Live Attendance Monitoring
           </h3>
@@ -967,41 +967,39 @@ export const LiveAttendance = () => {
             Real-time attendance tracking and system events
           </p>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="app-actions lg:justify-end">
           <button
             onClick={refreshAttendanceData}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium rounded-lg"
+            className="app-button-primary w-full sm:w-auto"
           >
             Refresh
           </button>
           {user?.role === "admin" && (
             <button
               onClick={() => setShowManualEntry(true)}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg"
+              className="app-button w-full bg-green-600 text-white hover:bg-green-700 sm:w-auto"
             >
               Manual Entry
             </button>
           )}
-          <div className="flex items-center space-x-2">
+          <div className="flex min-h-10 items-center gap-2 text-sm text-gray-400">
             <div
               className={`w-3 h-3 rounded-full ${
                 isConnected ? "bg-green-500" : "bg-red-500"
               }`}
             ></div>
-            <span className="text-sm text-gray-400">
-              RFID Scanner {isConnected ? "Active" : "Inactive"}
-            </span>
+            <span>RFID Scanner {isConnected ? "Active" : "Inactive"}</span>
           </div>
         </div>
       </div>
 
       {/* RFID Scanner Simulation */}
-      <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+      <div className="app-section">
         <h4 className="text-lg font-medium text-cyan-400 mb-4">
           RFID Scanner Simulation
         </h4>
         <div className="space-y-4">
-          <div className="flex space-x-4">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
             <label htmlFor="attendance-rfid-simulation" className="sr-only">
               RFID card ID for simulation
             </label>
@@ -1012,20 +1010,20 @@ export const LiveAttendance = () => {
               value={rfidInput}
               onChange={(e) => setRfidInput(e.target.value)}
               placeholder="Enter RFID card ID"
-              className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+              className="app-field"
             />
             <button
               onClick={simulateRfidTap}
-              className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg"
+              className="app-button-primary w-full lg:w-auto"
             >
               Simulate RFID Tap
             </button>
           </div>
-          <div className="flex space-x-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <button
               onClick={() => simulateSensorTrigger("entry")}
               disabled={sensorSimulationPending !== null || !hasActiveSessions}
-              className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60 text-white font-medium rounded-lg"
+              className="app-button w-full bg-green-600 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {sensorSimulationPending === "entry"
                 ? "Simulating..."
@@ -1034,7 +1032,7 @@ export const LiveAttendance = () => {
             <button
               onClick={() => simulateSensorTrigger("exit")}
               disabled={sensorSimulationPending !== null || !hasActiveSessions}
-              className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 text-white font-medium rounded-lg"
+              className="app-button w-full bg-red-600 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {sensorSimulationPending === "exit"
                 ? "Simulating..."
@@ -1052,19 +1050,19 @@ export const LiveAttendance = () => {
       </div>
 
       {/* Advanced Filters */}
-      <div className="bg-gray-800 rounded-lg shadow p-4 border border-gray-700">
-        <div className="flex justify-between items-center mb-4">
+      <div className="app-section">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h4 className="text-lg font-medium text-cyan-400">Filters</h4>
           <button
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className="text-cyan-400 hover:text-cyan-300 text-sm"
+            className="text-left text-sm text-cyan-400 hover:text-cyan-300 sm:text-right"
           >
             {showAdvancedFilters ? "Hide Filters" : "Show Advanced Filters"}
           </button>
         </div>
 
         {/* Basic Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(360px,1fr)]">
           <div>
             <label htmlFor="attendance-search" className="block text-sm font-medium text-gray-300 mb-1">
               Search
@@ -1078,7 +1076,7 @@ export const LiveAttendance = () => {
                 setFilters((prev) => ({ ...prev, searchTerm: e.target.value }))
               }
               placeholder="Search by name, ID, or email"
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+              className="app-field"
             />
           </div>
           <div>
@@ -1092,7 +1090,7 @@ export const LiveAttendance = () => {
               onChange={(e) =>
                 setFilters((prev) => ({ ...prev, status: e.target.value }))
               }
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              className="app-field"
             >
               <option value="all">All Status</option>
               <option value="present">Present</option>
@@ -1100,11 +1098,11 @@ export const LiveAttendance = () => {
               <option value="late">Late</option>
             </select>
           </div>
-          <div>
+          <div className="md:col-span-2 xl:col-span-1">
             <p className="block text-sm font-medium text-gray-300 mb-1">
               Date Range
             </p>
-            <div className="flex space-x-2">
+            <div className="app-date-range">
               <label htmlFor="attendance-date-start" className="sr-only">
                 Attendance start date
               </label>
@@ -1120,7 +1118,7 @@ export const LiveAttendance = () => {
                     dateRange: { ...prev.dateRange, start: e.target.value },
                   }))
                 }
-                className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="app-field"
               />
               <label htmlFor="attendance-date-end" className="sr-only">
                 Attendance end date
@@ -1137,7 +1135,7 @@ export const LiveAttendance = () => {
                     dateRange: { ...prev.dateRange, end: e.target.value },
                   }))
                 }
-                className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="app-field"
               />
             </div>
           </div>
@@ -1157,7 +1155,7 @@ export const LiveAttendance = () => {
                 onChange={(e) =>
                   setFilters((prev) => ({ ...prev, studentId: e.target.value }))
                 }
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="app-field"
               >
                 <option value="">All Students</option>
                 {students.map((student: any) => (
@@ -1178,7 +1176,7 @@ export const LiveAttendance = () => {
                 onChange={(e) =>
                   setFilters((prev) => ({ ...prev, sessionId: e.target.value }))
                 }
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+                className="app-field"
               >
                 <option value="">All Sessions</option>
                 {sessions.map((session: any) => (
@@ -1201,14 +1199,14 @@ export const LiveAttendance = () => {
                   setFilters((prev) => ({ ...prev, deviceId: e.target.value }))
                 }
                 placeholder="Device ID"
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+                className="app-field"
               />
             </div>
           </div>
         )}
 
         {/* Clear Filters */}
-        <div className="flex justify-end mt-4">
+        <div className="mt-4 flex justify-stretch sm:justify-end">
           <button
             onClick={() =>
               setFilters({
@@ -1223,7 +1221,7 @@ export const LiveAttendance = () => {
                 searchTerm: "",
               })
             }
-            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium rounded"
+            className="app-button-secondary w-full sm:w-auto"
           >
             Clear Filters
           </button>
@@ -1233,32 +1231,32 @@ export const LiveAttendance = () => {
       {/* Bulk Operations */}
       {selectedRecords.size > 0 && (
         <div className="bg-blue-900 border border-blue-600 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-4">
               <span className="text-blue-400 font-medium">
                 {selectedRecords.size} record
                 {selectedRecords.size !== 1 ? "s" : ""} selected
               </span>
             </div>
-            <div className="flex space-x-2">
+            <div className="app-actions lg:justify-end">
               <button
                 onClick={() => setBulkOperation("excuse")}
                 disabled={bulkProcessing}
-                className="px-4 py-1 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
+                className="app-button w-full bg-yellow-600 text-white hover:bg-yellow-700 disabled:cursor-not-allowed disabled:bg-yellow-800 sm:w-auto"
               >
                 Bulk Excuse
               </button>
               <button
                 onClick={() => setBulkOperation("contact")}
                 disabled={bulkProcessing}
-                className="px-4 py-1 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
+                className="app-button w-full bg-green-600 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-800 sm:w-auto"
               >
                 Bulk Contact
               </button>
               <button
                 onClick={() => setBulkOperation("export")}
                 disabled={bulkProcessing}
-                className="px-4 py-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white text-sm font-medium rounded disabled:cursor-not-allowed"
+                className="app-button w-full bg-purple-600 text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:bg-purple-800 sm:w-auto"
               >
                 Export Selected
               </button>
@@ -1269,9 +1267,9 @@ export const LiveAttendance = () => {
 
       {/* Live Attendance Table */}
       <div className="bg-gray-800 rounded-lg shadow border border-gray-700">
-        <div className="px-6 py-4 border-b border-gray-700">
-          <div className="flex justify-between items-center">
-            <div>
+        <div className="border-b border-gray-700 px-4 py-4 sm:px-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <h4 className="text-lg font-medium text-cyan-400">
                 Live Attendance Table
               </h4>
@@ -1280,7 +1278,7 @@ export const LiveAttendance = () => {
                 {sortedAttendanceData.length !== 1 ? "s" : ""} found
               </p>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <input
                 id="attendance-select-all"
                 name="selectAllAttendance"
@@ -1297,13 +1295,13 @@ export const LiveAttendance = () => {
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="app-table-wrap">
           {loading ? (
             <div className="text-center py-12">
               <div className="text-white">Loading attendance data...</div>
             </div>
           ) : (
-            <table className="min-w-full divide-y divide-gray-700">
+            <table className="min-w-[760px] divide-y divide-gray-700">
               <thead className="bg-gray-900">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
@@ -1463,7 +1461,7 @@ export const LiveAttendance = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="bg-gray-800 rounded-lg shadow p-4 border border-gray-700">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -1539,7 +1537,7 @@ export const LiveAttendance = () => {
 
       {/* Live Events Feed */}
       <div className="bg-gray-800 rounded-lg shadow border border-gray-700">
-        <div className="px-6 py-4 border-b border-gray-700">
+        <div className="border-b border-gray-700 px-4 py-4 sm:px-6">
           <h4 className="text-lg font-medium text-cyan-400">
             Live Events Feed
           </h4>
@@ -1559,8 +1557,8 @@ export const LiveAttendance = () => {
           ) : (
             <div className="divide-y divide-gray-700">
               {events.map((event) => (
-                <div key={event.id} className="px-6 py-4 hover:bg-gray-700">
-                  <div className="flex items-start space-x-4">
+                <div key={event.id} className="px-4 py-4 hover:bg-gray-700 sm:px-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                     <div className="flex-shrink-0">
                       <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center">
                         <span className="text-lg">
@@ -1569,11 +1567,11 @@ export const LiveAttendance = () => {
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-sm font-medium text-white">
                           {getEventDescription(event)}
                         </p>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span
                             className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getEventColor(
                               event.status
@@ -1586,7 +1584,7 @@ export const LiveAttendance = () => {
                           </span>
                         </div>
                       </div>
-                      <div className="mt-1 flex items-center space-x-4 text-xs text-gray-400">
+                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
                         <span>Device: {event.deviceId}</span>
                         <span>Type: {event.type.replace("_", " ")}</span>
                       </div>
@@ -1600,11 +1598,11 @@ export const LiveAttendance = () => {
       </div>
 
       {/* System Status */}
-      <div className="bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
+      <div className="app-section">
         <h4 className="text-lg font-medium text-cyan-400 mb-4">
           System Status
         </h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="flex items-center space-x-4">
             <div
               className={`w-3 h-3 rounded-full ${
@@ -1648,8 +1646,8 @@ export const LiveAttendance = () => {
 
       {/* Manual Attendance Entry Modal */}
       {showManualEntry && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 p-4 sm:p-6">
             <h3 className="text-lg font-medium text-cyan-400 mb-4">
               Manual Attendance Entry
             </h3>
@@ -1768,7 +1766,7 @@ export const LiveAttendance = () => {
                 />
               </div>
             </div>
-            <div className="flex justify-end space-x-4 mt-6">
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => setShowManualEntry(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
@@ -1788,8 +1786,8 @@ export const LiveAttendance = () => {
 
       {/* Excuse Modal */}
       {showExcuseModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 p-4 sm:p-6">
             <h3 className="text-lg font-medium text-cyan-400 mb-4">
               Excuse Student Absence
             </h3>
@@ -1815,7 +1813,7 @@ export const LiveAttendance = () => {
                 />
               </div>
             </div>
-            <div className="flex justify-end space-x-4 mt-6">
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => {
                   setShowExcuseModal(false);
@@ -1840,8 +1838,8 @@ export const LiveAttendance = () => {
 
       {/* Contact Modal */}
       {showContactModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 p-4 sm:p-6">
             <h3 className="text-lg font-medium text-cyan-400 mb-4">
               Contact Parent
             </h3>
@@ -1873,7 +1871,7 @@ export const LiveAttendance = () => {
                 />
               </div>
             </div>
-            <div className="flex justify-end space-x-4 mt-6">
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => {
                   setShowContactModal(false);
@@ -1898,8 +1896,8 @@ export const LiveAttendance = () => {
 
       {/* Bulk Operation Confirmation Modals */}
       {bulkOperation === "excuse" && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 p-4 sm:p-6">
             <h3 className="text-lg font-medium text-cyan-400 mb-4">
               Confirm Bulk Excuse
             </h3>
@@ -1908,7 +1906,7 @@ export const LiveAttendance = () => {
               student{selectedRecords.size !== 1 ? "s" : ""}? This will mark all
               selected records as excused.
             </p>
-            <div className="flex justify-end space-x-4">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => setBulkOperation(null)}
                 className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
@@ -1928,8 +1926,8 @@ export const LiveAttendance = () => {
       )}
 
       {bulkOperation === "contact" && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 p-4 sm:p-6">
             <h3 className="text-lg font-medium text-cyan-400 mb-4">
               Confirm Bulk Contact
             </h3>
@@ -1938,7 +1936,7 @@ export const LiveAttendance = () => {
               {selectedRecords.size !== 1 ? "s" : ""}? This will send a
               notification to all selected students' parents.
             </p>
-            <div className="flex justify-end space-x-4">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => setBulkOperation(null)}
                 className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
@@ -1958,8 +1956,8 @@ export const LiveAttendance = () => {
       )}
 
       {bulkOperation === "export" && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 p-4">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 p-4 sm:p-6">
             <h3 className="text-lg font-medium text-cyan-400 mb-4">
               Confirm Export
             </h3>
@@ -1967,7 +1965,7 @@ export const LiveAttendance = () => {
               Export {selectedRecords.size} record
               {selectedRecords.size !== 1 ? "s" : ""} to CSV file?
             </p>
-            <div className="flex justify-end space-x-4">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => setBulkOperation(null)}
                 className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
