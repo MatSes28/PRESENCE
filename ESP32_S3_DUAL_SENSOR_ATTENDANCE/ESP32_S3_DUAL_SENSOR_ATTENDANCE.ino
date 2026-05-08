@@ -27,9 +27,9 @@
 // =========================
 // Device / Network Config
 // =========================
-// Replace these before flashing the device.
-const char* WIFI_SSID = "Kupal kaba?";
-const char* WIFI_PASSWORD = "MatMir@12030908";
+// Replace these before flashing the device. Do not commit real WiFi credentials.
+const char* WIFI_SSID = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
 // Use your live backend base URL here, for example:
 // https://presence-production-1c78.up.railway.app/api/iot
@@ -37,7 +37,7 @@ const char* API_BASE_URL = "https://presence-production-1c78.up.railway.app/api/
 // This is only a human-friendly label for logs and metadata.
 // The backend identifies the real device by DEVICE_API_KEY.
 const char* DEVICE_LABEL = "ESP32-S3-LAB-201";
-const char* DEVICE_API_KEY = "pk_e68365e575ae6dd4486d192f62de9b8b";
+const char* DEVICE_API_KEY = "PASTE_DEVICE_API_KEY_FROM_WEB_APP";
 // Paste the PEM root/intermediate CA used by your HTTPS endpoint here.
 // If left as the placeholder, the sketch will fall back to insecure TLS
 // and print a warning on boot and first request.

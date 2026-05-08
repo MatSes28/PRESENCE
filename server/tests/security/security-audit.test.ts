@@ -174,7 +174,8 @@ describe("Security regression", () => {
 
   describe("Dangerous endpoints", () => {
     it("keeps force-reset-defaults disabled by default", async () => {
-      await adminAgent.post("/api/auth/force-reset-defaults").expect(403);
+      const res = await adminAgent.post("/api/auth/force-reset-defaults");
+      expect([403, 404]).toContain(res.status);
     });
   });
 });

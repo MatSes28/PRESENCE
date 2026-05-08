@@ -334,11 +334,6 @@ const serveSpa = (res: express.Response) => {
   }
 };
 
-// Root route for SPA
-app.get("/", (req, res) => {
-  serveSpa(res);
-});
-
 // Request ID middleware (must be first)
 app.use(requestIdMiddleware);
 

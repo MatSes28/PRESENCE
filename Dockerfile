@@ -35,8 +35,9 @@ WORKDIR /app/client
 RUN npm run build
 
 # Copy built client to server public directory
-RUN mkdir -p /app/server/public
-RUN cp -r dist/* /app/server/public/
+RUN rm -rf /app/server/public \
+  && mkdir -p /app/server/public \
+  && cp -r dist/* /app/server/public/
 
 # Build the server
 WORKDIR /app/server
