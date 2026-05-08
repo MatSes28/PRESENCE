@@ -32,6 +32,29 @@ If you later introduce JWT auth for APIs, rotate secrets using a staged approach
 2. Start signing new tokens with the new secret.
 3. After the window, remove the old secret.
 
+### IoT device API key rotation
+
+Effect: the physical device stops authenticating until the firmware uses the new key.
+
+Steps:
+
+1. Sign in as an admin.
+2. Open **IoT Devices**.
+3. Select the device and open its security/API-key dialog.
+4. Click **Regenerate API Key**.
+5. Flash the device firmware with the new `DEVICE_API_KEY`.
+6. Confirm `/api/iot/heartbeat` succeeds and the dashboard shows the device online.
+
+For the ESP32 firmware, keep committed values as placeholders only:
+
+```cpp
+const char* WIFI_SSID = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const char* DEVICE_API_KEY = "PASTE_DEVICE_API_KEY_FROM_WEB_APP";
+```
+
+Run `npm run security:secrets` before committing firmware changes. This scan is also part of `npm run verify:local`.
+
 ## Emergency rotation
 
 If compromise is suspected:

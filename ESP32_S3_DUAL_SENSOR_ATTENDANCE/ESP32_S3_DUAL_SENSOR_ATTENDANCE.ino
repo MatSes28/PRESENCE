@@ -133,7 +133,8 @@ bool hasConfiguredServerRootCa() {
 
 bool hasConfiguredDeviceApiKey() {
   return strlen(DEVICE_API_KEY) > 0 &&
-         strcmp(DEVICE_API_KEY, "YOUR_DEVICE_API_KEY") != 0;
+         strcmp(DEVICE_API_KEY, "YOUR_DEVICE_API_KEY") != 0 &&
+         strcmp(DEVICE_API_KEY, "PASTE_DEVICE_API_KEY_FROM_WEB_APP") != 0;
 }
 
 void blink(uint8_t times, uint16_t onMs = 80, uint16_t offMs = 80) {
