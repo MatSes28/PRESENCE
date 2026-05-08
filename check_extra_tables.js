@@ -1,5 +1,6 @@
 const Database = require("better-sqlite3");
 const { Client } = require("pg");
+const { requirePostgresUrl } = require("./scripts/require-database-url.cjs");
 
 async function checkAllTables() {
   console.log("🔍 Checking all tables in both databases...\n");
@@ -31,8 +32,7 @@ async function checkAllTables() {
   // Check PostgreSQL database
   console.log("\n=== PostgreSQL Database ===");
   const client = new Client({
-    connectionString:
-      "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway",
+    connectionString: requirePostgresUrl(),
   });
 
   try {

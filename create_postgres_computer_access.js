@@ -1,8 +1,8 @@
 const { Client } = require("pg");
+const { requirePostgresUrl } = require("./scripts/require-database-url.cjs");
 
 // PostgreSQL connection URL
-const connectionString =
-  "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
+const connectionString = requirePostgresUrl();
 
 // Create a new PostgreSQL client
 const client = new Client({

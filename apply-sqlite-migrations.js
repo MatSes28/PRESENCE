@@ -372,6 +372,18 @@ try {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
     )`,
 
+    // Academic Holidays table
+    `CREATE TABLE IF NOT EXISTS academic_holidays (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      holiday_date TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT,
+      recurs_annually INTEGER DEFAULT 0 NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+    )`,
+
     // Schedules table
     `CREATE TABLE IF NOT EXISTS schedules (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

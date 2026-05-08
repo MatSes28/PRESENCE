@@ -2,7 +2,11 @@
   "name": "clirdec-presence",
   "version": "1.0.0",
   "private": true,
-  "workspaces": ["client", "server", "shared"],
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
   "scripts": {
     "predev": "node scripts/free-dev-ports.mjs",
     "dev": "concurrently \"npm run dev --workspace=client\" \"npm run dev --workspace=server\"",
@@ -13,22 +17,25 @@
     "db:push": "npm run db:push --workspace=server",
     "seed:dev": "node apply-sqlite-migrations.js && node scripts/seed-dev-sqlite.mjs",
     "check": "npm run check --workspace=client && npm run check --workspace=server",
+    "test:local": "npm test --workspace=client && npm run test:unit --workspace=server && npm run test:integration --workspace=server",
+    "verify:local": "npm run check && npm run build && npm audit --audit-level=moderate --workspaces && npm run test:local",
     "db:check-duplicates": "node scripts/check-attendance-duplicates.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.0",
-    "minimatch": "^9.0.8",
+    "minimatch": "^10.2.4",
     "pg": "^8.18.0"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
-    "drizzle-orm": "^0.44.6",
+    "drizzle-orm": "0.45.2",
     "postgres": "^3.4.7"
   },
   "overrides": {
     "@typescript-eslint/typescript-estree": {
       "minimatch": "9.0.8"
     },
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "drizzle-orm": "0.45.2"
   }
 }

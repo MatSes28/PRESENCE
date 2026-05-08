@@ -1,8 +1,7 @@
 const postgres = require("postgres");
+const { requirePostgresUrl } = require("./scripts/require-database-url.cjs");
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
+const connectionString = requirePostgresUrl();
 
 async function enablePgStat() {
   const sql = postgres(connectionString, {

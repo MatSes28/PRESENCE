@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 const { Client } = require("pg");
+const { requirePostgresUrl } = require("./scripts/require-database-url.cjs");
 
 // Railway PostgreSQL connection URL
-const connectionString =
-  process.env.DATABASE_URL ||
-  "postgresql://postgres:nnkkpUhOCTGYdSeqDuelllbljwSlLELE@gondola.proxy.rlwy.net:33548/railway";
+const connectionString = requirePostgresUrl();
 
 const client = new Client({
   connectionString: connectionString,
