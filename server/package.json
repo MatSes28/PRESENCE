@@ -28,7 +28,7 @@
     "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "test:smoke": "npm run test:unit -- --testNamePattern=\"should log errors\" && npm run test:integration -- --testNamePattern=\"should create manual attendance\"",
     "test:quality": "npm run check && npm run test:unit -- --coverage --coverageThreshold='{\"global\":{\"branches\":75,\"functions\":85,\"lines\":85,\"statements\":85}}'",
-    "test:security": "npm audit --audit-level=moderate && node --experimental-vm-modules ../node_modules/jest/bin/jest.js --testPathPattern=security"
+    "test:security": "npm audit --audit-level=moderate && node ../scripts/run-sqlite-jest.mjs security"
   },
   "dependencies": {
     "@getbrevo/brevo": "^1.0.1",
