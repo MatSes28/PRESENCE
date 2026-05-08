@@ -21,3 +21,4 @@ server/playwright-report/
 
 # Local development tools
 tools/
+.tools/

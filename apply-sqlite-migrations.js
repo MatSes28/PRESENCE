@@ -269,6 +269,24 @@ try {
     addColumnIfMissing("iot_devices", "api_key_hash", "TEXT");
     addColumnIfMissing("iot_devices", "certificate", "TEXT");
     addColumnIfMissing("iot_devices", "certificate_expires_at", "TIMESTAMP");
+
+    // user_sessions
+    renameColumnIfNeeded("user_sessions", "sessionId", "session_id");
+    renameColumnIfNeeded("user_sessions", "userId", "user_id");
+    renameColumnIfNeeded("user_sessions", "ipAddress", "ip_address");
+    renameColumnIfNeeded("user_sessions", "userAgent", "user_agent");
+    renameColumnIfNeeded(
+      "user_sessions",
+      "deviceFingerprint",
+      "device_fingerprint",
+    );
+    renameColumnIfNeeded("user_sessions", "createdAt", "created_at");
+    renameColumnIfNeeded("user_sessions", "expiresAt", "expires_at");
+    renameColumnIfNeeded("user_sessions", "isActive", "is_active");
+
+    addColumnIfMissing("user_sessions", "sid", "TEXT");
+    addColumnIfMissing("user_sessions", "sess", "TEXT");
+    addColumnIfMissing("user_sessions", "expire", "TIMESTAMP");
   };
 
   // 1) Migrate any existing legacy camelCase columns.
@@ -291,6 +309,27 @@ try {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
     )`,
+
+    // User Sessions table (advanced session tracking + optional connect-pg-simple shape)
+    `CREATE TABLE IF NOT EXISTS user_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL UNIQUE,
+      sid TEXT UNIQUE,
+      sess TEXT,
+      expire TIMESTAMP,
+      user_id INTEGER NOT NULL,
+      ip_address TEXT NOT NULL,
+      user_agent TEXT,
+      device_fingerprint TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      is_active INTEGER DEFAULT 1 NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_user_sessions_sid ON user_sessions(sid)`,
+    `CREATE INDEX IF NOT EXISTS idx_user_sessions_expire ON user_sessions(expire)`,
+    `CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at)`,
 
     // Students table
     `CREATE TABLE IF NOT EXISTS students (
