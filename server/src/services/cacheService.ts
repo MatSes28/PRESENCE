@@ -15,6 +15,8 @@ interface CacheEntry<T> {
 class CacheService {
   private client: RedisClientType;
   private isConnected = false;
+  private isRedisRequired = false;
+  private isRedisEnabled = false;
   private defaultTTL = 300; // 5 minutes default
   private keyPrefix = "clirdec_presence:";
 
@@ -30,12 +32,14 @@ class CacheService {
     const redisRequired =
       (process.env.REDIS_REQUIRED || "").toLowerCase() === "true" ||
       (prodLike && !!process.env.INSTANCE_ID);
+    this.isRedisRequired = redisRequired;
 
     // Only connect to Redis in production-like environments OR when explicitly enabled.
     // Allow explicit opt-out via REDIS_ENABLED=false.
     const redisEnabledFlag = (process.env.REDIS_ENABLED || "").toLowerCase();
     const isRedisEnabled =
       redisEnabledFlag === "true" || (redisEnabledFlag !== "false" && prodLike);
+    this.isRedisEnabled = isRedisEnabled;
 
     if (!isRedisEnabled) {
       if (redisRequired) {
@@ -124,6 +128,21 @@ class CacheService {
    */
   available(): boolean {
     return this.isConnected;
+  }
+
+  enabled(): boolean {
+    return this.isRedisEnabled;
+  }
+
+  required(): boolean {
+    return this.isRedisRequired;
+  }
+
+  status(): "up" | "required_down" | "optional_down" | "disabled" {
+    if (this.isConnected) return "up";
+    if (this.isRedisRequired) return "required_down";
+    if (this.isRedisEnabled) return "optional_down";
+    return "disabled";
   }
 
   /**

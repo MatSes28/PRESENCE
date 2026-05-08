@@ -213,6 +213,7 @@ async function healthCheckHandler(req: express.Request, res: express.Response) {
     const healthChecks = {
       database: false,
       redis: false,
+      redisRequired: cacheService.required(),
       filesystem: false,
       environment: missingEnvVars.length === 0,
     };
@@ -238,7 +239,11 @@ async function healthCheckHandler(req: express.Request, res: express.Response) {
       console.error("Filesystem health check failed:", error);
     }
 
-    const criticalChecks = [healthChecks.database, healthChecks.filesystem];
+    const criticalChecks = [
+      healthChecks.database,
+      healthChecks.filesystem,
+      !healthChecks.redisRequired || healthChecks.redis,
+    ];
     const allHealthy =
       criticalChecks.every(Boolean) && healthChecks.environment;
     const sessionSyncHealth = getSessionSyncHealth();
@@ -257,7 +262,7 @@ async function healthCheckHandler(req: express.Request, res: express.Response) {
       checks: healthChecks,
       services: {
         database: healthChecks.database ? "up" : "down",
-        redis: healthChecks.redis ? "up" : "down",
+        redis: cacheService.status(),
         filesystem: healthChecks.filesystem ? "accessible" : "inaccessible",
         environment: healthChecks.environment
           ? "configured"
@@ -269,11 +274,17 @@ async function healthCheckHandler(req: express.Request, res: express.Response) {
       warnings:
         missingEnvVars.length > 0
           ? [`Missing environment variables: ${missingEnvVars.join(", ")}`]
-          : [],
+          : cacheService.status() === "optional_down"
+            ? ["Redis is optional and currently unavailable"]
+            : [],
     };
 
     res
-      .status(allHealthy ? 200 : status === "degraded" ? 200 : 503)
+      .status(
+        allHealthy || (!healthChecks.redisRequired && status === "degraded")
+          ? 200
+          : 503,
+      )
       .json(response);
   } catch (error: any) {
     console.error("Health check error:", error);

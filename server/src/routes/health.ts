@@ -40,6 +40,7 @@ router.get("/", async (req: Request, res: Response) => {
     deployment: getDeploymentInfo(),
     checks: {
       database: { status: "unknown", latency: null },
+      redis: { status: cacheService.status(), required: cacheService.required() },
       memory: { status: "unknown", usage: null },
       environment: { status: "unknown", env: null },
     },
@@ -84,6 +85,10 @@ router.get("/", async (req: Request, res: Response) => {
   };
 
   // Set appropriate HTTP status
+  if (cacheService.required() && !(await cacheService.ping())) {
+    health.status = "degraded";
+  }
+
   const statusCode = health.status === "healthy" ? 200 : 503;
   res.status(statusCode).json(health);
 });
