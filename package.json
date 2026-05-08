@@ -16,9 +16,10 @@
     "start": "npm run start --workspace=server",
     "db:push": "npm run db:push --workspace=server",
     "seed:dev": "node apply-sqlite-migrations.js && node scripts/seed-dev-sqlite.mjs",
+    "security:secrets": "node scripts/scan-secrets.mjs",
     "check": "npm run check --workspace=client && npm run check --workspace=server",
     "test:local": "npm test --workspace=client && npm run test:unit --workspace=server && npm run test:integration --workspace=server",
-    "verify:local": "npm run check && npm run build && npm audit --audit-level=moderate --workspaces && npm run test:local",
+    "verify:local": "npm run security:secrets && npm run check && npm run build && npm audit --audit-level=moderate --workspaces && npm run test:local",
     "db:check-duplicates": "node scripts/check-attendance-duplicates.js"
   },
   "devDependencies": {
