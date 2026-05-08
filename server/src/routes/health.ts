@@ -3,6 +3,7 @@ import db, { safeExecute } from "../storage.js";
 import { monitoringService } from "../services/monitoringService.js";
 import { cacheService } from "../services/cacheService.js";
 import { promMetrics } from "../services/monitoring/promMetrics.js";
+import { getDeploymentInfo } from "../deploymentInfo.js";
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.get("/", async (req: Request, res: Response) => {
     status: "healthy",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    deployment: getDeploymentInfo(),
     checks: {
       database: { status: "unknown", latency: null },
       memory: { status: "unknown", usage: null },

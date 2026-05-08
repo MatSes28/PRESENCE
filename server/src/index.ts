@@ -102,6 +102,7 @@ import { cacheService } from "./services/cacheService.js";
 import { databaseBackupService } from "./services/databaseBackup.js";
 import { monitoringService } from "./services/monitoringService.js";
 import { getSessionSyncHealth } from "./services/sessionSyncHealth.js";
+import { getDeploymentInfo } from "./deploymentInfo.js";
 import {
   errorHandler,
   requestIdMiddleware,
@@ -205,6 +206,7 @@ async function healthCheckHandler(req: express.Request, res: express.Response) {
           RAILWAY_ENVIRONMENT: process.env.RAILWAY_ENVIRONMENT,
           PORT: process.env.PORT,
         },
+        deployment: getDeploymentInfo(),
       });
     }
 
@@ -251,6 +253,7 @@ async function healthCheckHandler(req: express.Request, res: express.Response) {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       version: process.version,
+      deployment: getDeploymentInfo(),
       checks: healthChecks,
       services: {
         database: healthChecks.database ? "up" : "down",
