@@ -15,6 +15,9 @@ COPY shared/package*.json ./shared/
 COPY client/package*.json ./client/
 
 # Install all dependencies (including dev dependencies for building)
+# Load-test tooling depends on Playwright, but production image builds do not need
+# browser binaries. Skipping that download keeps Railway builds inside timeout.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm ci
 
 # Copy source code
@@ -70,8 +73,9 @@ COPY --from=builder /app/shared/dist ./shared/dist
 # Copy database setup script (for initialization if needed)
 COPY database_setup.sql ./
 
-# Create logs directory with proper permissions
-RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app
+# Create writable runtime directories without recursively chowning node_modules.
+RUN mkdir -p /app/logs /app/uploads /app/backups /app/dist/backups \
+  && chown nodejs:nodejs /app /app/logs /app/uploads /app/backups /app/dist/backups
 
 # Switch to non-root user
 USER nodejs
