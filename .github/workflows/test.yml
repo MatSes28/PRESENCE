@@ -8,6 +8,7 @@ permissions:
 
 env:
   NODE_VERSION: "20.20.2"
+  LOAD_TEST_NODE_VERSION: "22.13.0"
 
 jobs:
   load-tests:
@@ -42,6 +43,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -67,8 +69,22 @@ jobs:
       - name: Wait for application
         run: timeout 60 bash -c 'until curl -fsS http://localhost:3000/health; do sleep 2; done'
 
+      - name: Setup Node.js for load tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.LOAD_TEST_NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: load-tests/package-lock.json
+
+      - name: Install load test dependencies
+        working-directory: load-tests
+        run: npm ci --workspaces=false
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
       - name: Run load tests
-        run: npm run test:load:all --workspace=server
+        working-directory: load-tests
+        run: npm run test:load:all
         env:
           LOADTEST_EMAIL: ${{ secrets.LOADTEST_EMAIL }}
           LOADTEST_PASSWORD: ${{ secrets.LOADTEST_PASSWORD }}
