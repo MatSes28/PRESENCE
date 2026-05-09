@@ -43,8 +43,9 @@ npm install
 # Install Playwright browsers
 npx playwright install
 
-# Install Artillery globally (optional)
-npm install -g artillery
+# Install load-test tooling with Node.js 22.13+.
+# This package is kept out of the main workspace install.
+cd ../load-tests && npm ci --workspaces=false
 ```
 
 ### Test Commands
@@ -359,10 +360,10 @@ npx playwright test --trace on
 
 ```bash
 # Run load test with verbose output
-artillery run --output test-results/load-test.json tests/load/artillery.yml
+cd ../load-tests && npm run test:load -- --output test-results/load-test.json
 
 # Quick smoke test
-artillery quick --count 10 --num 5 http://localhost:3000/health
+cd ../load-tests && npm exec -- artillery quick --count 10 --num 5 http://localhost:3000/health
 ```
 
 ## 📚 Best Practices

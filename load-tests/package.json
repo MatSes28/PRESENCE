@@ -1,0 +1,13 @@
+{
+  "name": "presence-load-tests",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test:load": "cd ../server/tests/load && artillery run artillery-api.yml",
+    "test:load:iot": "cd ../server/tests/load && artillery run artillery-iot.yml",
+    "test:load:all": "npm run test:load && npm run test:load:iot"
+  },
+  "devDependencies": {
+    "artillery": "2.0.27"
+  }
+}
