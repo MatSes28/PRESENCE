@@ -37,6 +37,7 @@
       "minimatch": "9.0.8"
     },
     "esbuild": "0.25.12",
-    "drizzle-orm": "0.45.2"
+    "drizzle-orm": "0.45.2",
+    "tmp": "0.2.5"
   }
 }
