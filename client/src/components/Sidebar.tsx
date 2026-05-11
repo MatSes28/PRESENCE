@@ -220,9 +220,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                 aria-controls={`sidebar-section-${section.title.replace(/\s+/g, "-").toLowerCase()}`}
                 className="flex w-full items-center justify-between rounded-lg px-4 py-2 text-gray-300 transition-colors hover:bg-gray-800 ios-button"
               >
-                <div className="flex items-center">
-                  <span className="mr-4">{section.icon}</span>
-                  <span className="font-medium text-sm">{section.title}</span>
+                <div className="flex min-w-0 items-center">
+                  <span className="mr-4 shrink-0">{section.icon}</span>
+                  <span className="truncate text-sm font-medium">{section.title}</span>
                 </div>
                 <svg
                   className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
@@ -250,14 +250,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                       <Link
                         href={item.path}
                         onClick={onCloseMobile}
-                        className={`flex items-center rounded-r-lg py-2 pl-4 pr-4 text-sm transition-colors ios-button ios-touch-target ${
+                        className={`flex min-w-0 items-center rounded-r-lg py-2 pl-4 pr-4 text-sm transition-colors ios-button ios-touch-target ${
                           isActive(item.path)
                             ? "bg-cyan-600 text-white border-l-2 border-cyan-400 -ml-0.5"
                             : "text-gray-400 hover:bg-gray-700 hover:text-white"
                         }`}
                       >
-                        <span className="mr-4">{item.icon}</span>
-                        {item.label}
+                        <span className="mr-4 shrink-0">{item.icon}</span>
+                        <span className="min-w-0 truncate">{item.label}</span>
                       </Link>
                     </li>
                   ))}

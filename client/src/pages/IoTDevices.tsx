@@ -536,7 +536,7 @@ export const IoTDevices = () => {
         )}
       </section>
 
-      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
           { label: "Total Devices", value: stats.total, accent: "text-cyan-400", icon: "📊" },
           { label: "Online", value: stats.online, accent: "text-emerald-400", icon: "🟢" },
@@ -544,10 +544,10 @@ export const IoTDevices = () => {
           { label: "Maintenance", value: stats.maintenance, accent: "text-amber-400", icon: "🟡" },
         ].map((card) => (
           <div key={card.label} className="rounded-lg border border-gray-700 bg-gray-800 p-4 shadow-lg">
-            <div className="flex items-center gap-4">
-              <div className="text-2xl">{card.icon}</div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-400">{card.label}</p>
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="shrink-0 text-2xl">{card.icon}</div>
+              <div className="min-w-0">
+                <p className="break-words text-xs uppercase leading-tight tracking-wide text-gray-400">{card.label}</p>
                 <p className={`text-2xl font-semibold ${card.accent}`}>{card.value}</p>
               </div>
             </div>
@@ -583,18 +583,18 @@ export const IoTDevices = () => {
                 className="overflow-hidden rounded-lg border border-gray-700 bg-gray-800 shadow-lg"
               >
                 <div className="border-b border-gray-700 bg-gray-900/60 px-6 py-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-cyan-500/10 text-2xl">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-2xl">
                         {getDeviceIcon(device.deviceType)}
                       </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">{device.deviceId}</h3>
-                        <p className="text-sm text-gray-400">{classroom.name}</p>
+                      <div className="min-w-0">
+                        <h3 className="break-words text-lg font-semibold text-white">{device.deviceId}</h3>
+                        <p className="truncate text-sm text-gray-400">{classroom.name}</p>
                       </div>
                     </div>
                     <span
-                      className={`rounded-full border px-4 py-1 text-xs font-medium capitalize ${getStatusBadgeClass(
+                      className={`self-start whitespace-nowrap rounded-full border px-4 py-1 text-xs font-medium capitalize sm:shrink-0 ${getStatusBadgeClass(
                         device.status,
                       )}`}
                     >
@@ -604,7 +604,7 @@ export const IoTDevices = () => {
                 </div>
 
                 <div className="space-y-4 px-6 py-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                     <div>
                       <p className="text-xs uppercase tracking-wide text-gray-500">Type</p>
                       <p className="mt-1 text-gray-100">{getDeviceTypeLabel(device.deviceType)}</p>
@@ -640,7 +640,7 @@ export const IoTDevices = () => {
                 </div>
 
                 <div className="border-t border-gray-700 bg-gray-900/50 px-6 py-4">
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                     <button
                       onClick={() => handleSendCommand(device.deviceId, "ping")}
                       disabled={!!activeCommand}
