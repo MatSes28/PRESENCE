@@ -1,16 +1,18 @@
 {
   "config": {
-    "configFile": "c:\\Users\\ASUS TUF\\Herd\\PRESENCE\\server\\playwright.config.ts",
-    "rootDir": "c:/Users/ASUS TUF/Herd/PRESENCE/server/tests/e2e",
+    "configFile": "F:\\PRESENCE\\Documents\\GitHub\\PRESENCE\\server\\playwright.config.ts",
+    "rootDir": "F:/PRESENCE/Documents/GitHub/PRESENCE/server/tests/e2e",
     "forbidOnly": false,
     "fullyParallel": true,
-    "globalSetup": null,
+    "globalSetup": "F:\\PRESENCE\\Documents\\GitHub\\PRESENCE\\server\\tests\\e2e\\globalSetup.ts",
     "globalTeardown": null,
     "globalTimeout": 0,
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {},
+    "metadata": {
+      "actualWorkers": 1
+    },
     "preserveOutput": "always",
     "reporter": [
       [
@@ -37,13 +39,15 @@
     "quiet": false,
     "projects": [
       {
-        "outputDir": "c:/Users/ASUS TUF/Herd/PRESENCE/server/test-results",
+        "outputDir": "F:/PRESENCE/Documents/GitHub/PRESENCE/server/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "chromium",
         "name": "chromium",
-        "testDir": "c:/Users/ASUS TUF/Herd/PRESENCE/server/tests/e2e",
+        "testDir": "F:/PRESENCE/Documents/GitHub/PRESENCE/server/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -51,13 +55,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "c:/Users/ASUS TUF/Herd/PRESENCE/server/test-results",
+        "outputDir": "F:/PRESENCE/Documents/GitHub/PRESENCE/server/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "firefox",
         "name": "firefox",
-        "testDir": "c:/Users/ASUS TUF/Herd/PRESENCE/server/tests/e2e",
+        "testDir": "F:/PRESENCE/Documents/GitHub/PRESENCE/server/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -65,13 +71,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "c:/Users/ASUS TUF/Herd/PRESENCE/server/test-results",
+        "outputDir": "F:/PRESENCE/Documents/GitHub/PRESENCE/server/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "webkit",
         "name": "webkit",
-        "testDir": "c:/Users/ASUS TUF/Herd/PRESENCE/server/tests/e2e",
+        "testDir": "F:/PRESENCE/Documents/GitHub/PRESENCE/server/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -79,13 +87,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "c:/Users/ASUS TUF/Herd/PRESENCE/server/test-results",
+        "outputDir": "F:/PRESENCE/Documents/GitHub/PRESENCE/server/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
-        "testDir": "c:/Users/ASUS TUF/Herd/PRESENCE/server/tests/e2e",
+        "testDir": "F:/PRESENCE/Documents/GitHub/PRESENCE/server/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -93,13 +103,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "c:/Users/ASUS TUF/Herd/PRESENCE/server/test-results",
+        "outputDir": "F:/PRESENCE/Documents/GitHub/PRESENCE/server/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "Mobile Safari",
         "name": "Mobile Safari",
-        "testDir": "c:/Users/ASUS TUF/Herd/PRESENCE/server/tests/e2e",
+        "testDir": "F:/PRESENCE/Documents/GitHub/PRESENCE/server/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -112,26 +124,952 @@
     "updateSnapshots": "missing",
     "updateSourceMethod": "patch",
     "version": "1.57.0",
-    "workers": 6,
+    "workers": 1,
     "webServer": {
-      "command": "npm run dev",
-      "url": "http://localhost:3000",
+      "command": "npm run dev --prefix ..",
+      "url": "http://127.0.0.1:5024",
       "reuseExistingServer": true,
       "timeout": 120000
     }
   },
-  "suites": [],
-  "errors": [
+  "suites": [
     {
-      "message": "Error: Timed out waiting 120000ms from config.webServer.",
-      "stack": "Error: Timed out waiting 120000ms from config.webServer."
+      "title": "attendance-flow.test.ts",
+      "file": "attendance-flow.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Attendance Management E2E Tests",
+          "file": "attendance-flow.test.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should complete full attendance workflow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7692,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:02:36.416Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a521baf6bad3732993e3-43facc550d12e660c8ef",
+              "file": "attendance-flow.test.ts",
+              "line": 9,
+              "column": 3
+            },
+            {
+              "title": "should handle manual attendance entry",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6475,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:02:44.659Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a521baf6bad3732993e3-0aac423c2e3af7dcd67f",
+              "file": "attendance-flow.test.ts",
+              "line": 34,
+              "column": 3
+            },
+            {
+              "title": "should handle attendance discrepancies",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6231,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:02:51.147Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a521baf6bad3732993e3-e273e87f7ca549708209",
+              "file": "attendance-flow.test.ts",
+              "line": 61,
+              "column": 3
+            },
+            {
+              "title": "should display real-time attendance table",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6148,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:02:57.387Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a521baf6bad3732993e3-4db2017c254ea01a8dfa",
+              "file": "attendance-flow.test.ts",
+              "line": 79,
+              "column": 3
+            },
+            {
+              "title": "should handle parent contact functionality",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "No absent records available for contact test",
+                      "location": {
+                        "file": "F:\\PRESENCE\\Documents\\GitHub\\PRESENCE\\server\\tests\\e2e\\attendance-flow.test.ts",
+                        "line": 140,
+                        "column": 12
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 6128,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:03:03.546Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "No absent records available for contact test",
+                          "location": {
+                            "file": "F:\\PRESENCE\\Documents\\GitHub\\PRESENCE\\server\\tests\\e2e\\attendance-flow.test.ts",
+                            "line": 140,
+                            "column": 12
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "a521baf6bad3732993e3-fb0879b179dd6715a6f0",
+              "file": "attendance-flow.test.ts",
+              "line": 110,
+              "column": 3
+            },
+            {
+              "title": "should refresh attendance data",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6172,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:03:09.684Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a521baf6bad3732993e3-7d9ab88b9cec02acc1d5",
+              "file": "attendance-flow.test.ts",
+              "line": 136,
+              "column": 3
+            },
+            {
+              "title": "should display system status indicators",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6293,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:03:15.869Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "a521baf6bad3732993e3-748b47a05e19b983f05c",
+              "file": "attendance-flow.test.ts",
+              "line": 150,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "device-registration.test.ts",
+      "file": "device-registration.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Device Registration E2E Tests",
+          "file": "device-registration.test.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should complete full device registration workflow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6402,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:03:22.193Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "420f825e092a61591241-99265182c8c9c55accbe",
+              "file": "device-registration.test.ts",
+              "line": 9,
+              "column": 3
+            },
+            {
+              "title": "should handle device discovery and registration",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Network discovery is not exposed in the current UI",
+                      "location": {
+                        "file": "F:\\PRESENCE\\Documents\\GitHub\\PRESENCE\\server\\tests\\e2e\\device-registration.test.ts",
+                        "line": 46,
+                        "column": 12
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 6132,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:03:28.607Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "Network discovery is not exposed in the current UI",
+                          "location": {
+                            "file": "F:\\PRESENCE\\Documents\\GitHub\\PRESENCE\\server\\tests\\e2e\\device-registration.test.ts",
+                            "line": 46,
+                            "column": 12
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "420f825e092a61591241-cbbb19f865add9fa7296",
+              "file": "device-registration.test.ts",
+              "line": 44,
+              "column": 3
+            },
+            {
+              "title": "should configure device settings",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6377,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:03:34.751Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "420f825e092a61591241-0218ee5ff6d0a5f38cbd",
+              "file": "device-registration.test.ts",
+              "line": 80,
+              "column": 3
+            },
+            {
+              "title": "should monitor device health",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6270,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:03:41.138Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "420f825e092a61591241-bf2ca50be1cf9213ed33",
+              "file": "device-registration.test.ts",
+              "line": 114,
+              "column": 3
+            },
+            {
+              "title": "should handle device commands",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8297,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:03:47.417Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "420f825e092a61591241-2ffcaed3283639e1d48c",
+              "file": "device-registration.test.ts",
+              "line": 130,
+              "column": 3
+            },
+            {
+              "title": "should display device status indicators",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6133,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:03:55.723Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "420f825e092a61591241-ea29d836e55c83770415",
+              "file": "device-registration.test.ts",
+              "line": 155,
+              "column": 3
+            },
+            {
+              "title": "should handle bulk device operations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Bulk operations not available",
+                      "location": {
+                        "file": "F:\\PRESENCE\\Documents\\GitHub\\PRESENCE\\server\\tests\\e2e\\device-registration.test.ts",
+                        "line": 170,
+                        "column": 12
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 6129,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:04:01.865Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "Bulk operations not available",
+                          "location": {
+                            "file": "F:\\PRESENCE\\Documents\\GitHub\\PRESENCE\\server\\tests\\e2e\\device-registration.test.ts",
+                            "line": 170,
+                            "column": 12
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "420f825e092a61591241-5b1d2245653bd7ba3d99",
+              "file": "device-registration.test.ts",
+              "line": 174,
+              "column": 3
+            },
+            {
+              "title": "should validate device registration form",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6243,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:04:08.001Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "420f825e092a61591241-47347f1ada6530d1adf4",
+              "file": "device-registration.test.ts",
+              "line": 202,
+              "column": 3
+            },
+            {
+              "title": "should handle device firmware updates",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "No devices available for firmware update test",
+                      "location": {
+                        "file": "F:\\PRESENCE\\Documents\\GitHub\\PRESENCE\\server\\tests\\e2e\\device-registration.test.ts",
+                        "line": 222,
+                        "column": 12
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 6160,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:04:14.252Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "No devices available for firmware update test",
+                          "location": {
+                            "file": "F:\\PRESENCE\\Documents\\GitHub\\PRESENCE\\server\\tests\\e2e\\device-registration.test.ts",
+                            "line": 222,
+                            "column": 12
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "420f825e092a61591241-27c906b433f10da9d88e",
+              "file": "device-registration.test.ts",
+              "line": 227,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "report-print-preview.spec.ts",
+      "file": "report-print-preview.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Report Print Preview",
+          "file": "report-print-preview.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "shows print report content and hides screen controls",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6481,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:04:20.439Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5ef643f3cc3e9c9443bf-290a7a6a13dfe5da27a0",
+              "file": "report-print-preview.spec.ts",
+              "line": 9,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "reporting-workflow.test.ts",
+      "file": "reporting-workflow.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Reporting Workflow E2E Tests",
+          "file": "reporting-workflow.test.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should render the reporting workspace",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6181,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:04:26.950Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "0e858aaebebce7e9798a-05b3779c70bcebb4e656",
+              "file": "reporting-workflow.test.ts",
+              "line": 10,
+              "column": 3
+            },
+            {
+              "title": "should expose report filters and export controls",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6172,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:04:33.140Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "0e858aaebebce7e9798a-0ba1ca30dfd72066a0e6",
+              "file": "reporting-workflow.test.ts",
+              "line": 24,
+              "column": 3
+            },
+            {
+              "title": "should validate invalid custom date ranges",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6202,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:04:39.320Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "0e858aaebebce7e9798a-081b294847570f5dd7aa",
+              "file": "reporting-workflow.test.ts",
+              "line": 46,
+              "column": 3
+            },
+            {
+              "title": "should change report type without breaking preview",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6256,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:04:45.531Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "0e858aaebebce7e9798a-4067300fc865dcae0b16",
+              "file": "reporting-workflow.test.ts",
+              "line": 56,
+              "column": 3
+            },
+            {
+              "title": "should expose scheduled report controls",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6185,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:04:51.795Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "0e858aaebebce7e9798a-454f93f9ecd2fc244233",
+              "file": "reporting-workflow.test.ts",
+              "line": 66,
+              "column": 3
+            },
+            {
+              "title": "should expose report history controls",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6154,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-05-11T12:04:57.988Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "0e858aaebebce7e9798a-6a61b54b295defcbde28",
+              "file": "reporting-workflow.test.ts",
+              "line": 78,
+              "column": 3
+            }
+          ]
+        }
+      ]
     }
   ],
+  "errors": [],
   "stats": {
-    "startTime": "2026-03-02T07:42:23.424Z",
-    "duration": 120171.15800000001,
-    "expected": 0,
-    "skipped": 0,
+    "startTime": "2026-05-11T12:02:32.369Z",
+    "duration": 151939.69400000002,
+    "expected": 19,
+    "skipped": 4,
     "unexpected": 0,
     "flaky": 0
   }
