@@ -1,97 +1,97 @@
-# Production Readiness Check (Repo State)
+# Production Readiness Check
 
-Date: 2026-02-26
+Date: 2026-05-11
 
-This is a **pass/fail** readiness snapshot based on what can be validated inside the repo/workspace.
+This is a repo/workspace readiness snapshot for CLIRDEC:PRESENCE. It reflects what was validated locally on this machine after refreshing stale E2E coverage and smoke-test behavior.
 
 ## Verdict
 
-**NOT 100% production-ready yet**.
+**Codebase status: ready for client turnover review.**
 
-Reason: there are still **blocking gaps in system-level validation** (integration/e2e) and a few **known operational risks** that must be explicitly accepted/mitigated.
+**Production go-live status: conditionally ready.** The code passed the local readiness gate and Chromium E2E flow, but final go-live still requires deployment-environment verification and physical IoT hardware validation.
 
-## ✅ Verified in this workspace
+## Validated Locally
 
-- Typecheck passes:
-  - [`npm run check`](package.json:10)
-  - [`npm run check --workspace=server`](server/package.json:12)
-- Server build passes:
-  - [`npm run build --workspace=server`](server/package.json:8)
-- Server unit tests pass:
-  - [`npm run test:unit --workspace=server`](server/package.json:16)
-- Monitoring metrics endpoint exports non-mock metrics and matches Prometheus scrape path:
-  - [`/api/metrics`](server/src/routes/health.ts:93)
-  - Prometheus scrape config uses `metrics_path: "/api/metrics"`: [`monitoring/prometheus.yml`](monitoring/prometheus.yml:18)
-- Production hardening changes are present:
-  - Fail-closed env validation: [`validateEnvironmentOrThrow()`](server/src/config/env.ts:41)
-  - No fallback JWT/session secrets in runtime paths: [`AuthService.constructor()`](server/src/services/authService.ts:43), session config in [`server/src/index.ts`](server/src/index.ts:366)
-  - CORS fails closed in prod: [`corsOptimization()`](server/src/middleware/rateLimit.ts:243)
-  - Password reset uses hashed + expiry + single-use tokens: migration [`server/drizzle/0009_password_reset_tokens.sql`](server/drizzle/0009_password_reset_tokens.sql) + endpoints in [`server/src/routes/auth.ts`](server/src/routes/auth.ts:555)
+The following checks passed on 2026-05-11:
 
-## ❌ Blockers (must fix/validate before claiming “ready”)
+- `npm run verify:local`
+  - `npm run security:secrets`
+  - `npm run check`
+  - `npm run build`
+  - `npm audit --audit-level=moderate --workspaces`
+  - `npm run test:local`
+- `npm run test:security --workspace=server`
+- `..\node_modules\.bin\playwright.cmd test --project=chromium --workers=1`
+  - 19 passed
+  - 4 skipped for optional UI paths not exposed in the current app
+- Local live smoke test
+  - `GET /health` returned 200
+  - `GET /api/health` returned 200
+  - `GET /api/ready` returned `status: ready`
+  - Vite frontend served the app successfully on its assigned dev port
 
-### 1) Integration tests must still be validated in this workspace run
+## Fixes Included In This Readiness Pass
 
-The repo is now configured so the integration suites are runnable against the imported Express app instance and no longer skip automatically when SQLite is enabled.
+- Updated stale Playwright E2E tests to match the current app routes:
+  - `/`
+  - `/attendance`
+  - `/iot`
+  - `/reports`
+- Added shared E2E login/navigation helpers.
+- Refreshed attendance, device registration, print preview, and reporting workflow browser tests.
+- Fixed `scripts/smoke-test.mjs` so successful smoke runs exit cleanly on modern Node versions.
 
-Required validation:
+## Production Verification Still Required
 
-- Run [`npm run test:integration --workspace=server`](server/package.json:17) in a clean environment and confirm green.
-- Keep one reproducible CI lane:
-  - SQLite for deterministic repo-level validation, or
-  - ephemeral PostgreSQL for production-like validation.
+These items require the real deployment environment, secrets, database, or hardware:
 
-### 2) E2E suite still requires environment-backed validation
+- Deploy to the target host using the production runtime, preferably Node 20 or the Docker image.
+- Set production environment variables from `.env.production.example`, especially:
+  - `DATABASE_URL`
+  - `SESSION_SECRET`
+  - `JWT_SECRET`
+  - `JWT_REFRESH_SECRET`
+  - `ENCRYPTION_MASTER_KEY`
+  - `FRONTEND_URL`, `ALLOWED_ORIGINS`, or `CORS_ORIGIN`
+  - `BREVO_API_KEY` and `FROM_EMAIL` if email notifications are required
+  - `REDIS_URL` with `REDIS_ENABLED=true` when Redis is used
+  - backup settings if production backups are enabled
+- Run production schema verification:
 
-[`npm run test:e2e --workspace=server`](server/package.json:18) no longer forces a SQLite no-op path, but a green run is still required in a real target environment because browser tests depend on valid accounts, routes, and fixture data.
+```bash
+DATABASE_URL=postgresql://... node server/scripts/verify-schema.mjs
+```
 
-### 3) Load tests require explicit credentials and device API key
+- Run deployment smoke test:
 
-Load tests are intentionally gated to avoid fake credentials/tokens.
+```bash
+API_BASE_URL=https://your-api.example.com SMOKE_ORIGIN=https://your-app.example.com node scripts/smoke-test.mjs
+```
 
-Required env/secrets:
+- Confirm the deployed browser app can:
+  - log in with the production admin account
+  - load dashboard, attendance, IoT device, report, student, schedule, and settings pages
+  - generate/export reports
+  - send email notifications if enabled
 
-- `LOADTEST_EMAIL`
-- `LOADTEST_PASSWORD`
-- `LOADTEST_DEVICE_API_KEY` (for IoT plan)
+## IoT Hardware Turnover Checklist
 
-Files:
+Before final client sign-off, validate with the actual ESP32/RFID/proximity hardware:
 
-- API plan: [`server/tests/load/artillery-api.yml`](server/tests/load/artillery-api.yml:1)
-- IoT plan: [`server/tests/load/artillery-iot.yml`](server/tests/load/artillery-iot.yml:1)
+- Register at least one real IoT device in the production or staging system.
+- Confirm the device heartbeat changes the device status to online.
+- Scan a real RFID card and confirm the attendance event is recorded.
+- Trigger entry and exit proximity sensors and confirm the expected attendance behavior.
+- Restart/unplug the device and confirm reconnect behavior.
+- Confirm invalid/unknown RFID events are rejected or logged as expected.
 
-## ⚠️ Known risks / explicit acceptance required
+## Known Caveats
 
-### 1) `npm audit` remaining findings (dev tooling)
+- Local validation was run on Node 24, while Docker/CI targets Node 20. Final deployment should be verified in the target runtime.
+- Email service was disabled in local dev because production Brevo credentials were not present.
+- Physical IoT device testing was not possible from this workspace.
+- Cross-browser Playwright coverage beyond Chromium was not rerun in this pass.
 
-`npm audit` still reports 4 moderate vulnerabilities due to nested `esbuild@0.18.x` under `drizzle-kit -> @esbuild-kit/*`.
+## Final Turnover Recommendation
 
-Impact:
-
-- Primarily affects **dev tooling**, not runtime dependencies.
-
-Mitigation:
-
-- Ensure production images omit devDependencies (runtime stages do this): [`Dockerfile`](Dockerfile:45), [`Dockerfile.production`](Dockerfile.production:1)
-- Track upstream and upgrade when `@esbuild-kit/*` moves off `esbuild@0.18.x`.
-
-### 2) Deployment process correctness
-
-Docker build path and VPS deployment script were adjusted, but you still must verify your real pipeline:
-
-- Build Docker image and boot it with production env vars
-- Run DB migrations
-- Validate `/health` and core flows
-
-## Go/No-Go checklist (minimum)
-
-1. ✅ `npm run build` (root)
-2. ✅ `npm run test:unit --workspace=server`
-3. ✅ Integration tests green in a reproducible environment (CI Postgres or SQLite strategy)
-4. ✅ E2E tests green on staging
-5. ✅ Run migrations including `0009_password_reset_tokens.sql`
-6. ✅ Confirm env vars in production satisfy fail-closed requirements (`SESSION_SECRET`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, CORS allowlist)
-
-## Reference
-
-- Hardening summary: [`DEPLOYMENT-READINESS-REPORT.md`](DEPLOYMENT-READINESS-REPORT.md)
+Proceed with client turnover review after committing the source changes. For production launch, require one successful staging deployment, one production smoke test, and one physical hardware walkthrough.

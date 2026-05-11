@@ -59,7 +59,10 @@ async function main() {
     console.log("Skip CORS check (set SMOKE_ORIGIN to test)");
   }
 
-  process.exit(failed > 0 ? 1 : 0);
+  process.exitCode = failed > 0 ? 1 : 0;
 }
 
-main();
+main().catch((error) => {
+  console.error("FAIL smoke test:", error?.message || error);
+  process.exitCode = 1;
+});

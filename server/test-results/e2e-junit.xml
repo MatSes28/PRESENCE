@@ -1,2 +1,80 @@
-<testsuites id="" name="" tests="0" failures="0" skipped="0" errors="0" time="120.171158">
+<testsuites id="" name="" tests="23" failures="0" skipped="4" errors="0" time="151.93969400000003">
+<testsuite name="attendance-flow.test.ts" timestamp="2026-05-11T12:02:35.721Z" hostname="chromium" tests="7" failures="0" skipped="1" time="45.139" errors="0">
+<testcase name="Attendance Management E2E Tests › should complete full attendance workflow" classname="attendance-flow.test.ts" time="7.692">
+</testcase>
+<testcase name="Attendance Management E2E Tests › should handle manual attendance entry" classname="attendance-flow.test.ts" time="6.475">
+</testcase>
+<testcase name="Attendance Management E2E Tests › should handle attendance discrepancies" classname="attendance-flow.test.ts" time="6.231">
+</testcase>
+<testcase name="Attendance Management E2E Tests › should display real-time attendance table" classname="attendance-flow.test.ts" time="6.148">
+</testcase>
+<testcase name="Attendance Management E2E Tests › should handle parent contact functionality" classname="attendance-flow.test.ts" time="6.128">
+<properties>
+<property name="skip" value="No absent records available for contact test">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Attendance Management E2E Tests › should refresh attendance data" classname="attendance-flow.test.ts" time="6.172">
+</testcase>
+<testcase name="Attendance Management E2E Tests › should display system status indicators" classname="attendance-flow.test.ts" time="6.293">
+</testcase>
+</testsuite>
+<testsuite name="device-registration.test.ts" timestamp="2026-05-11T12:02:35.721Z" hostname="chromium" tests="9" failures="0" skipped="3" time="58.143" errors="0">
+<testcase name="Device Registration E2E Tests › should complete full device registration workflow" classname="device-registration.test.ts" time="6.402">
+</testcase>
+<testcase name="Device Registration E2E Tests › should handle device discovery and registration" classname="device-registration.test.ts" time="6.132">
+<properties>
+<property name="skip" value="Network discovery is not exposed in the current UI">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Device Registration E2E Tests › should configure device settings" classname="device-registration.test.ts" time="6.377">
+</testcase>
+<testcase name="Device Registration E2E Tests › should monitor device health" classname="device-registration.test.ts" time="6.27">
+</testcase>
+<testcase name="Device Registration E2E Tests › should handle device commands" classname="device-registration.test.ts" time="8.297">
+</testcase>
+<testcase name="Device Registration E2E Tests › should display device status indicators" classname="device-registration.test.ts" time="6.133">
+</testcase>
+<testcase name="Device Registration E2E Tests › should handle bulk device operations" classname="device-registration.test.ts" time="6.129">
+<properties>
+<property name="skip" value="Bulk operations not available">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Device Registration E2E Tests › should validate device registration form" classname="device-registration.test.ts" time="6.243">
+</testcase>
+<testcase name="Device Registration E2E Tests › should handle device firmware updates" classname="device-registration.test.ts" time="6.16">
+<properties>
+<property name="skip" value="No devices available for firmware update test">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="report-print-preview.spec.ts" timestamp="2026-05-11T12:02:35.721Z" hostname="chromium" tests="1" failures="0" skipped="0" time="6.481" errors="0">
+<testcase name="Report Print Preview › shows print report content and hides screen controls" classname="report-print-preview.spec.ts" time="6.481">
+</testcase>
+</testsuite>
+<testsuite name="reporting-workflow.test.ts" timestamp="2026-05-11T12:02:35.721Z" hostname="chromium" tests="6" failures="0" skipped="0" time="37.15" errors="0">
+<testcase name="Reporting Workflow E2E Tests › should render the reporting workspace" classname="reporting-workflow.test.ts" time="6.181">
+</testcase>
+<testcase name="Reporting Workflow E2E Tests › should expose report filters and export controls" classname="reporting-workflow.test.ts" time="6.172">
+</testcase>
+<testcase name="Reporting Workflow E2E Tests › should validate invalid custom date ranges" classname="reporting-workflow.test.ts" time="6.202">
+</testcase>
+<testcase name="Reporting Workflow E2E Tests › should change report type without breaking preview" classname="reporting-workflow.test.ts" time="6.256">
+</testcase>
+<testcase name="Reporting Workflow E2E Tests › should expose scheduled report controls" classname="reporting-workflow.test.ts" time="6.185">
+</testcase>
+<testcase name="Reporting Workflow E2E Tests › should expose report history controls" classname="reporting-workflow.test.ts" time="6.154">
+</testcase>
+</testsuite>
 </testsuites>

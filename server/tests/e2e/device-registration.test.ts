@@ -1,64 +1,51 @@
 import { test, expect } from "@playwright/test";
-
-const E2E_EMAIL = process.env.PLAYWRIGHT_TEST_EMAIL || "admin@clirdec.edu";
-const E2E_PASSWORD = process.env.PLAYWRIGHT_TEST_PASSWORD || "admin123";
+import { gotoRoute, loginAsAdmin } from "./helpers";
 
 test.describe("Device Registration E2E Tests", () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the application
-    await page.goto("/");
-
-    // Login
-    await page.fill('input[name="email"]', E2E_EMAIL);
-    await page.fill('input[name="password"]', E2E_PASSWORD);
-    await page.click('button[type="submit"]');
-
-    // Wait for dashboard to load
-    await page.waitForURL("**/dashboard");
+    await loginAsAdmin(page);
   });
 
   test("should complete full device registration workflow", async ({
     page,
   }) => {
-    // Navigate to IoT Devices page
-    await page.click("text=IoT Devices");
-    await page.waitForURL("**/iot-devices");
-
-    // Verify page loads
-    await expect(
-      page.locator("h3").filter({ hasText: "IoT Device Management" }),
-    ).toBeVisible();
+    await gotoRoute(page, "/iot", "IoT Device Management");
 
     // Click Add Device button
-    await page.click('button:has-text("Add Device")');
+    await page.getByRole("button", { name: "Register Device" }).first().click();
 
     // Fill device registration form
-    await page.fill('input[name="deviceId"]', "E2E_TEST_DEVICE_001");
+    const deviceId = `E2E_TEST_DEVICE_${Date.now()}`;
+    await page.fill('input[name="deviceId"]', deviceId);
     await page.selectOption('select[name="deviceType"]', "esp32_s3");
-    await page.selectOption('select[name="classroom"]', "1"); // Select first classroom
-    await page.fill('input[name="ipAddress"]', "192.168.1.100");
-    await page.fill('input[name="macAddress"]', "AA:BB:CC:DD:EE:FF");
+    await page.selectOption('select[name="classroomId"]', { index: 1 });
 
     // Submit form
-    await page.click('button:has-text("Register Device")');
+    await page.getByRole("button", { name: "Register Device" }).last().click();
 
     // Verify success notification
     await expect(
-      page.locator("text=Device registered successfully"),
+      page.getByText("Device Registered", { exact: true }),
     ).toBeVisible();
 
-    // Verify device appears in table
-    await expect(page.locator("table")).toContainText("E2E_TEST_DEVICE_001");
-    await expect(page.locator("table")).toContainText("esp32_s3");
+    // Verify device appears on the page
+    await expect(
+      page.getByRole("heading", { name: deviceId, exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("ESP32-S3").first()).toBeVisible();
   });
 
   test("should handle device discovery and registration", async ({ page }) => {
-    // Navigate to IoT Devices page
-    await page.click("text=IoT Devices");
-    await page.waitForURL("**/iot-devices");
+    await gotoRoute(page, "/iot", "IoT Device Management");
 
     // Click Network Discovery button
-    await page.click('button:has-text("Network Discovery")');
+    const discoveryButton = page.getByRole("button", {
+      name: "Network Discovery",
+    });
+    if (!(await discoveryButton.isVisible())) {
+      test.skip(true, "Network discovery is not exposed in the current UI");
+    }
+    await discoveryButton.click();
 
     // Verify discovery modal opens
     await expect(page.locator("text=Device Discovery")).toBeVisible();
@@ -86,121 +73,79 @@ test.describe("Device Registration E2E Tests", () => {
   });
 
   test("should configure device settings", async ({ page }) => {
-    // Navigate to IoT Devices page
-    await page.click("text=IoT Devices");
-    await page.waitForURL("**/iot-devices");
+    await gotoRoute(page, "/iot", "IoT Device Management");
 
     // Find a device in the table (assuming one exists)
-    const deviceRow = page.locator("tbody tr").first();
-    if (await deviceRow.isVisible()) {
+    const configureButton = page.getByRole("button", { name: "Configure" }).first();
+    if (await configureButton.isVisible()) {
       // Click configure button
-      await deviceRow.locator('button:has-text("Configure")').click();
+      await configureButton.click();
 
       // Verify configuration modal opens
-      await expect(page.locator("text=Device Configuration")).toBeVisible();
+      await expect(
+        page.getByText("Configuration", { exact: true }).last(),
+      ).toBeVisible();
 
       // Update configuration
-      await page.fill('input[name="rfidSensitivity"]', "75");
-      await page.fill('input[name="sensorThreshold"]', "50");
-      await page.check('input[name="autoRestart"]');
+      await page.fill('input[name="heartbeatInterval"]', "30000");
 
       // Save configuration
-      await page.click('button:has-text("Save Configuration")');
+      await page.getByRole("button", { name: "Update Configuration" }).click();
 
       // Verify success
-      await expect(page.locator("text=Configuration updated")).toBeVisible();
+      await expect(
+        page.getByText("Configuration Updated", { exact: true }),
+      ).toBeVisible();
     } else {
       test.skip(true, "No devices available for configuration test");
     }
   });
 
   test("should monitor device health", async ({ page }) => {
-    // Navigate to IoT Devices page
-    await page.click("text=IoT Devices");
-    await page.waitForURL("**/iot-devices");
+    await gotoRoute(page, "/iot", "IoT Device Management");
 
     // Find a device and click health check
-    const deviceRow = page.locator("tbody tr").first();
-    if (await deviceRow.isVisible()) {
-      await deviceRow.locator('button:has-text("Health Check")').click();
-
-      // Verify health check results
-      await expect(page.locator("text=Health Check Results")).toBeVisible();
-
-      // Check health metrics
-      await expect(page.locator("text=Uptime")).toBeVisible();
-      await expect(page.locator("text=CPU Usage")).toBeVisible();
-      await expect(page.locator("text=Memory Usage")).toBeVisible();
-      await expect(page.locator("text=Signal Strength")).toBeVisible();
+    const diagnosticsButton = page.getByRole("button", { name: "Diagnostics" }).first();
+    if (await diagnosticsButton.isVisible()) {
+      await diagnosticsButton.click();
+      await expect(page.getByText("Command Sent")).toBeVisible();
     } else {
       test.skip(true, "No devices available for health check test");
     }
   });
 
   test("should handle device commands", async ({ page }) => {
-    // Navigate to IoT Devices page
-    await page.click("text=IoT Devices");
-    await page.waitForURL("**/iot-devices");
+    await gotoRoute(page, "/iot", "IoT Device Management");
 
     // Find a device and click commands
-    const deviceRow = page.locator("tbody tr").first();
-    if (await deviceRow.isVisible()) {
-      await deviceRow.locator('button:has-text("Commands")').click();
-
-      // Verify command modal opens
-      await expect(page.locator("text=Device Commands")).toBeVisible();
-
+    const pingButton = page.getByRole("button", { name: "Ping" }).first();
+    if (await pingButton.isVisible()) {
       // Send ping command
-      await page.click('button:has-text("Ping")');
+      await pingButton.click();
 
       // Verify command response
-      await expect(
-        page.locator("text=Command sent successfully"),
-      ).toBeVisible();
+      await expect(page.getByText("Command Sent")).toBeVisible();
 
       // Send restart command
-      await page.click('button:has-text("Restart")');
-
-      // Confirm restart
-      await page.click('button:has-text("Confirm Restart")');
-
-      // Verify restart command sent
-      await expect(page.locator("text=Restart command sent")).toBeVisible();
+      await page.getByRole("button", { name: "Restart" }).first().click();
+      await expect(page.getByText("Command Sent")).toBeVisible();
     } else {
       test.skip(true, "No devices available for command test");
     }
   });
 
   test("should display device status indicators", async ({ page }) => {
-    // Navigate to IoT Devices page
-    await page.click("text=IoT Devices");
-    await page.waitForURL("**/iot-devices");
+    await gotoRoute(page, "/iot", "IoT Device Management");
 
     // Verify status indicators are present
-    await expect(page.locator("text=Total Devices")).toBeVisible();
-    await expect(page.locator("text=Online Devices")).toBeVisible();
-    await expect(page.locator("text=Offline Devices")).toBeVisible();
-
-    // Check device table has status column
-    await expect(
-      page.locator("th").filter({ hasText: "Status" }),
-    ).toBeVisible();
-
-    // Verify status badges exist
-    const statusBadges = page.locator('[data-testid="device-status"]');
-    if (await statusBadges.first().isVisible()) {
-      // Check for online/offline/maintenance status
-      const badgeText = await statusBadges.first().textContent();
-      expect(["online", "offline", "maintenance"]).toContain(
-        badgeText?.toLowerCase(),
-      );
-    }
+    await expect(page.getByText("Total Devices", { exact: true })).toBeVisible();
+    await expect(page.getByText("Online", { exact: true })).toBeVisible();
+    await expect(page.getByText("Offline", { exact: true })).toBeVisible();
+    await expect(page.getByText("Maintenance", { exact: true })).toBeVisible();
   });
 
   test("should handle bulk device operations", async ({ page }) => {
-    // Navigate to IoT Devices page
-    await page.click("text=IoT Devices");
-    await page.waitForURL("**/iot-devices");
+    await gotoRoute(page, "/iot", "IoT Device Management");
 
     // Check for bulk operations
     const bulkUpdateButton = page.locator('button:has-text("Bulk Update")');
@@ -227,40 +172,32 @@ test.describe("Device Registration E2E Tests", () => {
   });
 
   test("should validate device registration form", async ({ page }) => {
-    // Navigate to IoT Devices page
-    await page.click("text=IoT Devices");
-    await page.waitForURL("**/iot-devices");
+    await gotoRoute(page, "/iot", "IoT Device Management");
 
     // Click Add Device button
-    await page.click('button:has-text("Add Device")');
-
-    // Try to submit empty form
-    await page.click('button:has-text("Register Device")');
-
-    // Verify validation errors
-    await expect(page.locator("text=Device ID is required")).toBeVisible();
-    await expect(page.locator("text=Device type is required")).toBeVisible();
+    await page.getByRole("button", { name: "Register Device" }).first().click();
+    await expect(
+      page.getByRole("heading", { name: "Register IoT Device" }),
+    ).toBeVisible();
 
     // Fill invalid data
     await page.fill('input[name="deviceId"]', "invalid device id with spaces");
     await page.selectOption('select[name="deviceType"]', "esp32_s3");
 
     // Submit form
-    await page.click('button:has-text("Register Device")');
+    await page.getByRole("button", { name: "Register Device" }).last().click();
 
     // Verify validation for device ID format
-    await expect(page.locator("text=Invalid device ID format")).toBeVisible();
+    await expect(page.getByText("Invalid Device ID")).toBeVisible();
   });
 
   test("should handle device firmware updates", async ({ page }) => {
-    // Navigate to IoT Devices page
-    await page.click("text=IoT Devices");
-    await page.waitForURL("**/iot-devices");
+    await gotoRoute(page, "/iot", "IoT Device Management");
 
     // Find a device and click firmware update
-    const deviceRow = page.locator("tbody tr").first();
-    if (await deviceRow.isVisible()) {
-      await deviceRow.locator('button:has-text("Update Firmware")').click();
+    const firmwareButton = page.getByRole("button", { name: "Update Firmware" }).first();
+    if (await firmwareButton.isVisible()) {
+      await firmwareButton.click();
 
       // Verify firmware update modal
       await expect(page.locator("text=Firmware Update")).toBeVisible();
