@@ -506,14 +506,14 @@ export const Reports = () => {
   return (
     <div className="reports-page space-y-6">
       {/* Header */}
-      <div className="screen-only flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-        <div>
+      <div className="screen-only flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
           <h3 className="text-lg font-medium text-white">Attendance Reports</h3>
           <p className="text-sm text-gray-300">
             Generate and download comprehensive attendance reports
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-center space-x-2">
             <input
               type="checkbox"
@@ -533,12 +533,12 @@ export const Reports = () => {
       </div>
 
       {/* Real-time Statistics */}
-      <div className="screen-only grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="screen-only grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="flex items-center">
-            <div className="text-2xl mr-4">📊</div>
-            <div>
-              <p className="text-sm font-medium text-gray-300">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="shrink-0 text-2xl">📊</div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium leading-tight text-gray-300">
                 Today's Present
               </p>
               <p className="text-2xl font-bold text-green-400">
@@ -548,10 +548,10 @@ export const Reports = () => {
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="flex items-center">
-            <div className="text-2xl mr-4">⏰</div>
-            <div>
-              <p className="text-sm font-medium text-gray-300">Today's Late</p>
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="shrink-0 text-2xl">⏰</div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium leading-tight text-gray-300">Today's Late</p>
               <p className="text-2xl font-bold text-yellow-400">
                 {realTimeStats.todayLate.toLocaleString()}
               </p>
@@ -559,10 +559,10 @@ export const Reports = () => {
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="flex items-center">
-            <div className="text-2xl mr-4">❌</div>
-            <div>
-              <p className="text-sm font-medium text-gray-300">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="shrink-0 text-2xl">❌</div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium leading-tight text-gray-300">
                 Today's Absent
               </p>
               <p className="text-2xl font-bold text-red-400">
@@ -572,10 +572,10 @@ export const Reports = () => {
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="flex items-center">
-            <div className="text-2xl mr-4">🏫</div>
-            <div>
-              <p className="text-sm font-medium text-gray-300">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="shrink-0 text-2xl">🏫</div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium leading-tight text-gray-300">
                 Active Sessions
               </p>
               <p className="text-2xl font-bold text-cyan-400">
@@ -587,10 +587,10 @@ export const Reports = () => {
       </div>
 
       {/* Quick Report Cards */}
-      <div className="screen-only grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="screen-only grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
         <div className="bg-gray-800 rounded-lg shadow p-4 border border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <h4 className="text-sm font-medium text-white">Daily Report</h4>
               <p className="text-xs text-gray-400">
                 Today's attendance summary
@@ -599,15 +599,15 @@ export const Reports = () => {
             <button
               onClick={() => handleQuickReport("daily")}
               disabled={generating}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white px-4 py-1 rounded text-xs"
+              className="w-full rounded bg-blue-600 px-4 py-1.5 text-xs text-white hover:bg-blue-700 disabled:bg-blue-800 sm:w-auto sm:shrink-0"
             >
               Download
             </button>
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg shadow p-4 border border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <h4 className="text-sm font-medium text-white">Weekly Report</h4>
               <p className="text-xs text-gray-400">
                 This week's attendance trends
@@ -616,15 +616,15 @@ export const Reports = () => {
             <button
               onClick={() => handleQuickReport("weekly")}
               disabled={generating}
-              className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white px-4 py-1 rounded text-xs"
+              className="w-full rounded bg-green-600 px-4 py-1.5 text-xs text-white hover:bg-green-700 disabled:bg-green-800 sm:w-auto sm:shrink-0"
             >
               Download
             </button>
           </div>
         </div>
         <div className="bg-gray-800 rounded-lg shadow p-4 border border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <h4 className="text-sm font-medium text-white">
                 Analytics Report
               </h4>
@@ -635,7 +635,7 @@ export const Reports = () => {
             <button
               onClick={() => handleQuickReport("analytics")}
               disabled={generating}
-              className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white px-4 py-1 rounded text-xs"
+              className="w-full rounded bg-purple-600 px-4 py-1.5 text-xs text-white hover:bg-purple-700 disabled:bg-purple-800 sm:w-auto sm:shrink-0"
             >
               Download
             </button>
@@ -647,7 +647,7 @@ export const Reports = () => {
       <div className="screen-only bg-gray-800 rounded-lg shadow p-6 border border-gray-700">
         <h4 className="text-lg font-medium text-white mb-4">Report Filters</h4>
         <div className="mb-4 rounded-md border border-gray-700 bg-gray-900/50 p-4">
-          <p className="text-sm text-gray-300">{exportContext}</p>
+          <p className="break-words text-sm leading-6 text-gray-300">{exportContext}</p>
           <p className="text-xs text-gray-500 mt-1">
             Report includes {pagination.total.toLocaleString()} records from{" "}
             {formatDateLabel(reportParams.startDate)} to{" "}

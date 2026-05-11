@@ -188,8 +188,8 @@ export const Discrepancies: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold text-white">Discrepancies</h2>
           <p className="text-sm text-gray-300">
             Review and resolve anomaly records with evidence (RFID + sensor +
@@ -197,8 +197,8 @@ export const Discrepancies: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div>
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:w-auto xl:grid-cols-[7rem_9.5rem_9.5rem_auto] xl:items-end">
+          <div className="min-w-0">
             <label
               htmlFor="discrepancy-status"
               className="block text-xs text-gray-400 mb-1"
@@ -216,14 +216,14 @@ export const Discrepancies: React.FC = () => {
                   status: e.target.value as any,
                 }));
               }}
-              className="bg-gray-800 border border-gray-700 text-white rounded px-4 py-2"
+              className="w-full min-w-0 rounded border border-gray-700 bg-gray-800 px-3 py-2 text-white"
             >
               <option value="open">Open</option>
               <option value="resolved">Resolved</option>
               <option value="all">All</option>
             </select>
           </div>
-          <div>
+          <div className="min-w-0">
             <label
               htmlFor="discrepancy-start"
               className="block text-xs text-gray-400 mb-1"
@@ -239,10 +239,10 @@ export const Discrepancies: React.FC = () => {
                 setPagination((p) => ({ ...p, offset: 0 }));
                 setFilters((f) => ({ ...f, startDate: e.target.value }));
               }}
-              className="bg-gray-800 border border-gray-700 text-white rounded px-4 py-2"
+              className="w-full min-w-0 rounded border border-gray-700 bg-gray-800 px-3 py-2 text-white"
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <label
               htmlFor="discrepancy-end"
               className="block text-xs text-gray-400 mb-1"
@@ -258,12 +258,12 @@ export const Discrepancies: React.FC = () => {
                 setPagination((p) => ({ ...p, offset: 0 }));
                 setFilters((f) => ({ ...f, endDate: e.target.value }));
               }}
-              className="bg-gray-800 border border-gray-700 text-white rounded px-4 py-2"
+              className="w-full min-w-0 rounded border border-gray-700 bg-gray-800 px-3 py-2 text-white"
             />
           </div>
           <button
             onClick={() => load()}
-            className="self-start rounded-md bg-cyan-600 px-4 py-2 text-white transition-colors hover:bg-cyan-700 sm:self-end"
+            className="w-full whitespace-nowrap rounded-md bg-cyan-600 px-4 py-2 text-white transition-colors hover:bg-cyan-700 sm:w-auto xl:self-end"
           >
             Refresh
           </button>
@@ -275,25 +275,25 @@ export const Discrepancies: React.FC = () => {
           <div className="text-sm text-gray-200">
             Selected: <span className="font-semibold">{selectedCount}</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               disabled={selectedCount === 0}
               onClick={() => bulkResolve("validate")}
-              className="disabled:opacity-50 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+              className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
             >
               Validate
             </button>
             <button
               disabled={selectedCount === 0}
               onClick={() => bulkResolve("excuse")}
-              className="disabled:opacity-50 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded"
+              className="rounded bg-yellow-600 px-4 py-2 text-white hover:bg-yellow-700 disabled:opacity-50"
             >
               Excuse
             </button>
             <button
               disabled={selectedCount === 0}
               onClick={() => setSelectedIds(new Set())}
-              className="disabled:opacity-50 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded"
+              className="rounded bg-gray-700 px-4 py-2 text-white hover:bg-gray-600 disabled:opacity-50"
             >
               Clear
             </button>
@@ -303,7 +303,7 @@ export const Discrepancies: React.FC = () => {
 
       <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-800">
+          <table className="min-w-[760px] divide-y divide-gray-800">
             <thead className="bg-gray-950">
               <tr>
                 {canBulkResolve && (
