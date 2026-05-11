@@ -383,12 +383,12 @@ export const Settings = () => {
       {/* Settings Tabs */}
       <div className="bg-gray-800 shadow rounded-lg">
         <div className="border-b border-gray-700">
-          <nav className="flex space-x-8 px-6">
+          <nav className="flex gap-3 overflow-x-auto px-6" aria-label="Settings sections">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`flex-none whitespace-nowrap border-b-2 px-3 py-4 text-sm font-medium ${
                   activeTab === tab.id
                     ? "border-cyan-500 text-cyan-400"
                     : "border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600"
