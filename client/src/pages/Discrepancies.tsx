@@ -188,7 +188,7 @@ export const Discrepancies: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
         <div className="min-w-0">
           <h2 className="text-2xl font-bold text-white">Discrepancies</h2>
           <p className="text-sm text-gray-300">
@@ -197,7 +197,7 @@ export const Discrepancies: React.FC = () => {
           </p>
         </div>
 
-        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:w-auto xl:grid-cols-[7rem_9.5rem_9.5rem_auto] xl:items-end">
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 2xl:w-auto 2xl:grid-cols-[7rem_9.5rem_9.5rem_auto] 2xl:items-end">
           <div className="min-w-0">
             <label
               htmlFor="discrepancy-status"
@@ -263,7 +263,7 @@ export const Discrepancies: React.FC = () => {
           </div>
           <button
             onClick={() => load()}
-            className="w-full whitespace-nowrap rounded-md bg-cyan-600 px-4 py-2 text-white transition-colors hover:bg-cyan-700 sm:w-auto xl:self-end"
+            className="w-full whitespace-nowrap rounded-md bg-cyan-600 px-4 py-2 text-white transition-colors hover:bg-cyan-700 sm:w-auto 2xl:self-end"
           >
             Refresh
           </button>
