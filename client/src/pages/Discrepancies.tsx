@@ -187,21 +187,21 @@ export const Discrepancies: React.FC = () => {
   const hasRows = rows.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="app-page">
       <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
         <div className="min-w-0">
-          <h2 className="text-2xl font-bold text-white">Discrepancies</h2>
-          <p className="text-sm text-gray-300">
+          <h2 className="app-page-title">Discrepancies</h2>
+          <p className="app-page-subtitle max-w-2xl">
             Review and resolve anomaly records with evidence (RFID + sensor +
             device health)
           </p>
         </div>
 
-        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 2xl:w-auto 2xl:grid-cols-[7rem_9.5rem_9.5rem_auto] 2xl:items-end">
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 2xl:w-auto 2xl:grid-cols-[8rem_10rem_10rem_auto] 2xl:items-end">
           <div className="min-w-0">
             <label
               htmlFor="discrepancy-status"
-              className="block text-xs text-gray-400 mb-1"
+              className="mb-1 block text-xs text-gray-400"
             >
               Status
             </label>
@@ -216,7 +216,7 @@ export const Discrepancies: React.FC = () => {
                   status: e.target.value as any,
                 }));
               }}
-              className="w-full min-w-0 rounded border border-gray-700 bg-gray-800 px-3 py-2 text-white"
+              className="h-11 w-full min-w-0 rounded-md border border-gray-600 bg-gray-800 px-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               <option value="open">Open</option>
               <option value="resolved">Resolved</option>
@@ -226,7 +226,7 @@ export const Discrepancies: React.FC = () => {
           <div className="min-w-0">
             <label
               htmlFor="discrepancy-start"
-              className="block text-xs text-gray-400 mb-1"
+              className="mb-1 block text-xs text-gray-400"
             >
               Start
             </label>
@@ -239,13 +239,13 @@ export const Discrepancies: React.FC = () => {
                 setPagination((p) => ({ ...p, offset: 0 }));
                 setFilters((f) => ({ ...f, startDate: e.target.value }));
               }}
-              className="w-full min-w-0 rounded border border-gray-700 bg-gray-800 px-3 py-2 text-white"
+              className="h-11 w-full min-w-0 rounded-md border border-gray-600 bg-gray-800 px-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             />
           </div>
           <div className="min-w-0">
             <label
               htmlFor="discrepancy-end"
-              className="block text-xs text-gray-400 mb-1"
+              className="mb-1 block text-xs text-gray-400"
             >
               End
             </label>
@@ -258,12 +258,12 @@ export const Discrepancies: React.FC = () => {
                 setPagination((p) => ({ ...p, offset: 0 }));
                 setFilters((f) => ({ ...f, endDate: e.target.value }));
               }}
-              className="w-full min-w-0 rounded border border-gray-700 bg-gray-800 px-3 py-2 text-white"
+              className="h-11 w-full min-w-0 rounded-md border border-gray-600 bg-gray-800 px-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
             />
           </div>
           <button
             onClick={() => load()}
-            className="h-10 w-full self-end whitespace-nowrap rounded-md bg-cyan-600 px-5 text-white transition-colors hover:bg-cyan-700 sm:w-auto sm:min-w-28 sm:justify-self-end"
+            className="app-button-primary h-11 w-full self-end px-5 sm:w-auto sm:min-w-28 sm:justify-self-end"
           >
             Refresh
           </button>
@@ -271,29 +271,29 @@ export const Discrepancies: React.FC = () => {
       </div>
 
       {canBulkResolve && (
-        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between bg-gray-800 border border-gray-700 rounded p-4">
+        <div className="app-surface flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-gray-200">
             Selected: <span className="font-semibold">{selectedCount}</span>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 sm:justify-end">
             <button
               disabled={selectedCount === 0}
               onClick={() => bulkResolve("validate")}
-              className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
+              className="app-button w-full bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 sm:w-auto"
             >
               Validate
             </button>
             <button
               disabled={selectedCount === 0}
               onClick={() => bulkResolve("excuse")}
-              className="rounded bg-yellow-600 px-4 py-2 text-white hover:bg-yellow-700 disabled:opacity-50"
+              className="app-button w-full bg-yellow-600 text-white hover:bg-yellow-700 disabled:opacity-50 sm:w-auto"
             >
               Excuse
             </button>
             <button
               disabled={selectedCount === 0}
               onClick={() => setSelectedIds(new Set())}
-              className="rounded bg-gray-700 px-4 py-2 text-white hover:bg-gray-600 disabled:opacity-50"
+              className="app-button-secondary w-full disabled:opacity-50 sm:w-auto"
             >
               Clear
             </button>
@@ -301,9 +301,9 @@ export const Discrepancies: React.FC = () => {
         </div>
       )}
 
-      <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+      <div className="app-surface-muted overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-[760px] divide-y divide-gray-800">
+          <table className="w-full min-w-[760px] divide-y divide-gray-800">
             <thead className="bg-gray-950">
               <tr>
                 {canBulkResolve && (
