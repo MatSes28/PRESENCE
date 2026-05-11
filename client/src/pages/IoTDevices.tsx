@@ -503,7 +503,7 @@ export const IoTDevices = () => {
     <div className="space-y-6 text-white">
       <section className="rounded-lg border border-gray-700 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 p-6 shadow-lg">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             <p className="text-sm font-medium uppercase tracking-[0.24em] text-cyan-400">
               Device Control
             </p>
@@ -512,17 +512,17 @@ export const IoTDevices = () => {
               Register ESP32 attendance devices, manage their configuration, and copy the API key needed for firmware setup.
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2 sm:flex-row lg:shrink-0">
             <button
               onClick={() => setShowRegisterModal(true)}
-              className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
+              className="inline-flex min-w-[8.5rem] items-center justify-center whitespace-nowrap rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
             >
               Register Device
             </button>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 transition hover:border-cyan-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-w-[5.5rem] items-center justify-center whitespace-nowrap rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-sm font-medium text-gray-200 transition hover:border-cyan-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {refreshing ? "Refreshing..." : "Refresh"}
             </button>
