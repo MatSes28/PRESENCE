@@ -146,12 +146,15 @@ try {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const isProductionRuntime = isProductionLike();
 
 // Create secure server (HTTPS in production, HTTP in development)
 function createSecureServer(app: express.Application) {
-  const isProduction = isProductionLike();
-
-  if (isProduction && process.env.SSL_CERT_PATH && process.env.SSL_KEY_PATH) {
+  if (
+    isProductionRuntime &&
+    process.env.SSL_CERT_PATH &&
+    process.env.SSL_KEY_PATH
+  ) {
     // Production: Use HTTPS
     try {
       const sslOptions = {
@@ -348,6 +351,7 @@ app.use(
         scriptSrc: ["'self'"],
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: ["'self'", "ws:", "wss:"],
+        upgradeInsecureRequests: isProductionRuntime ? [] : null,
       },
     },
     // Reduce cross-origin data leakage
@@ -356,17 +360,19 @@ app.use(
     crossOriginEmbedderPolicy: false,
     crossOriginOpenerPolicy: { policy: "same-origin" },
     crossOriginResourcePolicy: { policy: "same-site" },
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true,
-    },
+    hsts: isProductionRuntime
+      ? {
+          maxAge: 31536000,
+          includeSubDomains: true,
+          preload: true,
+        }
+      : false,
   }),
 );
 app.use(corsOptimization);
 
 // HTTPS enforcement middleware
-if (process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT) {
+if (isProductionRuntime) {
   app.use((req, res, next) => {
     if (req.header("x-forwarded-proto") !== "https") {
       res.redirect(`https://${req.header("host")}${req.url}`);
@@ -409,14 +415,30 @@ app.use(preventSQLInjection);
 // Session configuration with PostgreSQL store
 app.use(sessionMiddleware);
 
+const resolvePublicPath = () => {
+  const candidates = [
+    path.resolve(process.cwd(), "public"),
+    path.resolve(process.cwd(), "server", "public"),
+    path.resolve(__dirname, "../../../public"),
+    path.resolve(__dirname, "../../public"),
+  ];
+
+  return (
+    candidates.find((candidate) =>
+      fs.existsSync(path.join(candidate, "index.html")),
+    ) ?? candidates[0]
+  );
+};
+
 // Serve static files from client build
-const publicPath = path.join(__dirname, "../../../public");
+const publicPath = resolvePublicPath();
 console.log("Serving static files from:", publicPath);
 
-// Ensure public directory exists
-if (!fs.existsSync(publicPath)) {
-  fs.mkdirSync(publicPath, { recursive: true });
-  console.log("Created public directory:", publicPath);
+if (!fs.existsSync(path.join(publicPath, "index.html"))) {
+  console.warn(
+    "Client build index.html was not found. Run `npm run build` before serving the production app.",
+    { publicPath },
+  );
 }
 
 app.use(

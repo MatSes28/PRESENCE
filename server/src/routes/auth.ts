@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import db from "../storage.js";
@@ -17,6 +17,11 @@ import {
 import { isProductionLike } from "../config/env.js";
 
 const router = Router();
+
+const shouldBypassAuthRateLimit = (req: Request) =>
+  process.env.E2E_DISABLE_RATE_LIMITS === "true" ||
+  process.env.NODE_ENV === "test" ||
+  (!isProductionLike() && req.headers["x-bypass-protections"] === "true");
 
 type UserAuthSettings = {
   emailNotifications: boolean;
@@ -164,6 +169,7 @@ const loginRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: shouldBypassAuthRateLimit,
 });
 
 const meRateLimit = rateLimit({
@@ -176,6 +182,7 @@ const meRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: shouldBypassAuthRateLimit,
 });
 
 const registerRateLimit = rateLimit({
@@ -188,6 +195,7 @@ const registerRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: shouldBypassAuthRateLimit,
 });
 
 const forgotPasswordRateLimit = rateLimit({
@@ -200,6 +208,7 @@ const forgotPasswordRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: shouldBypassAuthRateLimit,
 });
 
 const resetPasswordRateLimit = rateLimit({
@@ -212,6 +221,7 @@ const resetPasswordRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: shouldBypassAuthRateLimit,
 });
 
 // Login route

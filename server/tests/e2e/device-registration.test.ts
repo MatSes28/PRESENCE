@@ -108,7 +108,7 @@ test.describe("Device Registration E2E Tests", () => {
     const diagnosticsButton = page.getByRole("button", { name: "Diagnostics" }).first();
     if (await diagnosticsButton.isVisible()) {
       await diagnosticsButton.click();
-      await expect(page.getByText("Command Sent")).toBeVisible();
+      await expect(page.getByText("Command Sent").first()).toBeVisible();
     } else {
       test.skip(true, "No devices available for health check test");
     }
@@ -124,11 +124,11 @@ test.describe("Device Registration E2E Tests", () => {
       await pingButton.click();
 
       // Verify command response
-      await expect(page.getByText("Command Sent")).toBeVisible();
+      await expect(page.getByText("Command Sent").first()).toBeVisible();
 
       // Send restart command
       await page.getByRole("button", { name: "Restart" }).first().click();
-      await expect(page.getByText("Command Sent")).toBeVisible();
+      await expect(page.getByText("Command Sent").first()).toBeVisible();
     } else {
       test.skip(true, "No devices available for command test");
     }
@@ -182,6 +182,7 @@ test.describe("Device Registration E2E Tests", () => {
 
     // Fill invalid data
     await page.fill('input[name="deviceId"]', "invalid device id with spaces");
+    await page.selectOption('select[name="classroomId"]', { index: 1 });
     await page.selectOption('select[name="deviceType"]', "esp32_s3");
 
     // Submit form

@@ -1,13 +1,16 @@
 import rateLimit from "express-rate-limit";
 import { Request, Response } from "express";
 import { cacheService } from "../services/cacheService.js";
+import { isProductionLike } from "../config/env.js";
 
 const isTestEnv =
   process.env.NODE_ENV === "test" ||
   typeof process.env.JEST_WORKER_ID !== "undefined";
 
 const shouldBypassProtections = (req: Request) =>
-  isTestEnv || req.headers["x-bypass-protections"] === "true";
+  process.env.E2E_DISABLE_RATE_LIMITS === "true" ||
+  isTestEnv ||
+  (!isProductionLike() && req.headers["x-bypass-protections"] === "true");
 
 const withBypassSkip = (skip?: (req: Request) => boolean) => {
   return (req: Request) => shouldBypassProtections(req) || !!skip?.(req);
