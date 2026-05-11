@@ -51,31 +51,31 @@ export const ReportFilters = ({
     setDatePreset(value);
     if (value === "today") {
       const today = new Date().toISOString().split("T")[0];
-      setReportParams({
-        ...reportParams,
+      setReportParams((current) => ({
+        ...current,
         startDate: today,
         endDate: today,
-      });
+      }));
     } else if (value === "week") {
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0];
       const today = new Date().toISOString().split("T")[0];
-      setReportParams({
-        ...reportParams,
+      setReportParams((current) => ({
+        ...current,
         startDate: weekAgo,
         endDate: today,
-      });
+      }));
     } else if (value === "month") {
       const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0];
       const today = new Date().toISOString().split("T")[0];
-      setReportParams({
-        ...reportParams,
+      setReportParams((current) => ({
+        ...current,
         startDate: monthAgo,
         endDate: today,
-      });
+      }));
     }
   };
 
@@ -117,11 +117,12 @@ export const ReportFilters = ({
             type="date"
             value={reportParams.startDate}
             onChange={(event) => {
+              const startDate = event.target.value;
               setDatePreset("custom");
-              setReportParams({
-                ...reportParams,
-                startDate: event.target.value,
-              });
+              setReportParams((current) => ({
+                ...current,
+                startDate,
+              }));
             }}
             className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
@@ -139,8 +140,9 @@ export const ReportFilters = ({
             type="date"
             value={reportParams.endDate}
             onChange={(event) => {
+              const endDate = event.target.value;
               setDatePreset("custom");
-              setReportParams({ ...reportParams, endDate: event.target.value });
+              setReportParams((current) => ({ ...current, endDate }));
             }}
             className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
@@ -159,14 +161,15 @@ export const ReportFilters = ({
             id="report-subject"
             name="subjectId"
             value={reportParams.subjectId || ""}
-            onChange={(event) =>
-              setReportParams({
-                ...reportParams,
-                subjectId: event.target.value
-                  ? parseInt(event.target.value)
-                  : undefined,
-              })
-            }
+            onChange={(event) => {
+              const subjectId = event.target.value
+                ? parseInt(event.target.value)
+                : undefined;
+              setReportParams((current) => ({
+                ...current,
+                subjectId,
+              }));
+            }}
             className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="">All Subjects</option>
@@ -188,14 +191,15 @@ export const ReportFilters = ({
             id="report-classroom"
             name="classroomId"
             value={reportParams.classroomId || ""}
-            onChange={(event) =>
-              setReportParams({
-                ...reportParams,
-                classroomId: event.target.value
-                  ? parseInt(event.target.value)
-                  : undefined,
-              })
-            }
+            onChange={(event) => {
+              const classroomId = event.target.value
+                ? parseInt(event.target.value)
+                : undefined;
+              setReportParams((current) => ({
+                ...current,
+                classroomId,
+              }));
+            }}
             className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="">All Sections</option>
@@ -217,12 +221,13 @@ export const ReportFilters = ({
             id="report-type"
             name="type"
             value={reportParams.type}
-            onChange={(event) =>
-              setReportParams({
-                ...reportParams,
-                type: event.target.value as ReportParams["type"],
-              })
-            }
+            onChange={(event) => {
+              const type = event.target.value as ReportParams["type"];
+              setReportParams((current) => ({
+                ...current,
+                type,
+              }));
+            }}
             className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="attendance">Attendance Report</option>

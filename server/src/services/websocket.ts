@@ -189,7 +189,9 @@ function safeTimingEqualHex(aHex: string, bHex: string): boolean {
 
 function toIsoTimestamp(value: unknown): string {
   if (value instanceof Date) {
-    return value.toISOString();
+    if (!Number.isNaN(value.getTime())) {
+      return value.toISOString();
+    }
   }
 
   if (typeof value === "string") {
